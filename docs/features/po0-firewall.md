@@ -18,9 +18,9 @@
 |---|---|
 | 自动加白 | 总开关。关闭时不发任何请求，也不改动路由。 |
 | 刷新间隔 | 每轮检查的间隔，1～3600 秒，默认 5 秒。修改后下一轮立即按新间隔执行。 |
-| Token | 列表，每项为 token（`pgnfw_` 开头，不含空格与分隔符）和可选备注名。同一 token 不能重复添加。每个 token 各自查询自己的白名单、各自补加。 |
+| Token | 列表，每项为 po0 token（`pgnfw_` 开头，不含空格与分隔符）或 ggy 加白链接，加上可选备注名。添加时第一栏选择类型（默认 po0）。同一项不能重复添加。每一项各自检查自己的白名单、各自补加。 |
 | 立即加白 | 手动执行一次 `POST …/add`。 |
-| 查询状态 | 只读 `GET …/<token>`，**不会**占用白名单坑位。 |
+| 查询状态 | 只读 `GET …/<token>`，**不会**占用白名单坑位。ggy 链接没有只读形式，查询同样会写入。 |
 
 从 po0.5 及更早版本升级时，原来逗号分隔的 token 字符串会自动转换成列表（`@N` 槽位后缀被丢弃），旧的分钟间隔被忽略，刷新间隔取默认 5 秒。
 
@@ -40,6 +40,10 @@
 1. 只读 `GET …/<token>`（单次请求，5 秒超时）。
 2. 当前出口不在白名单 → 走常规流程 `POST …/add`（失败重试 3 次）。
 3. 出口已在白名单（普通记录或服务端的固定槽位记录都算）、防火墙未启用、token 无效或请求失败 → 不写入。
+
+ggy 加白链接没有只读形式（见 [ADR 0012](../adr/0012-direct-listener-and-ggy.md)）：这条链接每次 GET 都会加白，
+所以第 1 步直接请求它，每轮都写一次，「查询状态」对它也同样会写入。返回的 `removed_cidr` 非空（FIFO 挤掉了一条记录）时，
+每次都写入日志。
 
 一轮结束后等待一个刷新间隔再开始下一轮。默认 5 秒时，被其它设备按 FIFO 挤出白名单后约 5～6 秒内自动补回；间隔越短补回越快，间隔越长补回越慢。
 连续失败时按间隔的 2 / 4 / 8 / 16 倍退避，最长 30 秒（间隔本身超过 30 秒时不再额外退避），成功后恢复原间隔。
@@ -68,12 +72,18 @@
 
 服务端按**请求来源 IP**识别出口网段，所以请求必须从物理网卡直接发出：
 
-1. 请求使用独立的 `HttpClient`，`findProxy` 固定为 `DIRECT`，绕过应用自身对 mixed-port 的代理设置（`FlClashHttpOverrides`）。
-2. 开启后，生成的配置会：
+1. 请求使用独立的 `HttpClient`，绕过应用自身对 mixed-port 的代理设置（`FlClashHttpOverrides`）。代理未运行时
+   `findProxy` 为 `DIRECT`；代理运行时走内核的专用直连入口 `PROXY <账号>@127.0.0.1:<端口>`。
+   端口和账号都不固定：每次应用会话由系统分配一个空闲端口，并随机生成一组账号，生成配置和发请求共用。
+   这个入口是开启后强制写入配置的 listener `po0-direct`（`type: http`、`proxy: DIRECT`，带上述 `users`），内核先按入站
+   指定的 `proxy` 分流、再看模式，所以规则、全局模式和 TUN 都改变不了它的去向，域名（ggy）也一样适用。
+   入口连不上时，po0 退回普通直连（靠第 2、3 条兜底）；ggy 直接失败，因为普通直连会被 TUN 接管、把代理节点加白。
+2. 开启后，生成的配置还会（po0 的兜底，见 ADR 0001）：
    - 在规则最前面插入 `IP-CIDR,124.221.69.228/32,DIRECT,no-resolve`（规则模式下 TUN 捕获的流量也走直连）；
    - 向 `tun.route-exclude-address` 加入 `124.221.69.228/32`，桌面 TUN 不再接管该地址（全局模式同样有效）。
 3. Android VPN 的路由表由 `VpnService.Builder` 决定，`excludeRoute` 需要 API 33，因此在 `sharedState` 中把
-   `124.221.69.228/32` 从路由列表（默认 `0.0.0.0/0`）中拆分剔除。VPN 路由只在 VPN 启动时生效，所以 **Android 首次开启后需重启一次 VPN**。
+   `124.221.69.228/32` 从路由列表（默认 `0.0.0.0/0`）中拆分剔除。VPN 路由只在 VPN 启动时生效；由于代理运行时请求走第 1 条的
+   直连入口（listener 随配置热加载），开启功能后不必再重启 VPN。
 
 证书校验沿用应用的「检查证书」开关。po0 端点使用 Let's Encrypt IP 证书，服务端发送到 ISRG Root X1 的完整链；
 传输层在系统根证书之外额外信任内置的 ISRG Root X1（`po0SecurityContext`），因为 dart:io 在两种情况下拿不到它：
@@ -89,12 +99,13 @@ macOS 把整条链交给系统 SecTrust 实时校验，不受影响。
 
 | 文件 | 职责 |
 |---|---|
-| `lib/common/po0_firewall.dart` | token 解析、/24 比较、IPv4 路由剔除、keep-alive 直连传输、HTTP 客户端与响应解析 |
+| `lib/common/po0_firewall.dart` | token / ggy 链接解析、/24 比较、IPv4 路由剔除、直连 listener 与出口选择、keep-alive 传输、HTTP 客户端与响应解析 |
 | `lib/models/po0_firewall.dart` | `Po0FirewallProps`（持久化配置）与结果 / 状态模型 |
 | `lib/providers/po0_firewall.dart` | 调度器 `Po0Firewall` 与 `po0FirewallClientProvider` |
 | `lib/plugins/po0_screen.dart` / `android/.../plugins/Po0ScreenPlugin.kt` | Android 亮屏 / 熄屏信号（`$packageName/po0_screen` 通道） |
 | `lib/providers/config.dart` | `po0FirewallSettingProvider`，并入 `Config`（随备份 / 恢复） |
 | `lib/common/task.dart` | 生成配置时写入直连规则与 `route-exclude-address` |
+| `lib/providers/actions/setup.dart` | 生成配置时注入直连 listener（`withPo0DirectListener`） |
 | `lib/providers/state/system.dart` | Android VPN 路由剔除 |
 | `lib/views/po0_firewall.dart` | po0 页面（概览、设置、token 卡片） |
 | `lib/views/navigation.dart` / `lib/enum/enum.dart` | `PageLabel.po0` 主导航入口 |

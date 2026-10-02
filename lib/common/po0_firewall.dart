@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:fl_clash/common/constant.dart';
+import 'package:fl_clash/common/string.dart';
 import 'package:fl_clash/models/po0_firewall.dart';
 
 const po0FirewallApiHost = '124.221.69.228';
@@ -13,12 +15,21 @@ const _po0FirewallApiBase = 'https://$po0FirewallApiHost/api/firewall';
 
 const _po0TokenPrefix = 'pgnfw_';
 
+const _po0DirectListenerName = 'po0-direct';
+
+enum Po0TokenKind { po0, ggy }
+
 class Po0Token {
   final String value;
 
   const Po0Token(this.value);
 
-  String get label => '${value.substring(0, min(12, value.length))}…';
+  Po0TokenKind get kind =>
+      isGgyLink(value) ? Po0TokenKind.ggy : Po0TokenKind.po0;
+
+  String get secret => _ggyTokenOf(value) ?? value;
+
+  String get label => '${secret.substring(0, min(12, secret.length))}…';
 
   @override
   bool operator ==(Object other) => other is Po0Token && other.value == value;
@@ -31,15 +42,106 @@ final _po0TokenPattern = RegExp('^$_po0TokenPrefix[^\\s,|;、@]+\$');
 
 bool isPo0Token(String value) => _po0TokenPattern.hasMatch(value);
 
+bool isGgyLink(String value) => _ggyTokenOf(value) != null;
+
+final _whitespace = RegExp(r'\s');
+
+String? _ggyTokenOf(String value) {
+  if (value.contains(_whitespace)) {
+    return null;
+  }
+  final uri = Uri.tryParse(value);
+  if (uri == null ||
+      uri.scheme != 'https' ||
+      !(uri.host == 'guguyun.com' || uri.host.endsWith('.guguyun.com'))) {
+    return null;
+  }
+  try {
+    final token = uri.queryParameters['token'];
+    return token == null || token.isEmpty ? null : token;
+  } on FormatException {
+    return null;
+  }
+}
+
 /// The first entry wins when a token is listed twice, as with the old string.
 List<({Po0Token token, String name})> po0TokensOf(List<Po0TokenEntry> entries) {
   final seen = <String>{};
   return [
     for (final entry in entries)
-      if (isPo0Token(entry.token) && seen.add(entry.token))
+      if ((isPo0Token(entry.token) || isGgyLink(entry.token)) &&
+          seen.add(entry.token))
         (token: Po0Token(entry.token), name: entry.name),
   ];
 }
+
+typedef Po0DirectEndpoint = ({int port, String username, String password});
+
+/// mihomo resolves a listener's `proxy` before the mode (`resolveMetadata`), so
+/// neither global mode nor TUN can send its connections through a node.
+Map<String, dynamic> withPo0DirectListener(
+  Map<String, dynamic> rawConfig,
+  Po0DirectEndpoint endpoint,
+) {
+  final listeners = rawConfig['listeners'];
+  final user = {'username': endpoint.username, 'password': endpoint.password};
+  return {
+    ...rawConfig,
+    'listeners': [
+      if (listeners is List)
+        for (final listener in listeners)
+          if (listener is! Map || listener['name'] != _po0DirectListenerName)
+            listener,
+      <String, dynamic>{
+        'name': _po0DirectListenerName,
+        'type': 'http',
+        'listen': localhost,
+        'port': endpoint.port,
+        'users': [user],
+        'proxy': 'DIRECT',
+      },
+    ],
+  };
+}
+
+String po0ListenerRoute(Po0DirectEndpoint endpoint) {
+  final (:port, :username, :password) = endpoint;
+  return 'PROXY $username:$password@$localhost:$port';
+}
+
+/// po0's address is also kept out of TUN (ADR 0001), so only it falls back.
+String po0FindProxy(Uri uri, String route) {
+  if (route == 'DIRECT' || uri.host != po0FirewallApiHost) {
+    return route;
+  }
+  return '$route; DIRECT';
+}
+
+/// Opened once per session, as the core holds the port once applied; its own
+/// credentials keep other local apps from leaving DIRECT through it.
+class Po0DirectListener {
+  Future<Po0DirectEndpoint>? _endpoint;
+
+  Future<Po0DirectEndpoint> get endpoint => _endpoint ??= _open();
+
+  Future<Po0DirectEndpoint> _open() async {
+    try {
+      final socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final port = socket.port;
+      await socket.close();
+      return (
+        port: port,
+        username: generateRandomSecret(12),
+        password: generateRandomSecret(24),
+      );
+    } catch (_) {
+      _endpoint = null;
+      rethrow;
+    }
+  }
+}
+
+final po0DirectListener = Po0DirectListener();
 
 List<Po0Token> parsePo0Tokens(String raw) {
   final seen = <String>{};
@@ -198,19 +300,32 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 
 /// The API sees the request's source address, so the request must leave on
 /// the physical network. The app's global [HttpOverrides] would send it to the
-/// mixed port while the proxy runs; TUN capture is handled by the DIRECT rule
-/// and route exclusion that setup adds for [po0FirewallDirectCidr]. The pooled
+/// mixed port, and TUN or the VPN capture a DIRECT socket while the proxy
+/// runs, so the route then names the core's DIRECT-only listener. The pooled
 /// socket outlives a network switch, so it is dropped on failure and on change.
 class Po0DirectTransport {
-  HttpClient? _client;
+  Po0DirectTransport({Future<String> Function()? route})
+    : _route = route ?? _direct;
 
-  HttpClient get _http => _client ??= HttpClient(context: po0SecurityContext)
-    ..findProxy = ((_) => 'DIRECT')
-    ..connectionTimeout = const Duration(seconds: 5)
-    ..idleTimeout = const Duration(seconds: 30);
+  static Future<String> _direct() async => 'DIRECT';
+
+  final Future<String> Function() _route;
+  HttpClient? _client;
+  String? _clientRoute;
+
+  HttpClient _clientFor(String route) {
+    if (route != _clientRoute) {
+      reset();
+      _clientRoute = route;
+    }
+    return _client ??= HttpClient(context: po0SecurityContext)
+      ..findProxy = ((uri) => po0FindProxy(uri, route))
+      ..connectionTimeout = const Duration(seconds: 5)
+      ..idleTimeout = const Duration(seconds: 30);
+  }
 
   Future<Po0HttpResponse> send(String method, Uri uri) async {
-    final client = _http;
+    final client = _clientFor(await _route());
     try {
       final request = await client.openUrl(method, uri);
       request.headers.contentType = ContentType.json;
@@ -243,24 +358,24 @@ class Po0FirewallClient {
   Po0FirewallClient({
     Po0HttpSend? send,
     void Function()? resetConnections,
+    Future<String> Function()? route,
     this.retryDelay = const Duration(milliseconds: 1500),
     this.requestTimeout = const Duration(seconds: 20),
     this.pollTimeout = const Duration(seconds: 5),
     this.maxAttempts = 3,
   }) : _customSend = send,
        _customReset = resetConnections,
-       _transport = send == null ? Po0DirectTransport() : null;
+       _transport = send == null ? Po0DirectTransport(route: route) : null;
 
   Future<Po0HttpResponse> _send(String method, Uri uri) =>
       (_customSend ?? _transport!.send)(method, uri);
 
   void resetConnections() => (_customReset ?? _transport?.reset)?.call();
 
-  Future<Po0TokenResult> whitelist(Po0Token token) => _call(
-    token,
-    'POST',
-    Uri.parse('$_po0FirewallApiBase/${Uri.encodeComponent(token.value)}/add'),
-  );
+  Future<Po0TokenResult> whitelist(Po0Token token) => switch (token.kind) {
+    Po0TokenKind.po0 => _call(token, 'POST', _po0Uri(token, '/add')),
+    Po0TokenKind.ggy => _call(token, 'GET', Uri.parse(token.value)),
+  };
 
   /// Read-only: the add endpoint would claim a FIFO slot and evict the oldest
   /// entry whenever the current exit is not listed yet.
@@ -270,8 +385,16 @@ class Po0FirewallClient {
   Future<Po0TokenResult> poll(Po0Token token) =>
       _call(token, 'GET', _queryUri(token), attempts: 1, timeout: pollTimeout);
 
-  Uri _queryUri(Po0Token token) =>
-      Uri.parse('$_po0FirewallApiBase/${Uri.encodeComponent(token.value)}');
+  /// ggy has no read-only form: its link adds the caller's /24 on every GET.
+  Uri _queryUri(Po0Token token) => switch (token.kind) {
+    Po0TokenKind.po0 => _po0Uri(token),
+    Po0TokenKind.ggy => Uri.parse(token.value),
+  };
+
+  Uri _po0Uri(Po0Token token, [String action = '']) {
+    final encoded = Uri.encodeComponent(token.value);
+    return Uri.parse('$_po0FirewallApiBase/$encoded$action');
+  }
 
   Future<Po0TokenResult> _call(
     Po0Token token,
@@ -314,7 +437,7 @@ class Po0FirewallClient {
   // add is safe because the server treats a listed exit idempotently.
   bool _isTransient(Po0HttpResponse response) {
     final status = response.statusCode;
-    if (status >= 500) {
+    if (status >= 500 || status == HttpStatus.tooManyRequests) {
       return true;
     }
     if ((status >= 200 && status < 300) || status == HttpStatus.forbidden) {
@@ -324,6 +447,41 @@ class Po0FirewallClient {
   }
 
   Po0TokenResult _parse(Po0Token token, Po0HttpResponse response) {
+    return switch (token.kind) {
+      Po0TokenKind.po0 => _parsePo0(token, response),
+      Po0TokenKind.ggy => _parseGgy(token, response),
+    };
+  }
+
+  Po0TokenResult _parseGgy(Po0Token token, Po0HttpResponse response) {
+    final status = response.statusCode;
+    final body = _decodeMap(response.body);
+    final base = Po0TokenResult(label: token.label, type: Po0ResultType.error);
+    if (body == null) {
+      return base.copyWith(
+        message: 'HTTP $status: ${_snippet(_redact(response.body, token))}',
+      );
+    }
+    final data = body['data'];
+    final cidr = data is Map ? '${data['cidr'] ?? ''}' : '';
+    final apiStatus = '${body['status'] ?? 200}';
+    if (status < 200 || status >= 300 || apiStatus != '200' || cidr.isEmpty) {
+      final message = body['msg'] ?? body['message'] ?? 'HTTP $status';
+      return base.copyWith(
+        type: Po0ResultType.rejected,
+        message: _redact('$message', token),
+      );
+    }
+    final removed = '${data['removed_cidr'] ?? ''}';
+    return base.copyWith(
+      type: Po0ResultType.applied,
+      currentIp: cidr,
+      whitelist: [Po0WhitelistEntry(ip: cidr)],
+      message: removed.isEmpty ? null : 'evicted $removed',
+    );
+  }
+
+  Po0TokenResult _parsePo0(Po0Token token, Po0HttpResponse response) {
     final status = response.statusCode;
     final data = _decodeMap(response.body);
     final base = Po0TokenResult(
@@ -386,5 +544,5 @@ class Po0FirewallClient {
   }
 
   String _redact(String text, Po0Token token) =>
-      text.replaceAll(token.value, token.label);
+      text.replaceAll(token.secret, token.label);
 }

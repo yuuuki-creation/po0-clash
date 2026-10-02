@@ -54,6 +54,29 @@ Po0FirewallClient _client(_FakeApi api) =>
 
 const _token = Po0Token('pgnfw_secret_token_value');
 
+const _ggyLink = Po0Token(
+  'https://www.guguyun.com/f/whitelist?token=ctecsfw_abcdefghijkl',
+);
+
+const Po0DirectEndpoint _endpoint = (port: 40123, username: 'u', password: 'p');
+
+const _listener = {
+  'name': 'po0-direct',
+  'type': 'http',
+  'listen': '127.0.0.1',
+  'port': 40123,
+  'users': [{'username': 'u', 'password': 'p'}],
+  'proxy': 'DIRECT',
+};
+
+Po0HttpResponse _ggy({String removed = ''}) {
+  return Po0HttpResponse(
+    200,
+    '{"status":200,"msg":"ok","data":{"cidr":"202.120.8.0\\/24",'
+    '"mode":"fifo","slot":null,"removed_cidr":"$removed"}}',
+  );
+}
+
 void main() {
   group('parsePo0Tokens', () {
     test('splits on the separators and drops legacy slot suffixes', () {
@@ -100,6 +123,78 @@ void main() {
         Po0Token('pgnfw_b'),
       ]);
       expect(tokens.map((it) => it.name), ['first', '']);
+    });
+
+    test('a ggy entry is a whole https link, labelled by its token', () {
+      expect(isGgyLink(_ggyLink.value), isTrue);
+      expect(_ggyLink.kind, Po0TokenKind.ggy);
+      expect(_ggyLink.label, 'ctecsfw_abcd…');
+      expect(_token.kind, Po0TokenKind.po0);
+      for (final value in [
+        'http://www.guguyun.com/f/whitelist?token=ctecsfw_a',
+        'https://www.example.com/f/whitelist?token=ctecsfw_a',
+        'https://evilguguyun.com/f/whitelist?token=ctecsfw_a',
+        'https://www.guguyun.com/f/whitelist',
+        'https://www.guguyun.com/f/whitelist?token=',
+        'https://www.guguyun.com/f/whitelist?token=a b',
+        'ctecsfw_abc',
+      ]) {
+        expect(isGgyLink(value), isFalse, reason: value);
+      }
+    });
+
+    test('ggy links are listed next to po0 tokens', () {
+      final tokens = po0TokensOf([
+        const Po0TokenEntry(token: 'pgnfw_a'),
+        Po0TokenEntry(token: _ggyLink.value),
+      ]);
+      expect(tokens.map((it) => it.token), [
+        const Po0Token('pgnfw_a'),
+        _ggyLink,
+      ]);
+    });
+  });
+
+  group('direct listener', () {
+    test('is added once, replacing a stale copy and keeping others', () {
+      final raw = <String, dynamic>{
+        'mixed-port': 7890,
+        'listeners': [
+          {'name': 'mine', 'type': 'socks', 'port': 10808},
+          {'name': 'po0-direct', 'type': 'http', 'port': 1},
+        ],
+      };
+      final config = withPo0DirectListener(raw, _endpoint);
+      expect(config['mixed-port'], 7890);
+      expect(config['listeners'], [
+        {'name': 'mine', 'type': 'socks', 'port': 10808},
+        _listener,
+      ]);
+      expect(withPo0DirectListener({}, _endpoint)['listeners'], [_listener]);
+    });
+
+    test('requests reach it with its own credentials', () {
+      expect(po0ListenerRoute(_endpoint), 'PROXY u:p@127.0.0.1:40123');
+    });
+
+    test('only po0 falls back to a plain socket', () {
+      const route = 'PROXY u:p@127.0.0.1:40123';
+      final po0 = Uri.parse('https://124.221.69.228/api/firewall/pgnfw_a');
+      expect(po0FindProxy(po0, route), '$route; DIRECT');
+      expect(po0FindProxy(Uri.parse(_ggyLink.value), route), route);
+      expect(po0FindProxy(po0, 'DIRECT'), 'DIRECT');
+    });
+
+    test('opens one free loopback port for the whole session', () async {
+      final listener = Po0DirectListener();
+      final endpoints = await Future.wait([listener.endpoint, listener.endpoint]);
+      expect(endpoints.first, endpoints.last);
+      expect(await listener.endpoint, endpoints.first);
+      expect(endpoints.first.password, isNot(endpoints.first.username));
+
+      final port = endpoints.first.port;
+      final socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
+      await socket.close();
     });
   });
 
@@ -236,6 +331,15 @@ void main() {
       expect(result.message, isNot(contains(_token.value)));
     });
 
+    test('a rate limit is a failure, so the scheduler backs off', () async {
+      final api = _FakeApi([
+        const Po0HttpResponse(429, '{"status":429,"msg":"slow down"}'),
+      ]);
+      final result = await _client(api).poll(_ggyLink);
+      expect(result.type, Po0ResultType.error);
+      expect(api.calls, hasLength(1));
+    });
+
     test('a poll reads once and leaves retrying to the next poll', () async {
       final api = _FakeApi([const Po0HttpResponse(400, 'Error'), _ok()]);
       final result = await _client(api).poll(_token);
@@ -270,6 +374,56 @@ void main() {
       expect(result.whitelist.single.slot, 0);
     });
 
+    test('a ggy link is whitelisted by a GET on the link itself', () async {
+      final api = _FakeApi([_ggy()]);
+      final result = await _client(api).whitelist(_ggyLink);
+
+      expect(api.calls.single.method, 'GET');
+      expect(api.calls.single.uri.toString(), _ggyLink.value);
+      expect(result.type, Po0ResultType.applied);
+      expect(result.currentIp, '202.120.8.0/24');
+      expect(result.whitelist.single.ip, '202.120.8.0/24');
+      expect(result.message, isNull);
+    });
+
+    test('reports the entry a ggy add evicted', () async {
+      final result = await _client(
+        _FakeApi([_ggy(removed: '1.2.3.0/24')]),
+      ).whitelist(_ggyLink);
+      expect(result.type, Po0ResultType.applied);
+      expect(result.message, 'evicted 1.2.3.0/24');
+    });
+
+    test('a ggy refusal is final and never shows the token', () async {
+      final api = _FakeApi([
+        Po0HttpResponse(200, '{"status":403,"msg":"bad ${_ggyLink.secret}"}'),
+      ]);
+      final result = await _client(api).whitelist(_ggyLink);
+      expect(result.type, Po0ResultType.rejected);
+      expect(result.message, 'bad ${_ggyLink.label}');
+      expect(api.calls, hasLength(1));
+    });
+
+    test('a failed ggy request never exposes the token', () async {
+      final api = _FakeApi([
+        HttpException('Connection closed', uri: Uri.parse(_ggyLink.value)),
+      ]);
+      final result = await _client(api).whitelist(_ggyLink);
+      expect(result.type, Po0ResultType.error);
+      expect(result.message, isNot(contains(_ggyLink.secret)));
+    });
+
+    test('ggy has no read-only form, so polls and queries add', () async {
+      final api = _FakeApi([_ggy()]);
+      expect((await _client(api).poll(_ggyLink)).type, Po0ResultType.applied);
+      expect((await _client(api).query(_ggyLink)).type, Po0ResultType.applied);
+      expect(api.calls, hasLength(2));
+      for (final call in api.calls) {
+        expect(call.method, 'GET');
+        expect(call.uri.toString(), _ggyLink.value);
+      }
+    });
+
     test('a 2xx body without a whitelist is an error', () async {
       final result = await _client(
         _FakeApi([const Po0HttpResponse(200, '{"ok":true}')]),
@@ -285,17 +439,23 @@ void main() {
   group('makeRealProfileTask', () {
     TestWidgetsFlutterBinding.ensureInitialized();
 
-    Future<YamlMap> build(List<String> directCidrs) async {
+    Future<YamlMap> build(
+      List<String> directCidrs, {
+      bool listener = false,
+    }) async {
+      final rawConfig = <String, dynamic>{
+        'tun': <String, dynamic>{
+          'route-exclude-address': <dynamic>['192.168.0.0/16'],
+        },
+        'rules': <dynamic>['MATCH,Proxy'],
+      };
       final result = await makeRealProfileTask(
         MakeRealProfileState(
           profilesPath: Directory.systemTemp.path,
           profileId: 1,
-          rawConfig: <String, dynamic>{
-            'tun': <String, dynamic>{
-              'route-exclude-address': <dynamic>['192.168.0.0/16'],
-            },
-            'rules': <dynamic>['MATCH,Proxy'],
-          },
+          rawConfig: listener
+              ? withPo0DirectListener(rawConfig, _endpoint)
+              : rawConfig,
           realPatchConfig: const PatchClashConfig(),
           overrideDns: false,
           appendSystemDns: false,
@@ -319,6 +479,11 @@ void main() {
         '192.168.0.0/16',
         '124.221.69.228/32',
       ]);
+    });
+
+    test('keeps the direct listener in the written profile', () async {
+      final config = await build(const [], listener: true);
+      expect(config['listeners'], [_listener]);
     });
 
     test('leaves the profile alone while disabled', () async {

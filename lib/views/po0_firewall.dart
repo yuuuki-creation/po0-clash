@@ -617,13 +617,19 @@ class _TokenEntryItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
-    final label = Po0Token(entry.token).label;
+    final token = Po0Token(entry.token);
+    final label = token.label;
     return GlassButton(
       padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
       onTap: onEdit,
       child: Row(
         children: [
-          const GlassIconBadge(icon: Icons.key_rounded, size: 36),
+          GlassIconBadge(
+            icon: token.kind == Po0TokenKind.ggy
+                ? Icons.link_rounded
+                : Icons.key_rounded,
+            size: 36,
+          ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -679,6 +685,9 @@ class _TokenEntryDialogState extends State<_TokenEntryDialog> {
     text: widget.entry?.token,
   );
   late final _nameController = TextEditingController(text: widget.entry?.name);
+  late Po0TokenKind _kind = Po0Token(widget.entry?.token ?? '').kind;
+
+  bool get _isGgy => _kind == Po0TokenKind.ggy;
 
   @override
   void dispose() {
@@ -687,13 +696,28 @@ class _TokenEntryDialogState extends State<_TokenEntryDialog> {
     super.dispose();
   }
 
+  void _setKind(Po0TokenKind? kind) {
+    if (kind == null || kind == _kind) {
+      return;
+    }
+    setState(() => _kind = kind);
+    if (_tokenController.text.trim().isNotEmpty) {
+      _formKey.currentState?.validate();
+    }
+  }
+
   String? _validateToken(String? value) {
     final appLocalizations = context.appLocalizations;
     final token = value?.trim() ?? '';
     if (token.isEmpty) {
-      return appLocalizations.emptyTip(appLocalizations.po0Token);
+      return appLocalizations.emptyTip(
+        _isGgy ? appLocalizations.ggyLink : appLocalizations.po0Token,
+      );
     }
-    if (!isPo0Token(token)) {
+    if (_isGgy && !isGgyLink(token)) {
+      return appLocalizations.ggyLinkInvalid;
+    }
+    if (!_isGgy && !isPo0Token(token)) {
       return appLocalizations.po0TokensInvalid;
     }
     if (widget.otherTokens.contains(token)) {
@@ -736,15 +760,36 @@ class _TokenEntryDialogState extends State<_TokenEntryDialog> {
           child: Column(
             spacing: 24,
             children: [
+              DropdownButtonFormField<Po0TokenKind>(
+                initialValue: _kind,
+                decoration: InputDecoration(
+                  labelText: appLocalizations.po0TokenType,
+                ),
+                items: [
+                  const DropdownMenuItem(
+                    value: Po0TokenKind.po0,
+                    child: Text('po0'),
+                  ),
+                  DropdownMenuItem(
+                    value: Po0TokenKind.ggy,
+                    child: Text(appLocalizations.ggyWhitelistLink),
+                  ),
+                ],
+                onChanged: _setKind,
+              ),
               TextFormField(
                 controller: _tokenController,
                 autofocus: widget.entry == null,
                 inputFormatters: TextInputLimits.limit(
-                  TextInputLimits.password,
+                  _isGgy ? TextInputLimits.url : TextInputLimits.password,
                 ),
                 decoration: InputDecoration(
-                  labelText: appLocalizations.po0Token,
-                  hintText: 'pgnfw_xxx',
+                  labelText: _isGgy
+                      ? appLocalizations.ggyLink
+                      : appLocalizations.po0Token,
+                  hintText: _isGgy
+                      ? 'https://www.guguyun.com/…?token=ctecsfw_xxx'
+                      : 'pgnfw_xxx',
                 ),
                 validator: _validateToken,
                 onFieldSubmitted: (_) => _submit(),

@@ -1,3 +1,4 @@
+import 'package:fl_clash/common/po0_firewall.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/pages/home.dart';
 import 'package:fl_clash/providers/app.dart';
@@ -36,6 +37,8 @@ const _enabled = Po0FirewallProps(
     Po0TokenEntry(token: 'pgnfw_9f8e7d6c5b4a'),
   ],
 );
+
+const _ggyLink = 'https://www.guguyun.com/f/whitelist?token=ctecsfw_x';
 
 Po0FirewallProps _setting() =>
     globalState.container.read(po0FirewallSettingProvider);
@@ -169,6 +172,31 @@ void main() {
       Po0TokenEntry(token: 'pgnfw_new', name: 'Office'),
     ]);
     expect(find.text('Office'), findsOneWidget);
+  });
+
+  testWidgets('adds a ggy link picked from the type menu', (tester) async {
+    await _pump(tester, props: const Po0FirewallProps(enable: true));
+    await tester.tap(find.text('Add token'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<Po0TokenKind>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ggy whitelist link').last);
+    await tester.pumpAndSettle();
+
+    final link = find.byType(TextFormField).first;
+    await tester.enterText(link, 'pgnfw_new');
+    await tester.tap(find.text('Submit'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Paste the full whitelist link'),
+      findsOneWidget,
+    );
+
+    await tester.enterText(link, _ggyLink);
+    await tester.tap(find.text('Submit'));
+    await tester.pumpAndSettle();
+    expect(_setting().tokenEntries, const [Po0TokenEntry(token: _ggyLink)]);
+    expect(find.byIcon(Icons.link_rounded), findsOneWidget);
   });
 
   testWidgets('rejects malformed and duplicate tokens', (tester) async {
