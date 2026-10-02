@@ -456,6 +456,7 @@ class _ToolbarButtonTheme extends StatelessWidget {
       data: IconButtonThemeData(
         style: IconButton.styleFrom(
           fixedSize: Size.square(extent),
+          minimumSize: Size.square(extent),
           padding: EdgeInsets.zero,
           visualDensity: VisualDensity.standard,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
