@@ -10,11 +10,19 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'action.dart';
 import 'app.dart';
 import 'config.dart';
+import 'state.dart';
 
 part 'generated/po0_firewall.g.dart';
 
 @Riverpod(keepAlive: true)
-Po0FirewallClient po0FirewallClient(Ref ref) => Po0FirewallClient();
+Po0FirewallClient po0FirewallClient(Ref ref) => Po0FirewallClient(
+  route: () async {
+    if (!ref.read(isStartProvider) || ref.read(suspendProvider)) {
+      return 'DIRECT';
+    }
+    return po0ListenerRoute(await po0DirectListener.endpoint);
+  },
+);
 
 /// Keeps the current exit whitelisted for as long as the app runs, whether or
 /// not the proxy is started: a read-only query each interval, and an add only
@@ -262,7 +270,10 @@ class Po0Firewall extends _$Po0Firewall {
       final signature = '${result.type.name} ${result.currentIp}';
       final changed = _signatures[tokens[index].value] != signature;
       _signatures[tokens[index].value] = signature;
-      if (kind == Po0RunKind.poll && !changed && !added.contains(index)) {
+      if (kind == Po0RunKind.poll &&
+          !changed &&
+          !_reportsEviction(result) &&
+          !added.contains(index)) {
         continue;
       }
       final action = kind == Po0RunKind.poll && added.contains(index)
@@ -278,6 +289,10 @@ class Po0Firewall extends _$Po0Firewall {
       );
     }
   }
+
+  /// Only a ggy add carries a message on success: the entry its FIFO evicted.
+  bool _reportsEviction(Po0TokenResult result) =>
+      result.type == Po0ResultType.applied && result.message != null;
 
   void _cancelTimer() {
     _timer?.cancel();

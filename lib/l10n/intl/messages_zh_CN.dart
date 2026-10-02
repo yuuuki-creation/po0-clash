@@ -370,6 +370,11 @@ class MessageLookup extends MessageLookupByLibrary {
     "geodataLoader": MessageLookupByLibrary.simpleMessage("Geo低内存模式"),
     "geodataLoaderDesc": MessageLookupByLibrary.simpleMessage("开启将使用Geo低内存加载器"),
     "geoipCode": MessageLookupByLibrary.simpleMessage("Geoip代码"),
+    "ggyLink": MessageLookupByLibrary.simpleMessage("加白链接"),
+    "ggyLinkInvalid": MessageLookupByLibrary.simpleMessage(
+      "请粘贴 ggy 提供的完整加白链接（https://www.guguyun.com/…?token=…）",
+    ),
+    "ggyWhitelistLink": MessageLookupByLibrary.simpleMessage("ggy 加白链接"),
     "global": MessageLookupByLibrary.simpleMessage("全局"),
     "go": MessageLookupByLibrary.simpleMessage("前往"),
     "goDownload": MessageLookupByLibrary.simpleMessage("前往下载"),
@@ -572,7 +577,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "po0ChipRejected": MessageLookupByLibrary.simpleMessage("被拒绝"),
     "po0CurrentExit": MessageLookupByLibrary.simpleMessage("当前出口"),
     "po0DirectTip": MessageLookupByLibrary.simpleMessage(
-      "加白请求直连 124.221.69.228。开启后 po0-clash 会为该地址添加直连规则并将其排除出 TUN，确保加白的是真实出口而非代理 IP。安卓首次开启后请重启一次 VPN。",
+      "加白请求只从物理网卡发出：代理运行时经内核的专用直连入口，规则、全局模式和 TUN 都改变不了它的去向；代理未运行时直接连接。这样加白的是真实出口，而不是代理 IP。",
     ),
     "po0EditToken": MessageLookupByLibrary.simpleMessage("编辑 token"),
     "po0Exit": m24,
@@ -602,10 +607,11 @@ class MessageLookup extends MessageLookupByLibrary {
     "po0Token": MessageLookupByLibrary.simpleMessage("token"),
     "po0TokenDuplicate": MessageLookupByLibrary.simpleMessage("该 token 已在列表中"),
     "po0TokenName": MessageLookupByLibrary.simpleMessage("备注名（可选）"),
+    "po0TokenType": MessageLookupByLibrary.simpleMessage("类型"),
     "po0Tokens": MessageLookupByLibrary.simpleMessage("Token"),
     "po0TokensEmpty": MessageLookupByLibrary.simpleMessage("未配置"),
     "po0TokensEmptyDesc": MessageLookupByLibrary.simpleMessage(
-      "添加每台 po0 机器的 pgnfw_ token，每把 token 各自检查自己的白名单",
+      "添加 po0 的 pgnfw_ token 或 ggy 加白链接，每一项各自检查自己的白名单",
     ),
     "po0TokensInvalid": MessageLookupByLibrary.simpleMessage(
       "token 应以 pgnfw_ 开头，且不能包含空格或分隔符",

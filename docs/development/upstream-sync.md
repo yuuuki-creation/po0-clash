@@ -18,7 +18,7 @@ git merge upstream/main
 | `lib/models/config.dart` | `Config.po0FirewallProps` 字段 |
 | `lib/providers/config.dart` | `Po0FirewallSetting` provider、`configProvider`、`buildConfigOverrides` |
 | `lib/providers/actions/backup.dart` | 恢复时写回 po0 设置 |
-| `lib/providers/actions/setup.dart` | `getProfile` 传入 `directCidrs` |
+| `lib/providers/actions/setup.dart` | `getProfile` 传入 `directCidrs`，并注入直连 listener（`withPo0DirectListener`） |
 | `lib/models/state.dart` | `MakeRealProfileState.directCidrs` |
 | `lib/common/task.dart` | 直连规则与 `route-exclude-address` |
 | `lib/providers/state/system.dart` | Android VPN 路由剔除 |

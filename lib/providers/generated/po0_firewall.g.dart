@@ -54,7 +54,7 @@ final class Po0FirewallClientProvider
   }
 }
 
-String _$po0FirewallClientHash() => r'2db91907c7edd1538d76545e95bf3d66ff625e40';
+String _$po0FirewallClientHash() => r'9d993036c0418eccffeadca8dee839e43b590380';
 
 /// Keeps the current exit whitelisted for as long as the app runs, whether or
 /// not the proxy is started: a read-only query each interval, and an add only
@@ -98,7 +98,7 @@ final class Po0FirewallProvider
   }
 }
 
-String _$po0FirewallHash() => r'887d0ad04cfe5dc571f0ba8d0adbbfebcef04056';
+String _$po0FirewallHash() => r'0807bad801045e823e25c1168deaa192fb7e9021';
 
 /// Keeps the current exit whitelisted for as long as the app runs, whether or
 /// not the proxy is started: a read-only query each interval, and an add only

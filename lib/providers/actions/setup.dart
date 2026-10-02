@@ -354,6 +354,17 @@ class SetupAction extends _$SetupAction {
     if (scriptContent?.isNotEmpty == true) {
       rawConfig = await handleEvaluate(scriptContent!, rawConfig);
     }
+    if (po0FirewallEnable) {
+      try {
+        final endpoint = await po0DirectListener.endpoint;
+        rawConfig = withPo0DirectListener(rawConfig, endpoint);
+      } catch (error) {
+        commonPrint.log(
+          'po0 firewall: no direct listener: $error',
+          logLevel: LogLevel.warning,
+        );
+      }
+    }
     final directory = await appPath.profilesPath;
     final res = makeRealProfileTask(
       MakeRealProfileState(

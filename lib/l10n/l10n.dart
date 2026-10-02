@@ -5240,10 +5240,10 @@ class AppLocalizations {
     );
   }
 
-  /// `Requests go straight to 124.221.69.228. While enabled, po0-clash routes that address DIRECT and keeps it out of TUN, so the real exit is whitelisted instead of the proxy's. On Android, restart the VPN once after enabling.`
+  /// `Whitelist requests leave on the physical network: while the proxy runs they go through the core's DIRECT-only listener, which rules, global mode and TUN cannot redirect; otherwise they connect directly. The real exit is whitelisted, not the proxy's.`
   String get po0DirectTip {
     return Intl.message(
-      'Requests go straight to 124.221.69.228. While enabled, po0-clash routes that address DIRECT and keeps it out of TUN, so the real exit is whitelisted instead of the proxy\'s. On Android, restart the VPN once after enabling.',
+      'Whitelist requests leave on the physical network: while the proxy runs they go through the core\'s DIRECT-only listener, which rules, global mode and TUN cannot redirect; otherwise they connect directly. The real exit is whitelisted, not the proxy\'s.',
       name: 'po0DirectTip',
       desc: '',
       args: [],
@@ -5445,10 +5445,40 @@ class AppLocalizations {
     );
   }
 
-  /// `Add the pgnfw_ token from each po0 machine; every token checks its own whitelist`
+  /// `Type`
+  String get po0TokenType {
+    return Intl.message('Type', name: 'po0TokenType', desc: '', args: []);
+  }
+
+  /// `ggy whitelist link`
+  String get ggyWhitelistLink {
+    return Intl.message(
+      'ggy whitelist link',
+      name: 'ggyWhitelistLink',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Whitelist link`
+  String get ggyLink {
+    return Intl.message('Whitelist link', name: 'ggyLink', desc: '', args: []);
+  }
+
+  /// `Paste the full whitelist link from ggy (https://www.guguyun.com/…?token=…)`
+  String get ggyLinkInvalid {
+    return Intl.message(
+      'Paste the full whitelist link from ggy (https://www.guguyun.com/…?token=…)',
+      name: 'ggyLinkInvalid',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Add a po0 pgnfw_ token or a ggy whitelist link; each entry checks its own whitelist`
   String get po0TokensEmptyDesc {
     return Intl.message(
-      'Add the pgnfw_ token from each po0 machine; every token checks its own whitelist',
+      'Add a po0 pgnfw_ token or a ggy whitelist link; each entry checks its own whitelist',
       name: 'po0TokensEmptyDesc',
       desc: '',
       args: [],

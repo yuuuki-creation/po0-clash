@@ -418,6 +418,11 @@ class MessageLookup extends MessageLookupByLibrary {
       "有効にすると、低メモリのGeoローダーを使用します",
     ),
     "geoipCode": MessageLookupByLibrary.simpleMessage("GeoIPコード"),
+    "ggyLink": MessageLookupByLibrary.simpleMessage("許可リストリンク"),
+    "ggyLinkInvalid": MessageLookupByLibrary.simpleMessage(
+      "ggy が提供する完全な許可リストリンクを貼り付けてください（https://www.guguyun.com/…?token=…）",
+    ),
+    "ggyWhitelistLink": MessageLookupByLibrary.simpleMessage("ggy 許可リストリンク"),
     "global": MessageLookupByLibrary.simpleMessage("グローバル"),
     "go": MessageLookupByLibrary.simpleMessage("開く"),
     "goDownload": MessageLookupByLibrary.simpleMessage("ダウンロードへ"),
@@ -658,7 +663,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "po0ChipRejected": MessageLookupByLibrary.simpleMessage("拒否"),
     "po0CurrentExit": MessageLookupByLibrary.simpleMessage("現在の出口"),
     "po0DirectTip": MessageLookupByLibrary.simpleMessage(
-      "リクエストは 124.221.69.228 へ直接送信されます。有効時、po0-clash はこのアドレスを DIRECT にし TUN から除外するため、プロキシではなく実際の出口が許可されます。Android では有効化後に一度 VPN を再起動してください。",
+      "許可リストへの登録リクエストは物理ネットワークから送信されます。プロキシ実行中はコアの DIRECT 専用リスナーを経由するため、ルール・グローバルモード・TUN の影響を受けません。停止中は直接接続します。これによりプロキシではなく実際の出口が許可されます。",
     ),
     "po0EditToken": MessageLookupByLibrary.simpleMessage("トークンを編集"),
     "po0Exit": m24,
@@ -692,10 +697,11 @@ class MessageLookup extends MessageLookupByLibrary {
       "このトークンは既にリストにあります",
     ),
     "po0TokenName": MessageLookupByLibrary.simpleMessage("名前（任意）"),
+    "po0TokenType": MessageLookupByLibrary.simpleMessage("種類"),
     "po0Tokens": MessageLookupByLibrary.simpleMessage("トークン"),
     "po0TokensEmpty": MessageLookupByLibrary.simpleMessage("未設定"),
     "po0TokensEmptyDesc": MessageLookupByLibrary.simpleMessage(
-      "po0 マシンごとの pgnfw_ トークンを追加します。各トークンが自分の許可リストを確認します",
+      "po0 の pgnfw_ トークンまたは ggy の許可リストリンクを追加します。各項目が自分の許可リストを確認します",
     ),
     "po0TokensInvalid": MessageLookupByLibrary.simpleMessage(
       "トークンは pgnfw_ で始まり、空白や区切り文字を含められません",
