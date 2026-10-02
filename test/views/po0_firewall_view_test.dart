@@ -1,4 +1,3 @@
-import 'package:fl_clash/common/po0_firewall.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/pages/home.dart';
 import 'package:fl_clash/providers/app.dart';
@@ -178,10 +177,29 @@ void main() {
     await _pump(tester, props: const Po0FirewallProps(enable: true));
     await tester.tap(find.text('Add token'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownButtonFormField<Po0TokenKind>));
+    await tester.tap(find.text('po0'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('ggy whitelist link').last);
+    final field = tester.getRect(find.byType(InputDecorator).first);
+    final menu = tester.getRect(
+      find.ancestor(
+        of: find.text('ggy whitelist link'),
+        matching: find.byType(MenuItemButton),
+      ),
+    );
+    final panel = tester.getRect(
+      find
+          .ancestor(
+            of: find.text('ggy whitelist link'),
+            matching: find.byType(Material),
+          )
+          .at(1),
+    );
+    expect(menu.top, greaterThanOrEqualTo(field.bottom));
+    expect(panel.left, field.left);
+    expect(panel.width, field.width);
+    await tester.tap(find.text('ggy whitelist link'));
     await tester.pumpAndSettle();
+    expect(find.text('ggy whitelist link'), findsOneWidget);
 
     final link = find.byType(TextFormField).first;
     await tester.enterText(link, 'pgnfw_new');

@@ -696,8 +696,8 @@ class _TokenEntryDialogState extends State<_TokenEntryDialog> {
     super.dispose();
   }
 
-  void _setKind(Po0TokenKind? kind) {
-    if (kind == null || kind == _kind) {
+  void _setKind(Po0TokenKind kind) {
+    if (kind == _kind) {
       return;
     }
     setState(() => _kind = kind);
@@ -760,27 +760,7 @@ class _TokenEntryDialogState extends State<_TokenEntryDialog> {
           child: Column(
             spacing: 24,
             children: [
-              DropdownButtonFormField<Po0TokenKind>(
-                initialValue: _kind,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: appLocalizations.po0TokenType,
-                ),
-                items: [
-                  const DropdownMenuItem(
-                    value: Po0TokenKind.po0,
-                    child: Text('po0'),
-                  ),
-                  DropdownMenuItem(
-                    value: Po0TokenKind.ggy,
-                    child: Text(
-                      appLocalizations.ggyWhitelistLink,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-                onChanged: _setKind,
-              ),
+              _TokenKindField(value: _kind, onChanged: _setKind),
               TextFormField(
                 controller: _tokenController,
                 autofocus: widget.entry == null,
@@ -807,6 +787,72 @@ class _TokenEntryDialogState extends State<_TokenEntryDialog> {
                 onFieldSubmitted: (_) => _submit(),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A field-shaped menu button: the menu opens under the field at its width and
+/// takes the app's glass `menuTheme`, which a `DropdownButton` route ignores.
+class _TokenKindField extends StatelessWidget {
+  const _TokenKindField({required this.value, required this.onChanged});
+
+  final Po0TokenKind value;
+  final ValueChanged<Po0TokenKind> onChanged;
+
+  String _labelOf(AppLocalizations appLocalizations, Po0TokenKind kind) {
+    return switch (kind) {
+      Po0TokenKind.po0 => 'po0',
+      Po0TokenKind.ggy => appLocalizations.ggyWhitelistLink,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appLocalizations = context.appLocalizations;
+    return LayoutBuilder(
+      builder: (context, constraints) => MenuAnchor(
+        crossAxisUnconstrained: false,
+        alignmentOffset: const Offset(0, 6),
+        style: MenuStyle(
+          fixedSize: WidgetStatePropertyAll(
+            Size.fromWidth(constraints.maxWidth),
+          ),
+        ),
+        menuChildren: [
+          for (final kind in Po0TokenKind.values)
+            MenuItemButton(
+              onPressed: () => onChanged(kind),
+              trailingIcon: kind == value
+                  ? Icon(
+                      Icons.check_rounded,
+                      color: context.colorScheme.primary,
+                    )
+                  : null,
+              child: Text(_labelOf(appLocalizations, kind)),
+            ),
+        ],
+        builder: (context, controller, _) => InkWell(
+          borderRadius: AppRadius.small,
+          onTap: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+          child: InputDecorator(
+            isFocused: controller.isOpen,
+            decoration: InputDecoration(
+              labelText: appLocalizations.po0TokenType,
+              suffixIcon: Icon(
+                controller.isOpen
+                    ? Icons.expand_less_rounded
+                    : Icons.expand_more_rounded,
+              ),
+            ),
+            child: Text(
+              _labelOf(appLocalizations, value),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
       ),
