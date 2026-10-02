@@ -12,6 +12,31 @@ void main() {
     );
   }
 
+  testWidgets('FadeScaleBox keeps a floating action button in its corner', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          floatingActionButton: FadeScaleBox(
+            alignment: Alignment.centerRight,
+            child: FloatingActionButton(
+              onPressed: () {},
+              child: const Icon(Icons.add),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final screen = tester.getSize(find.byType(Scaffold));
+    expect(
+      tester.getRect(find.byType(FloatingActionButton)).bottomRight,
+      Offset(screen.width - 16, screen.height - 16),
+    );
+  });
+
   for (final (name, box) in [
     ('FadeSlideEnterBox', const FadeSlideEnterBox(child: SizedBox())),
     ('FadeScaleEnterBox', const FadeScaleEnterBox(child: SizedBox())),

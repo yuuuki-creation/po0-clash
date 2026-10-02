@@ -29,7 +29,8 @@ Android、Windows、macOS 共用一套苹果液态玻璃（Liquid Glass）风格
 | `GlassIconBadge` | 设置行使用的 iOS 式纯色方块图标 |
 | `GlassPill`、`GlassSectionLabel`、`GlassIconButton` | 状态胶囊、分组脚注、与视觉同尺寸的图标按钮 |
 
-工具栏的操作按钮会合并到一个玻璃胶囊里（`CommonScaffold`）。
+工具栏的操作按钮会合并到一个玻璃胶囊里（`CommonScaffold`）。胶囊统一排版：图标按钮与文字按钮都取平台图标按钮的高度
+（Android 40、桌面 32），按钮间距 4。传给 `actions` 的按钮不要再套 `CommonMin*ButtonTheme`，也不要加 `SizedBox` 间隔。
 
 ## 操作结构（`lib/pages/home.dart`、`lib/pages/shell.dart`）
 
@@ -52,5 +53,7 @@ Android、Windows、macOS 共用一套苹果液态玻璃（Liquid Glass）风格
 ## 测试
 
 - `test/widgets/glass_test.dart`：分段控件整段可点、圆形按钮只响应圆内、图标按钮尺寸、配色。
+- `test/widgets/toolbar_group_test.dart`：工具栏胶囊里文字按钮与图标按钮等高、居中对齐。
+- `test/widgets/fade_box_test.dart`：`FadeScaleBox` 作为悬浮按钮时仍停在右下角。
 - `test/pages/home_test.dart`：三种布局、侧边导航高亮与所选项对齐、底栏点击区域。
 - `test/common/desktop_route_test.dart`、`test/views/control_center_test.dart`：二选一规则与开关行。

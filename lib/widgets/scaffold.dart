@@ -281,7 +281,13 @@ class CommonScaffoldState extends State<CommonScaffold> {
           padding: const EdgeInsets.all(2),
           child: Material(
             type: MaterialType.transparency,
-            child: Row(mainAxisSize: MainAxisSize.min, children: actions),
+            child: _ToolbarButtonTheme(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 4,
+                children: actions,
+              ),
+            ),
           ),
         ),
       ),
@@ -432,6 +438,42 @@ class CommonScaffoldState extends State<CommonScaffold> {
                   )
                 : fabChild
           : null,
+    );
+  }
+}
+
+/// Sizes icon and filled buttons to the platform's icon button height, so a
+/// mix of them lines up inside the toolbar capsule.
+class _ToolbarButtonTheme extends StatelessWidget {
+  const _ToolbarButtonTheme({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final extent = 40 + Theme.of(context).visualDensity.baseSizeAdjustment.dy;
+    return IconButtonTheme(
+      data: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          fixedSize: Size.square(extent),
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.standard,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+      ),
+      child: FilledButtonTheme(
+        data: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            fixedSize: Size.fromHeight(extent),
+            minimumSize: Size.square(extent),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            visualDensity: VisualDensity.standard,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            shape: AppShape.full,
+          ),
+        ),
+        child: child,
+      ),
     );
   }
 }
