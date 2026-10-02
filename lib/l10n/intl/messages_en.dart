@@ -508,6 +508,13 @@ class MessageLookup extends MessageLookupByLibrary {
       "Use the low-memory Geo loader",
     ),
     "geoipCode": MessageLookupByLibrary.simpleMessage("GeoIP code"),
+    "ggyLink": MessageLookupByLibrary.simpleMessage("Whitelist link"),
+    "ggyLinkInvalid": MessageLookupByLibrary.simpleMessage(
+      "Paste the full whitelist link from ggy (https://www.guguyun.com/…?token=…)",
+    ),
+    "ggyWhitelistLink": MessageLookupByLibrary.simpleMessage(
+      "ggy whitelist link",
+    ),
     "global": MessageLookupByLibrary.simpleMessage("Global"),
     "go": MessageLookupByLibrary.simpleMessage("Go"),
     "goDownload": MessageLookupByLibrary.simpleMessage("Download"),
@@ -795,7 +802,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "po0ChipRejected": MessageLookupByLibrary.simpleMessage("Rejected"),
     "po0CurrentExit": MessageLookupByLibrary.simpleMessage("Current exit"),
     "po0DirectTip": MessageLookupByLibrary.simpleMessage(
-      "Requests go straight to 124.221.69.228. While enabled, po0-clash routes that address DIRECT and keeps it out of TUN, so the real exit is whitelisted instead of the proxy\'s. On Android, restart the VPN once after enabling.",
+      "Whitelist requests leave on the physical network: while the proxy runs they go through the core\'s DIRECT-only listener, which rules, global mode and TUN cannot redirect; otherwise they connect directly. The real exit is whitelisted, not the proxy\'s.",
     ),
     "po0EditToken": MessageLookupByLibrary.simpleMessage("Edit token"),
     "po0Exit": m24,
@@ -839,10 +846,11 @@ class MessageLookup extends MessageLookupByLibrary {
       "This token is already in the list",
     ),
     "po0TokenName": MessageLookupByLibrary.simpleMessage("Name (optional)"),
+    "po0TokenType": MessageLookupByLibrary.simpleMessage("Type"),
     "po0Tokens": MessageLookupByLibrary.simpleMessage("Tokens"),
     "po0TokensEmpty": MessageLookupByLibrary.simpleMessage("Not configured"),
     "po0TokensEmptyDesc": MessageLookupByLibrary.simpleMessage(
-      "Add the pgnfw_ token from each po0 machine; every token checks its own whitelist",
+      "Add a po0 pgnfw_ token or a ggy whitelist link; each entry checks its own whitelist",
     ),
     "po0TokensInvalid": MessageLookupByLibrary.simpleMessage(
       "A token starts with pgnfw_ and has no spaces or separators",

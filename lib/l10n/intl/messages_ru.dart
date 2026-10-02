@@ -522,6 +522,13 @@ class MessageLookup extends MessageLookupByLibrary {
       "При включении используется Geo-загрузчик с низким потреблением памяти",
     ),
     "geoipCode": MessageLookupByLibrary.simpleMessage("Код GeoIP"),
+    "ggyLink": MessageLookupByLibrary.simpleMessage("Ссылка для белого списка"),
+    "ggyLinkInvalid": MessageLookupByLibrary.simpleMessage(
+      "Вставьте полную ссылку ggy для белого списка (https://www.guguyun.com/…?token=…)",
+    ),
+    "ggyWhitelistLink": MessageLookupByLibrary.simpleMessage(
+      "Ссылка ggy для белого списка",
+    ),
     "global": MessageLookupByLibrary.simpleMessage("Глобальный"),
     "go": MessageLookupByLibrary.simpleMessage("Перейти"),
     "goDownload": MessageLookupByLibrary.simpleMessage("Скачать"),
@@ -821,7 +828,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "po0ChipRejected": MessageLookupByLibrary.simpleMessage("Отклонено"),
     "po0CurrentExit": MessageLookupByLibrary.simpleMessage("Текущий выход"),
     "po0DirectTip": MessageLookupByLibrary.simpleMessage(
-      "Запросы идут напрямую на 124.221.69.228. Пока функция включена, po0-clash направляет этот адрес DIRECT и исключает его из TUN, поэтому в белый список попадает реальный выход, а не прокси. На Android после включения один раз перезапустите VPN.",
+      "Запросы на добавление в белый список уходят через физическую сеть: пока прокси работает, они идут через DIRECT-слушатель ядра, который не могут перенаправить ни правила, ни глобальный режим, ни TUN; иначе соединение прямое. В белый список попадает реальный выход, а не прокси.",
     ),
     "po0EditToken": MessageLookupByLibrary.simpleMessage("Изменить токен"),
     "po0Exit": m24,
@@ -867,10 +874,11 @@ class MessageLookup extends MessageLookupByLibrary {
     "po0TokenName": MessageLookupByLibrary.simpleMessage(
       "Название (необязательно)",
     ),
+    "po0TokenType": MessageLookupByLibrary.simpleMessage("Тип"),
     "po0Tokens": MessageLookupByLibrary.simpleMessage("Токены"),
     "po0TokensEmpty": MessageLookupByLibrary.simpleMessage("Не настроено"),
     "po0TokensEmptyDesc": MessageLookupByLibrary.simpleMessage(
-      "Добавьте pgnfw_ токен каждой машины po0; каждый токен проверяет свой белый список",
+      "Добавьте pgnfw_ токен po0 или ссылку ggy для белого списка; каждая запись проверяет свой белый список",
     ),
     "po0TokensInvalid": MessageLookupByLibrary.simpleMessage(
       "Токен начинается с pgnfw_ и не содержит пробелов и разделителей",

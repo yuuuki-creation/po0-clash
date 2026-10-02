@@ -65,7 +65,9 @@ const _listener = {
   'type': 'http',
   'listen': '127.0.0.1',
   'port': 40123,
-  'users': [{'username': 'u', 'password': 'p'}],
+  'users': [
+    {'username': 'u', 'password': 'p'},
+  ],
   'proxy': 'DIRECT',
 };
 
@@ -187,13 +189,19 @@ void main() {
 
     test('opens one free loopback port for the whole session', () async {
       final listener = Po0DirectListener();
-      final endpoints = await Future.wait([listener.endpoint, listener.endpoint]);
+      final endpoints = await Future.wait([
+        listener.endpoint,
+        listener.endpoint,
+      ]);
       expect(endpoints.first, endpoints.last);
       expect(await listener.endpoint, endpoints.first);
       expect(endpoints.first.password, isNot(endpoints.first.username));
 
       final port = endpoints.first.port;
-      final socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
+      final socket = await ServerSocket.bind(
+        InternetAddress.loopbackIPv4,
+        port,
+      );
       await socket.close();
     });
   });
