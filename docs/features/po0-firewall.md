@@ -75,7 +75,15 @@
 3. Android VPN 的路由表由 `VpnService.Builder` 决定，`excludeRoute` 需要 API 33，因此在 `sharedState` 中把
    `124.221.69.228/32` 从路由列表（默认 `0.0.0.0/0`）中拆分剔除。VPN 路由只在 VPN 启动时生效，所以 **Android 首次开启后需重启一次 VPN**。
 
-证书校验沿用应用的「检查证书」开关（po0 端点使用 Let's Encrypt IP 证书，默认可正常校验）。
+证书校验沿用应用的「检查证书」开关。po0 端点使用 Let's Encrypt IP 证书，服务端发送到 ISRG Root X1 的完整链；
+传输层在系统根证书之外额外信任内置的 ISRG Root X1（`po0SecurityContext`），因为 dart:io 在两种情况下拿不到它：
+
+- Windows：dart:io 在建立 `SecurityContext` 时一次性复制系统证书库，之后不再刷新；而 Windows 只在某个程序首次通过系统
+  API 用到第三方根证书时才自动下载安装。新装或重置的系统上，应用可能先于 ISRG Root X1 安装启动，此后一直报
+  `CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate`，直到重启应用。
+- Android 7.0（API 24，应用最低版本）：系统证书库从 7.1.1 起才包含 ISRG Root X1。
+
+macOS 把整条链交给系统 SecTrust 实时校验，不受影响。
 
 ## 代码位置
 
