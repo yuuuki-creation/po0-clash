@@ -223,30 +223,24 @@ class _ScriptsViewState extends ConsumerState<ScriptsView> {
       },
       child: CommonScaffold(
         actions: [
-          if (selectedScriptIds.isNotEmpty) ...[
-            CommonMinIconButtonTheme(
-              child: IconButton.filledTonal(
-                tooltip: context.appLocalizations.delete,
-                onPressed: _handleDelete,
-                icon: const Icon(Icons.delete),
-              ),
+          if (selectedScriptIds.isNotEmpty)
+            IconButton.filledTonal(
+              tooltip: context.appLocalizations.delete,
+              onPressed: _handleDelete,
+              icon: const Icon(Icons.delete),
             ),
-            const SizedBox(width: 2),
-          ],
-          CommonMinFilledButtonTheme(
-            child: selectedScriptIds.isNotEmpty
-                ? FilledButton(
-                    onPressed: _handleSelectAll,
-                    child: Text(appLocalizations.selectAll),
-                  )
-                : FilledButton.tonal(
-                    onPressed: () {
-                      _handleToEditor();
-                    },
-                    child: Text(appLocalizations.add),
-                  ),
-          ),
-          const SizedBox(width: 8),
+          if (selectedScriptIds.isNotEmpty)
+            FilledButton(
+              onPressed: _handleSelectAll,
+              child: Text(appLocalizations.selectAll),
+            )
+          else
+            FilledButton.tonal(
+              onPressed: () {
+                _handleToEditor();
+              },
+              child: Text(appLocalizations.add),
+            ),
         ],
         body: _buildContent(scripts, selectedScriptIds),
         title: appLocalizations.script,

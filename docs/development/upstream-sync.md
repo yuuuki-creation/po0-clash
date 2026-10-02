@@ -36,6 +36,7 @@ git merge upstream/main
 | `lib/common/shape.dart` / `lib/widgets/card.dart` | Material 3 圆角档位；`CommonCard` 的描边 / 填充卡片样式 |
 | `lib/common/navigator.dart` | 推入页面改用 `MaterialPageRoute` |
 | `lib/widgets/popup.dart` / `chip.dart` / `fade_box.dart` / `super_grid.dart` | 换成 Material 3 组件与动效；删除 `tab*.dart` |
+| `lib/widgets/scaffold.dart` 及其 `actions` 调用方（`lib/views/access.dart`、`lib/widgets/input_pages.dart`、`lib/views/config/rules.dart` / `scripts.dart`、`lib/views/profiles/overwrite/overwrite.dart`、`lib/features/overwrite/overwrite_editor_page.dart`） | 工具栏按钮合并进玻璃胶囊并统一高度；调用方不再加 `SizedBox` 间隔与 `CommonMin*ButtonTheme` |
 | `lib/common/common.dart` | 导出 `po0_firewall.dart`、`app_theme.dart` |
 | `arb/intl_*.arb` | 新增的 `po0*`（含导航名 `po0Nav`）/ `minutesCount` 等文案 |
 | `.github/workflows/build.yaml` | 仅手动触发（本分支发版用 `release.yaml`） |

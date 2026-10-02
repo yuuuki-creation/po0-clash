@@ -278,6 +278,10 @@ void main() {
     });
   });
 
+  test('the po0 security context loads the bundled root', () {
+    expect(() => po0SecurityContext, returnsNormally);
+  });
+
   group('makeRealProfileTask', () {
     TestWidgetsFlutterBinding.ensureInitialized();
 

@@ -86,12 +86,9 @@ class FadeScaleBox extends StatelessWidget {
       reverseDuration: context.motionDuration(Durations.short1),
       transitionBuilder: (child, animation) =>
           FadeScaleEnterTransition(animation: animation, child: child),
-      layoutBuilder: (currentChild, previousChildren) => Align(
+      layoutBuilder: (currentChild, previousChildren) => Stack(
         alignment: realAlignment,
-        child: Stack(
-          alignment: realAlignment,
-          children: <Widget>[...previousChildren, ?currentChild],
-        ),
+        children: <Widget>[...previousChildren, ?currentChild],
       ),
       child: child,
     );

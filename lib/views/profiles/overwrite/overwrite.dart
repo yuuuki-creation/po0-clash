@@ -49,13 +49,10 @@ class _OverwriteViewState extends ConsumerState<OverwriteView> {
       child: CommonScaffold(
         title: appLocalizations.override,
         actions: [
-          CommonMinFilledButtonTheme(
-            child: FilledButton(
-              onPressed: _handlePreview,
-              child: Text(appLocalizations.preview),
-            ),
+          FilledButton(
+            onPressed: _handlePreview,
+            child: Text(appLocalizations.preview),
           ),
-          const SizedBox(width: 8),
         ],
         body: const ScrollConfiguration(
           behavior: ShowBarScrollBehavior(),
