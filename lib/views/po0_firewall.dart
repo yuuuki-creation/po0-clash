@@ -762,6 +762,7 @@ class _TokenEntryDialogState extends State<_TokenEntryDialog> {
             children: [
               DropdownButtonFormField<Po0TokenKind>(
                 initialValue: _kind,
+                isExpanded: true,
                 decoration: InputDecoration(
                   labelText: appLocalizations.po0TokenType,
                 ),
@@ -772,7 +773,10 @@ class _TokenEntryDialogState extends State<_TokenEntryDialog> {
                   ),
                   DropdownMenuItem(
                     value: Po0TokenKind.ggy,
-                    child: Text(appLocalizations.ggyWhitelistLink),
+                    child: Text(
+                      appLocalizations.ggyWhitelistLink,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
                 onChanged: _setKind,
