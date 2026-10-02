@@ -1,27 +1,18 @@
-po0-clash v6.0.0：支持 ggy 加白链接，加白请求改走内核专用直连入口，Android 开启加白后不再需要重启 VPN。
-
-## 本次新增
-
-- 支持 ggy（guguyun.com）加白链接：添加 token 时在「类型」里选择「ggy 加白链接」，粘贴 ggy 给的完整链接即可，与 po0 token 一起列出、一起自动加白
-- 加白请求改走内核的专用直连入口：规则、全局模式和 TUN 都改变不了它的去向，加白的始终是本机真实出口，域名形式的加白地址也适用
-- 专用入口每次启动自动选择空闲端口，并使用随机账号，其他程序无法借用它绕过代理
-- Android 开启自动加白后不再需要重启 VPN
-- 加白时如果挤掉了白名单里的旧记录，会写入日志
-- 被限流时自动放慢检查频率
+po0-clash v6.0.1：修复添加 token 时类型菜单悬空、样式与应用不一致。
 
 ## 本次修复
 
-- 修复桌面端工具栏里图标按钮比旁边的文字按钮高一截（5.2.2 的对齐修复在桌面端没有生效）
+- 添加或编辑 token 时，「类型」菜单改为紧贴在选择栏下方展开、与选择栏同宽，使用与应用其他菜单一致的玻璃样式，当前选项打勾；不再悬浮在对话框中间，也不再是另一套默认样式
 
 ## 升级说明
 
-- 从 5.x 直接覆盖安装即可，设置与 po0 token 全部保留
+- 从 6.0.0 或 5.x 直接覆盖安装即可，设置、po0 token 与 ggy 加白链接全部保留
 
 ## 安装
 
-- Windows：po0-clash-6.0.0-windows-amd64-setup.exe（安装包）或 .zip（免安装）
+- Windows：po0-clash-6.0.1-windows-amd64-setup.exe（安装包）或 .zip（免安装）
 - macOS：curl -fsSL https://raw.githubusercontent.com/yuuuki-creation/po0-clash/main/scripts/install-macos.sh | bash
-- Android：po0-clash-6.0.0-android-arm64-v8a.apk（主流机型），可与官方 FlClash 共存
+- Android：po0-clash-6.0.1-android-arm64-v8a.apk（主流机型），可与官方 FlClash 共存
 
 ## 已知限制
 
