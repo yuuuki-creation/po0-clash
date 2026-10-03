@@ -5445,16 +5445,56 @@ class AppLocalizations {
     );
   }
 
-  /// `Type`
-  String get po0TokenType {
-    return Intl.message('Type', name: 'po0TokenType', desc: '', args: []);
+  /// `ggy`
+  String get ggyNav {
+    return Intl.message('ggy', name: 'ggyNav', desc: '', args: []);
   }
 
-  /// `ggy whitelist link`
-  String get ggyWhitelistLink {
+  /// `ggy firewall whitelist`
+  String get ggyFirewall {
     return Intl.message(
-      'ggy whitelist link',
-      name: 'ggyWhitelistLink',
+      'ggy firewall whitelist',
+      name: 'ggyFirewall',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Keep this network's exit IP on the ggy firewall whitelist`
+  String get ggyFirewallDesc {
+    return Intl.message(
+      'Keep this network\'s exit IP on the ggy firewall whitelist',
+      name: 'ggyFirewallDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Requests the whitelist link every {seconds} s while po0-clash is open, whether or not the proxy is running. Android checks only while the screen is on`
+  String ggyAutoWhitelistDesc(Object seconds) {
+    return Intl.message(
+      'Requests the whitelist link every $seconds s while po0-clash is open, whether or not the proxy is running. Android checks only while the screen is on',
+      name: 'ggyAutoWhitelistDesc',
+      desc: '',
+      args: [seconds],
+    );
+  }
+
+  /// `Add a link to start`
+  String get ggyStatusNoLink {
+    return Intl.message(
+      'Add a link to start',
+      name: 'ggyStatusNoLink',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Whitelist links`
+  String get ggyLinks {
+    return Intl.message(
+      'Whitelist links',
+      name: 'ggyLinks',
       desc: '',
       args: [],
     );
@@ -5463,6 +5503,16 @@ class AppLocalizations {
   /// `Whitelist link`
   String get ggyLink {
     return Intl.message('Whitelist link', name: 'ggyLink', desc: '', args: []);
+  }
+
+  /// `Add link`
+  String get ggyAddLink {
+    return Intl.message('Add link', name: 'ggyAddLink', desc: '', args: []);
+  }
+
+  /// `Edit link`
+  String get ggyEditLink {
+    return Intl.message('Edit link', name: 'ggyEditLink', desc: '', args: []);
   }
 
   /// `Paste the full whitelist link from ggy (https://www.guguyun.com/…?token=…)`
@@ -5475,10 +5525,30 @@ class AppLocalizations {
     );
   }
 
-  /// `Add a po0 pgnfw_ token or a ggy whitelist link; each entry checks its own whitelist`
+  /// `This link is already in the list`
+  String get ggyLinkDuplicate {
+    return Intl.message(
+      'This link is already in the list',
+      name: 'ggyLinkDuplicate',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Paste the full whitelist link from ggy; every link whitelists on its own`
+  String get ggyLinksEmptyDesc {
+    return Intl.message(
+      'Paste the full whitelist link from ggy; every link whitelists on its own',
+      name: 'ggyLinksEmptyDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Add the pgnfw_ token from each po0 machine; every token checks its own whitelist`
   String get po0TokensEmptyDesc {
     return Intl.message(
-      'Add a po0 pgnfw_ token or a ggy whitelist link; each entry checks its own whitelist',
+      'Add the pgnfw_ token from each po0 machine; every token checks its own whitelist',
       name: 'po0TokensEmptyDesc',
       desc: '',
       args: [],

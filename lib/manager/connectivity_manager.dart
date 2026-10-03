@@ -59,6 +59,7 @@ class _ConnectivityManagerState extends ConsumerState<ConnectivityManager> {
     _onWifi = results.contains(ConnectivityResult.wifi);
     unawaited(_updateSsid());
     ref.read(po0FirewallProvider.notifier).onNetworkChanged();
+    ref.read(ggyFirewallProvider.notifier).onNetworkChanged();
     widget.onConnectivityChanged?.call(results);
   }
 

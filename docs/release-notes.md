@@ -1,22 +1,27 @@
-po0-clash v6.0.1：修复添加 token 时类型菜单悬空、样式与应用不一致。
+po0-clash v6.1.0：ggy 加白独立成页，拥有自己的开关，固定每 11 秒加白一次。
 
-## 本次修复
+## 本次新增
 
-- 添加或编辑 token 时，「类型」菜单改为紧贴在选择栏下方展开、与选择栏同宽，使用与应用其他菜单一致的玻璃样式，当前选项打勾；不再悬浮在对话框中间，也不再是另一套默认样式
+- ggy 加白独立为主导航里的一项，与 po0 并列（桌面端在侧边栏，手机端在底栏）：有自己的状态、「自动加白」开关和加白链接列表，与 po0 互不影响
+- ggy 固定每 11 秒请求一次加白链接，不再跟随 po0 的刷新间隔；连续失败时自动放慢
+- ggy 页面只保留「立即加白」：ggy 没有只读查询，「查询状态」与加白是同一个请求
+- 首页的加白卡片只显示在用的那一个（有 token 或链接的）；po0 与 ggy 都在用时每 5 秒轮换显示，点击进入当前显示的页面
+- po0 的添加对话框只收 pgnfw_ token，不再有类型选择
 
 ## 升级说明
 
-- 从 6.0.0 或 5.x 直接覆盖安装即可，设置、po0 token 与 ggy 加白链接全部保留
+- 从 6.0.x 直接覆盖安装即可：原来混在 po0 列表里的 ggy 链接会自动移到 ggy 页面，并沿用原来的开关状态，无需重新添加
+- 从 5.x 升级同样直接覆盖安装，设置与 po0 token 全部保留
 
 ## 安装
 
-- Windows：po0-clash-6.0.1-windows-amd64-setup.exe（安装包）或 .zip（免安装）
+- Windows：po0-clash-6.1.0-windows-amd64-setup.exe（安装包）或 .zip（免安装）
 - macOS：curl -fsSL https://raw.githubusercontent.com/yuuuki-creation/po0-clash/main/scripts/install-macos.sh | bash
-- Android：po0-clash-6.0.1-android-arm64-v8a.apk（主流机型），可与官方 FlClash 共存
+- Android：po0-clash-6.1.0-android-arm64-v8a.apk（主流机型），可与官方 FlClash 共存
 
 ## 已知限制
 
-- ggy 加白链接没有只读查询：每个刷新间隔都会请求一次加白链接，「查询状态」对 ggy 同样会写入；日志里持续出现 evicted 说明白名单在被反复挤占，可调大刷新间隔
+- ggy 加白链接每次请求都会写入；日志里持续出现 evicted 说明白名单在被反复挤占
 - Android 从最近任务划掉 po0-clash 后停止检查，重新打开应用即恢复
 - 同时在用的网段超过白名单容量（po0 为 5 条，服务端已有的固定记录也占名额）时，各设备会互相挤占
 - 与其他代理客户端同时开启系统代理或 TUN 会互相抢占，请只在一个应用里开启

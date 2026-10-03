@@ -24,12 +24,72 @@ Po0FirewallClient po0FirewallClient(Ref ref) => Po0FirewallClient(
   },
 );
 
-/// Keeps the current exit whitelisted for as long as the app runs, whether or
-/// not the proxy is started: a read-only query each interval, and an add only
-/// when the exit is missing. Android pauses while the screen is off.
 @Riverpod(keepAlive: true)
-class Po0Firewall extends _$Po0Firewall {
+class Po0Firewall extends _$Po0Firewall with WhitelistScheduler {
+  @override
+  Po0FirewallState build() => buildScheduler();
+
+  @override
+  String get _tag => 'po0 firewall';
+
+  @override
+  bool _enabledIn(Po0FirewallProps setting) => setting.enable;
+
+  @override
+  List<({Po0Token token, String name})> _entriesIn(Po0FirewallProps setting) =>
+      po0TokensOf(setting.tokenEntries);
+
+  @override
+  Duration _intervalIn(Po0FirewallProps setting) => pollIntervalOf(setting);
+
+  static Duration pollIntervalOf(Po0FirewallProps setting) => Duration(
+    seconds: setting.pollSeconds.clamp(
+      po0PollSecondsRange.min,
+      po0PollSecondsRange.max,
+    ),
+  );
+}
+
+/// ggy: every request adds, so the interval is fixed rather than tunable.
+@Riverpod(keepAlive: true)
+class GgyFirewall extends _$GgyFirewall with WhitelistScheduler {
+  static const pollInterval = Duration(seconds: 11);
+
+  @override
+  Po0FirewallState build() => buildScheduler();
+
+  @override
+  String get _tag => 'ggy firewall';
+
+  @override
+  bool _enabledIn(Po0FirewallProps setting) => setting.ggyEnable;
+
+  @override
+  List<({Po0Token token, String name})> _entriesIn(Po0FirewallProps setting) =>
+      ggyLinksOf(setting.ggyEntries);
+
+  @override
+  Duration _intervalIn(Po0FirewallProps setting) => pollInterval;
+}
+
+/// Keeps the current exit whitelisted for as long as the app runs, whether or
+/// not the proxy is started. Android pauses while the screen is off.
+mixin WhitelistScheduler {
   static const maxBackoff = Duration(seconds: 30);
+
+  Ref get ref;
+
+  Po0FirewallState get state;
+
+  set state(Po0FirewallState value);
+
+  String get _tag;
+
+  bool _enabledIn(Po0FirewallProps setting);
+
+  List<({Po0Token token, String name})> _entriesIn(Po0FirewallProps setting);
+
+  Duration _intervalIn(Po0FirewallProps setting);
 
   Timer? _timer;
   bool _started = false;
@@ -43,8 +103,8 @@ class Po0Firewall extends _$Po0Firewall {
 
   Po0FirewallProps get _setting => ref.read(po0FirewallSettingProvider);
 
-  @override
-  Po0FirewallState build() {
+  @protected
+  Po0FirewallState buildScheduler() {
     ref.onDispose(_cancelTimer);
     ref.listen(po0FirewallSettingProvider, _handleSettingChanged);
     return const Po0FirewallState();
@@ -76,7 +136,7 @@ class Po0Firewall extends _$Po0Firewall {
   }
 
   void onNetworkChanged() {
-    if (!_started || !_setting.enable) {
+    if (!_started || !_enabledIn(_setting)) {
       return;
     }
     ref.read(po0FirewallClientProvider).resetConnections();
@@ -103,23 +163,23 @@ class Po0Firewall extends _$Po0Firewall {
     if (!_started || prev == null || prev == next) {
       return;
     }
-    if (prev.enable != next.enable) {
+    if (_enabledIn(prev) != _enabledIn(next)) {
       _cancelTimer();
-      unawaited(_applyEnable(next.enable));
+      unawaited(_applyEnable(_enabledIn(next)));
       return;
     }
-    if (!listEquals(_tokensOf(prev), _tokensOf(next))) {
+    if (!listEquals(_tokensIn(prev), _tokensIn(next))) {
       _signatures.clear();
       unawaited(whitelist());
       return;
     }
-    if (prev.pollSeconds != next.pollSeconds && !_inFlight) {
+    if (_intervalIn(prev) != _intervalIn(next) && !_inFlight) {
       _scheduleNext();
     }
   }
 
-  List<Po0Token> _tokensOf(Po0FirewallProps setting) =>
-      po0TokensOf(setting.tokenEntries).map((it) => it.token).toList();
+  List<Po0Token> _tokensIn(Po0FirewallProps setting) =>
+      _entriesIn(setting).map((it) => it.token).toList();
 
   Future<void> _applyEnable(bool enable) async {
     final version = ++_enableVersion;
@@ -128,7 +188,7 @@ class Po0Firewall extends _$Po0Firewall {
       await reapplyRouting();
     } catch (error) {
       commonPrint.log(
-        'po0 firewall: applying the DIRECT route failed: $error',
+        '$_tag: applying the DIRECT route failed: $error',
         logLevel: LogLevel.warning,
       );
     } finally {
@@ -148,9 +208,9 @@ class Po0Firewall extends _$Po0Firewall {
 
   Future<void> _run(Po0RunKind kind) async {
     final setting = _setting;
-    final entries = po0TokensOf(setting.tokenEntries);
+    final entries = _entriesIn(setting);
     final tokens = entries.map((it) => it.token).toList();
-    if (!_started || !setting.enable || tokens.isEmpty) {
+    if (!_started || !_enabledIn(setting) || tokens.isEmpty) {
       return;
     }
     if (kind == Po0RunKind.poll && !_screenOn) {
@@ -237,18 +297,12 @@ class Po0Firewall extends _$Po0Firewall {
 
   void _scheduleNext() {
     _cancelTimer();
-    if (!_started || !_setting.enable || !_screenOn) {
+    final setting = _setting;
+    if (!_started || !_enabledIn(setting) || !_screenOn) {
       return;
     }
-    _timer = Timer(nextDelayFor(_failures, pollIntervalOf(_setting)), pollNow);
+    _timer = Timer(nextDelayFor(_failures, _intervalIn(setting)), pollNow);
   }
-
-  static Duration pollIntervalOf(Po0FirewallProps setting) => Duration(
-    seconds: setting.pollSeconds.clamp(
-      po0PollSecondsRange.min,
-      po0PollSecondsRange.max,
-    ),
-  );
 
   @visibleForTesting
   static Duration nextDelayFor(int failures, Duration interval) {
@@ -281,7 +335,7 @@ class Po0Firewall extends _$Po0Firewall {
           : kind.name;
       final detail = [?result.currentIp, ?result.message].join(' ');
       commonPrint.log(
-        'po0 firewall $action #${index + 1} ${result.label} '
+        '$_tag $action #${index + 1} ${result.label} '
         '${result.type.name} $detail',
         logLevel: result.type == Po0ResultType.applied
             ? LogLevel.info

@@ -49,74 +49,77 @@ class MessageLookup extends MessageLookupByLibrary {
 
   static String m11(name) => "${name} updated";
 
-  static String m12(count) =>
-      "${Intl.plural(count, one: '1 hour ago', other: '${count} hours ago')}";
+  static String m12(seconds) =>
+      "Requests the whitelist link every ${seconds} s while po0-clash is open, whether or not the proxy is running. Android checks only while the screen is on";
 
   static String m13(count) =>
+      "${Intl.plural(count, one: '1 hour ago', other: '${count} hours ago')}";
+
+  static String m14(count) =>
       "${Intl.plural(count, one: '1 hour', other: '${count} hours')}";
 
-  static String m14(target) => "${target} is an invalid policy";
+  static String m15(target) => "${target} is an invalid policy";
 
-  static String m15(proxyName) => "${proxyName} is an invalid proxy";
+  static String m16(proxyName) => "${proxyName} is an invalid proxy";
 
-  static String m16(providerName) =>
+  static String m17(providerName) =>
       "${providerName} is an invalid proxy provider";
 
-  static String m17(subRule) => "${subRule} is an invalid SUB_RULE";
+  static String m18(subRule) => "${subRule} is an invalid SUB_RULE";
 
-  static String m18(appName) =>
+  static String m19(appName) =>
       "1. Open System Settings > Privacy & Security\n2. Choose Location Services\n3. Find and check ${appName} in the list\n\nWhen you are done, return to the app to continue. Thank you for your cooperation.";
 
-  static String m19(label, max) => "${label} must be at most ${max} characters";
-
-  static String m20(count) =>
-      "${Intl.plural(count, one: '1 minute ago', other: '${count} minutes ago')}";
+  static String m20(label, max) => "${label} must be at most ${max} characters";
 
   static String m21(count) =>
+      "${Intl.plural(count, one: '1 minute ago', other: '${count} minutes ago')}";
+
+  static String m22(count) =>
       "${Intl.plural(count, one: '1 month ago', other: '${count} months ago')}";
 
-  static String m22(label) => "No ${label} yet";
+  static String m23(label) => "No ${label} yet";
 
-  static String m23(label) => "${label} must be a number";
+  static String m24(label) => "${label} must be a number";
 
-  static String m24(ip) => "Exit ${ip}";
+  static String m25(ip) => "Exit ${ip}";
 
-  static String m25(time) => "Last run: ${time}";
+  static String m26(time) => "Last run: ${time}";
 
-  static String m26(time) => "Last ${time}";
+  static String m27(time) => "Last ${time}";
 
-  static String m27(count) => "Every ${count} s";
+  static String m28(count) => "Every ${count} s";
 
-  static String m28(min, max) => "Enter ${min}–${max} seconds";
+  static String m29(min, max) => "Enter ${min}–${max} seconds";
 
-  static String m29(ip) => "Exit ${ip} is whitelisted";
+  static String m30(ip) => "Exit ${ip} is whitelisted";
 
-  static String m30(message) => "Request failed: ${message}";
+  static String m31(message) => "Request failed: ${message}";
 
-  static String m31(ip) => "Exit ${ip} is not whitelisted";
+  static String m32(ip) => "Exit ${ip} is not whitelisted";
 
-  static String m32(message) => "Rejected: ${message}";
+  static String m33(message) => "Rejected: ${message}";
 
-  static String m33(ok, total) => "${ok}/${total} whitelisted";
+  static String m34(ok, total) => "${ok}/${total} whitelisted";
 
-  static String m34(used, limit) => "${used}/${limit} used";
+  static String m35(used, limit) => "${used}/${limit} used";
 
-  static String m35(label) => "${label} must be between 1024 and 49151";
-
-  static String m36(count) =>
-      "${Intl.plural(count, one: '1 proxy', other: '${count} proxies')}";
+  static String m36(label) => "${label} must be between 1024 and 49151";
 
   static String m37(count) =>
-      "${Intl.plural(count, one: '1 rule', other: '${count} rules')}";
+      "${Intl.plural(count, one: '1 proxy', other: '${count} proxies')}";
 
   static String m38(count) =>
+      "${Intl.plural(count, one: '1 rule', other: '${count} rules')}";
+
+  static String m39(count) =>
       "${Intl.plural(count, one: '1 second', other: '${count} seconds')}";
 
-  static String m39(count) => "${count} selected";
+  static String m40(count) => "${count} selected";
 
-  static String m40(label) => "${label} must be a URL";
+  static String m41(label) => "${label} must be a URL";
 
-  static String m41(count) =>
+  static String m42(count) =>
       "${Intl.plural(count, one: '1 year ago', other: '${count} years ago')}";
 
   final messages = _notInlinedMessages(_notInlinedMessages);
@@ -508,12 +511,29 @@ class MessageLookup extends MessageLookupByLibrary {
       "Use the low-memory Geo loader",
     ),
     "geoipCode": MessageLookupByLibrary.simpleMessage("GeoIP code"),
+    "ggyAddLink": MessageLookupByLibrary.simpleMessage("Add link"),
+    "ggyAutoWhitelistDesc": m12,
+    "ggyEditLink": MessageLookupByLibrary.simpleMessage("Edit link"),
+    "ggyFirewall": MessageLookupByLibrary.simpleMessage(
+      "ggy firewall whitelist",
+    ),
+    "ggyFirewallDesc": MessageLookupByLibrary.simpleMessage(
+      "Keep this network\'s exit IP on the ggy firewall whitelist",
+    ),
     "ggyLink": MessageLookupByLibrary.simpleMessage("Whitelist link"),
+    "ggyLinkDuplicate": MessageLookupByLibrary.simpleMessage(
+      "This link is already in the list",
+    ),
     "ggyLinkInvalid": MessageLookupByLibrary.simpleMessage(
       "Paste the full whitelist link from ggy (https://www.guguyun.com/…?token=…)",
     ),
-    "ggyWhitelistLink": MessageLookupByLibrary.simpleMessage(
-      "ggy whitelist link",
+    "ggyLinks": MessageLookupByLibrary.simpleMessage("Whitelist links"),
+    "ggyLinksEmptyDesc": MessageLookupByLibrary.simpleMessage(
+      "Paste the full whitelist link from ggy; every link whitelists on its own",
+    ),
+    "ggyNav": MessageLookupByLibrary.simpleMessage("ggy"),
+    "ggyStatusNoLink": MessageLookupByLibrary.simpleMessage(
+      "Add a link to start",
     ),
     "global": MessageLookupByLibrary.simpleMessage("Global"),
     "go": MessageLookupByLibrary.simpleMessage("Go"),
@@ -540,8 +560,8 @@ class MessageLookup extends MessageLookupByLibrary {
       "Control the app with the keyboard",
     ),
     "hours": MessageLookupByLibrary.simpleMessage("hours"),
-    "hoursAgo": m12,
-    "hoursCount": m13,
+    "hoursAgo": m13,
+    "hoursCount": m14,
     "icon": MessageLookupByLibrary.simpleMessage("Icon"),
     "iconRecords": MessageLookupByLibrary.simpleMessage("Icon records"),
     "iconStyle": MessageLookupByLibrary.simpleMessage("Icon style"),
@@ -607,10 +627,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "invalidBackupFile": MessageLookupByLibrary.simpleMessage(
       "Invalid backup file",
     ),
-    "invalidPolicy": m14,
-    "invalidProxy": m15,
-    "invalidProxyProvider": m16,
-    "invalidSubRule": m17,
+    "invalidPolicy": m15,
+    "invalidProxy": m16,
+    "invalidProxyProvider": m17,
+    "invalidSubRule": m18,
     "ipcidr": MessageLookupByLibrary.simpleMessage("IP/CIDR"),
     "ipv6Desc": MessageLookupByLibrary.simpleMessage(
       "When enabled, IPv6 traffic can be received",
@@ -649,7 +669,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "locationPermissionDesc": MessageLookupByLibrary.simpleMessage(
       "The system requires location permission to read the Wi-Fi name. On Android choose \"Allow all the time\", otherwise the Wi-Fi name cannot be read while the app is in the background.",
     ),
-    "locationPermissionGuide": m18,
+    "locationPermissionGuide": m19,
     "locationPermissionRequired": MessageLookupByLibrary.simpleMessage(
       "Location permission required",
     ),
@@ -674,7 +694,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "matchTargetTitle": MessageLookupByLibrary.simpleMessage("Match target"),
     "maxFailedTimes": MessageLookupByLibrary.simpleMessage("Max failures"),
-    "maxLengthTip": m19,
+    "maxLengthTip": m20,
     "maximize": MessageLookupByLibrary.simpleMessage("Maximize"),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("Memory info"),
     "messageTest": MessageLookupByLibrary.simpleMessage("Message test"),
@@ -687,11 +707,11 @@ class MessageLookup extends MessageLookupByLibrary {
     "minimizeOnExitDesc": MessageLookupByLibrary.simpleMessage(
       "Override the default system exit behavior",
     ),
-    "minutesAgo": m20,
+    "minutesAgo": m21,
     "mixedPort": MessageLookupByLibrary.simpleMessage("Mixed port"),
     "mode": MessageLookupByLibrary.simpleMessage("Mode"),
     "monochromeScheme": MessageLookupByLibrary.simpleMessage("Monochrome"),
-    "monthsAgo": m21,
+    "monthsAgo": m22,
     "more": MessageLookupByLibrary.simpleMessage("More"),
     "multipleValuesTip": MessageLookupByLibrary.simpleMessage(
       "Separate multiple values with commas",
@@ -745,8 +765,8 @@ class MessageLookup extends MessageLookupByLibrary {
     "nullProfileDesc": MessageLookupByLibrary.simpleMessage(
       "No profiles yet, please add one first",
     ),
-    "nullTip": m22,
-    "numberTip": m23,
+    "nullTip": m23,
+    "numberTip": m24,
     "onDemand": MessageLookupByLibrary.simpleMessage("On demand"),
     "onDemandDesc": MessageLookupByLibrary.simpleMessage(
       "Configure the app\'s running state for specific scenarios",
@@ -805,28 +825,28 @@ class MessageLookup extends MessageLookupByLibrary {
       "Whitelist requests leave on the physical network: while the proxy runs they go through the core\'s DIRECT-only listener, which rules, global mode and TUN cannot redirect; otherwise they connect directly. The real exit is whitelisted, not the proxy\'s.",
     ),
     "po0EditToken": MessageLookupByLibrary.simpleMessage("Edit token"),
-    "po0Exit": m24,
+    "po0Exit": m25,
     "po0Firewall": MessageLookupByLibrary.simpleMessage(
       "po0 firewall whitelist",
     ),
     "po0FirewallDesc": MessageLookupByLibrary.simpleMessage(
       "Keep this network\'s exit IP on the po0 firewall whitelist",
     ),
-    "po0LastRun": m25,
-    "po0LastShort": m26,
+    "po0LastRun": m26,
+    "po0LastShort": m27,
     "po0Nav": MessageLookupByLibrary.simpleMessage("po0"),
     "po0NeverRun": MessageLookupByLibrary.simpleMessage("Not run yet"),
-    "po0PollEvery": m27,
+    "po0PollEvery": m28,
     "po0PollInterval": MessageLookupByLibrary.simpleMessage("Refresh interval"),
-    "po0PollIntervalRange": m28,
+    "po0PollIntervalRange": m29,
     "po0QueryStatus": MessageLookupByLibrary.simpleMessage("Check status"),
-    "po0ResultApplied": m29,
+    "po0ResultApplied": m30,
     "po0ResultDisabled": MessageLookupByLibrary.simpleMessage(
       "The firewall is not enabled for this server",
     ),
-    "po0ResultError": m30,
-    "po0ResultNotApplied": m31,
-    "po0ResultRejected": m32,
+    "po0ResultError": m31,
+    "po0ResultNotApplied": m32,
+    "po0ResultRejected": m33,
     "po0Running": MessageLookupByLibrary.simpleMessage("Running…"),
     "po0StatusApplied": MessageLookupByLibrary.simpleMessage(
       "Exit whitelisted",
@@ -837,7 +857,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "po0StatusOff": MessageLookupByLibrary.simpleMessage(
       "Auto whitelist is off",
     ),
-    "po0StatusPartial": m33,
+    "po0StatusPartial": m34,
     "po0StatusWaiting": MessageLookupByLibrary.simpleMessage(
       "Waiting for the first run",
     ),
@@ -846,23 +866,22 @@ class MessageLookup extends MessageLookupByLibrary {
       "This token is already in the list",
     ),
     "po0TokenName": MessageLookupByLibrary.simpleMessage("Name (optional)"),
-    "po0TokenType": MessageLookupByLibrary.simpleMessage("Type"),
     "po0Tokens": MessageLookupByLibrary.simpleMessage("Tokens"),
     "po0TokensEmpty": MessageLookupByLibrary.simpleMessage("Not configured"),
     "po0TokensEmptyDesc": MessageLookupByLibrary.simpleMessage(
-      "Add a po0 pgnfw_ token or a ggy whitelist link; each entry checks its own whitelist",
+      "Add the pgnfw_ token from each po0 machine; every token checks its own whitelist",
     ),
     "po0TokensInvalid": MessageLookupByLibrary.simpleMessage(
       "A token starts with pgnfw_ and has no spaces or separators",
     ),
-    "po0Usage": m34,
+    "po0Usage": m35,
     "po0Whitelist": MessageLookupByLibrary.simpleMessage("Whitelist"),
     "po0WhitelistNow": MessageLookupByLibrary.simpleMessage("Whitelist now"),
     "port": MessageLookupByLibrary.simpleMessage("Port"),
     "portConflictTip": MessageLookupByLibrary.simpleMessage(
       "Please enter a different port",
     ),
-    "portTip": m35,
+    "portTip": m36,
     "preferH3Desc": MessageLookupByLibrary.simpleMessage(
       "Prefer HTTP/3 for DoH",
     ),
@@ -895,7 +914,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "project": MessageLookupByLibrary.simpleMessage("Project"),
     "providers": MessageLookupByLibrary.simpleMessage("External resources"),
     "proxies": MessageLookupByLibrary.simpleMessage("Proxies"),
-    "proxiesCount": m36,
+    "proxiesCount": m37,
     "proxiesEmpty": MessageLookupByLibrary.simpleMessage("Proxies are empty"),
     "proxyChains": MessageLookupByLibrary.simpleMessage("Proxy chain"),
     "proxyDetectedAbnormal": MessageLookupByLibrary.simpleMessage(
@@ -1118,7 +1137,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "ruleSet": MessageLookupByLibrary.simpleMessage("Rule set"),
     "ruleTarget": MessageLookupByLibrary.simpleMessage("Rule target"),
     "rules": MessageLookupByLibrary.simpleMessage("Rules"),
-    "rulesCount": m37,
+    "rulesCount": m38,
     "save": MessageLookupByLibrary.simpleMessage("Save"),
     "saveChanges": MessageLookupByLibrary.simpleMessage("Save the changes?"),
     "script": MessageLookupByLibrary.simpleMessage("Script"),
@@ -1130,7 +1149,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "search": MessageLookupByLibrary.simpleMessage("Search"),
     "seconds": MessageLookupByLibrary.simpleMessage("seconds"),
-    "secondsCount": m38,
+    "secondsCount": m39,
     "selectAll": MessageLookupByLibrary.simpleMessage("Select all"),
     "selectMatchTarget": MessageLookupByLibrary.simpleMessage(
       "Select MATCH-TARGET",
@@ -1149,7 +1168,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Please select a sub-rule",
     ),
     "selected": MessageLookupByLibrary.simpleMessage("Selected"),
-    "selectedCountTitle": m39,
+    "selectedCountTitle": m40,
     "settings": MessageLookupByLibrary.simpleMessage("Settings"),
     "show": MessageLookupByLibrary.simpleMessage("Show"),
     "showLess": MessageLookupByLibrary.simpleMessage("Collapse"),
@@ -1270,7 +1289,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "urlDesc": MessageLookupByLibrary.simpleMessage(
       "Obtain a profile from a URL",
     ),
-    "urlTip": m40,
+    "urlTip": m41,
     "useHosts": MessageLookupByLibrary.simpleMessage("Use hosts"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage("Use system hosts"),
     "usedTraffic": MessageLookupByLibrary.simpleMessage("Used traffic"),
@@ -1291,7 +1310,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "WebDAV configuration",
     ),
     "whitelistMode": MessageLookupByLibrary.simpleMessage("Whitelist mode"),
-    "yearsAgo": m41,
+    "yearsAgo": m42,
     "zhCN": MessageLookupByLibrary.simpleMessage("Simplified Chinese"),
   };
 }

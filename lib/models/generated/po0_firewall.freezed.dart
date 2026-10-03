@@ -289,7 +289,7 @@ as String,
 /// @nodoc
 mixin _$Po0FirewallProps {
 
- bool get enable; List<Po0TokenEntry> get tokenEntries; int get pollSeconds;
+ bool get enable; List<Po0TokenEntry> get tokenEntries; int get pollSeconds; bool get ggyEnable; List<Po0TokenEntry> get ggyEntries;
 /// Create a copy of Po0FirewallProps
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -303,20 +303,20 @@ $Po0FirewallPropsCopyWith<Po0FirewallProps> get copyWith => _$Po0FirewallPropsCo
 @override
 bool operator ==(Object other) {
   final _this = this as Po0FirewallProps;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Po0FirewallProps&&(identical(other.enable, _this.enable) || other.enable == _this.enable)&&const DeepCollectionEquality().equals(other.tokenEntries, _this.tokenEntries)&&(identical(other.pollSeconds, _this.pollSeconds) || other.pollSeconds == _this.pollSeconds));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Po0FirewallProps&&(identical(other.enable, _this.enable) || other.enable == _this.enable)&&const DeepCollectionEquality().equals(other.tokenEntries, _this.tokenEntries)&&(identical(other.pollSeconds, _this.pollSeconds) || other.pollSeconds == _this.pollSeconds)&&(identical(other.ggyEnable, _this.ggyEnable) || other.ggyEnable == _this.ggyEnable)&&const DeepCollectionEquality().equals(other.ggyEntries, _this.ggyEntries));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as Po0FirewallProps;
-  return Object.hash(runtimeType,_this.enable,const DeepCollectionEquality().hash(_this.tokenEntries),_this.pollSeconds);
+  return Object.hash(runtimeType,_this.enable,const DeepCollectionEquality().hash(_this.tokenEntries),_this.pollSeconds,_this.ggyEnable,const DeepCollectionEquality().hash(_this.ggyEntries));
 }
 
 @override
 String toString() {
   final _this = this as Po0FirewallProps;
-  return 'Po0FirewallProps(enable: ${_this.enable}, tokenEntries: ${_this.tokenEntries}, pollSeconds: ${_this.pollSeconds})';
+  return 'Po0FirewallProps(enable: ${_this.enable}, tokenEntries: ${_this.tokenEntries}, pollSeconds: ${_this.pollSeconds}, ggyEnable: ${_this.ggyEnable}, ggyEntries: ${_this.ggyEntries})';
 }
 
 
@@ -327,7 +327,7 @@ abstract mixin class $Po0FirewallPropsCopyWith<$Res>  {
   factory $Po0FirewallPropsCopyWith(Po0FirewallProps value, $Res Function(Po0FirewallProps) _then) = _$Po0FirewallPropsCopyWithImpl;
 @useResult
 $Res call({
- bool enable, List<Po0TokenEntry> tokenEntries, int pollSeconds
+ bool enable, List<Po0TokenEntry> tokenEntries, int pollSeconds, bool ggyEnable, List<Po0TokenEntry> ggyEntries
 });
 
 
@@ -344,12 +344,14 @@ class _$Po0FirewallPropsCopyWithImpl<$Res>
 
 /// Create a copy of Po0FirewallProps
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? enable = null,Object? tokenEntries = null,Object? pollSeconds = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? enable = null,Object? tokenEntries = null,Object? pollSeconds = null,Object? ggyEnable = null,Object? ggyEntries = null,}) {
   return _then(Po0FirewallProps(
 enable: null == enable ? _self.enable : enable // ignore: cast_nullable_to_non_nullable
 as bool,tokenEntries: null == tokenEntries ? _self.tokenEntries : tokenEntries // ignore: cast_nullable_to_non_nullable
 as List<Po0TokenEntry>,pollSeconds: null == pollSeconds ? _self.pollSeconds : pollSeconds // ignore: cast_nullable_to_non_nullable
-as int,
+as int,ggyEnable: null == ggyEnable ? _self.ggyEnable : ggyEnable // ignore: cast_nullable_to_non_nullable
+as bool,ggyEntries: null == ggyEntries ? _self.ggyEntries : ggyEntries // ignore: cast_nullable_to_non_nullable
+as List<Po0TokenEntry>,
   ));
 }
 
@@ -434,10 +436,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool enable,  List<Po0TokenEntry> tokenEntries,  int pollSeconds)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool enable,  List<Po0TokenEntry> tokenEntries,  int pollSeconds,  bool ggyEnable,  List<Po0TokenEntry> ggyEntries)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Po0FirewallProps() when $default != null:
-return $default(_that.enable,_that.tokenEntries,_that.pollSeconds);case _:
+return $default(_that.enable,_that.tokenEntries,_that.pollSeconds,_that.ggyEnable,_that.ggyEntries);case _:
   return orElse();
 
 }
@@ -455,10 +457,10 @@ return $default(_that.enable,_that.tokenEntries,_that.pollSeconds);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool enable,  List<Po0TokenEntry> tokenEntries,  int pollSeconds)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool enable,  List<Po0TokenEntry> tokenEntries,  int pollSeconds,  bool ggyEnable,  List<Po0TokenEntry> ggyEntries)  $default,) {final _that = this;
 switch (_that) {
 case _Po0FirewallProps():
-return $default(_that.enable,_that.tokenEntries,_that.pollSeconds);case _:
+return $default(_that.enable,_that.tokenEntries,_that.pollSeconds,_that.ggyEnable,_that.ggyEntries);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -475,10 +477,10 @@ return $default(_that.enable,_that.tokenEntries,_that.pollSeconds);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool enable,  List<Po0TokenEntry> tokenEntries,  int pollSeconds)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool enable,  List<Po0TokenEntry> tokenEntries,  int pollSeconds,  bool ggyEnable,  List<Po0TokenEntry> ggyEntries)?  $default,) {final _that = this;
 switch (_that) {
 case _Po0FirewallProps() when $default != null:
-return $default(_that.enable,_that.tokenEntries,_that.pollSeconds);case _:
+return $default(_that.enable,_that.tokenEntries,_that.pollSeconds,_that.ggyEnable,_that.ggyEntries);case _:
   return null;
 
 }
@@ -490,7 +492,7 @@ return $default(_that.enable,_that.tokenEntries,_that.pollSeconds);case _:
 @JsonSerializable()
 
 class _Po0FirewallProps implements Po0FirewallProps {
-  const _Po0FirewallProps({this.enable = false,  List<Po0TokenEntry> tokenEntries = const [], this.pollSeconds = 5}): _tokenEntries = tokenEntries;
+  const _Po0FirewallProps({this.enable = false,  List<Po0TokenEntry> tokenEntries = const [], this.pollSeconds = 5, this.ggyEnable = false,  List<Po0TokenEntry> ggyEntries = const []}): _tokenEntries = tokenEntries,_ggyEntries = ggyEntries;
   factory _Po0FirewallProps.fromJson(Map<String, dynamic> json) => _$Po0FirewallPropsFromJson(json);
 
 @override@JsonKey() final  bool enable;
@@ -502,6 +504,14 @@ class _Po0FirewallProps implements Po0FirewallProps {
 }
 
 @override@JsonKey() final  int pollSeconds;
+@override@JsonKey() final  bool ggyEnable;
+ final  List<Po0TokenEntry> _ggyEntries;
+@override@JsonKey() List<Po0TokenEntry> get ggyEntries {
+  if (_ggyEntries is EqualUnmodifiableListView) return _ggyEntries;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_ggyEntries);
+}
+
 
 /// Create a copy of Po0FirewallProps
 /// with the given fields replaced by the non-null parameter values.
@@ -516,18 +526,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Po0FirewallProps&&(identical(other.enable, enable) || other.enable == enable)&&const DeepCollectionEquality().equals(other.tokenEntries, _tokenEntries)&&(identical(other.pollSeconds, pollSeconds) || other.pollSeconds == pollSeconds));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Po0FirewallProps&&(identical(other.enable, enable) || other.enable == enable)&&const DeepCollectionEquality().equals(other.tokenEntries, _tokenEntries)&&(identical(other.pollSeconds, pollSeconds) || other.pollSeconds == pollSeconds)&&(identical(other.ggyEnable, ggyEnable) || other.ggyEnable == ggyEnable)&&const DeepCollectionEquality().equals(other.ggyEntries, _ggyEntries));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,enable,const DeepCollectionEquality().hash(_tokenEntries),pollSeconds);
+    return Object.hash(runtimeType,enable,const DeepCollectionEquality().hash(_tokenEntries),pollSeconds,ggyEnable,const DeepCollectionEquality().hash(_ggyEntries));
 }
 
 @override
 String toString() {
-    return 'Po0FirewallProps(enable: $enable, tokenEntries: $tokenEntries, pollSeconds: $pollSeconds)';
+    return 'Po0FirewallProps(enable: $enable, tokenEntries: $tokenEntries, pollSeconds: $pollSeconds, ggyEnable: $ggyEnable, ggyEntries: $ggyEntries)';
 }
 
 
@@ -538,7 +548,7 @@ abstract mixin class _$Po0FirewallPropsCopyWith<$Res> implements $Po0FirewallPro
   factory _$Po0FirewallPropsCopyWith(_Po0FirewallProps value, $Res Function(_Po0FirewallProps) _then) = __$Po0FirewallPropsCopyWithImpl;
 @override @useResult
 $Res call({
- bool enable, List<Po0TokenEntry> tokenEntries, int pollSeconds
+ bool enable, List<Po0TokenEntry> tokenEntries, int pollSeconds, bool ggyEnable, List<Po0TokenEntry> ggyEntries
 });
 
 
@@ -555,12 +565,14 @@ class __$Po0FirewallPropsCopyWithImpl<$Res>
 
 /// Create a copy of Po0FirewallProps
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? enable = null,Object? tokenEntries = null,Object? pollSeconds = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? enable = null,Object? tokenEntries = null,Object? pollSeconds = null,Object? ggyEnable = null,Object? ggyEntries = null,}) {
   return _then(_Po0FirewallProps(
 enable: null == enable ? _self.enable : enable // ignore: cast_nullable_to_non_nullable
 as bool,tokenEntries: null == tokenEntries ? _self._tokenEntries : tokenEntries // ignore: cast_nullable_to_non_nullable
 as List<Po0TokenEntry>,pollSeconds: null == pollSeconds ? _self.pollSeconds : pollSeconds // ignore: cast_nullable_to_non_nullable
-as int,
+as int,ggyEnable: null == ggyEnable ? _self.ggyEnable : ggyEnable // ignore: cast_nullable_to_non_nullable
+as bool,ggyEntries: null == ggyEntries ? _self._ggyEntries : ggyEntries // ignore: cast_nullable_to_non_nullable
+as List<Po0TokenEntry>,
   ));
 }
 

@@ -12,13 +12,70 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 const _maxContentWidth = 920.0;
 
+enum _Service {
+  po0,
+  ggy;
+
+  bool get isGgy => this == _Service.ggy;
+
+  ProviderListenable<Po0FirewallState> get stateProvider =>
+      isGgy ? ggyFirewallProvider : po0FirewallProvider;
+
+  WhitelistScheduler schedulerOf(WidgetRef ref) => isGgy
+      ? ref.read(ggyFirewallProvider.notifier)
+      : ref.read(po0FirewallProvider.notifier);
+
+  bool enabledIn(Po0FirewallProps setting) =>
+      isGgy ? setting.ggyEnable : setting.enable;
+
+  List<Po0TokenEntry> entriesIn(Po0FirewallProps setting) =>
+      isGgy ? setting.ggyEntries : setting.tokenEntries;
+
+  bool hasTokensIn(Po0FirewallProps setting) => isGgy
+      ? ggyLinksOf(setting.ggyEntries).isNotEmpty
+      : po0TokensOf(setting.tokenEntries).isNotEmpty;
+
+  int pollSecondsIn(Po0FirewallProps setting) =>
+      isGgy ? GgyFirewall.pollInterval.inSeconds : setting.pollSeconds;
+
+  Po0FirewallProps withEnabled(Po0FirewallProps setting, bool value) => isGgy
+      ? setting.copyWith(ggyEnable: value)
+      : setting.copyWith(enable: value);
+
+  Po0FirewallProps withEntries(
+    Po0FirewallProps setting,
+    List<Po0TokenEntry> entries,
+  ) => isGgy
+      ? setting.copyWith(ggyEntries: entries)
+      : setting.copyWith(tokenEntries: entries);
+}
+
 class Po0FirewallView extends StatelessWidget {
   const Po0FirewallView({super.key});
 
   @override
+  Widget build(BuildContext context) => const _WhitelistPage(_Service.po0);
+}
+
+class GgyFirewallView extends StatelessWidget {
+  const GgyFirewallView({super.key});
+
+  @override
+  Widget build(BuildContext context) => const _WhitelistPage(_Service.ggy);
+}
+
+class _WhitelistPage extends StatelessWidget {
+  const _WhitelistPage(this.service);
+
+  final _Service service;
+
+  @override
   Widget build(BuildContext context) {
+    final appLocalizations = context.appLocalizations;
     return BaseScaffold(
-      title: context.appLocalizations.po0Firewall,
+      title: service.isGgy
+          ? appLocalizations.ggyFirewall
+          : appLocalizations.po0Firewall,
       body: Builder(
         builder: (context) => ListView(
           padding: EdgeInsets.fromLTRB(
@@ -31,15 +88,15 @@ class Po0FirewallView extends StatelessWidget {
             Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: _maxContentWidth),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _OverviewPanel(),
-                    SizedBox(height: 12),
-                    _SettingsRow(),
-                    _TokensSection(),
-                    _TokenResults(),
-                    _DirectTip(),
+                    _OverviewPanel(service),
+                    const SizedBox(height: 12),
+                    _SettingsRow(service),
+                    _TokensSection(service),
+                    _TokenResults(service),
+                    const _DirectTip(),
                   ],
                 ),
               ),
@@ -58,6 +115,7 @@ Po0Overview po0OverviewOf(
   required bool enabled,
   required bool hasTokens,
   required Po0FirewallState state,
+  String? noTokensTitle,
 }) {
   final results = state.results;
   final applied = results
@@ -74,7 +132,7 @@ Po0Overview po0OverviewOf(
     return (
       icon: Icons.key_off_rounded,
       tone: GlassTone.warning,
-      title: appLocalizations.po0StatusNoToken,
+      title: noTokensTitle ?? appLocalizations.po0StatusNoToken,
     );
   }
   if (state.isRunning) {
@@ -144,33 +202,38 @@ class _TickerState extends State<_Ticker> {
 }
 
 class _OverviewPanel extends ConsumerWidget {
-  const _OverviewPanel();
+  const _OverviewPanel(this.service);
+
+  final _Service service;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appLocalizations = context.appLocalizations;
     final setting = ref.watch(po0FirewallSettingProvider);
-    final state = ref.watch(po0FirewallProvider);
-    final notifier = ref.read(po0FirewallProvider.notifier);
-    final hasTokens = po0TokensOf(setting.tokenEntries).isNotEmpty;
+    final state = ref.watch(service.stateProvider);
+    final notifier = service.schedulerOf(ref);
+    final enabled = service.enabledIn(setting);
+    final hasTokens = service.hasTokensIn(setting);
     final overview = po0OverviewOf(
       appLocalizations,
-      enabled: setting.enable,
+      enabled: enabled,
       hasTokens: hasTokens,
       state: state,
+      noTokensTitle: service.isGgy ? appLocalizations.ggyStatusNoLink : null,
     );
     final color = context.toneColor(overview.tone);
-    final canRun = setting.enable && hasTokens && !state.isRunning;
+    final canRun = enabled && hasTokens && !state.isRunning;
     final exitIp = state.results.map((it) => it.currentIp).nonNulls.firstOrNull;
     final actions = Wrap(
       spacing: 10,
       runSpacing: 10,
       children: [
-        OutlinedButton.icon(
-          onPressed: canRun ? () => unawaited(notifier.query()) : null,
-          icon: const Icon(Icons.travel_explore_rounded, size: 18),
-          label: Text(appLocalizations.po0QueryStatus),
-        ),
+        if (!service.isGgy)
+          OutlinedButton.icon(
+            onPressed: canRun ? () => unawaited(notifier.query()) : null,
+            icon: const Icon(Icons.travel_explore_rounded, size: 18),
+            label: Text(appLocalizations.po0QueryStatus),
+          ),
         FilledButton.icon(
           onPressed: canRun ? () => unawaited(notifier.whitelist()) : null,
           icon: const Icon(Icons.bolt_rounded, size: 18),
@@ -208,9 +271,14 @@ class _OverviewPanel extends ConsumerWidget {
                       builder: (context) => _OverviewMeta(
                         exitIp: exitIp,
                         lastRunAt: state.lastRunAt,
-                        pollSeconds: setting.enable
-                            ? setting.pollSeconds
+                        pollSeconds: enabled
+                            ? service.pollSecondsIn(setting)
                             : null,
+                        idleText: service.isGgy
+                            ? appLocalizations.ggyAutoWhitelistDesc(
+                                GgyFirewall.pollInterval.inSeconds,
+                              )
+                            : appLocalizations.po0AutoWhitelistDesc,
                       ),
                     ),
                   ],
@@ -242,11 +310,13 @@ class _OverviewMeta extends StatelessWidget {
     required this.exitIp,
     required this.lastRunAt,
     required this.pollSeconds,
+    required this.idleText,
   });
 
   final String? exitIp;
   final DateTime? lastRunAt;
   final int? pollSeconds;
+  final String idleText;
 
   @override
   Widget build(BuildContext context) {
@@ -258,7 +328,7 @@ class _OverviewMeta extends StatelessWidget {
       color: context.colorScheme.onSurfaceVariant,
     );
     if (exitIp == null && lastRunAt == null) {
-      return Text(appLocalizations.po0AutoWhitelistDesc, style: style);
+      return Text(idleText, style: style);
     }
     return Wrap(
       spacing: 8,
@@ -334,27 +404,32 @@ class _StatusBadge extends StatelessWidget {
 }
 
 class _SettingsRow extends StatelessWidget {
-  const _SettingsRow();
+  const _SettingsRow(this.service);
+
+  final _Service service;
 
   @override
   Widget build(BuildContext context) {
+    final auto = _AutoWhitelistTile(service);
+    if (service.isGgy) {
+      return auto;
+    }
     return LayoutBuilder(
       builder: (_, constraints) {
-        const auto = _AutoWhitelistTile();
         const interval = _PollIntervalTile();
         if (constraints.maxWidth < 600) {
-          return const Column(
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [auto, SizedBox(height: 12), interval],
+            children: [auto, const SizedBox(height: 12), interval],
           );
         }
-        return const IntrinsicHeight(
+        return IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(flex: 3, child: auto),
-              SizedBox(width: 12),
-              Expanded(flex: 2, child: interval),
+              const SizedBox(width: 12),
+              const Expanded(flex: 2, child: interval),
             ],
           ),
         );
@@ -364,17 +439,19 @@ class _SettingsRow extends StatelessWidget {
 }
 
 class _AutoWhitelistTile extends ConsumerWidget {
-  const _AutoWhitelistTile();
+  const _AutoWhitelistTile(this.service);
+
+  final _Service service;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appLocalizations = context.appLocalizations;
     final enabled = ref.watch(
-      po0FirewallSettingProvider.select((state) => state.enable),
+      po0FirewallSettingProvider.select(service.enabledIn),
     );
     void toggle(bool value) => ref
         .read(po0FirewallSettingProvider.notifier)
-        .update((state) => state.copyWith(enable: value));
+        .update((state) => service.withEnabled(state, value));
     return GlassButton(
       padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
       onTap: () => toggle(!enabled),
@@ -395,7 +472,11 @@ class _AutoWhitelistTile extends ConsumerWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  appLocalizations.po0AutoWhitelistDesc,
+                  service.isGgy
+                      ? appLocalizations.ggyAutoWhitelistDesc(
+                          GgyFirewall.pollInterval.inSeconds,
+                        )
+                      : appLocalizations.po0AutoWhitelistDesc,
                   style: context.textTheme.bodySmall?.copyWith(
                     color: context.colorScheme.onSurfaceVariant,
                   ),
@@ -492,12 +573,15 @@ class _PollIntervalTile extends ConsumerWidget {
 }
 
 class _TokensSection extends ConsumerWidget {
-  const _TokensSection();
+  const _TokensSection(this.service);
+
+  final _Service service;
 
   Future<void> _edit(WidgetRef ref, {int? index}) async {
-    final entries = ref.read(po0FirewallSettingProvider).tokenEntries;
+    final entries = service.entriesIn(ref.read(po0FirewallSettingProvider));
     final entry = await dialogs.showCommonDialog<Po0TokenEntry>(
       child: _TokenEntryDialog(
+        service: service,
         entry: index == null ? null : entries[index],
         otherTokens: {
           for (final (i, it) in entries.indexed)
@@ -511,13 +595,11 @@ class _TokensSection extends ConsumerWidget {
     ref
         .read(po0FirewallSettingProvider.notifier)
         .update(
-          (state) => state.copyWith(
-            tokenEntries: [
-              for (final (i, it) in state.tokenEntries.indexed)
-                i == index ? entry : it,
-              if (index == null) entry,
-            ],
-          ),
+          (state) => service.withEntries(state, [
+            for (final (i, it) in service.entriesIn(state).indexed)
+              i == index ? entry : it,
+            if (index == null) entry,
+          ]),
         );
   }
 
@@ -525,7 +607,9 @@ class _TokensSection extends ConsumerWidget {
     final appLocalizations = context.appLocalizations;
     final confirmed = await dialogs.showMessage(
       message: TextSpan(
-        text: appLocalizations.deleteTip(appLocalizations.po0Token),
+        text: appLocalizations.deleteTip(
+          service.isGgy ? appLocalizations.ggyLink : appLocalizations.po0Token,
+        ),
       ),
     );
     if (confirmed != true) {
@@ -534,8 +618,9 @@ class _TokensSection extends ConsumerWidget {
     ref
         .read(po0FirewallSettingProvider.notifier)
         .update(
-          (state) => state.copyWith(
-            tokenEntries: [...state.tokenEntries]..removeAt(index),
+          (state) => service.withEntries(
+            state,
+            [...service.entriesIn(state)]..removeAt(index),
           ),
         );
   }
@@ -544,17 +629,23 @@ class _TokensSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final appLocalizations = context.appLocalizations;
     final entries = ref.watch(
-      po0FirewallSettingProvider.select((state) => state.tokenEntries),
+      po0FirewallSettingProvider.select(service.entriesIn),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         GlassSectionLabel(
-          appLocalizations.po0Tokens,
+          service.isGgy
+              ? appLocalizations.ggyLinks
+              : appLocalizations.po0Tokens,
           trailing: TextButton.icon(
             onPressed: () => _edit(ref),
             icon: const Icon(Icons.add_rounded, size: 18),
-            label: Text(appLocalizations.po0AddToken),
+            label: Text(
+              service.isGgy
+                  ? appLocalizations.ggyAddLink
+                  : appLocalizations.po0AddToken,
+            ),
           ),
           padding: const EdgeInsets.fromLTRB(6, 16, 0, 6),
         ),
@@ -578,7 +669,9 @@ class _TokensSection extends ConsumerWidget {
                         style: context.textTheme.titleSmall,
                       ),
                       Text(
-                        appLocalizations.po0TokensEmptyDesc,
+                        service.isGgy
+                            ? appLocalizations.ggyLinksEmptyDesc
+                            : appLocalizations.po0TokensEmptyDesc,
                         style: context.textTheme.bodySmall?.copyWith(
                           color: context.colorScheme.onSurfaceVariant,
                         ),
@@ -670,8 +763,13 @@ class _TokenEntryItem extends StatelessWidget {
 }
 
 class _TokenEntryDialog extends StatefulWidget {
-  const _TokenEntryDialog({required this.entry, required this.otherTokens});
+  const _TokenEntryDialog({
+    required this.service,
+    required this.entry,
+    required this.otherTokens,
+  });
 
+  final _Service service;
   final Po0TokenEntry? entry;
   final Set<String> otherTokens;
 
@@ -685,25 +783,14 @@ class _TokenEntryDialogState extends State<_TokenEntryDialog> {
     text: widget.entry?.token,
   );
   late final _nameController = TextEditingController(text: widget.entry?.name);
-  late Po0TokenKind _kind = Po0Token(widget.entry?.token ?? '').kind;
 
-  bool get _isGgy => _kind == Po0TokenKind.ggy;
+  bool get _isGgy => widget.service.isGgy;
 
   @override
   void dispose() {
     _tokenController.dispose();
     _nameController.dispose();
     super.dispose();
-  }
-
-  void _setKind(Po0TokenKind kind) {
-    if (kind == _kind) {
-      return;
-    }
-    setState(() => _kind = kind);
-    if (_tokenController.text.trim().isNotEmpty) {
-      _formKey.currentState?.validate();
-    }
   }
 
   String? _validateToken(String? value) {
@@ -721,7 +808,9 @@ class _TokenEntryDialogState extends State<_TokenEntryDialog> {
       return appLocalizations.po0TokensInvalid;
     }
     if (widget.otherTokens.contains(token)) {
-      return appLocalizations.po0TokenDuplicate;
+      return _isGgy
+          ? appLocalizations.ggyLinkDuplicate
+          : appLocalizations.po0TokenDuplicate;
     }
     return null;
   }
@@ -741,10 +830,14 @@ class _TokenEntryDialogState extends State<_TokenEntryDialog> {
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
+    final isNew = widget.entry == null;
     return CommonDialog(
-      title: widget.entry == null
-          ? appLocalizations.po0AddToken
-          : appLocalizations.po0EditToken,
+      title: switch ((_isGgy, isNew)) {
+        (true, true) => appLocalizations.ggyAddLink,
+        (true, false) => appLocalizations.ggyEditLink,
+        (false, true) => appLocalizations.po0AddToken,
+        (false, false) => appLocalizations.po0EditToken,
+      },
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
@@ -760,10 +853,9 @@ class _TokenEntryDialogState extends State<_TokenEntryDialog> {
           child: Column(
             spacing: 24,
             children: [
-              _TokenKindField(value: _kind, onChanged: _setKind),
               TextFormField(
                 controller: _tokenController,
-                autofocus: widget.entry == null,
+                autofocus: isNew,
                 inputFormatters: TextInputLimits.limit(
                   _isGgy ? TextInputLimits.url : TextInputLimits.password,
                 ),
@@ -794,78 +886,14 @@ class _TokenEntryDialogState extends State<_TokenEntryDialog> {
   }
 }
 
-/// A field-shaped menu button: the menu opens under the field at its width and
-/// takes the app's glass `menuTheme`, which a `DropdownButton` route ignores.
-class _TokenKindField extends StatelessWidget {
-  const _TokenKindField({required this.value, required this.onChanged});
-
-  final Po0TokenKind value;
-  final ValueChanged<Po0TokenKind> onChanged;
-
-  String _labelOf(AppLocalizations appLocalizations, Po0TokenKind kind) {
-    return switch (kind) {
-      Po0TokenKind.po0 => 'po0',
-      Po0TokenKind.ggy => appLocalizations.ggyWhitelistLink,
-    };
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final appLocalizations = context.appLocalizations;
-    return LayoutBuilder(
-      builder: (context, constraints) => MenuAnchor(
-        crossAxisUnconstrained: false,
-        alignmentOffset: const Offset(0, 6),
-        style: MenuStyle(
-          fixedSize: WidgetStatePropertyAll(
-            Size.fromWidth(constraints.maxWidth),
-          ),
-        ),
-        menuChildren: [
-          for (final kind in Po0TokenKind.values)
-            MenuItemButton(
-              onPressed: () => onChanged(kind),
-              trailingIcon: kind == value
-                  ? Icon(
-                      Icons.check_rounded,
-                      color: context.colorScheme.primary,
-                    )
-                  : null,
-              child: Text(_labelOf(appLocalizations, kind)),
-            ),
-        ],
-        builder: (context, controller, _) => InkWell(
-          borderRadius: AppRadius.small,
-          onTap: () =>
-              controller.isOpen ? controller.close() : controller.open(),
-          child: InputDecorator(
-            isFocused: controller.isOpen,
-            decoration: InputDecoration(
-              labelText: appLocalizations.po0TokenType,
-              suffixIcon: Icon(
-                controller.isOpen
-                    ? Icons.expand_less_rounded
-                    : Icons.expand_more_rounded,
-              ),
-            ),
-            child: Text(
-              _labelOf(appLocalizations, value),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _TokenResults extends ConsumerWidget {
-  const _TokenResults();
+  const _TokenResults(this.service);
+
+  final _Service service;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final results = ref.watch(po0FirewallProvider.select((it) => it.results));
+    final results = ref.watch(service.stateProvider.select((it) => it.results));
     if (results.isEmpty) {
       return const SizedBox.shrink();
     }

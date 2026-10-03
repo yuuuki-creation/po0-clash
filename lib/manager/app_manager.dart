@@ -58,9 +58,13 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
     ref.listenManual(initProvider, (prev, next) {
       if (next) {
         ref.read(po0FirewallProvider.notifier).start();
+        ref.read(ggyFirewallProvider.notifier).start();
       }
     }, fireImmediately: true);
-    po0Screen?.listen(ref.read(po0FirewallProvider.notifier).setScreenOn);
+    po0Screen?.listen((screenOn) {
+      ref.read(po0FirewallProvider.notifier).setScreenOn(screenOn);
+      ref.read(ggyFirewallProvider.notifier).setScreenOn(screenOn);
+    });
     if (system.isDesktop) {
       _keepOneDesktopRoute();
     }
@@ -110,6 +114,7 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
       permissions.check(ref.read);
       render?.resume();
       ref.read(po0FirewallProvider.notifier).pollNow();
+      ref.read(ggyFirewallProvider.notifier).pollNow();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) {
           return;

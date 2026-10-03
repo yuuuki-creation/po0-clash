@@ -29,6 +29,11 @@ class _FakePo0Firewall extends Po0Firewall {
   Future<void> query() async => queries++;
 }
 
+class _FakeGgyFirewall extends GgyFirewall {
+  @override
+  Po0FirewallState build() => const Po0FirewallState();
+}
+
 const _enabled = Po0FirewallProps(
   enable: true,
   tokenEntries: [
@@ -65,6 +70,7 @@ Future<_FakePo0Firewall> _pump(
   required Po0FirewallProps props,
   Po0FirewallState state = const Po0FirewallState(),
   bool settle = true,
+  Widget view = const Po0FirewallView(),
 }) async {
   const size = Size(1200, 1000);
   tester.view.physicalSize = size;
@@ -76,6 +82,7 @@ Future<_FakePo0Firewall> _pump(
     overrides: [
       po0FirewallSettingProvider.overrideWithBuild((_, _) => props),
       po0FirewallProvider.overrideWith(() => fake),
+      ggyFirewallProvider.overrideWith(_FakeGgyFirewall.new),
     ],
   );
   addTearDown(container.dispose);
@@ -84,7 +91,7 @@ Future<_FakePo0Firewall> _pump(
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: const TestApp(child: Po0FirewallView()),
+      child: TestApp(child: view),
     ),
   );
   if (settle) {
@@ -173,48 +180,58 @@ void main() {
     expect(find.text('Office'), findsOneWidget);
   });
 
-  testWidgets('adds a ggy link picked from the type menu', (tester) async {
-    await _pump(tester, props: const Po0FirewallProps(enable: true));
-    await tester.tap(find.text('Add token'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('po0'));
-    await tester.pumpAndSettle();
-    final field = tester.getRect(find.byType(InputDecorator).first);
-    final menu = tester.getRect(
-      find.ancestor(
-        of: find.text('ggy whitelist link'),
-        matching: find.byType(MenuItemButton),
-      ),
+  testWidgets('the ggy page keeps its own links and switch', (tester) async {
+    await _pump(
+      tester,
+      props: const Po0FirewallProps(ggyEnable: true),
+      view: const GgyFirewallView(),
     );
-    final panel = tester.getRect(
-      find
-          .ancestor(
-            of: find.text('ggy whitelist link'),
-            matching: find.byType(Material),
-          )
-          .at(1),
-    );
-    expect(menu.top, greaterThanOrEqualTo(field.bottom));
-    expect(panel.left, field.left);
-    expect(panel.width, field.width);
-    await tester.tap(find.text('ggy whitelist link'));
-    await tester.pumpAndSettle();
-    expect(find.text('ggy whitelist link'), findsOneWidget);
+    expect(find.text('ggy firewall whitelist'), findsOneWidget);
+    expect(find.text('Add a link to start'), findsOneWidget);
+    expect(find.text('Refresh interval'), findsNothing);
+    expect(find.text('Check status'), findsNothing);
+    expect(find.text('Whitelist now'), findsOneWidget);
 
+    await tester.tap(find.text('Add link'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextFormField), findsNWidgets(2));
     final link = find.byType(TextFormField).first;
     await tester.enterText(link, 'pgnfw_new');
     await tester.tap(find.text('Submit'));
     await tester.pumpAndSettle();
     expect(
-      find.textContaining('Paste the full whitelist link'),
+      find.text(
+        'Paste the full whitelist link from ggy '
+        '(https://www.guguyun.com/…?token=…)',
+      ),
       findsOneWidget,
     );
 
     await tester.enterText(link, _ggyLink);
     await tester.tap(find.text('Submit'));
     await tester.pumpAndSettle();
-    expect(_setting().tokenEntries, const [Po0TokenEntry(token: _ggyLink)]);
+    expect(_setting().ggyEntries, const [Po0TokenEntry(token: _ggyLink)]);
+    expect(_setting().tokenEntries, isEmpty);
     expect(find.byIcon(Icons.link_rounded), findsOneWidget);
+
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+    expect(_setting().ggyEnable, isFalse);
+    expect(_setting().enable, isFalse);
+  });
+
+  testWidgets('the po0 page does not offer ggy links', (tester) async {
+    await _pump(tester, props: const Po0FirewallProps(enable: true));
+    await tester.tap(find.text('Add token'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, _ggyLink);
+    await tester.tap(find.text('Submit'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('A token starts with pgnfw_ and has no spaces or separators'),
+      findsOneWidget,
+    );
+    expect(_setting().tokenEntries, isEmpty);
   });
 
   testWidgets('rejects malformed and duplicate tokens', (tester) async {

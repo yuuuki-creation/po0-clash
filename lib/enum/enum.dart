@@ -321,6 +321,7 @@ enum PageLabel {
   resources,
   connections,
   po0,
+  ggy,
   activity,
 }
 

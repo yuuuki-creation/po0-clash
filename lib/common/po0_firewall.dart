@@ -65,12 +65,21 @@ String? _ggyTokenOf(String value) {
 }
 
 /// The first entry wins when a token is listed twice, as with the old string.
-List<({Po0Token token, String name})> po0TokensOf(List<Po0TokenEntry> entries) {
+List<({Po0Token token, String name})> po0TokensOf(
+  List<Po0TokenEntry> entries,
+) => _validEntries(entries, isPo0Token);
+
+List<({Po0Token token, String name})> ggyLinksOf(List<Po0TokenEntry> entries) =>
+    _validEntries(entries, isGgyLink);
+
+List<({Po0Token token, String name})> _validEntries(
+  List<Po0TokenEntry> entries,
+  bool Function(String value) isValid,
+) {
   final seen = <String>{};
   return [
     for (final entry in entries)
-      if ((isPo0Token(entry.token) || isGgyLink(entry.token)) &&
-          seen.add(entry.token))
+      if (isValid(entry.token) && seen.add(entry.token))
         (token: Po0Token(entry.token), name: entry.name),
   ];
 }

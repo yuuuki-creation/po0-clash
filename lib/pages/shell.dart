@@ -336,6 +336,15 @@ class _SidebarItem extends ConsumerWidget {
           hasTokens: po0TokensOf(setting.tokenEntries).isNotEmpty,
           state: ref.watch(po0FirewallProvider),
         ).title;
+      case PageLabel.ggy:
+        final setting = ref.watch(po0FirewallSettingProvider);
+        return po0OverviewOf(
+          appLocalizations,
+          enabled: setting.ggyEnable,
+          hasTokens: ggyLinksOf(setting.ggyEntries).isNotEmpty,
+          state: ref.watch(ggyFirewallProvider),
+          noTokensTitle: appLocalizations.ggyStatusNoLink,
+        ).title;
       case PageLabel.activity:
         return appLocalizations.activityDesc;
       default:

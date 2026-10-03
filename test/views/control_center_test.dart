@@ -1,3 +1,4 @@
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
@@ -119,6 +120,50 @@ void main() {
     await tester.tap(find.text('TUN'));
     await tester.pumpAndSettle();
     expect(route(), (tun: true, systemProxy: false));
+  });
+
+  test('the whitelist card shows what has entries, else po0', () {
+    expect(whitelistPagesOf(po0: false, ggy: false), [PageLabel.po0]);
+    expect(whitelistPagesOf(po0: true, ggy: false), [PageLabel.po0]);
+    expect(whitelistPagesOf(po0: false, ggy: true), [PageLabel.ggy]);
+    expect(whitelistPagesOf(po0: true, ggy: true), [
+      PageLabel.po0,
+      PageLabel.ggy,
+    ]);
+  });
+
+  testWidgets('the whitelist card takes turns only while both have entries', (
+    tester,
+  ) async {
+    void setEntries({required bool po0}) => container
+        .read(po0FirewallSettingProvider.notifier)
+        .update(
+          (state) => state.copyWith(
+            tokenEntries: [if (po0) const Po0TokenEntry(token: 'pgnfw_a')],
+            ggyEntries: const [
+              Po0TokenEntry(
+                token: 'https://www.guguyun.com/f/whitelist?token=ctecsfw_x',
+              ),
+            ],
+          ),
+        );
+
+    setEntries(po0: true);
+    await pump(tester, const WhitelistStatusCard());
+    expect(find.text('po0', findRichText: true), findsOneWidget);
+    await tester.pump(WhitelistStatusCard.rotation);
+    await tester.pumpAndSettle();
+    expect(find.text('ggy', findRichText: true), findsOneWidget);
+    expect(find.text('po0', findRichText: true), findsNothing);
+
+    await tester.tap(find.byType(WhitelistStatusCard));
+    expect(container.read(currentPageLabelProvider), PageLabel.ggy);
+
+    setEntries(po0: false);
+    await tester.pump(WhitelistStatusCard.rotation * 2);
+    await tester.pumpAndSettle();
+    expect(find.text('ggy', findRichText: true), findsOneWidget);
+    expect(find.text('po0', findRichText: true), findsNothing);
   });
 
   testWidgets('the control center lays out narrow and wide', (tester) async {
