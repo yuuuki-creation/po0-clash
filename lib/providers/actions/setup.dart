@@ -329,8 +329,13 @@ class SetupAction extends _$SetupAction {
       ),
     );
     final overrideDns = ref.read(overrideDnsProvider);
-    final po0FirewallEnable = ref.read(
-      po0FirewallSettingProvider.select((state) => state.enable),
+    final (:po0FirewallEnable, :ggyFirewallEnable) = ref.read(
+      po0FirewallSettingProvider.select(
+        (state) => (
+          po0FirewallEnable: state.enable,
+          ggyFirewallEnable: state.ggyEnable,
+        ),
+      ),
     );
     final appendSystemDns = networkSetting.appendSystemDns;
     final routeMode = networkSetting.routeMode;
@@ -354,7 +359,7 @@ class SetupAction extends _$SetupAction {
     if (scriptContent?.isNotEmpty == true) {
       rawConfig = await handleEvaluate(scriptContent!, rawConfig);
     }
-    if (po0FirewallEnable) {
+    if (po0FirewallEnable || ggyFirewallEnable) {
       try {
         final endpoint = await po0DirectListener.endpoint;
         rawConfig = withPo0DirectListener(rawConfig, endpoint);

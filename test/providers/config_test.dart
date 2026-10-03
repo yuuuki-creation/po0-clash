@@ -302,6 +302,27 @@ void main() {
       expect(props.tokenEntries, const [Po0TokenEntry(token: 'pgnfw_new')]);
     });
 
+    test('ggy links saved among the po0 tokens move to their own list', () {
+      const link = 'https://www.guguyun.com/f/whitelist?token=ctecsfw_x';
+      final props = Po0FirewallProps.safeFromJson({
+        'enable': true,
+        'tokenEntries': [
+          {'token': 'pgnfw_a', 'name': 'home'},
+          {'token': link, 'name': 'ggy'},
+        ],
+      });
+      expect(props.tokenEntries, const [
+        Po0TokenEntry(token: 'pgnfw_a', name: 'home'),
+      ]);
+      expect(props.ggyEntries, const [Po0TokenEntry(token: link, name: 'ggy')]);
+      expect(props.ggyEnable, isTrue);
+
+      final saved = Po0FirewallProps.safeFromJson(
+        jsonDecode(jsonEncode(props.toJson())) as Map<String, Object?>,
+      );
+      expect(saved, props);
+    });
+
     test('a slot saved by an older version is dropped on load', () {
       final props = Po0FirewallProps.safeFromJson({
         'tokenEntries': [

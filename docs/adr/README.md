@@ -29,4 +29,5 @@
 | [0009](0009-frosted-glass-ui.md) | 磨砂玻璃界面与新的操作结构 | 已采纳，视觉部分已取代（见 0010） |
 | [0010](0010-liquid-glass.md) | 改为苹果液态玻璃风格 | 已采纳 |
 | [0011](0011-exclusive-desktop-route.md) | 桌面端虚拟网卡与系统代理二选一 | 已采纳 |
-| [0012](0012-direct-listener-and-ggy.md) | 内核专用直连入口与 ggy 加白链接 | 已采纳 |
+| [0012](0012-direct-listener-and-ggy.md) | 内核专用直连入口与 ggy 加白链接 | 已采纳，ggy 入口与轮询部分已取代（见 0013） |
+| [0013](0013-ggy-page.md) | ggy 作为独立页面，固定 11 秒轮询 | 已采纳 |

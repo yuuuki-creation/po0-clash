@@ -1,6 +1,7 @@
-# po0 防火墙自动加白
+# po0 / ggy 防火墙自动加白
 
-入口：主导航中的 **po0**（中文界面显示「po0 加白」），与仪表盘、代理、配置、工具同级——桌面端在侧边栏，手机端在底部导航栏。
+入口：主导航中的 **po0**（中文界面显示「po0 加白」）和 **ggy**（「ggy 加白」），与仪表盘、代理、配置、工具同级——桌面端在侧边栏，
+手机端在底部导航栏。两个页面结构相同、互不影响，各有自己的开关、列表和结果；下文先讲 po0，ggy 的差异见「ggy 页面」。
 
 ## 页面
 
@@ -18,9 +19,24 @@
 |---|---|
 | 自动加白 | 总开关。关闭时不发任何请求，也不改动路由。 |
 | 刷新间隔 | 每轮检查的间隔，1～3600 秒，默认 5 秒。修改后下一轮立即按新间隔执行。 |
-| Token | 列表，每项为 po0 token（`pgnfw_` 开头，不含空格与分隔符）或 ggy 加白链接，加上可选备注名。添加时第一栏选择类型（默认 po0）。同一项不能重复添加。每一项各自检查自己的白名单、各自补加。 |
+| Token | 列表，每项为 token（`pgnfw_` 开头，不含空格与分隔符）和可选备注名。同一 token 不能重复添加。每个 token 各自查询自己的白名单、各自补加。 |
 | 立即加白 | 手动执行一次 `POST …/add`。 |
-| 查询状态 | 只读 `GET …/<token>`，**不会**占用白名单坑位。ggy 链接没有只读形式，查询同样会写入。 |
+| 查询状态 | 只读 `GET …/<token>`，**不会**占用白名单坑位。 |
+
+## ggy 页面
+
+ggy（guguyun.com）只给一条完整的加白链接，没有只读查询：每次 GET 都会把请求来源的 /24 加进白名单
+（见 [ADR 0012](../adr/0012-direct-listener-and-ggy.md)、[ADR 0013](../adr/0013-ggy-page.md)）。所以 ggy 页面与 po0 有三处不同：
+
+| 项 | ggy |
+|---|---|
+| 列表 | 「加白链接」：每项为 ggy 给的完整链接（`https://…guguyun.com/…?token=…`）和可选备注名，列表里只显示 token 前 12 位 |
+| 间隔 | 固定每 11 秒请求一次链接，没有刷新间隔设置；连续失败时按 22 / 30 秒退避 |
+| 操作 | 只有「立即加白」，没有「查询状态」（查询同样会写入） |
+
+开关独立于 po0（`ggyEnable`），任一开关打开都会注入内核直连入口。返回的 `removed_cidr` 非空（FIFO 挤掉了一条记录）时每次都写日志
+（`[APP] ggy firewall …`）；日志里持续出现 `evicted` 说明 ggy 对已在名单中的网段并不幂等。
+6.0.x 把 ggy 链接和 po0 token 存在同一个列表里，升级后读取配置时自动移到 ggy 列表，并沿用原来的开关状态。
 
 从 po0.5 及更早版本升级时，原来逗号分隔的 token 字符串会自动转换成列表（`@N` 槽位后缀被丢弃），旧的分钟间隔被忽略，刷新间隔取默认 5 秒。
 
@@ -32,7 +48,8 @@
 
 ## 检查与加白
 
-`Po0Firewall`（`lib/providers/po0_firewall.dart`）是常驻的 Riverpod notifier，在应用完成初始化（`initProvider` 变为 true）后启动。
+`Po0Firewall` 与 `GgyFirewall`（`lib/providers/po0_firewall.dart`）是两个常驻的 Riverpod notifier，共用 `WhitelistScheduler`
+的调度逻辑，只各自提供开关、列表与间隔；在应用完成初始化（`initProvider` 变为 true）后启动，下表的事件对两者都生效。
 设计取舍见 [ADR 0004](../adr/0004-per-second-read-only-polling.md)、[ADR 0005](../adr/0005-token-list-and-poll-interval.md) 与 [ADR 0007](../adr/0007-remove-fixed-slots.md)。
 
 每轮对每个 token：
@@ -41,9 +58,7 @@
 2. 当前出口不在白名单 → 走常规流程 `POST …/add`（失败重试 3 次）。
 3. 出口已在白名单（普通记录或服务端的固定槽位记录都算）、防火墙未启用、token 无效或请求失败 → 不写入。
 
-ggy 加白链接没有只读形式（见 [ADR 0012](../adr/0012-direct-listener-and-ggy.md)）：这条链接每次 GET 都会加白，
-所以第 1 步直接请求它，每轮都写一次，「查询状态」对它也同样会写入。返回的 `removed_cidr` 非空（FIFO 挤掉了一条记录）时，
-每次都写入日志。
+ggy 的第 1 步直接请求加白链接本身，每轮都写一次。
 
 一轮结束后等待一个刷新间隔再开始下一轮。默认 5 秒时，被其它设备按 FIFO 挤出白名单后约 5～6 秒内自动补回；间隔越短补回越快，间隔越长补回越慢。
 连续失败时按间隔的 2 / 4 / 8 / 16 倍退避，最长 30 秒（间隔本身超过 30 秒时不再额外退避），成功后恢复原间隔。
@@ -100,14 +115,14 @@ macOS 把整条链交给系统 SecTrust 实时校验，不受影响。
 | 文件 | 职责 |
 |---|---|
 | `lib/common/po0_firewall.dart` | token / ggy 链接解析、/24 比较、IPv4 路由剔除、直连 listener 与出口选择、keep-alive 传输、HTTP 客户端与响应解析 |
-| `lib/models/po0_firewall.dart` | `Po0FirewallProps`（持久化配置）与结果 / 状态模型 |
-| `lib/providers/po0_firewall.dart` | 调度器 `Po0Firewall` 与 `po0FirewallClientProvider` |
+| `lib/models/po0_firewall.dart` | `Po0FirewallProps`（持久化配置，含 ggy 的开关与链接、6.0.x 的迁移）与结果 / 状态模型 |
+| `lib/providers/po0_firewall.dart` | 调度器 `Po0Firewall`、`GgyFirewall`（共用 `WhitelistScheduler`）与 `po0FirewallClientProvider` |
 | `lib/plugins/po0_screen.dart` / `android/.../plugins/Po0ScreenPlugin.kt` | Android 亮屏 / 熄屏信号（`$packageName/po0_screen` 通道） |
 | `lib/providers/config.dart` | `po0FirewallSettingProvider`，并入 `Config`（随备份 / 恢复） |
 | `lib/common/task.dart` | 生成配置时写入直连规则与 `route-exclude-address` |
 | `lib/providers/actions/setup.dart` | 生成配置时注入直连 listener（`withPo0DirectListener`） |
 | `lib/providers/state/system.dart` | Android VPN 路由剔除 |
-| `lib/views/po0_firewall.dart` | po0 页面（概览、设置、token 卡片） |
-| `lib/views/navigation.dart` / `lib/enum/enum.dart` | `PageLabel.po0` 主导航入口 |
+| `lib/views/po0_firewall.dart` | po0 与 ggy 页面（概览、设置、列表、结果卡片，按 `_Service` 区分） |
+| `lib/views/navigation.dart` / `lib/enum/enum.dart` / `lib/pages/shell.dart` | `PageLabel.po0`、`PageLabel.ggy` 主导航入口与侧栏状态 |
 
 测试：`test/common/po0_firewall_test.dart`、`test/providers/po0_firewall_test.dart`、`test/providers/state_derived_test.dart`、`test/providers/config_test.dart`、`test/views/po0_firewall_view_test.dart`。

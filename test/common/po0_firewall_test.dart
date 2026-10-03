@@ -145,15 +145,15 @@ void main() {
       }
     });
 
-    test('ggy links are listed next to po0 tokens', () {
-      final tokens = po0TokensOf([
+    test('po0 tokens and ggy links are read from their own lists', () {
+      final entries = [
         const Po0TokenEntry(token: 'pgnfw_a'),
         Po0TokenEntry(token: _ggyLink.value),
-      ]);
-      expect(tokens.map((it) => it.token), [
+      ];
+      expect(po0TokensOf(entries).map((it) => it.token), [
         const Po0Token('pgnfw_a'),
-        _ggyLink,
       ]);
+      expect(ggyLinksOf(entries).map((it) => it.token), [_ggyLink]);
     });
   });
 

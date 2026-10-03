@@ -35,13 +35,14 @@ fork. Human-facing documentation lives in `docs/` (Chinese).
   VPN route split) without a new ADR. While the proxy runs, requests go through the core's DIRECT-only listener
   (`po0-direct`, ADR 0012), authenticated with per-session credentials. Only po0's own address may fall back to a plain
   DIRECT socket then (`po0FindProxy`); for anything else TUN would capture it and a ggy link would whitelist the node.
-- A ggy whitelist link writes on every GET (ADR 0012), so `Po0FirewallClient.poll`/`query` send it too and the
-  scheduler treats it like a po0 token. Keep it at one request per token per interval; an eviction it reports is
-  always logged.
-- `Po0Firewall` owns scheduling: a read-only query per token every `pollSeconds` (default 1 s), and an add only when
-  the exit is missing (ADR 0004, 0005). Tokens live in `Po0FirewallProps.tokenEntries`; `po0TokensOf` is the only way
-  to turn them into requests. Other code only signals it (`start`, `pollNow`, `onNetworkChanged`, `setScreenOn`); it must not grow a
-  second timer or call the client directly. On Android the screen state comes from `Po0ScreenPlugin`
+- A ggy whitelist link writes on every GET (ADR 0012), so `Po0FirewallClient.poll`/`query` send it too. ggy is its
+  own page and switch (ADR 0013) and polls at the fixed `GgyFirewall.pollInterval` (11 s); do not make it tunable or
+  shorter without the maintainer. An eviction it reports is always logged.
+- `Po0Firewall` (po0) and `GgyFirewall` (ggy) own scheduling, both through the `WhitelistScheduler` mixin: po0 runs a
+  read-only query per token every `pollSeconds` and adds only when the exit is missing (ADR 0004, 0005). po0 tokens
+  live in `Po0FirewallProps.tokenEntries` and ggy links in `ggyEntries`; `po0TokensOf` / `ggyLinksOf` are the only way
+  to turn them into requests. Other code only signals both (`start`, `pollNow`, `onNetworkChanged`, `setScreenOn`); it
+  must not grow another timer or call the client directly. On Android the screen state comes from `Po0ScreenPlugin`
   (`lib/plugins/po0_screen.dart`).
 - On desktop exactly one of TUN and the system proxy is on (ADR 0011). Route changes go through
   `SystemAction.useRoute`; the `AppStateManager` listener runs `reconcileDesktopRoute` for every other writer, and a

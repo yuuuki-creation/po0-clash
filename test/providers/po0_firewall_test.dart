@@ -20,6 +20,15 @@ class _TestPo0Firewall extends Po0Firewall {
   }
 }
 
+class _TestGgyFirewall extends GgyFirewall {
+  final reapplied = <bool>[];
+
+  @override
+  Future<void> reapplyRouting() async {
+    reapplied.add(ref.read(po0FirewallSettingProvider).ggyEnable);
+  }
+}
+
 class _FakeClient extends Po0FirewallClient {
   _FakeClient() : super(send: (_, _) => throw UnimplementedError());
 
@@ -77,9 +86,17 @@ const _tokens = [Po0Token('pgnfw_a'), Po0Token('pgnfw_b')];
 
 const _second = Duration(seconds: 1);
 
+const _ggyLink = 'https://www.guguyun.com/f/whitelist?token=ctecsfw_x';
+
+const _ggyOnly = Po0FirewallProps(
+  ggyEnable: true,
+  ggyEntries: [Po0TokenEntry(token: _ggyLink)],
+);
+
 void main() {
   late _FakeClient client;
   late _TestPo0Firewall notifier;
+  late _TestGgyFirewall ggy;
   late ProviderContainer container;
 
   void createContainer(Po0FirewallProps props) {
@@ -89,9 +106,11 @@ void main() {
         po0FirewallSettingProvider.overrideWithBuild((_, _) => props),
         po0FirewallClientProvider.overrideWithValue(client),
         po0FirewallProvider.overrideWith(() => notifier = _TestPo0Firewall()),
+        ggyFirewallProvider.overrideWith(() => ggy = _TestGgyFirewall()),
       ],
     );
     container.read(po0FirewallProvider);
+    container.read(ggyFirewallProvider);
   }
 
   void updateSetting(Po0FirewallProps Function(Po0FirewallProps) update) {
@@ -283,7 +302,10 @@ void main() {
   test('failures back off up to the cap, never below the interval', () {
     List<int> delays(int seconds) => [
       for (var i = 0; i <= 6; i++)
-        Po0Firewall.nextDelayFor(i, Duration(seconds: seconds)).inSeconds,
+        WhitelistScheduler.nextDelayFor(
+          i,
+          Duration(seconds: seconds),
+        ).inSeconds,
     ];
     expect(delays(1), [1, 2, 4, 8, 16, 30, 30]);
     expect(delays(10), [10, 20, 30, 30, 30, 30, 30]);
@@ -408,5 +430,39 @@ void main() {
     await tester.pump(_second);
     expect(client.polled, hasLength(8));
     disposeInTest();
+  });
+
+  testWidgets('ggy sends its links every 11 seconds, whatever po0 uses', (
+    tester,
+  ) async {
+    createContainer(_ggyOnly.copyWith(pollSeconds: 1));
+    notifier.start();
+    ggy.start();
+    await tester.pump();
+    expect(client.polled, [const Po0Token(_ggyLink)]);
+
+    await tester.pump(const Duration(seconds: 10));
+    expect(client.polled, hasLength(1));
+    await tester.pump(_second);
+    expect(client.polled, hasLength(2));
+    disposeInTest();
+  });
+
+  test('each switch drives only its own list', () async {
+    createContainer(
+      _enabled.copyWith(ggyEntries: const [Po0TokenEntry(token: _ggyLink)]),
+    );
+    notifier.start();
+    ggy.start();
+    await settle();
+    expect(client.polled, _tokens);
+    expect(container.read(ggyFirewallProvider).results, isEmpty);
+
+    updateSetting((state) => state.copyWith(ggyEnable: true));
+    await settle();
+    await settle();
+    expect(ggy.reapplied, [true]);
+    expect(notifier.reapplied, isEmpty);
+    expect(client.whitelisted, [const Po0Token(_ggyLink)]);
   });
 }

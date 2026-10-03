@@ -41,6 +41,12 @@ class Navigation implements NavigationPort {
             const Po0FirewallView(key: GlobalObjectKey(PageLabel.po0)),
       ),
       NavigationItem(
+        icon: const Icon(Icons.security_rounded),
+        label: PageLabel.ggy,
+        builder: (_) =>
+            const GgyFirewallView(key: GlobalObjectKey(PageLabel.ggy)),
+      ),
+      NavigationItem(
         icon: const Icon(Icons.insights_rounded),
         label: PageLabel.activity,
         builder: (_) =>

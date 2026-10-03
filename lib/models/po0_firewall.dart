@@ -26,6 +26,8 @@ abstract class Po0FirewallProps with _$Po0FirewallProps {
     @Default(false) bool enable,
     @Default([]) List<Po0TokenEntry> tokenEntries,
     @Default(5) int pollSeconds,
+    @Default(false) bool ggyEnable,
+    @Default([]) List<Po0TokenEntry> ggyEntries,
   }) = _Po0FirewallProps;
 
   factory Po0FirewallProps.fromJson(Map<String, Object?> json) =>
@@ -37,7 +39,9 @@ abstract class Po0FirewallProps with _$Po0FirewallProps {
     }
     return decodeOrRestoreDefault(
       'po0 firewall settings',
-      () => Po0FirewallProps.fromJson(_migrateLegacyTokens(json)),
+      () => Po0FirewallProps.fromJson(
+        _migrateGgyEntries(_migrateLegacyTokens(json)),
+      ),
       () => defaultPo0FirewallProps,
     );
   }
@@ -55,6 +59,25 @@ Map<String, Object?> _migrateLegacyTokens(Map<String, Object?> json) {
       for (final token in parsePo0Tokens(legacy))
         Po0TokenEntry(token: token.value).toJson(),
     ],
+  };
+}
+
+/// 6.0 kept ggy links in the po0 list under the po0 switch.
+Map<String, Object?> _migrateGgyEntries(Map<String, Object?> json) {
+  final entries = json['tokenEntries'];
+  if (json.containsKey('ggyEntries') || entries is! List) {
+    return json;
+  }
+  bool isGgy(Object? entry) => entry is Map && isGgyLink('${entry['token']}');
+  final ggyEntries = entries.where(isGgy).toList();
+  if (ggyEntries.isEmpty) {
+    return json;
+  }
+  return {
+    ...json,
+    'tokenEntries': entries.where((entry) => !isGgy(entry)).toList(),
+    'ggyEntries': ggyEntries,
+    'ggyEnable': json['enable'] ?? false,
   };
 }
 

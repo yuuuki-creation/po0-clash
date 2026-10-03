@@ -22,9 +22,9 @@ git merge upstream/main
 | `lib/models/state.dart` | `MakeRealProfileState.directCidrs` |
 | `lib/common/task.dart` | 直连规则与 `route-exclude-address` |
 | `lib/providers/state/system.dart` | Android VPN 路由剔除 |
-| `lib/manager/app_manager.dart` / `connectivity_manager.dart` | 调度器启动、网络变化、回到前台、Android 亮屏 / 熄屏 |
+| `lib/manager/app_manager.dart` / `connectivity_manager.dart` | po0 与 ggy 调度器的启动、网络变化、回到前台、Android 亮屏 / 熄屏 |
 | `android/app/src/main/kotlin/com/follow/clash/MainActivity.kt` | 注册 `Po0ScreenPlugin` |
-| `lib/enum/enum.dart` / `lib/common/l10n_labels.dart` / `lib/views/navigation.dart` | `PageLabel.po0` 主导航入口 |
+| `lib/enum/enum.dart` / `lib/common/l10n_labels.dart` / `lib/views/navigation.dart` / `lib/pages/shell.dart` | `PageLabel.po0`、`PageLabel.ggy` 主导航入口与侧栏状态 |
 | `lib/pages/home.dart` | 主页面 fade through 切换（`PageEntrance`），去掉 `_NavigationBarDefaultsM3` |
 | `lib/widgets/sheet.dart` / `lib/common/dialog.dart` / `lib/widgets/list.dart` | 去掉模糊选项，模态背景用 Material 3 scrim；侧边面板样式 |
 | `lib/widgets/widgets.dart` | 导出 `surface_card.dart` |
