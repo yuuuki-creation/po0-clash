@@ -45,12 +45,9 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
       final isStart = ref.read(isStartProvider);
       if (prev != next && isStart) {
         debouncer.call(FunctionTag.suspend, () async {
-          final core = ref.read(coreHandlerProvider);
-          if (next == true) {
-            await core.stopListener();
-          } else {
-            await core.startListener();
-          }
+          await ref
+              .read(setupActionProvider.notifier)
+              .syncListenerWithSuspend();
           ref.read(checkIpNumProvider.notifier).add();
         });
       }
