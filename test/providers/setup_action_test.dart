@@ -283,6 +283,74 @@ void main() {
 
       expect(action.coreRunningCalls, [false]);
     });
+
+    group('syncListenerWithSuspend', () {
+      void useExcludedSsid() {
+        container.dispose();
+        action = TestSetupAction();
+        container = ProviderContainer(
+          overrides: [
+            profilesProvider.overrideWith(TestProfiles.new),
+            setupActionProvider.overrideWith(() => action),
+            commonActionProvider.overrideWith(TestCommonAction.new),
+            excludeSSIDsProvider.overrideWithValue(const ['Office Wi-Fi']),
+          ],
+        );
+        globalState.container = container;
+        container.read(initProvider.notifier).value = true;
+      }
+
+      test('stops the listener on an excluded SSID and restores it', () async {
+        useExcludedSsid();
+        final notifier = container.read(setupActionProvider.notifier);
+        await notifier.setRunning(true);
+
+        container.read(currentSSIDProvider.notifier).value = 'Office Wi-Fi';
+        await notifier.syncListenerWithSuspend();
+        container.read(currentSSIDProvider.notifier).value = 'Home';
+        await notifier.syncListenerWithSuspend();
+
+        expect(action.coreRunningCalls, [true, false, true]);
+      });
+
+      test('leaves a core the user stopped alone', () async {
+        useExcludedSsid();
+        final notifier = container.read(setupActionProvider.notifier);
+        await notifier.setRunning(true);
+        await notifier.setRunning(false);
+        action.coreRunningCalls.clear();
+
+        await notifier.syncListenerWithSuspend();
+
+        expect(action.coreRunningCalls, isEmpty);
+      });
+
+      test('a queued sync does not undo a stop requested after it', () async {
+        useExcludedSsid();
+        final notifier = container.read(setupActionProvider.notifier);
+        await notifier.setRunning(true);
+        action.coreRunningCalls.clear();
+        action.blockCoreCalls = true;
+
+        container.read(currentSSIDProvider.notifier).value = 'Office Wi-Fi';
+        final suspending = notifier.syncListenerWithSuspend();
+        await Future<void>.delayed(Duration.zero);
+        container.read(currentSSIDProvider.notifier).value = 'Home';
+        final resuming = notifier.syncListenerWithSuspend();
+        final stopping = notifier.setRunning(false);
+        await Future<void>.delayed(Duration.zero);
+
+        action.blockCoreCalls = false;
+        for (final gate in action.pendingCoreCalls) {
+          if (!gate.isCompleted) {
+            gate.complete();
+          }
+        }
+        await Future.wait([suspending, resuming, stopping]);
+
+        expect(action.coreRunningCalls, [false, false]);
+      });
+    });
   });
 
   group('latest-intent arbitration', () {

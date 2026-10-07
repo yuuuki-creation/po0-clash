@@ -61,7 +61,9 @@ class ProxyCard extends ConsumerWidget {
                 : GestureDetector(
                     onTap: () => _handleTestCurrentDelay(ref),
                     child: Text(
-                      delay > 0 ? '$delay ms' : 'Timeout',
+                      delay > 0
+                          ? '$delay ms'
+                          : context.appLocalizations.timeout,
                       maxLines: 1,
                       style: context.textTheme.labelSmall?.copyWith(
                         overflow: TextOverflow.ellipsis,

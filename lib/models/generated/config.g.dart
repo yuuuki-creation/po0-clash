@@ -331,25 +331,27 @@ _Config _$ConfigFromJson(Map<String, dynamic> json) => _Config(
       : DAVProps.fromJson(json['davProps'] as Map<String, dynamic>),
   networkProps: json['networkProps'] == null
       ? defaultNetworkProps
-      : NetworkProps.fromJson(json['networkProps'] as Map<String, dynamic>?),
+      : NetworkProps.safeFromJson(
+          json['networkProps'] as Map<String, Object?>?,
+        ),
   vpnProps: json['vpnProps'] == null
       ? defaultVpnProps
-      : VpnProps.fromJson(json['vpnProps'] as Map<String, dynamic>?),
+      : VpnProps.safeFromJson(json['vpnProps'] as Map<String, Object?>?),
   themeProps: ThemeProps.safeFromJson(
     json['themeProps'] as Map<String, Object?>?,
   ),
   proxiesStyleProps: json['proxiesStyleProps'] == null
       ? defaultProxiesStyleProps
-      : ProxiesStyleProps.fromJson(
-          json['proxiesStyleProps'] as Map<String, dynamic>?,
+      : ProxiesStyleProps.safeFromJson(
+          json['proxiesStyleProps'] as Map<String, Object?>?,
         ),
   windowProps: json['windowProps'] == null
       ? defaultWindowProps
-      : WindowProps.fromJson(json['windowProps'] as Map<String, dynamic>?),
+      : WindowProps.safeFromJson(json['windowProps'] as Map<String, Object?>?),
   patchClashConfig: json['patchClashConfig'] == null
       ? defaultClashConfig
-      : PatchClashConfig.fromJson(
-          json['patchClashConfig'] as Map<String, dynamic>,
+      : PatchClashConfig.safeFormJson(
+          json['patchClashConfig'] as Map<String, Object?>?,
         ),
   excludeSSIDs:
       (json['excludeSSIDs'] as List<dynamic>?)

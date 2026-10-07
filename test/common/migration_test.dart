@@ -183,6 +183,22 @@ void main() {
       ]);
     });
 
+    test('starts with defaults for a section that cannot be read', () async {
+      final configMap = _createConfigMap()
+        ..['currentProfileId'] = 7
+        ..['networkProps'] = {'routeMode': 'removedMode'};
+      final store = _FakeMigrationStore(
+        configMap: configMap,
+        version: Migration.currentVersion,
+      );
+
+      final config = await Migration(store: store).run();
+
+      expect(config.currentProfileId, 7);
+      expect(config.networkProps, defaultNetworkProps);
+      expect(store.version, Migration.currentVersion);
+    });
+
     test('keeps the current version when password obfuscation fails', () async {
       final configMap = _createConfigMap(
         davProps: const DAVProps(uri: 'https://example.com/dav', user: 'user'),

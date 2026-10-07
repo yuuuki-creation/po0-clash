@@ -147,7 +147,10 @@ class _DelayPill extends ConsumerWidget {
       return const SizedBox.shrink();
     }
     final color = getDelayColor(delay) ?? context.colorScheme.onSurfaceVariant;
-    return GlassPill(color: color, label: delay > 0 ? '$delay ms' : 'Timeout');
+    return GlassPill(
+      color: color,
+      label: delay > 0 ? '$delay ms' : context.appLocalizations.timeout,
+    );
   }
 }
 
@@ -694,7 +697,7 @@ class IpDetectionChip extends ConsumerWidget {
                         ),
                       )
                     : Text(
-                        'Timeout',
+                        context.appLocalizations.timeout,
                         style: valueStyle?.copyWith(
                           color: context.toneColor(GlassTone.danger),
                         ),

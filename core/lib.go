@@ -289,8 +289,9 @@ func invokeMethod(callback unsafe.Pointer, paramsChar *C.char) {
 }
 
 //export startTUN
-func startTUN(callback unsafe.Pointer, fd C.int, stackChar, addressChar, dnsChar *C.char) bool {
-	started := handleStartTun(callback, int(fd), takeCString(stackChar), takeCString(addressChar), takeCString(dnsChar))
+func startTUN(callback unsafe.Pointer, fd C.int, stackChar, addressChar, dnsChar *C.char) (started bool) {
+	defer recoverExport("startTUN", func() { started = false })
+	started = handleStartTun(callback, int(fd), takeCString(stackChar), takeCString(addressChar), takeCString(dnsChar))
 	if !started {
 		return false
 	}
@@ -369,6 +370,7 @@ func deliverEvent(data []byte) {
 
 //export stopTun
 func stopTun() {
+	defer recoverExport("stopTun", nil)
 	handleStopTun()
 	if isRunning.Load() {
 		handleStopListener()

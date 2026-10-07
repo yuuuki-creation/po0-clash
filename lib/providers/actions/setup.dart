@@ -185,6 +185,17 @@ class SetupAction extends _$SetupAction {
     });
   }
 
+  /// Reads the state when its turn comes, not when the SSID changed: a stop
+  /// requested in between must not be undone by a start that was queued first.
+  Future<void> syncListenerWithSuspend() {
+    return _listenerScheduler.run(() async {
+      if (!ref.read(isStartProvider)) {
+        return;
+      }
+      await setCoreRunning(!ref.read(suspendProvider));
+    });
+  }
+
   void _rollbackRunning(_RunRequest request) {
     if (!_isCurrent(request)) {
       return;

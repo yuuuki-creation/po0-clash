@@ -113,6 +113,17 @@ func safeGo(response MethodResponse, run func()) {
 	}()
 }
 
+// recoverExport is deferred by an //export entry point: the Core is an
+// in-process library on Android, so a panic that escapes one kills the app.
+func recoverExport(name string, onPanic func()) {
+	if r := recover(); r != nil {
+		logError("panic in %s: %v\n%s", name, r, stackTrace())
+		if onPanic != nil {
+			onPanic()
+		}
+	}
+}
+
 func safeGoDetached(name string, run func()) {
 	go func() {
 		defer func() {

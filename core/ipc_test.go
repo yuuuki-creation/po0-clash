@@ -662,6 +662,31 @@ func TestSafeGoDetachedSurvivesAPanic(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 }
 
+func TestRecoverExportContainsAPanic(t *testing.T) {
+	recovered := false
+
+	func() {
+		defer recoverExport("test", func() { recovered = true })
+		panic("export exploded")
+	}()
+
+	if !recovered {
+		t.Fatal("recoverExport did not run its onPanic callback")
+	}
+}
+
+func TestRecoverExportLeavesACleanReturnAlone(t *testing.T) {
+	recovered := false
+
+	func() {
+		defer recoverExport("test", func() { recovered = true })
+	}()
+
+	if recovered {
+		t.Fatal("recoverExport ran its onPanic callback without a panic")
+	}
+}
+
 func drainLogStream(t *testing.T, subscriber observable.Subscription[log.Event], window time.Duration, match func(string) bool) bool {
 	t.Helper()
 	deadline := time.After(window)

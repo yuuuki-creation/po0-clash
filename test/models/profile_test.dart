@@ -28,6 +28,19 @@ void main() {
       expect(info.total, 0);
       expect(info.expire, 0);
     });
+
+    test('skips segments without a value instead of failing the update', () {
+      final info = SubscriptionInfo.formHString(
+        'upload=10; download=20; total=100; expire=200;',
+      );
+
+      expect(info.upload, 10);
+      expect(info.expire, 200);
+      expect(
+        SubscriptionInfo.formHString('upload=10; garbage; download=20'),
+        const SubscriptionInfo(upload: 10, download: 20),
+      );
+    });
   });
 
   group('ProfileExtension', () {
