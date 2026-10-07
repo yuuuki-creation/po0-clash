@@ -1,23 +1,22 @@
-po0-clash v6.1.0：ggy 加白独立成页，拥有自己的开关，固定每 11 秒加白一次。
+po0-clash v6.1.1：修复订阅更新、设置损坏、排除 Wi-Fi 切换和延迟徽章等问题。
 
-## 本次新增
+## 本次修复
 
-- ggy 加白独立为主导航里的一项，与 po0 并列（桌面端在侧边栏，手机端在底栏）：有自己的状态、「自动加白」开关和加白链接列表，与 po0 互不影响
-- ggy 固定每 11 秒请求一次加白链接，不再跟随 po0 的刷新间隔；连续失败时自动放慢
-- ggy 页面只保留「立即加白」：ggy 没有只读查询，「查询状态」与加白是同一个请求
-- 首页的加白卡片只显示在用的那一个（有 token 或链接的）；po0 与 ggy 都在用时每 5 秒轮换显示，点击进入当前显示的页面
-- po0 的添加对话框只收 pgnfw_ token，不再有类型选择
+- 订阅返回的流量信息头末尾带多余的分号或不规范片段时，订阅不再永远更新失败
+- 升级后某一项设置（网络、VPN、代理页样式、窗口、内核设置）无法识别时，只把这一项恢复为默认值，不再提示「本地数据损坏」并强制重置全部数据
+- 连上或离开被排除的 Wi-Fi 时，不再覆盖你刚点下的停止：停止之后不会被稍晚触发的启动重新拉起
+- 延迟徽章、IP 检测和代理卡上的「超时」按界面语言显示，不再固定为英文 Timeout
+- Android 内核在启动或停止虚拟网卡时遇到内部错误，现在会记录日志并报告失败，不再让整个应用直接退出
 
 ## 升级说明
 
-- 从 6.0.x 直接覆盖安装即可：原来混在 po0 列表里的 ggy 链接会自动移到 ggy 页面，并沿用原来的开关状态，无需重新添加
-- 从 5.x 升级同样直接覆盖安装，设置与 po0 token 全部保留
+- 从 6.1.0 或更早版本直接覆盖安装即可，设置、po0 token 与 ggy 加白链接全部保留
 
 ## 安装
 
-- Windows：po0-clash-6.1.0-windows-amd64-setup.exe（安装包）或 .zip（免安装）
+- Windows：po0-clash-6.1.1-windows-amd64-setup.exe（安装包）或 .zip（免安装）
 - macOS：curl -fsSL https://raw.githubusercontent.com/yuuuki-creation/po0-clash/main/scripts/install-macos.sh | bash
-- Android：po0-clash-6.1.0-android-arm64-v8a.apk（主流机型），可与官方 FlClash 共存
+- Android：po0-clash-6.1.1-android-arm64-v8a.apk（主流机型），可与官方 FlClash 共存
 
 ## 已知限制
 
