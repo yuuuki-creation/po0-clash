@@ -482,5 +482,80 @@ void main() {
       expect(restored.windowProps.width, 1280);
       expect(restored.windowProps.height, 720);
     });
+
+    group('with a damaged section', () {
+      Map<String, Object?> damaged(Map<String, Object?> sections) => {
+        'currentProfileId': 7,
+        'overrideDns': true,
+        ...sections,
+      };
+
+      test('restores the default for each section that cannot be read', () {
+        final config = Config.realFromJson(
+          damaged({
+            'networkProps': {'routeMode': 'removedMode'},
+            'vpnProps': {'enable': 'maybe'},
+            'proxiesStyleProps': {'type': 'removedType'},
+            'windowProps': {'width': 'wide'},
+            'patchClashConfig': {'mode': 'removedMode'},
+          }),
+        );
+
+        expect(config.networkProps, defaultNetworkProps);
+        expect(config.vpnProps, defaultVpnProps);
+        expect(config.proxiesStyleProps, defaultProxiesStyleProps);
+        expect(config.windowProps, defaultWindowProps);
+        expect(config.patchClashConfig, defaultClashConfig);
+      });
+
+      test('keeps the sections that decode and the top level values', () {
+        final config = Config.realFromJson(
+          damaged({
+            'networkProps': {'routeMode': 'removedMode'},
+            'vpnProps': {'enable': false},
+            'windowProps': {'width': 1280, 'height': 720},
+          }),
+        );
+
+        expect(config.currentProfileId, 7);
+        expect(config.overrideDns, isTrue);
+        expect(config.vpnProps.enable, isFalse);
+        expect(config.windowProps.width, 1280);
+        expect(config.networkProps, defaultNetworkProps);
+      });
+
+      test('a section missing from the data takes its default', () {
+        final config = Config.realFromJson(damaged({}));
+
+        expect(config.networkProps, defaultNetworkProps);
+        expect(config.patchClashConfig, defaultClashConfig);
+      });
+    });
+  });
+
+  group('safeFromJson restores the default', () {
+    test('on null and on unreadable data', () {
+      expect(NetworkProps.safeFromJson(null), defaultNetworkProps);
+      expect(
+        NetworkProps.safeFromJson({'routeMode': 'removedMode'}),
+        defaultNetworkProps,
+      );
+      expect(VpnProps.safeFromJson(null), defaultVpnProps);
+      expect(VpnProps.safeFromJson({'enable': 'maybe'}), defaultVpnProps);
+      expect(ProxiesStyleProps.safeFromJson(null), defaultProxiesStyleProps);
+      expect(
+        ProxiesStyleProps.safeFromJson({'type': 'removedType'}),
+        defaultProxiesStyleProps,
+      );
+      expect(WindowProps.safeFromJson(null), defaultWindowProps);
+      expect(WindowProps.safeFromJson({'width': 'wide'}), defaultWindowProps);
+    });
+
+    test('but reads valid data as it is', () {
+      expect(
+        NetworkProps.safeFromJson({'routeMode': 'bypassPrivate'}).routeMode,
+        RouteMode.bypassPrivate,
+      );
+    });
   });
 }

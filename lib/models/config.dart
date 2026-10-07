@@ -118,6 +118,17 @@ abstract class WindowProps with _$WindowProps {
 
   factory WindowProps.fromJson(Map<String, Object?>? json) =>
       json == null ? const WindowProps() : _$WindowPropsFromJson(json);
+
+  factory WindowProps.safeFromJson(Map<String, Object?>? json) {
+    if (json == null) {
+      return defaultWindowProps;
+    }
+    return decodeOrRestoreDefault(
+      'window settings',
+      () => WindowProps.fromJson(json),
+      () => defaultWindowProps,
+    );
+  }
 }
 
 extension WindowPropsExt on WindowProps {
@@ -139,6 +150,17 @@ abstract class VpnProps with _$VpnProps {
 
   factory VpnProps.fromJson(Map<String, Object?>? json) =>
       json == null ? defaultVpnProps : _$VpnPropsFromJson(json);
+
+  factory VpnProps.safeFromJson(Map<String, Object?>? json) {
+    if (json == null) {
+      return defaultVpnProps;
+    }
+    return decodeOrRestoreDefault(
+      'vpn settings',
+      () => VpnProps.fromJson(json),
+      () => defaultVpnProps,
+    );
+  }
 }
 
 @freezed
@@ -173,6 +195,17 @@ abstract class NetworkProps with _$NetworkProps {
 
   factory NetworkProps.fromJson(Map<String, Object?>? json) =>
       json == null ? const NetworkProps() : _$NetworkPropsFromJson(json);
+
+  factory NetworkProps.safeFromJson(Map<String, Object?>? json) {
+    if (json == null) {
+      return defaultNetworkProps;
+    }
+    return decodeOrRestoreDefault(
+      'network settings',
+      () => NetworkProps.fromJson(json),
+      () => defaultNetworkProps,
+    );
+  }
 }
 
 @freezed
@@ -188,6 +221,17 @@ abstract class ProxiesStyleProps with _$ProxiesStyleProps {
   factory ProxiesStyleProps.fromJson(Map<String, Object?>? json) => json == null
       ? defaultProxiesStyleProps
       : _$ProxiesStylePropsFromJson(json);
+
+  factory ProxiesStyleProps.safeFromJson(Map<String, Object?>? json) {
+    if (json == null) {
+      return defaultProxiesStyleProps;
+    }
+    return decodeOrRestoreDefault(
+      'proxies style settings',
+      () => ProxiesStyleProps.fromJson(json),
+      () => defaultProxiesStyleProps,
+    );
+  }
 }
 
 @freezed
@@ -260,12 +304,22 @@ abstract class Config with _$Config {
     @Default(defaultAppSettingProps)
     AppSettingProps appSettingProps,
     DAVProps? davProps,
-    @Default(defaultNetworkProps) NetworkProps networkProps,
-    @Default(defaultVpnProps) VpnProps vpnProps,
+    @JsonKey(fromJson: NetworkProps.safeFromJson)
+    @Default(defaultNetworkProps)
+    NetworkProps networkProps,
+    @JsonKey(fromJson: VpnProps.safeFromJson)
+    @Default(defaultVpnProps)
+    VpnProps vpnProps,
     @JsonKey(fromJson: ThemeProps.safeFromJson) required ThemeProps themeProps,
-    @Default(defaultProxiesStyleProps) ProxiesStyleProps proxiesStyleProps,
-    @Default(defaultWindowProps) WindowProps windowProps,
-    @Default(defaultClashConfig) PatchClashConfig patchClashConfig,
+    @JsonKey(fromJson: ProxiesStyleProps.safeFromJson)
+    @Default(defaultProxiesStyleProps)
+    ProxiesStyleProps proxiesStyleProps,
+    @JsonKey(fromJson: WindowProps.safeFromJson)
+    @Default(defaultWindowProps)
+    WindowProps windowProps,
+    @JsonKey(fromJson: PatchClashConfig.safeFormJson)
+    @Default(defaultClashConfig)
+    PatchClashConfig patchClashConfig,
     @Default([]) List<String> excludeSSIDs,
     @JsonKey(fromJson: Po0FirewallProps.safeFromJson)
     @Default(defaultPo0FirewallProps)

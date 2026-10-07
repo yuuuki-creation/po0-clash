@@ -2680,7 +2680,7 @@ $TextScaleCopyWith<$Res> get textScale {
 /// @nodoc
 mixin _$Config {
 
- int? get currentProfileId; bool get overrideDns; List<HotKeyAction> get hotKeyActions;@JsonKey(fromJson: AppSettingProps.safeFromJson) AppSettingProps get appSettingProps; DAVProps? get davProps; NetworkProps get networkProps; VpnProps get vpnProps;@JsonKey(fromJson: ThemeProps.safeFromJson) ThemeProps get themeProps; ProxiesStyleProps get proxiesStyleProps; WindowProps get windowProps; PatchClashConfig get patchClashConfig; List<String> get excludeSSIDs;@JsonKey(fromJson: Po0FirewallProps.safeFromJson) Po0FirewallProps get po0FirewallProps;
+ int? get currentProfileId; bool get overrideDns; List<HotKeyAction> get hotKeyActions;@JsonKey(fromJson: AppSettingProps.safeFromJson) AppSettingProps get appSettingProps; DAVProps? get davProps;@JsonKey(fromJson: NetworkProps.safeFromJson) NetworkProps get networkProps;@JsonKey(fromJson: VpnProps.safeFromJson) VpnProps get vpnProps;@JsonKey(fromJson: ThemeProps.safeFromJson) ThemeProps get themeProps;@JsonKey(fromJson: ProxiesStyleProps.safeFromJson) ProxiesStyleProps get proxiesStyleProps;@JsonKey(fromJson: WindowProps.safeFromJson) WindowProps get windowProps;@JsonKey(fromJson: PatchClashConfig.safeFormJson) PatchClashConfig get patchClashConfig; List<String> get excludeSSIDs;@JsonKey(fromJson: Po0FirewallProps.safeFromJson) Po0FirewallProps get po0FirewallProps;
 /// Create a copy of Config
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -2718,7 +2718,7 @@ abstract mixin class $ConfigCopyWith<$Res>  {
   factory $ConfigCopyWith(Config value, $Res Function(Config) _then) = _$ConfigCopyWithImpl;
 @useResult
 $Res call({
- int? currentProfileId, bool overrideDns, List<HotKeyAction> hotKeyActions,@JsonKey(fromJson: AppSettingProps.safeFromJson) AppSettingProps appSettingProps, DAVProps? davProps, NetworkProps networkProps, VpnProps vpnProps,@JsonKey(fromJson: ThemeProps.safeFromJson) ThemeProps themeProps, ProxiesStyleProps proxiesStyleProps, WindowProps windowProps, PatchClashConfig patchClashConfig, List<String> excludeSSIDs,@JsonKey(fromJson: Po0FirewallProps.safeFromJson) Po0FirewallProps po0FirewallProps
+ int? currentProfileId, bool overrideDns, List<HotKeyAction> hotKeyActions,@JsonKey(fromJson: AppSettingProps.safeFromJson) AppSettingProps appSettingProps, DAVProps? davProps,@JsonKey(fromJson: NetworkProps.safeFromJson) NetworkProps networkProps,@JsonKey(fromJson: VpnProps.safeFromJson) VpnProps vpnProps,@JsonKey(fromJson: ThemeProps.safeFromJson) ThemeProps themeProps,@JsonKey(fromJson: ProxiesStyleProps.safeFromJson) ProxiesStyleProps proxiesStyleProps,@JsonKey(fromJson: WindowProps.safeFromJson) WindowProps windowProps,@JsonKey(fromJson: PatchClashConfig.safeFormJson) PatchClashConfig patchClashConfig, List<String> excludeSSIDs,@JsonKey(fromJson: Po0FirewallProps.safeFromJson) Po0FirewallProps po0FirewallProps
 });
 
 
@@ -2919,7 +2919,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int? currentProfileId,  bool overrideDns,  List<HotKeyAction> hotKeyActions, @JsonKey(fromJson: AppSettingProps.safeFromJson)  AppSettingProps appSettingProps,  DAVProps? davProps,  NetworkProps networkProps,  VpnProps vpnProps, @JsonKey(fromJson: ThemeProps.safeFromJson)  ThemeProps themeProps,  ProxiesStyleProps proxiesStyleProps,  WindowProps windowProps,  PatchClashConfig patchClashConfig,  List<String> excludeSSIDs, @JsonKey(fromJson: Po0FirewallProps.safeFromJson)  Po0FirewallProps po0FirewallProps)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int? currentProfileId,  bool overrideDns,  List<HotKeyAction> hotKeyActions, @JsonKey(fromJson: AppSettingProps.safeFromJson)  AppSettingProps appSettingProps,  DAVProps? davProps, @JsonKey(fromJson: NetworkProps.safeFromJson)  NetworkProps networkProps, @JsonKey(fromJson: VpnProps.safeFromJson)  VpnProps vpnProps, @JsonKey(fromJson: ThemeProps.safeFromJson)  ThemeProps themeProps, @JsonKey(fromJson: ProxiesStyleProps.safeFromJson)  ProxiesStyleProps proxiesStyleProps, @JsonKey(fromJson: WindowProps.safeFromJson)  WindowProps windowProps, @JsonKey(fromJson: PatchClashConfig.safeFormJson)  PatchClashConfig patchClashConfig,  List<String> excludeSSIDs, @JsonKey(fromJson: Po0FirewallProps.safeFromJson)  Po0FirewallProps po0FirewallProps)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Config() when $default != null:
 return $default(_that.currentProfileId,_that.overrideDns,_that.hotKeyActions,_that.appSettingProps,_that.davProps,_that.networkProps,_that.vpnProps,_that.themeProps,_that.proxiesStyleProps,_that.windowProps,_that.patchClashConfig,_that.excludeSSIDs,_that.po0FirewallProps);case _:
@@ -2940,7 +2940,7 @@ return $default(_that.currentProfileId,_that.overrideDns,_that.hotKeyActions,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int? currentProfileId,  bool overrideDns,  List<HotKeyAction> hotKeyActions, @JsonKey(fromJson: AppSettingProps.safeFromJson)  AppSettingProps appSettingProps,  DAVProps? davProps,  NetworkProps networkProps,  VpnProps vpnProps, @JsonKey(fromJson: ThemeProps.safeFromJson)  ThemeProps themeProps,  ProxiesStyleProps proxiesStyleProps,  WindowProps windowProps,  PatchClashConfig patchClashConfig,  List<String> excludeSSIDs, @JsonKey(fromJson: Po0FirewallProps.safeFromJson)  Po0FirewallProps po0FirewallProps)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int? currentProfileId,  bool overrideDns,  List<HotKeyAction> hotKeyActions, @JsonKey(fromJson: AppSettingProps.safeFromJson)  AppSettingProps appSettingProps,  DAVProps? davProps, @JsonKey(fromJson: NetworkProps.safeFromJson)  NetworkProps networkProps, @JsonKey(fromJson: VpnProps.safeFromJson)  VpnProps vpnProps, @JsonKey(fromJson: ThemeProps.safeFromJson)  ThemeProps themeProps, @JsonKey(fromJson: ProxiesStyleProps.safeFromJson)  ProxiesStyleProps proxiesStyleProps, @JsonKey(fromJson: WindowProps.safeFromJson)  WindowProps windowProps, @JsonKey(fromJson: PatchClashConfig.safeFormJson)  PatchClashConfig patchClashConfig,  List<String> excludeSSIDs, @JsonKey(fromJson: Po0FirewallProps.safeFromJson)  Po0FirewallProps po0FirewallProps)  $default,) {final _that = this;
 switch (_that) {
 case _Config():
 return $default(_that.currentProfileId,_that.overrideDns,_that.hotKeyActions,_that.appSettingProps,_that.davProps,_that.networkProps,_that.vpnProps,_that.themeProps,_that.proxiesStyleProps,_that.windowProps,_that.patchClashConfig,_that.excludeSSIDs,_that.po0FirewallProps);case _:
@@ -2960,7 +2960,7 @@ return $default(_that.currentProfileId,_that.overrideDns,_that.hotKeyActions,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int? currentProfileId,  bool overrideDns,  List<HotKeyAction> hotKeyActions, @JsonKey(fromJson: AppSettingProps.safeFromJson)  AppSettingProps appSettingProps,  DAVProps? davProps,  NetworkProps networkProps,  VpnProps vpnProps, @JsonKey(fromJson: ThemeProps.safeFromJson)  ThemeProps themeProps,  ProxiesStyleProps proxiesStyleProps,  WindowProps windowProps,  PatchClashConfig patchClashConfig,  List<String> excludeSSIDs, @JsonKey(fromJson: Po0FirewallProps.safeFromJson)  Po0FirewallProps po0FirewallProps)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int? currentProfileId,  bool overrideDns,  List<HotKeyAction> hotKeyActions, @JsonKey(fromJson: AppSettingProps.safeFromJson)  AppSettingProps appSettingProps,  DAVProps? davProps, @JsonKey(fromJson: NetworkProps.safeFromJson)  NetworkProps networkProps, @JsonKey(fromJson: VpnProps.safeFromJson)  VpnProps vpnProps, @JsonKey(fromJson: ThemeProps.safeFromJson)  ThemeProps themeProps, @JsonKey(fromJson: ProxiesStyleProps.safeFromJson)  ProxiesStyleProps proxiesStyleProps, @JsonKey(fromJson: WindowProps.safeFromJson)  WindowProps windowProps, @JsonKey(fromJson: PatchClashConfig.safeFormJson)  PatchClashConfig patchClashConfig,  List<String> excludeSSIDs, @JsonKey(fromJson: Po0FirewallProps.safeFromJson)  Po0FirewallProps po0FirewallProps)?  $default,) {final _that = this;
 switch (_that) {
 case _Config() when $default != null:
 return $default(_that.currentProfileId,_that.overrideDns,_that.hotKeyActions,_that.appSettingProps,_that.davProps,_that.networkProps,_that.vpnProps,_that.themeProps,_that.proxiesStyleProps,_that.windowProps,_that.patchClashConfig,_that.excludeSSIDs,_that.po0FirewallProps);case _:
@@ -2975,7 +2975,7 @@ return $default(_that.currentProfileId,_that.overrideDns,_that.hotKeyActions,_th
 @JsonSerializable()
 
 class _Config implements Config {
-  const _Config({this.currentProfileId, this.overrideDns = false,  List<HotKeyAction> hotKeyActions = const [], @JsonKey(fromJson: AppSettingProps.safeFromJson) this.appSettingProps = defaultAppSettingProps, this.davProps, this.networkProps = defaultNetworkProps, this.vpnProps = defaultVpnProps, @JsonKey(fromJson: ThemeProps.safeFromJson) required this.themeProps, this.proxiesStyleProps = defaultProxiesStyleProps, this.windowProps = defaultWindowProps, this.patchClashConfig = defaultClashConfig,  List<String> excludeSSIDs = const [], @JsonKey(fromJson: Po0FirewallProps.safeFromJson) this.po0FirewallProps = defaultPo0FirewallProps}): _hotKeyActions = hotKeyActions,_excludeSSIDs = excludeSSIDs;
+  const _Config({this.currentProfileId, this.overrideDns = false,  List<HotKeyAction> hotKeyActions = const [], @JsonKey(fromJson: AppSettingProps.safeFromJson) this.appSettingProps = defaultAppSettingProps, this.davProps, @JsonKey(fromJson: NetworkProps.safeFromJson) this.networkProps = defaultNetworkProps, @JsonKey(fromJson: VpnProps.safeFromJson) this.vpnProps = defaultVpnProps, @JsonKey(fromJson: ThemeProps.safeFromJson) required this.themeProps, @JsonKey(fromJson: ProxiesStyleProps.safeFromJson) this.proxiesStyleProps = defaultProxiesStyleProps, @JsonKey(fromJson: WindowProps.safeFromJson) this.windowProps = defaultWindowProps, @JsonKey(fromJson: PatchClashConfig.safeFormJson) this.patchClashConfig = defaultClashConfig,  List<String> excludeSSIDs = const [], @JsonKey(fromJson: Po0FirewallProps.safeFromJson) this.po0FirewallProps = defaultPo0FirewallProps}): _hotKeyActions = hotKeyActions,_excludeSSIDs = excludeSSIDs;
   factory _Config.fromJson(Map<String, dynamic> json) => _$ConfigFromJson(json);
 
 @override final  int? currentProfileId;
@@ -2989,12 +2989,12 @@ class _Config implements Config {
 
 @override@JsonKey(fromJson: AppSettingProps.safeFromJson) final  AppSettingProps appSettingProps;
 @override final  DAVProps? davProps;
-@override@JsonKey() final  NetworkProps networkProps;
-@override@JsonKey() final  VpnProps vpnProps;
+@override@JsonKey(fromJson: NetworkProps.safeFromJson) final  NetworkProps networkProps;
+@override@JsonKey(fromJson: VpnProps.safeFromJson) final  VpnProps vpnProps;
 @override@JsonKey(fromJson: ThemeProps.safeFromJson) final  ThemeProps themeProps;
-@override@JsonKey() final  ProxiesStyleProps proxiesStyleProps;
-@override@JsonKey() final  WindowProps windowProps;
-@override@JsonKey() final  PatchClashConfig patchClashConfig;
+@override@JsonKey(fromJson: ProxiesStyleProps.safeFromJson) final  ProxiesStyleProps proxiesStyleProps;
+@override@JsonKey(fromJson: WindowProps.safeFromJson) final  WindowProps windowProps;
+@override@JsonKey(fromJson: PatchClashConfig.safeFormJson) final  PatchClashConfig patchClashConfig;
  final  List<String> _excludeSSIDs;
 @override@JsonKey() List<String> get excludeSSIDs {
   if (_excludeSSIDs is EqualUnmodifiableListView) return _excludeSSIDs;
@@ -3039,7 +3039,7 @@ abstract mixin class _$ConfigCopyWith<$Res> implements $ConfigCopyWith<$Res> {
   factory _$ConfigCopyWith(_Config value, $Res Function(_Config) _then) = __$ConfigCopyWithImpl;
 @override @useResult
 $Res call({
- int? currentProfileId, bool overrideDns, List<HotKeyAction> hotKeyActions,@JsonKey(fromJson: AppSettingProps.safeFromJson) AppSettingProps appSettingProps, DAVProps? davProps, NetworkProps networkProps, VpnProps vpnProps,@JsonKey(fromJson: ThemeProps.safeFromJson) ThemeProps themeProps, ProxiesStyleProps proxiesStyleProps, WindowProps windowProps, PatchClashConfig patchClashConfig, List<String> excludeSSIDs,@JsonKey(fromJson: Po0FirewallProps.safeFromJson) Po0FirewallProps po0FirewallProps
+ int? currentProfileId, bool overrideDns, List<HotKeyAction> hotKeyActions,@JsonKey(fromJson: AppSettingProps.safeFromJson) AppSettingProps appSettingProps, DAVProps? davProps,@JsonKey(fromJson: NetworkProps.safeFromJson) NetworkProps networkProps,@JsonKey(fromJson: VpnProps.safeFromJson) VpnProps vpnProps,@JsonKey(fromJson: ThemeProps.safeFromJson) ThemeProps themeProps,@JsonKey(fromJson: ProxiesStyleProps.safeFromJson) ProxiesStyleProps proxiesStyleProps,@JsonKey(fromJson: WindowProps.safeFromJson) WindowProps windowProps,@JsonKey(fromJson: PatchClashConfig.safeFormJson) PatchClashConfig patchClashConfig, List<String> excludeSSIDs,@JsonKey(fromJson: Po0FirewallProps.safeFromJson) Po0FirewallProps po0FirewallProps
 });
 
 
