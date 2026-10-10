@@ -18,13 +18,13 @@ git merge upstream/main
 | `lib/models/config.dart` | `Config.po0FirewallProps` 字段 |
 | `lib/providers/config.dart` | `Po0FirewallSetting` provider、`configProvider`、`buildConfigOverrides` |
 | `lib/providers/actions/backup.dart` | 恢复时写回 po0 设置 |
-| `lib/providers/actions/setup.dart` | `getProfile` 传入 `directCidrs`，并注入直连 listener（`withPo0DirectListener`） |
+| `lib/providers/actions/setup.dart` | `getProfile` 按总开关传入 `directCidrs`，并注入直连 listener（`withPo0DirectListener`） |
 | `lib/models/state.dart` | `MakeRealProfileState.directCidrs` |
 | `lib/common/task.dart` | 直连规则与 `route-exclude-address` |
 | `lib/providers/state/system.dart` | Android VPN 路由剔除 |
-| `lib/manager/app_manager.dart` / `connectivity_manager.dart` | po0 与 ggy 调度器的启动、网络变化、回到前台、Android 亮屏 / 熄屏 |
+| `lib/manager/app_manager.dart` / `connectivity_manager.dart` | 加白协调器与 po0 / ggy 调度器的启动、网络变化、回到前台、Android 亮屏 / 熄屏 |
 | `android/app/src/main/kotlin/com/follow/clash/MainActivity.kt` | 注册 `Po0ScreenPlugin` |
-| `lib/enum/enum.dart` / `lib/common/l10n_labels.dart` / `lib/views/navigation.dart` / `lib/pages/shell.dart` | `PageLabel.po0`、`PageLabel.ggy` 主导航入口与侧栏状态 |
+| `lib/enum/enum.dart` / `lib/common/l10n_labels.dart` / `lib/views/navigation.dart` / `lib/pages/shell.dart` | `PageLabel.whitelist` 主导航入口与侧栏状态（ADR 0014 合并 po0 / ggy 入口） |
 | `lib/pages/home.dart` | 主页面 fade through 切换（`PageEntrance`），去掉 `_NavigationBarDefaultsM3` |
 | `lib/widgets/sheet.dart` / `lib/common/dialog.dart` / `lib/widgets/list.dart` | 去掉模糊选项，模态背景用 Material 3 scrim；侧边面板样式 |
 | `lib/widgets/widgets.dart` | 导出 `surface_card.dart` |
@@ -38,9 +38,11 @@ git merge upstream/main
 | `lib/widgets/popup.dart` / `chip.dart` / `fade_box.dart` / `super_grid.dart` | 换成 Material 3 组件与动效；删除 `tab*.dart` |
 | `lib/widgets/scaffold.dart` 及其 `actions` 调用方（`lib/views/access.dart`、`lib/widgets/input_pages.dart`、`lib/views/config/rules.dart` / `scripts.dart`、`lib/views/profiles/overwrite/overwrite.dart`、`lib/features/overwrite/overwrite_editor_page.dart`） | 工具栏按钮合并进玻璃胶囊并统一高度；调用方不再加 `SizedBox` 间隔与 `CommonMin*ButtonTheme` |
 | `lib/common/common.dart` | 导出 `po0_firewall.dart`、`app_theme.dart` |
-| `arb/intl_*.arb` | 新增的 `po0*`（含导航名 `po0Nav`）/ `minutesCount` 等文案 |
+| `arb/intl_*.arb` | 新增的 `po0*` / `whitelist*`（含导航名 `whitelistNav`）/ `minutesCount` 等文案 |
 | `.github/workflows/build.yaml` | 仅手动触发（本分支发版用 `release.yaml`） |
 | `README.md` / `README_zh_CN.md` | 整体改写为 po0-clash 说明，合并时保留本分支版本 |
+| `assets_source/images/icon/` 及生成的桌面、Android、托盘图标 | po0 的扁平 P / 斜杠零标志，源 SVG 由 `tool/generate_app_icons.sh` 转换为各平台产物 |
+| `android/app/src/main/res/drawable/ic_launcher_monochrome.xml` / `android/app/src/main/res/values/splash.xml` | Android 主题图标沿用同一轮廓，启动背景匹配图标底色 |
 
 ## 应用身份（ADR 0006）
 

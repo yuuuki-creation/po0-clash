@@ -328,22 +328,10 @@ class _SidebarItem extends ConsumerWidget {
         return ref.watch(
           currentProfileProvider.select((state) => state?.realLabel),
         );
-      case PageLabel.po0:
-        final setting = ref.watch(po0FirewallSettingProvider);
-        return po0OverviewOf(
+      case PageLabel.whitelist:
+        return whitelistOverviewOf(
           appLocalizations,
-          enabled: setting.enable,
-          hasTokens: po0TokensOf(setting.tokenEntries).isNotEmpty,
-          state: ref.watch(po0FirewallProvider),
-        ).title;
-      case PageLabel.ggy:
-        final setting = ref.watch(po0FirewallSettingProvider);
-        return po0OverviewOf(
-          appLocalizations,
-          enabled: setting.ggyEnable,
-          hasTokens: ggyLinksOf(setting.ggyEntries).isNotEmpty,
-          state: ref.watch(ggyFirewallProvider),
-          noTokensTitle: appLocalizations.ggyStatusNoLink,
+          summary: ref.watch(whitelistSummaryProvider),
         ).title;
       case PageLabel.activity:
         return appLocalizations.activityDesc;

@@ -49,77 +49,74 @@ class MessageLookup extends MessageLookupByLibrary {
 
   static String m11(name) => "${name}: обновлено";
 
-  static String m12(seconds) =>
-      "Пока po0-clash открыт, независимо от состояния прокси, запрашивает ссылку белого списка каждые ${seconds} с. На Android проверка идёт только при включённом экране";
-
-  static String m13(count) =>
+  static String m12(count) =>
       "${Intl.plural(count, one: '${count} час назад', few: '${count} часа назад', many: '${count} часов назад', other: '${count} часа назад')}";
 
-  static String m14(count) =>
+  static String m13(count) =>
       "${Intl.plural(count, one: '${count} час', few: '${count} часа', many: '${count} часов', other: '${count} часа')}";
 
-  static String m15(target) => "${target} — недопустимая политика";
+  static String m14(target) => "${target} — недопустимая политика";
 
-  static String m16(proxyName) => "${proxyName} — недопустимый прокси";
+  static String m15(proxyName) => "${proxyName} — недопустимый прокси";
 
-  static String m17(providerName) =>
+  static String m16(providerName) =>
       "${providerName} — недопустимый провайдер прокси";
 
-  static String m18(subRule) => "${subRule} — недопустимый SUB_RULE";
+  static String m17(subRule) => "${subRule} — недопустимый SUB_RULE";
 
-  static String m19(appName) =>
+  static String m18(appName) =>
       "1. Откройте Системные настройки > Конфиденциальность и безопасность\n2. Выберите Службы геолокации\n3. Найдите и отметьте ${appName} в списке\n\nПосле настройки вернитесь в приложение и продолжайте работу. Спасибо за сотрудничество.";
 
-  static String m20(label, max) => "«${label}» — не более ${max} символов";
+  static String m19(label, max) => "«${label}» — не более ${max} символов";
 
-  static String m21(count) =>
+  static String m20(count) =>
       "${Intl.plural(count, one: '${count} минуту назад', few: '${count} минуты назад', many: '${count} минут назад', other: '${count} минуты назад')}";
 
-  static String m22(count) =>
+  static String m21(count) =>
       "${Intl.plural(count, one: '${count} месяц назад', few: '${count} месяца назад', many: '${count} месяцев назад', other: '${count} месяца назад')}";
 
-  static String m23(label) => "Пока нет: ${label}";
+  static String m22(label) => "Пока нет: ${label}";
 
-  static String m24(label) => "Значение «${label}» должно быть числом";
+  static String m23(label) => "Значение «${label}» должно быть числом";
 
-  static String m25(ip) => "Выход ${ip}";
+  static String m24(ip) => "Выход ${ip}";
 
-  static String m26(time) => "Последний запуск: ${time}";
+  static String m25(min, max) => "Введите от ${min} до ${max} секунд";
 
-  static String m27(time) => "Последний ${time}";
+  static String m26(ip) => "Выход ${ip} в белом списке";
 
-  static String m28(count) => "Каждые ${count} с";
+  static String m27(message) => "Ошибка запроса: ${message}";
 
-  static String m29(min, max) => "Введите от ${min} до ${max} секунд";
+  static String m28(ip) => "Выход ${ip} не в белом списке";
 
-  static String m30(ip) => "Выход ${ip} в белом списке";
+  static String m29(message) => "Отклонено: ${message}";
 
-  static String m31(message) => "Ошибка запроса: ${message}";
+  static String m30(ok, total) => "${ok}/${total} в белом списке";
 
-  static String m32(ip) => "Выход ${ip} не в белом списке";
+  static String m31(used, limit) => "Занято ${used}/${limit}";
 
-  static String m33(message) => "Отклонено: ${message}";
-
-  static String m34(ok, total) => "${ok}/${total} в белом списке";
-
-  static String m35(used, limit) => "Занято ${used}/${limit}";
-
-  static String m36(label) =>
+  static String m32(label) =>
       "Значение «${label}» должно быть от 1024 до 49151";
 
-  static String m37(count) => "${count} прокси";
+  static String m33(count) => "${count} прокси";
 
-  static String m38(count) =>
+  static String m34(count) =>
       "${Intl.plural(count, one: '${count} правило', few: '${count} правила', many: '${count} правил', other: '${count} правила')}";
 
-  static String m39(count) =>
+  static String m35(count) =>
       "${Intl.plural(count, one: '${count} секунда', few: '${count} секунды', many: '${count} секунд', other: '${count} секунды')}";
 
-  static String m40(count) => "Выбрано: ${count}";
+  static String m36(count) => "Выбрано: ${count}";
 
-  static String m41(label) => "Значение «${label}» должно быть URL";
+  static String m37(label) => "Значение «${label}» должно быть URL";
 
-  static String m42(count) =>
+  static String m38(seconds) => "ggy добавляет IP каждые ${seconds} с";
+
+  static String m39(time) => "Последнее добавление ggy: ${time}";
+
+  static String m40(time) => "Последняя проверка po0: ${time}";
+
+  static String m41(count) =>
       "${Intl.plural(count, one: '${count} год назад', few: '${count} года назад', many: '${count} лет назад', other: '${count} года назад')}";
 
   final messages = _notInlinedMessages(_notInlinedMessages);
@@ -525,29 +522,11 @@ class MessageLookup extends MessageLookupByLibrary {
       "При включении используется Geo-загрузчик с низким потреблением памяти",
     ),
     "geoipCode": MessageLookupByLibrary.simpleMessage("Код GeoIP"),
-    "ggyAddLink": MessageLookupByLibrary.simpleMessage("Добавить ссылку"),
-    "ggyAutoWhitelistDesc": m12,
-    "ggyEditLink": MessageLookupByLibrary.simpleMessage("Изменить ссылку"),
-    "ggyFirewall": MessageLookupByLibrary.simpleMessage("Белый список ggy"),
-    "ggyFirewallDesc": MessageLookupByLibrary.simpleMessage(
-      "Держать выходной IP этой сети в белом списке брандмауэра ggy",
-    ),
-    "ggyLink": MessageLookupByLibrary.simpleMessage("Ссылка для белого списка"),
     "ggyLinkDuplicate": MessageLookupByLibrary.simpleMessage(
       "Эта ссылка уже есть в списке",
     ),
     "ggyLinkInvalid": MessageLookupByLibrary.simpleMessage(
       "Вставьте полную ссылку ggy для белого списка (https://www.guguyun.com/…?token=…)",
-    ),
-    "ggyLinks": MessageLookupByLibrary.simpleMessage(
-      "Ссылки для белого списка",
-    ),
-    "ggyLinksEmptyDesc": MessageLookupByLibrary.simpleMessage(
-      "Вставьте полную ссылку ggy для белого списка; каждая ссылка добавляет в белый список отдельно",
-    ),
-    "ggyNav": MessageLookupByLibrary.simpleMessage("ggy"),
-    "ggyStatusNoLink": MessageLookupByLibrary.simpleMessage(
-      "Добавьте ссылку, чтобы начать",
     ),
     "global": MessageLookupByLibrary.simpleMessage("Глобальный"),
     "go": MessageLookupByLibrary.simpleMessage("Перейти"),
@@ -574,8 +553,8 @@ class MessageLookup extends MessageLookupByLibrary {
       "Управление приложением с клавиатуры",
     ),
     "hours": MessageLookupByLibrary.simpleMessage("часов"),
-    "hoursAgo": m13,
-    "hoursCount": m14,
+    "hoursAgo": m12,
+    "hoursCount": m13,
     "icon": MessageLookupByLibrary.simpleMessage("Значок"),
     "iconRecords": MessageLookupByLibrary.simpleMessage("История значков"),
     "iconStyle": MessageLookupByLibrary.simpleMessage("Стиль значков"),
@@ -639,10 +618,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "invalidBackupFile": MessageLookupByLibrary.simpleMessage(
       "Недопустимый файл резервной копии",
     ),
-    "invalidPolicy": m15,
-    "invalidProxy": m16,
-    "invalidProxyProvider": m17,
-    "invalidSubRule": m18,
+    "invalidPolicy": m14,
+    "invalidProxy": m15,
+    "invalidProxyProvider": m16,
+    "invalidSubRule": m17,
     "ipcidr": MessageLookupByLibrary.simpleMessage("IP/CIDR"),
     "ipv6Desc": MessageLookupByLibrary.simpleMessage(
       "При включении можно принимать трафик IPv6",
@@ -681,7 +660,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "locationPermissionDesc": MessageLookupByLibrary.simpleMessage(
       "По требованию системы для получения имени сети Wi-Fi необходимо разрешение на геолокацию. На Android выберите «Разрешить всегда», иначе имя сети Wi-Fi нельзя получить, пока приложение в фоне.",
     ),
-    "locationPermissionGuide": m19,
+    "locationPermissionGuide": m18,
     "locationPermissionRequired": MessageLookupByLibrary.simpleMessage(
       "Требуется разрешение на геолокацию",
     ),
@@ -714,7 +693,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "maxFailedTimes": MessageLookupByLibrary.simpleMessage(
       "Макс. число неудач",
     ),
-    "maxLengthTip": m20,
+    "maxLengthTip": m19,
     "maximize": MessageLookupByLibrary.simpleMessage("Развернуть"),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("Память"),
     "messageTest": MessageLookupByLibrary.simpleMessage("Тест сообщения"),
@@ -727,11 +706,11 @@ class MessageLookup extends MessageLookupByLibrary {
     "minimizeOnExitDesc": MessageLookupByLibrary.simpleMessage(
       "Изменяет стандартное поведение при выходе",
     ),
-    "minutesAgo": m21,
+    "minutesAgo": m20,
     "mixedPort": MessageLookupByLibrary.simpleMessage("Смешанный порт"),
     "mode": MessageLookupByLibrary.simpleMessage("Режим"),
     "monochromeScheme": MessageLookupByLibrary.simpleMessage("Монохром"),
-    "monthsAgo": m22,
+    "monthsAgo": m21,
     "more": MessageLookupByLibrary.simpleMessage("Ещё"),
     "multipleValuesTip": MessageLookupByLibrary.simpleMessage(
       "Разделяйте несколько значений запятыми",
@@ -781,8 +760,8 @@ class MessageLookup extends MessageLookupByLibrary {
     "nullProfileDesc": MessageLookupByLibrary.simpleMessage(
       "Профилей пока нет. Сначала добавьте профиль",
     ),
-    "nullTip": m23,
-    "numberTip": m24,
+    "nullTip": m22,
+    "numberTip": m23,
     "onDemand": MessageLookupByLibrary.simpleMessage("По условию"),
     "onDemandDesc": MessageLookupByLibrary.simpleMessage(
       "Настройте состояние работы приложения для определённых сценариев",
@@ -838,9 +817,6 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "po0AddToken": MessageLookupByLibrary.simpleMessage("Добавить токен"),
     "po0AutoWhitelist": MessageLookupByLibrary.simpleMessage("Автодобавление"),
-    "po0AutoWhitelistDesc": MessageLookupByLibrary.simpleMessage(
-      "Пока po0-clash открыт, независимо от состояния прокси, проверяет белый список с заданным интервалом и сразу добавляет выход, если его там нет. На Android проверка идёт только при включённом экране",
-    ),
     "po0ChipApplied": MessageLookupByLibrary.simpleMessage("В списке"),
     "po0ChipDisabled": MessageLookupByLibrary.simpleMessage("Выключен"),
     "po0ChipError": MessageLookupByLibrary.simpleMessage("Ошибка"),
@@ -851,43 +827,26 @@ class MessageLookup extends MessageLookupByLibrary {
       "Запросы на добавление в белый список уходят через физическую сеть: пока прокси работает, они идут через DIRECT-слушатель ядра, который не могут перенаправить ни правила, ни глобальный режим, ни TUN; иначе соединение прямое. В белый список попадает реальный выход, а не прокси.",
     ),
     "po0EditToken": MessageLookupByLibrary.simpleMessage("Изменить токен"),
-    "po0Exit": m25,
-    "po0Firewall": MessageLookupByLibrary.simpleMessage("Белый список po0"),
-    "po0FirewallDesc": MessageLookupByLibrary.simpleMessage(
-      "Держать выходной IP этой сети в белом списке брандмауэра po0",
-    ),
-    "po0LastRun": m26,
-    "po0LastShort": m27,
-    "po0Nav": MessageLookupByLibrary.simpleMessage("po0"),
-    "po0NeverRun": MessageLookupByLibrary.simpleMessage("Ещё не запускалось"),
-    "po0PollEvery": m28,
-    "po0PollInterval": MessageLookupByLibrary.simpleMessage(
-      "Интервал обновления",
-    ),
-    "po0PollIntervalRange": m29,
-    "po0QueryStatus": MessageLookupByLibrary.simpleMessage("Проверить"),
-    "po0ResultApplied": m30,
+    "po0Exit": m24,
+    "po0PollIntervalRange": m25,
+    "po0ResultApplied": m26,
     "po0ResultDisabled": MessageLookupByLibrary.simpleMessage(
       "Брандмауэр для этого сервера не включён",
     ),
-    "po0ResultError": m31,
-    "po0ResultNotApplied": m32,
-    "po0ResultRejected": m33,
+    "po0ResultError": m27,
+    "po0ResultNotApplied": m28,
+    "po0ResultRejected": m29,
     "po0Running": MessageLookupByLibrary.simpleMessage("Выполняется…"),
     "po0StatusApplied": MessageLookupByLibrary.simpleMessage(
       "Выход в белом списке",
     ),
-    "po0StatusNoToken": MessageLookupByLibrary.simpleMessage(
-      "Добавьте токен, чтобы начать",
-    ),
     "po0StatusOff": MessageLookupByLibrary.simpleMessage(
       "Автодобавление выключено",
     ),
-    "po0StatusPartial": m34,
+    "po0StatusPartial": m30,
     "po0StatusWaiting": MessageLookupByLibrary.simpleMessage(
       "Ожидание первого запуска",
     ),
-    "po0Token": MessageLookupByLibrary.simpleMessage("токен"),
     "po0TokenDuplicate": MessageLookupByLibrary.simpleMessage(
       "Этот токен уже есть в списке",
     ),
@@ -895,21 +854,17 @@ class MessageLookup extends MessageLookupByLibrary {
       "Название (необязательно)",
     ),
     "po0Tokens": MessageLookupByLibrary.simpleMessage("Токены"),
-    "po0TokensEmpty": MessageLookupByLibrary.simpleMessage("Не настроено"),
-    "po0TokensEmptyDesc": MessageLookupByLibrary.simpleMessage(
-      "Добавьте pgnfw_ токен каждой машины po0; каждый токен проверяет свой белый список",
-    ),
     "po0TokensInvalid": MessageLookupByLibrary.simpleMessage(
       "Токен начинается с pgnfw_ и не содержит пробелов и разделителей",
     ),
-    "po0Usage": m35,
+    "po0Usage": m31,
     "po0Whitelist": MessageLookupByLibrary.simpleMessage("Белый список"),
     "po0WhitelistNow": MessageLookupByLibrary.simpleMessage("Добавить сейчас"),
     "port": MessageLookupByLibrary.simpleMessage("Порт"),
     "portConflictTip": MessageLookupByLibrary.simpleMessage(
       "Введите другой порт",
     ),
-    "portTip": m36,
+    "portTip": m32,
     "preferH3Desc": MessageLookupByLibrary.simpleMessage(
       "Предпочитать HTTP/3 для DoH",
     ),
@@ -944,7 +899,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "project": MessageLookupByLibrary.simpleMessage("Проект"),
     "providers": MessageLookupByLibrary.simpleMessage("Внешние ресурсы"),
     "proxies": MessageLookupByLibrary.simpleMessage("Прокси"),
-    "proxiesCount": m37,
+    "proxiesCount": m33,
     "proxiesEmpty": MessageLookupByLibrary.simpleMessage("Список прокси пуст"),
     "proxyChains": MessageLookupByLibrary.simpleMessage("Цепочка прокси"),
     "proxyDetectedAbnormal": MessageLookupByLibrary.simpleMessage(
@@ -1181,7 +1136,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "ruleSet": MessageLookupByLibrary.simpleMessage("Набор правил"),
     "ruleTarget": MessageLookupByLibrary.simpleMessage("Цель правила"),
     "rules": MessageLookupByLibrary.simpleMessage("Правила"),
-    "rulesCount": m38,
+    "rulesCount": m34,
     "save": MessageLookupByLibrary.simpleMessage("Сохранить"),
     "saveChanges": MessageLookupByLibrary.simpleMessage("Сохранить изменения?"),
     "script": MessageLookupByLibrary.simpleMessage("Скрипт"),
@@ -1193,7 +1148,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "search": MessageLookupByLibrary.simpleMessage("Поиск"),
     "seconds": MessageLookupByLibrary.simpleMessage("секунд"),
-    "secondsCount": m39,
+    "secondsCount": m35,
     "selectAll": MessageLookupByLibrary.simpleMessage("Выбрать всё"),
     "selectMatchTarget": MessageLookupByLibrary.simpleMessage(
       "Выбрать MATCH-TARGET",
@@ -1212,7 +1167,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Выберите подправило",
     ),
     "selected": MessageLookupByLibrary.simpleMessage("Выбрано"),
-    "selectedCountTitle": m40,
+    "selectedCountTitle": m36,
     "settings": MessageLookupByLibrary.simpleMessage("Настройки"),
     "show": MessageLookupByLibrary.simpleMessage("Показать"),
     "showLess": MessageLookupByLibrary.simpleMessage("Свернуть"),
@@ -1343,7 +1298,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "upload": MessageLookupByLibrary.simpleMessage("Отдача"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),
     "urlDesc": MessageLookupByLibrary.simpleMessage("Получить профиль по URL"),
-    "urlTip": m41,
+    "urlTip": m37,
     "useHosts": MessageLookupByLibrary.simpleMessage("Использовать hosts"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage(
       "Использовать системный hosts",
@@ -1367,10 +1322,36 @@ class MessageLookup extends MessageLookupByLibrary {
     "webDAVConfiguration": MessageLookupByLibrary.simpleMessage(
       "Настройка WebDAV",
     ),
+    "whitelistAutoDesc": MessageLookupByLibrary.simpleMessage(
+      "po0 проверяет список с заданным интервалом, ggy добавляет IP каждые 11 секунд. На Android выполняется только при включённом экране",
+    ),
+    "whitelistDesc": MessageLookupByLibrary.simpleMessage(
+      "Автоматически добавлять исходящий IP устройства в белый список po0 или ggy",
+    ),
+    "whitelistEntriesEmptyDesc": MessageLookupByLibrary.simpleMessage(
+      "Добавьте токен po0 или полную ссылку ggy. Каждая запись обрабатывается отдельно",
+    ),
+    "whitelistEntryType": MessageLookupByLibrary.simpleMessage("Тип"),
+    "whitelistGgyInterval": m38,
+    "whitelistGgyLink": MessageLookupByLibrary.simpleMessage("Ссылка ggy"),
+    "whitelistLastGgy": m39,
+    "whitelistLastPo0": m40,
     "whitelistMode": MessageLookupByLibrary.simpleMessage(
       "Режим белого списка",
     ),
-    "yearsAgo": m42,
+    "whitelistNav": MessageLookupByLibrary.simpleMessage("Белый список"),
+    "whitelistNoEntries": MessageLookupByLibrary.simpleMessage(
+      "Добавьте токен или ссылку, чтобы начать",
+    ),
+    "whitelistPo0Interval": MessageLookupByLibrary.simpleMessage(
+      "Интервал проверки po0",
+    ),
+    "whitelistPo0Token": MessageLookupByLibrary.simpleMessage("Токен po0"),
+    "whitelistQueryPo0": MessageLookupByLibrary.simpleMessage(
+      "Проверить статус po0",
+    ),
+    "whitelistTitle": MessageLookupByLibrary.simpleMessage("Белый список"),
+    "yearsAgo": m41,
     "zhCN": MessageLookupByLibrary.simpleMessage("Упрощённый китайский"),
   };
 }

@@ -315,12 +315,118 @@ void main() {
         Po0TokenEntry(token: 'pgnfw_a', name: 'home'),
       ]);
       expect(props.ggyEntries, const [Po0TokenEntry(token: link, name: 'ggy')]);
-      expect(props.ggyEnable, isTrue);
+      expect(props.enable, isTrue);
 
       final saved = Po0FirewallProps.safeFromJson(
         jsonDecode(jsonEncode(props.toJson())) as Map<String, Object?>,
       );
       expect(saved, props);
+    });
+
+    test('either old switch on leaves the master switch on', () {
+      const link = 'https://www.guguyun.com/f/whitelist?token=ctecsfw_x';
+      for (final (enable, ggyEnable) in [
+        (false, false),
+        (true, false),
+        (false, true),
+        (true, true),
+      ]) {
+        final props = Po0FirewallProps.safeFromJson({
+          'enable': enable,
+          'ggyEnable': ggyEnable,
+          'tokenEntries': [
+            {'token': 'pgnfw_a'},
+          ],
+          'ggyEntries': [
+            {'token': link},
+          ],
+          'pollSeconds': 20,
+        });
+        expect(
+          props.enable,
+          enable || ggyEnable,
+          reason: 'enable $enable, ggyEnable $ggyEnable',
+        );
+        expect(props.tokenEntries, const [Po0TokenEntry(token: 'pgnfw_a')]);
+        expect(props.ggyEntries, const [Po0TokenEntry(token: link)]);
+        expect(props.pollSeconds, 20);
+      }
+    });
+
+    test('a switch turned off after the merge stays off across a save', () {
+      const link = 'https://www.guguyun.com/f/whitelist?token=ctecsfw_x';
+      final config = Config.fromJson({
+        'themeProps': const ThemeProps().toJson(),
+        'po0FirewallProps': {
+          'enable': false,
+          'ggyEnable': true,
+          'tokenEntries': [
+            {'token': 'pgnfw_a', 'name': 'home'},
+          ],
+          'ggyEntries': [
+            {'token': link},
+          ],
+          'pollSeconds': 20,
+        },
+      });
+      expect(config.po0FirewallProps.enable, true);
+      final saved =
+          jsonDecode(
+                jsonEncode(
+                  config
+                      .copyWith(
+                        po0FirewallProps: config.po0FirewallProps.copyWith(
+                          enable: false,
+                        ),
+                      )
+                      .toJson(),
+                ),
+              )
+              as Map<String, Object?>;
+      expect(
+        (saved['po0FirewallProps'] as Map<String, Object?>).containsKey(
+          'ggyEnable',
+        ),
+        isFalse,
+      );
+      final restored = Config.fromJson(saved);
+      expect(restored.po0FirewallProps.enable, isFalse);
+      expect(restored.po0FirewallProps.tokenEntries, const [
+        Po0TokenEntry(token: 'pgnfw_a', name: 'home'),
+      ]);
+      expect(restored.po0FirewallProps.ggyEntries, const [
+        Po0TokenEntry(token: link),
+      ]);
+      expect(restored.po0FirewallProps.pollSeconds, 20);
+    });
+
+    test('an existing ggy list wins over the same leftover link', () {
+      const link = 'https://www.guguyun.com/f/whitelist?token=ctecsfw_x';
+      final props = Po0FirewallProps.safeFromJson({
+        'enable': true,
+        'tokenEntries': [
+          {'token': 'pgnfw_a'},
+          {'token': link, 'name': 'leftover'},
+        ],
+        'ggyEntries': [
+          {'token': link, 'name': 'kept'},
+        ],
+      });
+      expect(props.tokenEntries, const [Po0TokenEntry(token: 'pgnfw_a')]);
+      expect(props.ggyEntries, const [
+        Po0TokenEntry(token: link, name: 'kept'),
+      ]);
+    });
+
+    test('a non-bool switch restores the defaults', () {
+      expect(
+        Po0FirewallProps.safeFromJson({'enable': 'yes'}),
+        defaultPo0FirewallProps,
+      );
+      expect(
+        Po0FirewallProps.safeFromJson({'enable': false, 'ggyEnable': 1}),
+        defaultPo0FirewallProps,
+      );
     });
 
     test('a slot saved by an older version is dropped on load', () {

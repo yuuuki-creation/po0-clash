@@ -144,7 +144,7 @@ final class GgyFirewallProvider
   }
 }
 
-String _$ggyFirewallHash() => r'214bb6c0f3f81d1d9be92e63c633fc7d2c14cc79';
+String _$ggyFirewallHash() => r'12db163f0bccfb2027d66d7899b0d846ba022c69';
 
 /// ggy: every request adds, so the interval is fixed rather than tunable.
 
@@ -165,3 +165,97 @@ abstract class _$GgyFirewall extends $Notifier<Po0FirewallState> {
     return element.handleCreate(ref, build);
   }
 }
+
+@ProviderFor(whitelistSummary)
+final whitelistSummaryProvider = WhitelistSummaryProvider._();
+
+final class WhitelistSummaryProvider
+    extends
+        $FunctionalProvider<
+          WhitelistSummary,
+          WhitelistSummary,
+          WhitelistSummary
+        >
+    with $Provider<WhitelistSummary> {
+  WhitelistSummaryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'whitelistSummaryProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$whitelistSummaryHash();
+
+  @$internal
+  @override
+  $ProviderElement<WhitelistSummary> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  WhitelistSummary create(Ref ref) {
+    return whitelistSummary(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(WhitelistSummary value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<WhitelistSummary>(value),
+    );
+  }
+}
+
+String _$whitelistSummaryHash() => r'97d90c063c7b726f0d5af91f6aa4c999d020efeb';
+
+@ProviderFor(whitelistCoordinator)
+final whitelistCoordinatorProvider = WhitelistCoordinatorProvider._();
+
+final class WhitelistCoordinatorProvider
+    extends
+        $FunctionalProvider<
+          WhitelistCoordinator,
+          WhitelistCoordinator,
+          WhitelistCoordinator
+        >
+    with $Provider<WhitelistCoordinator> {
+  WhitelistCoordinatorProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'whitelistCoordinatorProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$whitelistCoordinatorHash();
+
+  @$internal
+  @override
+  $ProviderElement<WhitelistCoordinator> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  WhitelistCoordinator create(Ref ref) {
+    return whitelistCoordinator(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(WhitelistCoordinator value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<WhitelistCoordinator>(value),
+    );
+  }
+}
+
+String _$whitelistCoordinatorHash() =>
+    r'359d36afd7aa9945e80bb1e54371176292a72a97';

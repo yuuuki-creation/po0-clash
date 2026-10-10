@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <title>status_3</title>
-  <path d="M53.35 26.68 A22 22 0 1 1 32 10" fill="none" stroke="#0A84FF" stroke-width="8" stroke-linecap="round"/>
-  <circle cx="45.54" cy="14.66" r="5.5" fill="#FF9F0A"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 1024 1024" role="img" aria-labelledby="title">
+  <title id="title">status_3</title>
+  <path transform="translate(512 512) scale(1.52) translate(-484 -512)" fill="#0A84FF" fill-rule="evenodd" d="M304 800C273 800 248 775 248 744V280C248 249 273 224 304 224H496C620 224 720 324 720 448C720 572 620 672 496 672H360V744C360 775 335 800 304 800Z M562.28 357.72A112 112 0 0 0 405.72 514.28L562.28 357.72Z M586.28 381.72A112 112 0 0 1 429.72 538.28L586.28 381.72Z"/>
+  <path transform="translate(512 512) scale(1.52) translate(-484 -512)" fill="#FF9F0A" d="M405.72 514.28L429.72 538.28L586.28 381.72L562.28 357.72Z"/>
 </svg>

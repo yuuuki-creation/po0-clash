@@ -122,49 +122,46 @@ void main() {
     expect(route(), (tun: true, systemProxy: false));
   });
 
-  test('the whitelist card shows what has entries, else po0', () {
-    expect(whitelistPagesOf(po0: false, ggy: false), [PageLabel.po0]);
-    expect(whitelistPagesOf(po0: true, ggy: false), [PageLabel.po0]);
-    expect(whitelistPagesOf(po0: false, ggy: true), [PageLabel.ggy]);
-    expect(whitelistPagesOf(po0: true, ggy: true), [
-      PageLabel.po0,
-      PageLabel.ggy,
-    ]);
-  });
+  testWidgets(
+    'the whitelist card shows one summary and always opens the page',
+    (tester) async {
+      void setEntries({required bool po0, required bool ggy}) => container
+          .read(po0FirewallSettingProvider.notifier)
+          .update(
+            (state) => state.copyWith(
+              tokenEntries: [if (po0) const Po0TokenEntry(token: 'pgnfw_a')],
+              ggyEntries: [
+                if (ggy)
+                  const Po0TokenEntry(
+                    token:
+                        'https://www.guguyun.com/f/whitelist?token=ctecsfw_x',
+                  ),
+              ],
+            ),
+          );
 
-  testWidgets('the whitelist card takes turns only while both have entries', (
-    tester,
-  ) async {
-    void setEntries({required bool po0}) => container
-        .read(po0FirewallSettingProvider.notifier)
-        .update(
-          (state) => state.copyWith(
-            tokenEntries: [if (po0) const Po0TokenEntry(token: 'pgnfw_a')],
-            ggyEntries: const [
-              Po0TokenEntry(
-                token: 'https://www.guguyun.com/f/whitelist?token=ctecsfw_x',
-              ),
-            ],
-          ),
-        );
+      setEntries(po0: true, ggy: true);
+      await pump(tester, const WhitelistStatusCard());
+      expect(find.text('Whitelist', findRichText: true), findsOneWidget);
+      await tester.pump(const Duration(seconds: 10));
+      await tester.pumpAndSettle();
+      expect(find.text('Whitelist', findRichText: true), findsOneWidget);
 
-    setEntries(po0: true);
-    await pump(tester, const WhitelistStatusCard());
-    expect(find.text('po0', findRichText: true), findsOneWidget);
-    await tester.pump(WhitelistStatusCard.rotation);
-    await tester.pumpAndSettle();
-    expect(find.text('ggy', findRichText: true), findsOneWidget);
-    expect(find.text('po0', findRichText: true), findsNothing);
+      await tester.tap(find.byType(WhitelistStatusCard));
+      expect(container.read(currentPageLabelProvider), PageLabel.whitelist);
 
-    await tester.tap(find.byType(WhitelistStatusCard));
-    expect(container.read(currentPageLabelProvider), PageLabel.ggy);
-
-    setEntries(po0: false);
-    await tester.pump(WhitelistStatusCard.rotation * 2);
-    await tester.pumpAndSettle();
-    expect(find.text('ggy', findRichText: true), findsOneWidget);
-    expect(find.text('po0', findRichText: true), findsNothing);
-  });
+      for (final (po0, ggy) in [(false, false), (false, true), (true, false)]) {
+        setEntries(po0: po0, ggy: ggy);
+        await tester.pumpAndSettle();
+        expect(find.text('Whitelist', findRichText: true), findsOneWidget);
+        await tester.pump(const Duration(seconds: 10));
+        await tester.pumpAndSettle();
+        expect(find.text('Whitelist', findRichText: true), findsOneWidget);
+        await tester.tap(find.byType(WhitelistStatusCard));
+        expect(container.read(currentPageLabelProvider), PageLabel.whitelist);
+      }
+    },
+  );
 
   testWidgets('the control center lays out narrow and wide', (tester) async {
     for (final width in [380.0, 820.0]) {

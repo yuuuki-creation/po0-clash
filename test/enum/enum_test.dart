@@ -3,6 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('PageLabel', () {
+    test('has one whitelist destination and no per-service pages', () {
+      final names = PageLabel.values.map((it) => it.name);
+      expect(names, contains('whitelist'));
+      expect(names, isNot(contains('po0')));
+      expect(names, isNot(contains('ggy')));
+    });
+  });
+
   group('GroupType', () {
     test('parses clash group type aliases case-insensitively', () {
       expect(GroupType.parse('url-test'), GroupType.URLTest);

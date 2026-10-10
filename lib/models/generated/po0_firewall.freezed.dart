@@ -289,7 +289,7 @@ as String,
 /// @nodoc
 mixin _$Po0FirewallProps {
 
- bool get enable; List<Po0TokenEntry> get tokenEntries; int get pollSeconds; bool get ggyEnable; List<Po0TokenEntry> get ggyEntries;
+ bool get enable; List<Po0TokenEntry> get tokenEntries; int get pollSeconds; List<Po0TokenEntry> get ggyEntries;
 /// Create a copy of Po0FirewallProps
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -303,20 +303,20 @@ $Po0FirewallPropsCopyWith<Po0FirewallProps> get copyWith => _$Po0FirewallPropsCo
 @override
 bool operator ==(Object other) {
   final _this = this as Po0FirewallProps;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Po0FirewallProps&&(identical(other.enable, _this.enable) || other.enable == _this.enable)&&const DeepCollectionEquality().equals(other.tokenEntries, _this.tokenEntries)&&(identical(other.pollSeconds, _this.pollSeconds) || other.pollSeconds == _this.pollSeconds)&&(identical(other.ggyEnable, _this.ggyEnable) || other.ggyEnable == _this.ggyEnable)&&const DeepCollectionEquality().equals(other.ggyEntries, _this.ggyEntries));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Po0FirewallProps&&(identical(other.enable, _this.enable) || other.enable == _this.enable)&&const DeepCollectionEquality().equals(other.tokenEntries, _this.tokenEntries)&&(identical(other.pollSeconds, _this.pollSeconds) || other.pollSeconds == _this.pollSeconds)&&const DeepCollectionEquality().equals(other.ggyEntries, _this.ggyEntries));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as Po0FirewallProps;
-  return Object.hash(runtimeType,_this.enable,const DeepCollectionEquality().hash(_this.tokenEntries),_this.pollSeconds,_this.ggyEnable,const DeepCollectionEquality().hash(_this.ggyEntries));
+  return Object.hash(runtimeType,_this.enable,const DeepCollectionEquality().hash(_this.tokenEntries),_this.pollSeconds,const DeepCollectionEquality().hash(_this.ggyEntries));
 }
 
 @override
 String toString() {
   final _this = this as Po0FirewallProps;
-  return 'Po0FirewallProps(enable: ${_this.enable}, tokenEntries: ${_this.tokenEntries}, pollSeconds: ${_this.pollSeconds}, ggyEnable: ${_this.ggyEnable}, ggyEntries: ${_this.ggyEntries})';
+  return 'Po0FirewallProps(enable: ${_this.enable}, tokenEntries: ${_this.tokenEntries}, pollSeconds: ${_this.pollSeconds}, ggyEntries: ${_this.ggyEntries})';
 }
 
 
@@ -327,7 +327,7 @@ abstract mixin class $Po0FirewallPropsCopyWith<$Res>  {
   factory $Po0FirewallPropsCopyWith(Po0FirewallProps value, $Res Function(Po0FirewallProps) _then) = _$Po0FirewallPropsCopyWithImpl;
 @useResult
 $Res call({
- bool enable, List<Po0TokenEntry> tokenEntries, int pollSeconds, bool ggyEnable, List<Po0TokenEntry> ggyEntries
+ bool enable, List<Po0TokenEntry> tokenEntries, int pollSeconds, List<Po0TokenEntry> ggyEntries
 });
 
 
@@ -344,13 +344,12 @@ class _$Po0FirewallPropsCopyWithImpl<$Res>
 
 /// Create a copy of Po0FirewallProps
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? enable = null,Object? tokenEntries = null,Object? pollSeconds = null,Object? ggyEnable = null,Object? ggyEntries = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? enable = null,Object? tokenEntries = null,Object? pollSeconds = null,Object? ggyEntries = null,}) {
   return _then(Po0FirewallProps(
 enable: null == enable ? _self.enable : enable // ignore: cast_nullable_to_non_nullable
 as bool,tokenEntries: null == tokenEntries ? _self.tokenEntries : tokenEntries // ignore: cast_nullable_to_non_nullable
 as List<Po0TokenEntry>,pollSeconds: null == pollSeconds ? _self.pollSeconds : pollSeconds // ignore: cast_nullable_to_non_nullable
-as int,ggyEnable: null == ggyEnable ? _self.ggyEnable : ggyEnable // ignore: cast_nullable_to_non_nullable
-as bool,ggyEntries: null == ggyEntries ? _self.ggyEntries : ggyEntries // ignore: cast_nullable_to_non_nullable
+as int,ggyEntries: null == ggyEntries ? _self.ggyEntries : ggyEntries // ignore: cast_nullable_to_non_nullable
 as List<Po0TokenEntry>,
   ));
 }
@@ -436,10 +435,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool enable,  List<Po0TokenEntry> tokenEntries,  int pollSeconds,  bool ggyEnable,  List<Po0TokenEntry> ggyEntries)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool enable,  List<Po0TokenEntry> tokenEntries,  int pollSeconds,  List<Po0TokenEntry> ggyEntries)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Po0FirewallProps() when $default != null:
-return $default(_that.enable,_that.tokenEntries,_that.pollSeconds,_that.ggyEnable,_that.ggyEntries);case _:
+return $default(_that.enable,_that.tokenEntries,_that.pollSeconds,_that.ggyEntries);case _:
   return orElse();
 
 }
@@ -457,10 +456,10 @@ return $default(_that.enable,_that.tokenEntries,_that.pollSeconds,_that.ggyEnabl
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool enable,  List<Po0TokenEntry> tokenEntries,  int pollSeconds,  bool ggyEnable,  List<Po0TokenEntry> ggyEntries)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool enable,  List<Po0TokenEntry> tokenEntries,  int pollSeconds,  List<Po0TokenEntry> ggyEntries)  $default,) {final _that = this;
 switch (_that) {
 case _Po0FirewallProps():
-return $default(_that.enable,_that.tokenEntries,_that.pollSeconds,_that.ggyEnable,_that.ggyEntries);case _:
+return $default(_that.enable,_that.tokenEntries,_that.pollSeconds,_that.ggyEntries);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -477,10 +476,10 @@ return $default(_that.enable,_that.tokenEntries,_that.pollSeconds,_that.ggyEnabl
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool enable,  List<Po0TokenEntry> tokenEntries,  int pollSeconds,  bool ggyEnable,  List<Po0TokenEntry> ggyEntries)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool enable,  List<Po0TokenEntry> tokenEntries,  int pollSeconds,  List<Po0TokenEntry> ggyEntries)?  $default,) {final _that = this;
 switch (_that) {
 case _Po0FirewallProps() when $default != null:
-return $default(_that.enable,_that.tokenEntries,_that.pollSeconds,_that.ggyEnable,_that.ggyEntries);case _:
+return $default(_that.enable,_that.tokenEntries,_that.pollSeconds,_that.ggyEntries);case _:
   return null;
 
 }
@@ -492,7 +491,7 @@ return $default(_that.enable,_that.tokenEntries,_that.pollSeconds,_that.ggyEnabl
 @JsonSerializable()
 
 class _Po0FirewallProps implements Po0FirewallProps {
-  const _Po0FirewallProps({this.enable = false,  List<Po0TokenEntry> tokenEntries = const [], this.pollSeconds = 5, this.ggyEnable = false,  List<Po0TokenEntry> ggyEntries = const []}): _tokenEntries = tokenEntries,_ggyEntries = ggyEntries;
+  const _Po0FirewallProps({this.enable = false,  List<Po0TokenEntry> tokenEntries = const [], this.pollSeconds = 5,  List<Po0TokenEntry> ggyEntries = const []}): _tokenEntries = tokenEntries,_ggyEntries = ggyEntries;
   factory _Po0FirewallProps.fromJson(Map<String, dynamic> json) => _$Po0FirewallPropsFromJson(json);
 
 @override@JsonKey() final  bool enable;
@@ -504,7 +503,6 @@ class _Po0FirewallProps implements Po0FirewallProps {
 }
 
 @override@JsonKey() final  int pollSeconds;
-@override@JsonKey() final  bool ggyEnable;
  final  List<Po0TokenEntry> _ggyEntries;
 @override@JsonKey() List<Po0TokenEntry> get ggyEntries {
   if (_ggyEntries is EqualUnmodifiableListView) return _ggyEntries;
@@ -526,18 +524,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Po0FirewallProps&&(identical(other.enable, enable) || other.enable == enable)&&const DeepCollectionEquality().equals(other.tokenEntries, _tokenEntries)&&(identical(other.pollSeconds, pollSeconds) || other.pollSeconds == pollSeconds)&&(identical(other.ggyEnable, ggyEnable) || other.ggyEnable == ggyEnable)&&const DeepCollectionEquality().equals(other.ggyEntries, _ggyEntries));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Po0FirewallProps&&(identical(other.enable, enable) || other.enable == enable)&&const DeepCollectionEquality().equals(other.tokenEntries, _tokenEntries)&&(identical(other.pollSeconds, pollSeconds) || other.pollSeconds == pollSeconds)&&const DeepCollectionEquality().equals(other.ggyEntries, _ggyEntries));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,enable,const DeepCollectionEquality().hash(_tokenEntries),pollSeconds,ggyEnable,const DeepCollectionEquality().hash(_ggyEntries));
+    return Object.hash(runtimeType,enable,const DeepCollectionEquality().hash(_tokenEntries),pollSeconds,const DeepCollectionEquality().hash(_ggyEntries));
 }
 
 @override
 String toString() {
-    return 'Po0FirewallProps(enable: $enable, tokenEntries: $tokenEntries, pollSeconds: $pollSeconds, ggyEnable: $ggyEnable, ggyEntries: $ggyEntries)';
+    return 'Po0FirewallProps(enable: $enable, tokenEntries: $tokenEntries, pollSeconds: $pollSeconds, ggyEntries: $ggyEntries)';
 }
 
 
@@ -548,7 +546,7 @@ abstract mixin class _$Po0FirewallPropsCopyWith<$Res> implements $Po0FirewallPro
   factory _$Po0FirewallPropsCopyWith(_Po0FirewallProps value, $Res Function(_Po0FirewallProps) _then) = __$Po0FirewallPropsCopyWithImpl;
 @override @useResult
 $Res call({
- bool enable, List<Po0TokenEntry> tokenEntries, int pollSeconds, bool ggyEnable, List<Po0TokenEntry> ggyEntries
+ bool enable, List<Po0TokenEntry> tokenEntries, int pollSeconds, List<Po0TokenEntry> ggyEntries
 });
 
 
@@ -565,13 +563,12 @@ class __$Po0FirewallPropsCopyWithImpl<$Res>
 
 /// Create a copy of Po0FirewallProps
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? enable = null,Object? tokenEntries = null,Object? pollSeconds = null,Object? ggyEnable = null,Object? ggyEntries = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? enable = null,Object? tokenEntries = null,Object? pollSeconds = null,Object? ggyEntries = null,}) {
   return _then(_Po0FirewallProps(
 enable: null == enable ? _self.enable : enable // ignore: cast_nullable_to_non_nullable
 as bool,tokenEntries: null == tokenEntries ? _self._tokenEntries : tokenEntries // ignore: cast_nullable_to_non_nullable
 as List<Po0TokenEntry>,pollSeconds: null == pollSeconds ? _self.pollSeconds : pollSeconds // ignore: cast_nullable_to_non_nullable
-as int,ggyEnable: null == ggyEnable ? _self.ggyEnable : ggyEnable // ignore: cast_nullable_to_non_nullable
-as bool,ggyEntries: null == ggyEntries ? _self._ggyEntries : ggyEntries // ignore: cast_nullable_to_non_nullable
+as int,ggyEntries: null == ggyEntries ? _self._ggyEntries : ggyEntries // ignore: cast_nullable_to_non_nullable
 as List<Po0TokenEntry>,
   ));
 }
@@ -849,7 +846,7 @@ as int?,
 /// @nodoc
 mixin _$Po0TokenResult {
 
- String get label; String? get name; Po0ResultType get type; String? get currentIp; List<Po0WhitelistEntry> get whitelist; int? get limit; String? get message;
+ String get label; String? get name; Po0ResultType get type; String? get currentIp; List<Po0WhitelistEntry> get whitelist; int? get limit; String? get message; String? get tokenValue;
 /// Create a copy of Po0TokenResult
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -861,21 +858,16 @@ $Po0TokenResultCopyWith<Po0TokenResult> get copyWith => _$Po0TokenResultCopyWith
 @override
 bool operator ==(Object other) {
   final _this = this as Po0TokenResult;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Po0TokenResult&&(identical(other.label, _this.label) || other.label == _this.label)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.type, _this.type) || other.type == _this.type)&&(identical(other.currentIp, _this.currentIp) || other.currentIp == _this.currentIp)&&const DeepCollectionEquality().equals(other.whitelist, _this.whitelist)&&(identical(other.limit, _this.limit) || other.limit == _this.limit)&&(identical(other.message, _this.message) || other.message == _this.message));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Po0TokenResult&&(identical(other.label, _this.label) || other.label == _this.label)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.type, _this.type) || other.type == _this.type)&&(identical(other.currentIp, _this.currentIp) || other.currentIp == _this.currentIp)&&const DeepCollectionEquality().equals(other.whitelist, _this.whitelist)&&(identical(other.limit, _this.limit) || other.limit == _this.limit)&&(identical(other.message, _this.message) || other.message == _this.message)&&(identical(other.tokenValue, _this.tokenValue) || other.tokenValue == _this.tokenValue));
 }
 
 
 @override
 int get hashCode {
   final _this = this as Po0TokenResult;
-  return Object.hash(runtimeType,_this.label,_this.name,_this.type,_this.currentIp,const DeepCollectionEquality().hash(_this.whitelist),_this.limit,_this.message);
+  return Object.hash(runtimeType,_this.label,_this.name,_this.type,_this.currentIp,const DeepCollectionEquality().hash(_this.whitelist),_this.limit,_this.message,_this.tokenValue);
 }
 
-@override
-String toString() {
-  final _this = this as Po0TokenResult;
-  return 'Po0TokenResult(label: ${_this.label}, name: ${_this.name}, type: ${_this.type}, currentIp: ${_this.currentIp}, whitelist: ${_this.whitelist}, limit: ${_this.limit}, message: ${_this.message})';
-}
 
 
 }
@@ -885,7 +877,7 @@ abstract mixin class $Po0TokenResultCopyWith<$Res>  {
   factory $Po0TokenResultCopyWith(Po0TokenResult value, $Res Function(Po0TokenResult) _then) = _$Po0TokenResultCopyWithImpl;
 @useResult
 $Res call({
- String label, String? name, Po0ResultType type, String? currentIp, List<Po0WhitelistEntry> whitelist, int? limit, String? message
+ String label, String? name, Po0ResultType type, String? currentIp, List<Po0WhitelistEntry> whitelist, int? limit, String? message, String? tokenValue
 });
 
 
@@ -902,7 +894,7 @@ class _$Po0TokenResultCopyWithImpl<$Res>
 
 /// Create a copy of Po0TokenResult
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? label = null,Object? name = freezed,Object? type = null,Object? currentIp = freezed,Object? whitelist = null,Object? limit = freezed,Object? message = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? label = null,Object? name = freezed,Object? type = null,Object? currentIp = freezed,Object? whitelist = null,Object? limit = freezed,Object? message = freezed,Object? tokenValue = freezed,}) {
   return _then(Po0TokenResult(
 label: null == label ? _self.label : label // ignore: cast_nullable_to_non_nullable
 as String,name: freezed == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -911,6 +903,7 @@ as Po0ResultType,currentIp: freezed == currentIp ? _self.currentIp : currentIp /
 as String?,whitelist: null == whitelist ? _self.whitelist : whitelist // ignore: cast_nullable_to_non_nullable
 as List<Po0WhitelistEntry>,limit: freezed == limit ? _self.limit : limit // ignore: cast_nullable_to_non_nullable
 as int?,message: freezed == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
+as String?,tokenValue: freezed == tokenValue ? _self.tokenValue : tokenValue // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -996,10 +989,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String label,  String? name,  Po0ResultType type,  String? currentIp,  List<Po0WhitelistEntry> whitelist,  int? limit,  String? message)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String label,  String? name,  Po0ResultType type,  String? currentIp,  List<Po0WhitelistEntry> whitelist,  int? limit,  String? message,  String? tokenValue)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Po0TokenResult() when $default != null:
-return $default(_that.label,_that.name,_that.type,_that.currentIp,_that.whitelist,_that.limit,_that.message);case _:
+return $default(_that.label,_that.name,_that.type,_that.currentIp,_that.whitelist,_that.limit,_that.message,_that.tokenValue);case _:
   return orElse();
 
 }
@@ -1017,10 +1010,10 @@ return $default(_that.label,_that.name,_that.type,_that.currentIp,_that.whitelis
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String label,  String? name,  Po0ResultType type,  String? currentIp,  List<Po0WhitelistEntry> whitelist,  int? limit,  String? message)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String label,  String? name,  Po0ResultType type,  String? currentIp,  List<Po0WhitelistEntry> whitelist,  int? limit,  String? message,  String? tokenValue)  $default,) {final _that = this;
 switch (_that) {
 case _Po0TokenResult():
-return $default(_that.label,_that.name,_that.type,_that.currentIp,_that.whitelist,_that.limit,_that.message);case _:
+return $default(_that.label,_that.name,_that.type,_that.currentIp,_that.whitelist,_that.limit,_that.message,_that.tokenValue);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1037,10 +1030,10 @@ return $default(_that.label,_that.name,_that.type,_that.currentIp,_that.whitelis
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String label,  String? name,  Po0ResultType type,  String? currentIp,  List<Po0WhitelistEntry> whitelist,  int? limit,  String? message)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String label,  String? name,  Po0ResultType type,  String? currentIp,  List<Po0WhitelistEntry> whitelist,  int? limit,  String? message,  String? tokenValue)?  $default,) {final _that = this;
 switch (_that) {
 case _Po0TokenResult() when $default != null:
-return $default(_that.label,_that.name,_that.type,_that.currentIp,_that.whitelist,_that.limit,_that.message);case _:
+return $default(_that.label,_that.name,_that.type,_that.currentIp,_that.whitelist,_that.limit,_that.message,_that.tokenValue);case _:
   return null;
 
 }
@@ -1052,7 +1045,7 @@ return $default(_that.label,_that.name,_that.type,_that.currentIp,_that.whitelis
 
 
 class _Po0TokenResult implements Po0TokenResult {
-  const _Po0TokenResult({required this.label, this.name, required this.type, this.currentIp,  List<Po0WhitelistEntry> whitelist = const [], this.limit, this.message}): _whitelist = whitelist;
+  const _Po0TokenResult({required this.label, this.name, required this.type, this.currentIp,  List<Po0WhitelistEntry> whitelist = const [], this.limit, this.message, this.tokenValue}): _whitelist = whitelist;
   
 
 @override final  String label;
@@ -1068,6 +1061,7 @@ class _Po0TokenResult implements Po0TokenResult {
 
 @override final  int? limit;
 @override final  String? message;
+@override final  String? tokenValue;
 
 /// Create a copy of Po0TokenResult
 /// with the given fields replaced by the non-null parameter values.
@@ -1079,19 +1073,15 @@ _$Po0TokenResultCopyWith<_Po0TokenResult> get copyWith => __$Po0TokenResultCopyW
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Po0TokenResult&&(identical(other.label, label) || other.label == label)&&(identical(other.name, name) || other.name == name)&&(identical(other.type, type) || other.type == type)&&(identical(other.currentIp, currentIp) || other.currentIp == currentIp)&&const DeepCollectionEquality().equals(other.whitelist, _whitelist)&&(identical(other.limit, limit) || other.limit == limit)&&(identical(other.message, message) || other.message == message));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Po0TokenResult&&(identical(other.label, label) || other.label == label)&&(identical(other.name, name) || other.name == name)&&(identical(other.type, type) || other.type == type)&&(identical(other.currentIp, currentIp) || other.currentIp == currentIp)&&const DeepCollectionEquality().equals(other.whitelist, _whitelist)&&(identical(other.limit, limit) || other.limit == limit)&&(identical(other.message, message) || other.message == message)&&(identical(other.tokenValue, tokenValue) || other.tokenValue == tokenValue));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,label,name,type,currentIp,const DeepCollectionEquality().hash(_whitelist),limit,message);
+    return Object.hash(runtimeType,label,name,type,currentIp,const DeepCollectionEquality().hash(_whitelist),limit,message,tokenValue);
 }
 
-@override
-String toString() {
-    return 'Po0TokenResult(label: $label, name: $name, type: $type, currentIp: $currentIp, whitelist: $whitelist, limit: $limit, message: $message)';
-}
 
 
 }
@@ -1101,7 +1091,7 @@ abstract mixin class _$Po0TokenResultCopyWith<$Res> implements $Po0TokenResultCo
   factory _$Po0TokenResultCopyWith(_Po0TokenResult value, $Res Function(_Po0TokenResult) _then) = __$Po0TokenResultCopyWithImpl;
 @override @useResult
 $Res call({
- String label, String? name, Po0ResultType type, String? currentIp, List<Po0WhitelistEntry> whitelist, int? limit, String? message
+ String label, String? name, Po0ResultType type, String? currentIp, List<Po0WhitelistEntry> whitelist, int? limit, String? message, String? tokenValue
 });
 
 
@@ -1118,7 +1108,7 @@ class __$Po0TokenResultCopyWithImpl<$Res>
 
 /// Create a copy of Po0TokenResult
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? label = null,Object? name = freezed,Object? type = null,Object? currentIp = freezed,Object? whitelist = null,Object? limit = freezed,Object? message = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? label = null,Object? name = freezed,Object? type = null,Object? currentIp = freezed,Object? whitelist = null,Object? limit = freezed,Object? message = freezed,Object? tokenValue = freezed,}) {
   return _then(_Po0TokenResult(
 label: null == label ? _self.label : label // ignore: cast_nullable_to_non_nullable
 as String,name: freezed == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -1127,6 +1117,7 @@ as Po0ResultType,currentIp: freezed == currentIp ? _self.currentIp : currentIp /
 as String?,whitelist: null == whitelist ? _self._whitelist : whitelist // ignore: cast_nullable_to_non_nullable
 as List<Po0WhitelistEntry>,limit: freezed == limit ? _self.limit : limit // ignore: cast_nullable_to_non_nullable
 as int?,message: freezed == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
+as String?,tokenValue: freezed == tokenValue ? _self.tokenValue : tokenValue // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }

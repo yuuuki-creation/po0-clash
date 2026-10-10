@@ -1,34 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <defs>
-    <linearGradient id="base" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#4AA8FF"/>
-      <stop offset="1" stop-color="#0057D9"/>
-    </linearGradient>
-    <radialGradient id="shine" cx="0.25" cy="0.12" r="0.75">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.32"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.3"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.08"/>
-    </linearGradient>
-    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.95"/>
-      <stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.12"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.55"/>
-    </linearGradient>
-    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.82"/>
-    </linearGradient>
-    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="20"/>
-    </filter>
-  </defs>
-  <rect width="1024" height="1024" fill="url(#base)"/>
-  <rect width="1024" height="1024" fill="url(#shine)"/>
-  <g><circle cx="512" cy="540" r="300" fill="#001A4D" opacity="0.28" filter="url(#soft)"/>
-    <circle cx="512" cy="512" r="300" fill="url(#glass)" stroke="url(#rim)" stroke-width="6"/>
-    <path d="M706.06 463.62 A200 200 0 1 1 512 312" fill="none" stroke="url(#ring)" stroke-width="72" stroke-linecap="round"/>
-    <circle cx="635.13" cy="354.4" r="42" fill="#FFFFFF"/></g>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title">
+  <title id="title">po0-clash</title>
+  <rect width="1024" height="1024" fill="#173529"/>
+  <path transform="translate(512 512) scale(1.15) translate(-484 -512)" fill="#A5EDC6" fill-rule="evenodd" d="M304 800C273 800 248 775 248 744V280C248 249 273 224 304 224H496C620 224 720 324 720 448C720 572 620 672 496 672H360V744C360 775 335 800 304 800Z M562.28 357.72A112 112 0 0 0 405.72 514.28L562.28 357.72Z M586.28 381.72A112 112 0 0 1 429.72 538.28L586.28 381.72Z"/>
 </svg>

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
@@ -275,136 +274,50 @@ class _SpeedValue extends StatelessWidget {
   }
 }
 
-/// The pages a whitelist card shows: the ones with entries, else po0.
-List<PageLabel> whitelistPagesOf({required bool po0, required bool ggy}) {
-  final pages = [if (po0) PageLabel.po0, if (ggy) PageLabel.ggy];
-  return pages.isEmpty ? const [PageLabel.po0] : pages;
-}
-
-class WhitelistStatusCard extends ConsumerStatefulWidget {
+/// The unified whitelist summary: one card for both services (ADR 0014).
+class WhitelistStatusCard extends ConsumerWidget {
   const WhitelistStatusCard({super.key});
 
-  static const rotation = Duration(seconds: 5);
-
   @override
-  ConsumerState<WhitelistStatusCard> createState() =>
-      _WhitelistStatusCardState();
-}
-
-class _WhitelistStatusCardState extends ConsumerState<WhitelistStatusCard> {
-  Timer? _timer;
-  int _turn = 0;
-
-  static List<PageLabel> _pagesOf(Po0FirewallProps setting) => whitelistPagesOf(
-    po0: po0TokensOf(setting.tokenEntries).isNotEmpty,
-    ggy: ggyLinksOf(setting.ggyEntries).isNotEmpty,
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    ref.listenManual(
-      po0FirewallSettingProvider.select((it) => _pagesOf(it).length),
-      (_, count) => _rotate(count > 1),
-      fireImmediately: true,
-    );
-  }
-
-  void _rotate(bool rotate) {
-    if (!rotate) {
-      _timer?.cancel();
-      _timer = null;
-      return;
-    }
-    _timer ??= Timer.periodic(
-      WhitelistStatusCard.rotation,
-      (_) => setState(() => _turn++),
-    );
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final appLocalizations = context.appLocalizations;
-    final setting = ref.watch(po0FirewallSettingProvider);
-    final pages = _pagesOf(setting);
-    final page = pages[_turn % pages.length];
-    final isGgy = page == PageLabel.ggy;
-    final state = ref.watch(isGgy ? ggyFirewallProvider : po0FirewallProvider);
-    final overview = po0OverviewOf(
-      appLocalizations,
-      enabled: isGgy ? setting.ggyEnable : setting.enable,
-      hasTokens: isGgy
-          ? ggyLinksOf(setting.ggyEntries).isNotEmpty
-          : po0TokensOf(setting.tokenEntries).isNotEmpty,
-      state: state,
-      noTokensTitle: isGgy ? appLocalizations.ggyStatusNoLink : null,
-    );
+    final summary = ref.watch(whitelistSummaryProvider);
+    final overview = whitelistOverviewOf(appLocalizations, summary: summary);
     final color = context.toneColor(overview.tone);
-    final exitIp = state.results.map((it) => it.currentIp).nonNulls.firstOrNull;
+    final exit = whitelistSharedExitOf(summary);
     return GlassButton(
       padding: _tilePadding,
-      onTap: () => ref.read(currentPageLabelProvider.notifier).toPage(page),
-      child: FadeBox(
-        alignment: AlignmentDirectional.topStart,
-        child: _WhitelistStatus(
-          key: ValueKey(page),
-          label: isGgy ? appLocalizations.ggyNav : appLocalizations.po0Nav,
-          overview: overview,
-          color: color,
-          exitIp: exitIp,
-        ),
-      ),
-    );
-  }
-}
-
-class _WhitelistStatus extends StatelessWidget {
-  const _WhitelistStatus({
-    super.key,
-    required this.label,
-    required this.overview,
-    required this.color,
-    required this.exitIp,
-  });
-
-  final String label;
-  final Po0Overview overview;
-  final Color color;
-  final String? exitIp;
-
-  @override
-  Widget build(BuildContext context) {
-    final appLocalizations = context.appLocalizations;
-    final exitIp = this.exitIp;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _TileHeader(icon: overview.icon, label: label, color: color),
-        const SizedBox(height: 12),
-        Text(
-          overview.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: context.textTheme.titleMedium,
-        ),
-        if (exitIp != null) ...[
-          const SizedBox(height: 4),
+      onTap: () => ref
+          .read(currentPageLabelProvider.notifier)
+          .toPage(PageLabel.whitelist),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _TileHeader(
+            icon: overview.icon,
+            label: appLocalizations.whitelistNav,
+            color: color,
+          ),
+          const SizedBox(height: 12),
           Text(
-            appLocalizations.po0Exit(exitIp),
+            overview.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: context.textTheme.bodySmall?.copyWith(
-              color: context.colorScheme.onSurfaceVariant,
-            ),
+            style: context.textTheme.titleMedium,
           ),
+          if (exit != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              appLocalizations.po0Exit(exit),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.textTheme.bodySmall?.copyWith(
+                color: context.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

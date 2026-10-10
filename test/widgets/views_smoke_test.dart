@@ -39,7 +39,7 @@ Finder _portField(String label) =>
 void main() {
   final cases = <String, Widget>{
     'control center': const ControlCenterView(),
-    'po0': const Po0FirewallView(),
+    'whitelist': const WhitelistView(),
     'proxies': const ProxiesView(),
     'profiles': const ProfilesView(),
     'requests': const RequestsView(),

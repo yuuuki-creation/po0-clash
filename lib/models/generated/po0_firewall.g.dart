@@ -24,7 +24,6 @@ _Po0FirewallProps _$Po0FirewallPropsFromJson(Map<String, dynamic> json) =>
               .toList() ??
           const [],
       pollSeconds: (json['pollSeconds'] as num?)?.toInt() ?? 5,
-      ggyEnable: json['ggyEnable'] as bool? ?? false,
       ggyEntries:
           (json['ggyEntries'] as List<dynamic>?)
               ?.map((e) => Po0TokenEntry.fromJson(e as Map<String, dynamic>))
@@ -37,6 +36,5 @@ Map<String, dynamic> _$Po0FirewallPropsToJson(_Po0FirewallProps instance) =>
       'enable': instance.enable,
       'tokenEntries': instance.tokenEntries,
       'pollSeconds': instance.pollSeconds,
-      'ggyEnable': instance.ggyEnable,
       'ggyEntries': instance.ggyEntries,
     };

@@ -320,8 +320,7 @@ enum PageLabel {
   requests,
   resources,
   connections,
-  po0,
-  ggy,
+  whitelist,
   activity,
 }
 

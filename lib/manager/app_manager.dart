@@ -54,6 +54,9 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
     });
     ref.listenManual(initProvider, (prev, next) {
       if (next) {
+        // The coordinator owns the master switch; it must listen before the
+        // schedulers start so an early toggle cannot be missed.
+        ref.read(whitelistCoordinatorProvider);
         ref.read(po0FirewallProvider.notifier).start();
         ref.read(ggyFirewallProvider.notifier).start();
       }
