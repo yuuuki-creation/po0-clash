@@ -15,8 +15,7 @@ extension PageLabelL10n on PageLabel {
       PageLabel.requests => appLocalizations.requests,
       PageLabel.resources => appLocalizations.resources,
       PageLabel.connections => appLocalizations.connections,
-      PageLabel.po0 => appLocalizations.po0Nav,
-      PageLabel.ggy => appLocalizations.ggyNav,
+      PageLabel.whitelist => appLocalizations.whitelistNav,
       PageLabel.activity => appLocalizations.activity,
     };
   }
@@ -28,8 +27,7 @@ extension PageLabelL10n on PageLabel {
       PageLabel.requests => appLocalizations.requestsDesc,
       PageLabel.resources => appLocalizations.resourcesDesc,
       PageLabel.connections => appLocalizations.connectionsDesc,
-      PageLabel.po0 => appLocalizations.po0FirewallDesc,
-      PageLabel.ggy => appLocalizations.ggyFirewallDesc,
+      PageLabel.whitelist => appLocalizations.whitelistDesc,
       PageLabel.activity => appLocalizations.activityDesc,
       PageLabel.dashboard ||
       PageLabel.proxies ||

@@ -50,6 +50,9 @@ Android、Windows、macOS 共用一套苹果液态玻璃（Liquid Glass）风格
 源文件在 `assets_source/images/icon/`（应用图标、macOS 图标、Android 自适应图标前景 / 背景、TV 横幅、托盘图标），
 运行 `bash tool/generate_app_icons.sh` 生成全部尺寸，需要 `rsvg-convert` 与 `cwebp`。
 
+应用图标为扁平化的单一 P / 斜杠零组合符号，使用深墨绿 `#173529` 底色与薄荷绿 `#A5EDC6` 主体。
+`po0_mark.svg` 为透明背景的独立标志；桌面、Android 自适应图标与托盘沿用相同轮廓，托盘保留原有状态配色。
+
 ## 测试
 
 - `test/widgets/glass_test.dart`：分段控件整段可点、圆形按钮只响应圆内、图标按钮尺寸、配色。

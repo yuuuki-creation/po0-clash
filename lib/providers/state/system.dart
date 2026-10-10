@@ -173,10 +173,10 @@ SharedState sharedState(Ref ref) {
     ),
   );
   final vpnSetting = ref.watch(vpnSettingProvider);
-  final po0FirewallEnable = ref.watch(
+  final whitelistEnable = ref.watch(
     po0FirewallSettingProvider.select((state) => state.enable),
   );
-  final routeAddress = po0FirewallEnable
+  final routeAddress = whitelistEnable
       ? excludeIpv4Route(
           clashConfig.routeAddress.isEmpty
               ? const ['0.0.0.0/0']

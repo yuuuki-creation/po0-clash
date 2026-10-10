@@ -832,4 +832,86 @@ void main() {
       },
     );
   });
+
+  group('getProfile whitelist wiring', () {
+    late Directory tempDir;
+    var packageInfoReady = false;
+
+    setUpAll(() async {
+      tempDir = Directory.systemTemp.createTempSync('whitelist_profile_test');
+      PathProviderPlatform.instance = _FakePathProvider(tempDir.path);
+      await AppLocalizations.load(const Locale('en'));
+    });
+
+    tearDownAll(() {
+      try {
+        tempDir.deleteSync(recursive: true);
+      } catch (_) {}
+    });
+
+    const setupState = SetupState(
+      profileId: 1,
+      profileLastUpdateDate: null,
+      overwriteType: OverwriteType.standard,
+      rules: [],
+      proxyGroups: [],
+      addedRules: [],
+      script: null,
+      overrideDns: false,
+      dns: Dns(),
+    );
+
+    Future<String> profileYaml(Po0FirewallProps props) async {
+      final core = _MockCoreHandlerInterface();
+      when(
+        () => core.getConfig(any()),
+      ).thenAnswer((_) async => <String, dynamic>{});
+      final profile = Profile.normal(label: 'p');
+      // globalState.packageInfo is late-once; a solo run may still need it.
+      if (!packageInfoReady) {
+        try {
+          globalState.packageInfo = PackageInfo(
+            appName: 'po0-clash',
+            packageName: 'io.github.yuuukicreation.po0clash',
+            version: '0.0.0',
+            buildNumber: '0',
+          );
+        } catch (_) {
+          // Another group in this file initialized it already.
+        }
+        packageInfoReady = true;
+      }
+      final scoped = ProviderContainer(
+        overrides: [
+          profilesProvider.overrideWith(() => TestProfiles([profile])),
+          po0FirewallSettingProvider.overrideWithBuild((_, _) => props),
+          coreHandlerProvider.overrideWithValue(CoreController.scoped(core)),
+          setupActionProvider.overrideWith(SetupAction.new),
+        ],
+      );
+      addTearDown(scoped.dispose);
+      final res = await scoped
+          .read(setupActionProvider.notifier)
+          .getProfile(
+            setupState: setupState,
+            patchConfig: const PatchClashConfig(),
+          );
+      return res.yaml;
+    }
+
+    test(
+      'the master switch injects the direct listener and route exclusion',
+      () async {
+        final yaml = await profileYaml(const Po0FirewallProps(enable: true));
+        expect(yaml, contains('po0-direct'));
+        expect(yaml, contains(po0FirewallDirectCidr));
+      },
+    );
+
+    test('a disabled whitelist injects neither', () async {
+      final yaml = await profileYaml(const Po0FirewallProps(enable: false));
+      expect(yaml, isNot(contains('po0-direct')));
+      expect(yaml, isNot(contains(po0FirewallDirectCidr)));
+    });
+  });
 }

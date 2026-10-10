@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/po0_firewall.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,25 +10,12 @@ import 'package:riverpod/riverpod.dart';
 
 class _TestPo0Firewall extends Po0Firewall {
   DateTime clock = DateTime(2026, 1, 1, 12);
-  final reapplied = <bool>[];
 
   @override
   DateTime now() => clock;
-
-  @override
-  Future<void> reapplyRouting() async {
-    reapplied.add(ref.read(po0FirewallSettingProvider).enable);
-  }
 }
 
-class _TestGgyFirewall extends GgyFirewall {
-  final reapplied = <bool>[];
-
-  @override
-  Future<void> reapplyRouting() async {
-    reapplied.add(ref.read(po0FirewallSettingProvider).ggyEnable);
-  }
-}
+class _TestGgyFirewall extends GgyFirewall {}
 
 class _FakeClient extends Po0FirewallClient {
   _FakeClient() : super(send: (_, _) => throw UnimplementedError());
@@ -89,7 +77,7 @@ const _second = Duration(seconds: 1);
 const _ggyLink = 'https://www.guguyun.com/f/whitelist?token=ctecsfw_x';
 
 const _ggyOnly = Po0FirewallProps(
-  ggyEnable: true,
+  enable: true,
   ggyEntries: [Po0TokenEntry(token: _ggyLink)],
 );
 
@@ -98,19 +86,42 @@ void main() {
   late _TestPo0Firewall notifier;
   late _TestGgyFirewall ggy;
   late ProviderContainer container;
+  late List<bool> reapplied;
+  Completer<void>? applyGate;
 
   void createContainer(Po0FirewallProps props) {
     client = _FakeClient();
+    reapplied = [];
+    applyGate = null;
     container = ProviderContainer(
       overrides: [
+        initProvider.overrideWithBuild((_, _) => true),
         po0FirewallSettingProvider.overrideWithBuild((_, _) => props),
         po0FirewallClientProvider.overrideWithValue(client),
         po0FirewallProvider.overrideWith(() => notifier = _TestPo0Firewall()),
         ggyFirewallProvider.overrideWith(() => ggy = _TestGgyFirewall()),
+        whitelistCoordinatorProvider.overrideWith((ref) {
+          final coordinator = WhitelistCoordinator(
+            po0: ref.read(po0FirewallProvider.notifier),
+            ggy: ref.read(ggyFirewallProvider.notifier),
+            applyProfile: () async {
+              reapplied.add(ref.read(po0FirewallSettingProvider).enable);
+              final gate = applyGate;
+              if (gate != null) {
+                await gate.future;
+              }
+              return true;
+            },
+            initialized: () => ref.read(initProvider),
+          );
+          coordinator.listen(ref);
+          return coordinator;
+        }),
       ],
     );
     container.read(po0FirewallProvider);
     container.read(ggyFirewallProvider);
+    container.read(whitelistCoordinatorProvider);
   }
 
   void updateSetting(Po0FirewallProps Function(Po0FirewallProps) update) {
@@ -144,6 +155,7 @@ void main() {
       Po0ResultType.applied,
       Po0ResultType.applied,
     ]);
+    expect(state.results.map((it) => it.tokenValue), ['pgnfw_a', 'pgnfw_b']);
   });
 
   test('a missing exit is added through the add endpoint', () async {
@@ -182,20 +194,53 @@ void main() {
     expect(read().lastRunAt, isNull);
   });
 
-  test('enabling applies the DIRECT route before the first add', () async {
-    createContainer(_enabled.copyWith(enable: false));
+  test(
+    'one switch change reloads the profile once and runs both lists',
+    () async {
+      createContainer(
+        _enabled.copyWith(ggyEntries: const [Po0TokenEntry(token: _ggyLink)]),
+      );
+      notifier.start();
+      ggy.start();
+      updateSetting((state) => state.copyWith(enable: false));
+      await settle();
+      updateSetting((state) => state.copyWith(enable: true));
+      await settle();
+      await settle();
+
+      expect(reapplied, [false, true]);
+      expect(client.whitelisted, [..._tokens, const Po0Token(_ggyLink)]);
+      expect(read().isRunning, isFalse);
+      expect(container.read(ggyFirewallProvider).isRunning, isFalse);
+    },
+  );
+
+  test('the reload gates both schedulers until it has finished', () async {
+    createContainer(
+      _enabled.copyWith(
+        enable: false,
+        ggyEntries: const [Po0TokenEntry(token: _ggyLink)],
+      ),
+    );
     notifier.start();
+    ggy.start();
+    await settle();
+    expect(client.polled, isEmpty);
+    expect(client.whitelisted, isEmpty);
+
+    applyGate = Completer<void>();
     updateSetting((state) => state.copyWith(enable: true));
     await settle();
-    await settle();
+    expect(reapplied, [true]);
+    expect(client.polled, isEmpty);
+    expect(client.whitelisted, isEmpty, reason: 'the reload has not finished');
 
-    expect(notifier.reapplied, [true]);
-    expect(client.whitelisted, hasLength(2));
-
-    updateSetting((state) => state.copyWith(enable: false));
+    applyGate!.complete();
     await settle();
-    expect(notifier.reapplied, [true, false]);
-    expect(client.whitelisted, hasLength(2));
+    await settle();
+    expect(client.whitelisted, [..._tokens, const Po0Token(_ggyLink)]);
+    expect(read().isRunning, isFalse);
+    expect(container.read(ggyFirewallProvider).isRunning, isFalse);
   });
 
   test('manual runs show progress, background polls do not', () async {
@@ -217,6 +262,24 @@ void main() {
     await settle();
     expect(read().isRunning, isFalse);
     expect(read().lastRunKind, Po0RunKind.whitelist);
+  });
+
+  test('a queued manual request is busy before it starts', () async {
+    createContainer(_enabled);
+    client.gate = Completer<void>();
+    notifier.start();
+    await settle();
+
+    unawaited(notifier.whitelist());
+    await settle();
+    expect(read().isRunning, isTrue, reason: 'queued behind the poll');
+    expect(client.whitelisted, isEmpty);
+
+    client.gate!.complete();
+    await settle();
+    await settle();
+    expect(client.whitelisted, _tokens);
+    expect(read().isRunning, isFalse);
   });
 
   test('requests during a run are queued behind it, strongest first', () async {
@@ -448,21 +511,191 @@ void main() {
     disposeInTest();
   });
 
-  test('each switch drives only its own list', () async {
+  testWidgets('an empty list never creates a polling timer', (tester) async {
+    createContainer(const Po0FirewallProps(enable: true));
+    notifier.start();
+    ggy.start();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 30));
+    expect(client.polled, isEmpty);
+    disposeInTest();
+  });
+
+  testWidgets('removing the last po0 token stops only po0 polling', (
+    tester,
+  ) async {
     createContainer(
       _enabled.copyWith(ggyEntries: const [Po0TokenEntry(token: _ggyLink)]),
     );
     notifier.start();
     ggy.start();
-    await settle();
-    expect(client.polled, _tokens);
-    expect(container.read(ggyFirewallProvider).results, isEmpty);
+    await tester.pump();
+    expect(client.polled, hasLength(3));
 
-    updateSetting((state) => state.copyWith(ggyEnable: true));
-    await settle();
-    await settle();
-    expect(ggy.reapplied, [true]);
-    expect(notifier.reapplied, isEmpty);
-    expect(client.whitelisted, [const Po0Token(_ggyLink)]);
+    updateSetting((state) => state.copyWith(tokenEntries: []));
+    await tester.pump(_second);
+    final po0Polls = client.polled
+        .where((token) => token.value.startsWith('pgnfw_'))
+        .length;
+    final ggyPolls = client.polled.length - po0Polls;
+    expect(po0Polls, 2, reason: 'no new po0 rounds after the list emptied');
+    expect(ggyPolls, 1, reason: 'ggy keeps its own cadence');
+    await tester.pump(const Duration(seconds: 11));
+    expect(
+      client.polled.where((token) => token.value.startsWith('pgnfw_')),
+      hasLength(2),
+    );
+    expect(client.polled, hasLength(4));
+    disposeInTest();
+  });
+
+  testWidgets('a single switch change reloads the profile once', (
+    tester,
+  ) async {
+    createContainer(_enabled.copyWith(enable: false));
+    notifier.start();
+    await tester.pump();
+    expect(client.whitelisted, isEmpty);
+
+    applyGate = Completer<void>();
+    updateSetting((state) => state.copyWith(enable: true));
+    await tester.pump();
+    expect(reapplied, [true]);
+    expect(client.whitelisted, isEmpty, reason: 'the reload gates the run');
+
+    applyGate!.complete();
+    await tester.pump();
+    expect(client.whitelisted, hasLength(2));
+    expect(read().isRunning, isFalse);
+
+    updateSetting((state) => state.copyWith(enable: false));
+    await tester.pump();
+    expect(reapplied, [true, false]);
+    expect(client.whitelisted, hasLength(2), reason: 'off sends nothing more');
+    expect(read().isRunning, isFalse);
+    await tester.pump(const Duration(seconds: 5));
+    expect(client.whitelisted, hasLength(2));
+    disposeInTest();
+  });
+
+  testWidgets('rapid switch changes converge on the latest intent', (
+    tester,
+  ) async {
+    createContainer(_enabled.copyWith(enable: false));
+    notifier.start();
+    await tester.pump();
+
+    applyGate = Completer<void>();
+    updateSetting((state) => state.copyWith(enable: true));
+    await tester.pump();
+    expect(reapplied, [true]);
+    expect(client.whitelisted, isEmpty, reason: 'the reload is still running');
+
+    updateSetting((state) => state.copyWith(enable: false));
+    await tester.pump();
+    updateSetting((state) => state.copyWith(enable: true));
+    await tester.pump();
+    expect(reapplied, [true], reason: 'the blocked reload is still processing');
+
+    applyGate!.complete();
+    await tester.pump();
+    await tester.pump();
+
+    expect(reapplied, [true, true]);
+    expect(client.whitelisted, hasLength(2));
+    expect(read().isRunning, isFalse);
+    disposeInTest();
+  });
+
+  for (final fails in [false, true]) {
+    testWidgets(
+      'disposing while a reload ${fails ? 'fails' : 'completes'} cancels '
+      'the newer switch transition',
+      (tester) async {
+        createContainer(_enabled.copyWith(enable: false));
+        notifier.start();
+        ggy.start();
+        applyGate = Completer<void>();
+        updateSetting((state) => state.copyWith(enable: true));
+        await tester.pump();
+        updateSetting((state) => state.copyWith(enable: false));
+        await tester.pump();
+        expect(reapplied, [true]);
+
+        disposeInTest();
+        if (fails) {
+          applyGate!.completeError(StateError('reload failed'));
+        } else {
+          applyGate!.complete();
+        }
+        await tester.pump();
+        await tester.pump();
+
+        expect(reapplied, [true]);
+        expect(client.whitelisted, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('a request already running when the switch turns off completes '
+      'but nothing follows', (tester) async {
+    createContainer(_enabled);
+    client.gate = Completer<void>();
+    notifier.start();
+    await tester.pump();
+    expect(client.polled, hasLength(2));
+
+    updateSetting((state) => state.copyWith(enable: false));
+    await tester.pump();
+    expect(reapplied, [false]);
+
+    client.gate!.complete();
+    client.gate = null;
+    await tester.pump();
+    await tester.pump();
+    expect(
+      client.polled,
+      hasLength(2),
+      reason: 'the off gate stops the next round',
+    );
+    expect(read().isRunning, isFalse);
+    disposeInTest();
+  });
+
+  testWidgets('turning the switch off cancels a queued manual request', (
+    tester,
+  ) async {
+    createContainer(_enabled.copyWith(enable: false));
+    notifier.start();
+    updateSetting((state) => state.copyWith(enable: true));
+    await tester.pump();
+    await tester.pump();
+    expect(client.whitelisted, hasLength(2));
+
+    client.gate = Completer<void>();
+    unawaited(notifier.whitelist());
+    await tester.pump();
+    await tester.pump();
+    expect(client.whitelisted, hasLength(4));
+    expect(read().isRunning, isTrue);
+
+    unawaited(notifier.query());
+    await tester.pump();
+    expect(client.queried, isEmpty, reason: 'queued behind the whitelist');
+    expect(read().isRunning, isTrue);
+
+    updateSetting((state) => state.copyWith(enable: false));
+    await tester.pump();
+    expect(read().isRunning, isFalse, reason: 'the queued query was dropped');
+
+    client.gate!.complete();
+    client.gate = null;
+    await tester.pump();
+    await tester.pump();
+    expect(client.whitelisted, hasLength(4));
+    expect(client.queried, isEmpty, reason: 'the queued query was cancelled');
+    expect(read().isRunning, isFalse);
+    disposeInTest();
   });
 }

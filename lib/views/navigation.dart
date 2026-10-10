@@ -36,15 +36,9 @@ class Navigation implements NavigationPort {
       ),
       NavigationItem(
         icon: const Icon(Icons.shield_rounded),
-        label: PageLabel.po0,
+        label: PageLabel.whitelist,
         builder: (_) =>
-            const Po0FirewallView(key: GlobalObjectKey(PageLabel.po0)),
-      ),
-      NavigationItem(
-        icon: const Icon(Icons.security_rounded),
-        label: PageLabel.ggy,
-        builder: (_) =>
-            const GgyFirewallView(key: GlobalObjectKey(PageLabel.ggy)),
+            const WhitelistView(key: GlobalObjectKey(PageLabel.whitelist)),
       ),
       NavigationItem(
         icon: const Icon(Icons.insights_rounded),

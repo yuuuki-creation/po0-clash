@@ -7,9 +7,9 @@ fork. Human-facing documentation lives in `docs/` (Chinese).
 ## What the fork adds
 
 - po0 firewall auto-whitelist (port of `w0ven/po0fw`): `lib/common/po0_firewall.dart`, `lib/models/po0_firewall.dart`,
-  `lib/providers/po0_firewall.dart`, `lib/views/po0_firewall.dart`. The page is a top-level navigation item
-  (`PageLabel.po0`), not a Tools entry. Design: `docs/features/po0-firewall.md`, decision record:
-  `docs/adr/0001-direct-routing-for-po0-api.md`.
+  `lib/providers/po0_firewall.dart`, `lib/views/po0_firewall.dart`. po0 and ggy share one top-level navigation item
+  (`PageLabel.whitelist`), one master switch and one mixed entry list (ADR 0014). Design: `docs/features/po0-firewall.md`,
+  decision record: `docs/adr/0001-direct-routing-for-po0-api.md`.
 - One Liquid Glass UI on every platform (ADR 0009 for the structure, ADR 0010 for the look,
   `docs/features/glass-ui.md`): neutral backgrounds and opaque content cells, glass only on floating controls, tokens in
   `lib/common/glass.dart`, widgets in `lib/widgets/glass.dart`, and a control sidebar / rail / floating dock chosen by
@@ -35,15 +35,16 @@ fork. Human-facing documentation lives in `docs/` (Chinese).
   VPN route split) without a new ADR. While the proxy runs, requests go through the core's DIRECT-only listener
   (`po0-direct`, ADR 0012), authenticated with per-session credentials. Only po0's own address may fall back to a plain
   DIRECT socket then (`po0FindProxy`); for anything else TUN would capture it and a ggy link would whitelist the node.
-- A ggy whitelist link writes on every GET (ADR 0012), so `Po0FirewallClient.poll`/`query` send it too. ggy is its
-  own page and switch (ADR 0013) and polls at the fixed `GgyFirewall.pollInterval` (11 s); do not make it tunable or
-  shorter without the maintainer. An eviction it reports is always logged.
-- `Po0Firewall` (po0) and `GgyFirewall` (ggy) own scheduling, both through the `WhitelistScheduler` mixin: po0 runs a
-  read-only query per token every `pollSeconds` and adds only when the exit is missing (ADR 0004, 0005). po0 tokens
-  live in `Po0FirewallProps.tokenEntries` and ggy links in `ggyEntries`; `po0TokensOf` / `ggyLinksOf` are the only way
-  to turn them into requests. Other code only signals both (`start`, `pollNow`, `onNetworkChanged`, `setScreenOn`); it
-  must not grow another timer or call the client directly. On Android the screen state comes from `Po0ScreenPlugin`
-  (`lib/plugins/po0_screen.dart`).
+- A ggy whitelist link writes on every GET (ADR 0012), so `Po0FirewallClient.poll`/`query` send it too. ggy shares the
+  unified whitelist page and the master switch (ADR 0014) and polls at the fixed `GgyFirewall.pollInterval` (11 s); do
+  not make it tunable or shorter without the maintainer. An eviction it reports is always logged.
+- `Po0Firewall` (po0) and `GgyFirewall` (ggy) own scheduling, both through the `WhitelistScheduler` mixin and both driven
+  by the master switch `Po0FirewallProps.enable`: po0 runs a read-only query per token every `pollSeconds` and adds only
+  when the exit is missing (ADR 0004, 0005). po0 tokens live in `Po0FirewallProps.tokenEntries` and ggy links in
+  `ggyEntries`; `po0TokensOf` / `ggyLinksOf` are the only way to turn them into requests. A master-switch change routes
+  through `WhitelistCoordinator` (one profile reload for both schedulers, ADR 0014); other code only signals both
+  (`start`, `pollNow`, `onNetworkChanged`, `setScreenOn`); it must not grow another timer or call the client directly.
+  On Android the screen state comes from `Po0ScreenPlugin` (`lib/plugins/po0_screen.dart`).
 - On desktop exactly one of TUN and the system proxy is on (ADR 0011). Route changes go through
   `SystemAction.useRoute`; the `AppStateManager` listener runs `reconcileDesktopRoute` for every other writer, and a
   failed TUN authorization falls back to the system proxy. Do not add a second place that enforces or bypasses this.

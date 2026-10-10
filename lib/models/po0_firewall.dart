@@ -26,7 +26,6 @@ abstract class Po0FirewallProps with _$Po0FirewallProps {
     @Default(false) bool enable,
     @Default([]) List<Po0TokenEntry> tokenEntries,
     @Default(5) int pollSeconds,
-    @Default(false) bool ggyEnable,
     @Default([]) List<Po0TokenEntry> ggyEntries,
   }) = _Po0FirewallProps;
 
@@ -40,7 +39,7 @@ abstract class Po0FirewallProps with _$Po0FirewallProps {
     return decodeOrRestoreDefault(
       'po0 firewall settings',
       () => Po0FirewallProps.fromJson(
-        _migrateGgyEntries(_migrateLegacyTokens(json)),
+        _mergeEnableSwitches(_migrateGgyEntries(_migrateLegacyTokens(json))),
       ),
       () => defaultPo0FirewallProps,
     );
@@ -62,23 +61,49 @@ Map<String, Object?> _migrateLegacyTokens(Map<String, Object?> json) {
   };
 }
 
-/// 6.0 kept ggy links in the po0 list under the po0 switch.
 Map<String, Object?> _migrateGgyEntries(Map<String, Object?> json) {
   final entries = json['tokenEntries'];
-  if (json.containsKey('ggyEntries') || entries is! List) {
+  if (entries is! List) {
     return json;
   }
   bool isGgy(Object? entry) => entry is Map && isGgyLink('${entry['token']}');
-  final ggyEntries = entries.where(isGgy).toList();
-  if (ggyEntries.isEmpty) {
+  final moved = entries.where(isGgy).toList();
+  if (moved.isEmpty) {
     return json;
   }
+  final existing = json['ggyEntries'] is List
+      ? [...json['ggyEntries'] as List]
+      : <Object?>[];
+  final known = <String>{
+    for (final entry in existing)
+      if (entry is Map) '${entry['token']}',
+  };
   return {
     ...json,
     'tokenEntries': entries.where((entry) => !isGgy(entry)).toList(),
-    'ggyEntries': ggyEntries,
-    'ggyEnable': json['enable'] ?? false,
+    'ggyEntries': [
+      ...existing,
+      for (final entry in moved)
+        if (known.add('${entry['token']}')) entry,
+    ],
   };
+}
+
+Map<String, Object?> _mergeEnableSwitches(Map<String, Object?> json) {
+  bool switchOf(Object? value, String name) {
+    if (value == null) {
+      return false;
+    }
+    if (value is! bool) {
+      throw FormatException('$name must be a bool, was ${value.runtimeType}');
+    }
+    return value;
+  }
+
+  final enable =
+      switchOf(json['enable'], 'enable') ||
+      switchOf(json['ggyEnable'], 'ggyEnable');
+  return {...json, 'enable': enable}..remove('ggyEnable');
 }
 
 enum Po0ResultType { applied, notApplied, disabled, rejected, error }
@@ -92,7 +117,7 @@ abstract class Po0WhitelistEntry with _$Po0WhitelistEntry {
       _Po0WhitelistEntry;
 }
 
-@freezed
+@Freezed(toStringOverride: false)
 abstract class Po0TokenResult with _$Po0TokenResult {
   const factory Po0TokenResult({
     required String label,
@@ -102,6 +127,7 @@ abstract class Po0TokenResult with _$Po0TokenResult {
     @Default([]) List<Po0WhitelistEntry> whitelist,
     int? limit,
     String? message,
+    String? tokenValue,
   }) = _Po0TokenResult;
 }
 

@@ -13,7 +13,7 @@ po0-clash 以独立应用的身份发布，可与官方 FlClash 同时安装（�
 |---|---|
 | [goal.md](goal.md) | 项目目标与交付范围 |
 | [install.md](install.md) | 用户安装说明（Windows 安装包 / macOS 终端安装 / Android APK） |
-| [features/po0-firewall.md](features/po0-firewall.md) | po0 自动加白：行为、触发时机、直连路由设计 |
+| [features/po0-firewall.md](features/po0-firewall.md) | 加白（po0 / ggy 自动加白）：统一入口、总开关迁移、行为与直连路由设计 |
 | [features/glass-ui.md](features/glass-ui.md) | 三端统一的液态玻璃界面：设计令牌、玻璃组件、操作结构与图标 |
 | [development/build.md](development/build.md) | 构建：VPS（校验）、GitHub Actions（Android / Windows / macOS 发版）、签名、本地开发 |
 | [development/release.md](development/release.md) | 发版流程、版本号与产物命名 |

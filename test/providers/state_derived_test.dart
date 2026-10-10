@@ -77,7 +77,7 @@ void main() {
       containsAll([
         PageLabel.dashboard,
         PageLabel.profiles,
-        PageLabel.po0,
+        PageLabel.whitelist,
         PageLabel.tools,
       ]),
     );

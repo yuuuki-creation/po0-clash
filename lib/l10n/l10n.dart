@@ -5075,26 +5075,6 @@ class AppLocalizations {
     );
   }
 
-  /// `po0 firewall whitelist`
-  String get po0Firewall {
-    return Intl.message(
-      'po0 firewall whitelist',
-      name: 'po0Firewall',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Keep this network's exit IP on the po0 firewall whitelist`
-  String get po0FirewallDesc {
-    return Intl.message(
-      'Keep this network\'s exit IP on the po0 firewall whitelist',
-      name: 'po0FirewallDesc',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `Auto whitelist`
   String get po0AutoWhitelist {
     return Intl.message(
@@ -5105,29 +5085,139 @@ class AppLocalizations {
     );
   }
 
-  /// `Checks the whitelist at the refresh interval while po0-clash is open, whether or not the proxy is running, and adds the exit as soon as it drops off. Android checks only while the screen is on`
-  String get po0AutoWhitelistDesc {
+  /// `Whitelist`
+  String get whitelistNav {
+    return Intl.message('Whitelist', name: 'whitelistNav', desc: '', args: []);
+  }
+
+  /// `Whitelist`
+  String get whitelistTitle {
     return Intl.message(
-      'Checks the whitelist at the refresh interval while po0-clash is open, whether or not the proxy is running, and adds the exit as soon as it drops off. Android checks only while the screen is on',
-      name: 'po0AutoWhitelistDesc',
+      'Whitelist',
+      name: 'whitelistTitle',
       desc: '',
       args: [],
+    );
+  }
+
+  /// `Automatically whitelist this device's exit IP with po0 or ggy`
+  String get whitelistDesc {
+    return Intl.message(
+      'Automatically whitelist this device\'s exit IP with po0 or ggy',
+      name: 'whitelistDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `po0 checks at the configured interval; ggy whitelists every 11 seconds. On Android, runs only while the screen is on`
+  String get whitelistAutoDesc {
+    return Intl.message(
+      'po0 checks at the configured interval; ggy whitelists every 11 seconds. On Android, runs only while the screen is on',
+      name: 'whitelistAutoDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Add a token or link to start`
+  String get whitelistNoEntries {
+    return Intl.message(
+      'Add a token or link to start',
+      name: 'whitelistNoEntries',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Add a po0 token or a full ggy whitelist link; each entry runs separately`
+  String get whitelistEntriesEmptyDesc {
+    return Intl.message(
+      'Add a po0 token or a full ggy whitelist link; each entry runs separately',
+      name: 'whitelistEntriesEmptyDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Type`
+  String get whitelistEntryType {
+    return Intl.message('Type', name: 'whitelistEntryType', desc: '', args: []);
+  }
+
+  /// `po0 token`
+  String get whitelistPo0Token {
+    return Intl.message(
+      'po0 token',
+      name: 'whitelistPo0Token',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `ggy link`
+  String get whitelistGgyLink {
+    return Intl.message(
+      'ggy link',
+      name: 'whitelistGgyLink',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Query po0 status`
+  String get whitelistQueryPo0 {
+    return Intl.message(
+      'Query po0 status',
+      name: 'whitelistQueryPo0',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `po0 check interval`
+  String get whitelistPo0Interval {
+    return Intl.message(
+      'po0 check interval',
+      name: 'whitelistPo0Interval',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `ggy whitelists every {seconds} seconds`
+  String whitelistGgyInterval(Object seconds) {
+    return Intl.message(
+      'ggy whitelists every $seconds seconds',
+      name: 'whitelistGgyInterval',
+      desc: '',
+      args: [seconds],
+    );
+  }
+
+  /// `Last po0 check: {time}`
+  String whitelistLastPo0(Object time) {
+    return Intl.message(
+      'Last po0 check: $time',
+      name: 'whitelistLastPo0',
+      desc: '',
+      args: [time],
+    );
+  }
+
+  /// `Last ggy whitelist: {time}`
+  String whitelistLastGgy(Object time) {
+    return Intl.message(
+      'Last ggy whitelist: $time',
+      name: 'whitelistLastGgy',
+      desc: '',
+      args: [time],
     );
   }
 
   /// `Tokens`
   String get po0Tokens {
     return Intl.message('Tokens', name: 'po0Tokens', desc: '', args: []);
-  }
-
-  /// `Not configured`
-  String get po0TokensEmpty {
-    return Intl.message(
-      'Not configured',
-      name: 'po0TokensEmpty',
-      desc: '',
-      args: [],
-    );
   }
 
   /// `A token starts with pgnfw_ and has no spaces or separators`
@@ -5147,31 +5237,6 @@ class AppLocalizations {
       name: 'po0WhitelistNow',
       desc: '',
       args: [],
-    );
-  }
-
-  /// `Check status`
-  String get po0QueryStatus {
-    return Intl.message(
-      'Check status',
-      name: 'po0QueryStatus',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Not run yet`
-  String get po0NeverRun {
-    return Intl.message('Not run yet', name: 'po0NeverRun', desc: '', args: []);
-  }
-
-  /// `Last run: {time}`
-  String po0LastRun(Object time) {
-    return Intl.message(
-      'Last run: $time',
-      name: 'po0LastRun',
-      desc: '',
-      args: [time],
     );
   }
 
@@ -5250,26 +5315,11 @@ class AppLocalizations {
     );
   }
 
-  /// `po0`
-  String get po0Nav {
-    return Intl.message('po0', name: 'po0Nav', desc: '', args: []);
-  }
-
   /// `Auto whitelist is off`
   String get po0StatusOff {
     return Intl.message(
       'Auto whitelist is off',
       name: 'po0StatusOff',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Add a token to start`
-  String get po0StatusNoToken {
-    return Intl.message(
-      'Add a token to start',
-      name: 'po0StatusNoToken',
       desc: '',
       args: [],
     );
@@ -5308,16 +5358,6 @@ class AppLocalizations {
   /// `Exit {ip}`
   String po0Exit(Object ip) {
     return Intl.message('Exit $ip', name: 'po0Exit', desc: '', args: [ip]);
-  }
-
-  /// `Last {time}`
-  String po0LastShort(Object time) {
-    return Intl.message(
-      'Last $time',
-      name: 'po0LastShort',
-      desc: '',
-      args: [time],
-    );
   }
 
   /// `Current exit`
@@ -5380,16 +5420,6 @@ class AppLocalizations {
     return Intl.message('Whitelist', name: 'po0Whitelist', desc: '', args: []);
   }
 
-  /// `Refresh interval`
-  String get po0PollInterval {
-    return Intl.message(
-      'Refresh interval',
-      name: 'po0PollInterval',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `Enter {min}–{max} seconds`
   String po0PollIntervalRange(Object min, Object max) {
     return Intl.message(
@@ -5398,21 +5428,6 @@ class AppLocalizations {
       desc: '',
       args: [min, max],
     );
-  }
-
-  /// `Every {count} s`
-  String po0PollEvery(Object count) {
-    return Intl.message(
-      'Every $count s',
-      name: 'po0PollEvery',
-      desc: '',
-      args: [count],
-    );
-  }
-
-  /// `token`
-  String get po0Token {
-    return Intl.message('token', name: 'po0Token', desc: '', args: []);
   }
 
   /// `Add token`
@@ -5445,76 +5460,6 @@ class AppLocalizations {
     );
   }
 
-  /// `ggy`
-  String get ggyNav {
-    return Intl.message('ggy', name: 'ggyNav', desc: '', args: []);
-  }
-
-  /// `ggy firewall whitelist`
-  String get ggyFirewall {
-    return Intl.message(
-      'ggy firewall whitelist',
-      name: 'ggyFirewall',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Keep this network's exit IP on the ggy firewall whitelist`
-  String get ggyFirewallDesc {
-    return Intl.message(
-      'Keep this network\'s exit IP on the ggy firewall whitelist',
-      name: 'ggyFirewallDesc',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Requests the whitelist link every {seconds} s while po0-clash is open, whether or not the proxy is running. Android checks only while the screen is on`
-  String ggyAutoWhitelistDesc(Object seconds) {
-    return Intl.message(
-      'Requests the whitelist link every $seconds s while po0-clash is open, whether or not the proxy is running. Android checks only while the screen is on',
-      name: 'ggyAutoWhitelistDesc',
-      desc: '',
-      args: [seconds],
-    );
-  }
-
-  /// `Add a link to start`
-  String get ggyStatusNoLink {
-    return Intl.message(
-      'Add a link to start',
-      name: 'ggyStatusNoLink',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Whitelist links`
-  String get ggyLinks {
-    return Intl.message(
-      'Whitelist links',
-      name: 'ggyLinks',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Whitelist link`
-  String get ggyLink {
-    return Intl.message('Whitelist link', name: 'ggyLink', desc: '', args: []);
-  }
-
-  /// `Add link`
-  String get ggyAddLink {
-    return Intl.message('Add link', name: 'ggyAddLink', desc: '', args: []);
-  }
-
-  /// `Edit link`
-  String get ggyEditLink {
-    return Intl.message('Edit link', name: 'ggyEditLink', desc: '', args: []);
-  }
-
   /// `Paste the full whitelist link from ggy (https://www.guguyun.com/…?token=…)`
   String get ggyLinkInvalid {
     return Intl.message(
@@ -5530,26 +5475,6 @@ class AppLocalizations {
     return Intl.message(
       'This link is already in the list',
       name: 'ggyLinkDuplicate',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Paste the full whitelist link from ggy; every link whitelists on its own`
-  String get ggyLinksEmptyDesc {
-    return Intl.message(
-      'Paste the full whitelist link from ggy; every link whitelists on its own',
-      name: 'ggyLinksEmptyDesc',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Add the pgnfw_ token from each po0 machine; every token checks its own whitelist`
-  String get po0TokensEmptyDesc {
-    return Intl.message(
-      'Add the pgnfw_ token from each po0 machine; every token checks its own whitelist',
-      name: 'po0TokensEmptyDesc',
       desc: '',
       args: [],
     );
