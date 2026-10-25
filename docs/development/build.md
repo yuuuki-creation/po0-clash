@@ -56,6 +56,7 @@ bash scripts/vps/verify.sh            # format 检查 + analyze + test + 覆盖�
 在 NL 的 Android 模拟器上验证，独立测试 APK 使用另一个 UID 模拟先于 VPN 启动的应用。
 同一测试还覆盖 VPN 内存回收时 Core 的已有 TCP/UDP 连接、接管后的新连接，以及迁移后主动开启绕过的行为。
 `validation` 是通过 `-Ppo0-validation` 临时启用的测试构建类型，使用 release Flutter 引擎并保留可供 instrumentation 调用的原生类；不会发布到 GitHub。
+使用可丢弃的独立模拟器；若已有正式分包，先准备干净的测试设备数据。临时构建号没有正式分包的 ABI 偏移，不能假定可以直接覆盖。
 
 ```bash
 python3 tool/android_vpn_fixture.py            # 另一个终端；只监听 NL 本机 127.0.0.1:18780

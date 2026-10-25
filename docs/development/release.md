@@ -6,8 +6,10 @@
   [ADR 0006](../adr/0006-standalone-app-identity.md)）。本仓库的第一个版本是 `5.0.0`，每次发版的版本号由维护者确定。
 - 唯一的版本来源是 `pubspec.yaml` 的 `version`，格式 `X.Y.Z+<build>`，例如 `5.0.0+2026092901`：
   - `X.Y.Z`：修复递增 `Z`，新功能递增 `Y`，不兼容的改动（例如配置无法沿用）递增 `X`。
-  - `+` 后的构建号即 Android `versionCode`，必须单调递增，沿用 `YYYYMMDDNN` 形式（当天第 `NN` 次构建）。
-    同一台设备上的 APK 只能用更大的 `versionCode` 覆盖升级。
+  - `+` 后是 Android 的基础构建号，必须单调递增，沿用 `YYYYMMDDNN` 形式（当天第 `NN` 次构建）。
+    Flutter 正式分包会增加 ABI 偏移，覆盖升级需比较 APK 的实际 `versionCode`。例如 v6.4.3 的基础构建号为
+    `2026102503`，x86_64 正式 APK 为 `2026106503`，高于上一正式版的 `2026106502`。
+  - 未分包的临时 APK 不含上述偏移，不能假定它能覆盖同版正式分包；测试使用可丢弃的独立模拟器，升级验证使用正式分包。
 - 发版标签为 `v<X.Y.Z>`，即 `pubspec.yaml` 版本去掉 `+<build>`，例如 `v5.0.0`、`v5.0.1`。
   `scripts/check-release-tag.sh` 校验二者一致；`release.yaml` 在构建标签时先运行它，不一致直接失败。
 - 旧的 `v0.8.98-po0.N` 标签属于已停用的 FlClash-po0 构建，不再使用，也不要再打 `-po0.N` 形式的标签。
