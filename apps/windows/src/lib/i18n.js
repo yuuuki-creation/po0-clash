@@ -62,7 +62,7 @@ const zh = {
   'outcome.error': '出错',
   'settings.autostart': '开机自启',
   'settings.autostartHint': '登录 Windows 后在后台启动，不弹出管理员授权；退出时处于连接状态的话会自动重新连接。',
-  'settings.diagnostics': '导出诊断日志',
+  'settings.diagnostics': '诊断日志',
   'settings.export': '导出',
   'settings.exported': '已保存到 {path}',
   'settings.version': '版本',

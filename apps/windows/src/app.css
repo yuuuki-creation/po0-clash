@@ -496,7 +496,6 @@ textarea {
   background: var(--fill);
   color: var(--secondary);
   font-size: 11px;
-  text-transform: uppercase;
 }
 
 .dot {

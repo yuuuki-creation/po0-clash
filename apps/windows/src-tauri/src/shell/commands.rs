@@ -171,6 +171,10 @@ pub async fn export_diagnostics(app: AppHandle, core: CoreState<'_>) -> Reply<Op
         if let Some(window) = app.get_webview_window("main") {
             dialog = dialog.set_parent(&window);
         }
+        // An elevated process starts in System32, which is where the dialog would open otherwise.
+        if let Ok(desktop) = app.path().desktop_dir() {
+            dialog = dialog.set_directory(desktop);
+        }
         let Some(picked) = dialog.blocking_save_file() else {
             return Ok(None);
         };
