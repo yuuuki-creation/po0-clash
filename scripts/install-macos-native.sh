@@ -4,7 +4,7 @@
 # the Flutter build's subscriptions and whitelist tokens.
 #
 #   install-macos-native.sh [<version> | <path to po0-clash-macos.zip>]
-#   curl -fsSL https://raw.githubusercontent.com/yuuuki-creation/po0-clash/main/scripts/install-macos-native.sh | bash
+#   curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/<native-v tag>/install-macos-native.sh | bash
 #
 # Native builds are released under native-v* tags (7.0.0-beta.1, v7.0.0-beta.1 and native-v7.0.0-beta.1 name the
 # same release); without a version the newest native release is installed, prereleases included.
@@ -117,6 +117,8 @@ if running; then
     if ! wait_gone 40; then
       pkill -TERM -x -U "$UID" po0-clash || true
       wait_gone 10 || pkill -KILL -x -U "$UID" po0-clash || true
+      echo "warning: the old po0-clash was stopped without quitting; if it had the system proxy on, connect and" \
+        "disconnect once in the new po0-clash (or turn the proxy off in System Settings > Network) to clear it." >&2
     fi
     kill "$quitter" 2>/dev/null || true
   fi
