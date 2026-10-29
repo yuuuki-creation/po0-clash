@@ -1,6 +1,6 @@
 # 0017. 应用后端分阶段迁到 Rust，内核与界面不变
 
-- 状态：提议
+- 状态：已取代（见 [0018](0018-native-rewrite.md)）
 - 日期：2026-10-29
 
 ## 背景
@@ -20,8 +20,8 @@
 
 - mihomo 与 `core/*.go` 继续作为代理内核，Flutter 继续负责界面与界面状态，Android VpnService 继续由 Kotlin 实现。
 - Dart 中不属于界面的「应用后端」逻辑分阶段迁到 `plugins/rust_api`，经 flutter_rust_bridge 暴露给 Dart。顺序为：
-  基础设施 → po0 / ggy 加白（试点）→ 配置生成与订阅更新 → 桌面 Core 进程管理；范围、验证与退出条件见
-  [development/rust-migration.md](../development/rust-migration.md)。
+  基础设施 → po0 / ggy 加白（试点）→ 配置生成与订阅更新 → 桌面 Core 进程管理。原执行计划已随本 ADR 一起被
+  [ADR 0018](0018-native-rewrite.md) 取代。
 - 每个阶段单独发版。试点结束后由维护者根据体积、内存与稳定性数据决定是否继续。
 - 进入桌面 Core 进程管理阶段前另写 ADR，改写 AGENTS.md 中「桌面 Core 进程收敛归 `lib/core/desktop/`」的所有权规则。
 

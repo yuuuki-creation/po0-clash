@@ -4,6 +4,9 @@
 [po0fw](https://github.com/w0ven/po0fw) 的 po0 防火墙自动加白，各平台统一使用由 Material 组件实现的简洁界面。
 po0-clash 以独立应用的身份发布，可与官方 FlClash 同时安装（见 [ADR 0006](adr/0006-standalone-app-identity.md)）。
 
+正在按 [ADR 0018](adr/0018-native-rewrite.md) 重写为三端原生应用，共享一个精简的 Rust 内核，方案见
+[development/native-rewrite.md](development/native-rewrite.md)。现有的 Flutter 版进入维护期，只修严重问题。
+
 上游自带的开发规范（代码风格、测试、生成代码、提交规范）仍然有效，见根目录 [AGENTS.md](../AGENTS.md) 与 [.agents/](../.agents/)。
 本目录只记录**本分支特有**的内容。
 
@@ -19,7 +22,7 @@ po0-clash 以独立应用的身份发布，可与官方 FlClash 同时安装（�
 | [development/build.md](development/build.md) | 构建：VPS（校验）、GitHub Actions（Android / Windows / macOS 发版）、签名、本地开发 |
 | [development/release.md](development/release.md) | 发版流程、版本号与产物命名 |
 | [development/upstream-sync.md](development/upstream-sync.md) | 如何合并上游 FlClash 更新 |
-| [development/rust-migration.md](development/rust-migration.md) | 应用后端分阶段迁到 Rust 的执行计划（提议） |
+| [development/native-rewrite.md](development/native-rewrite.md) | 三端原生重写：结构、共享内核、功能范围、界面与顺序 |
 | [adr/](adr/) | 架构决策记录（ADR） |
 
 ## 工作流约定

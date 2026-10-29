@@ -4,6 +4,10 @@ This repository (`yuuuki-creation/po0-clash`) is a public fork of `chen08209/FlC
 side by side with official FlClash. Everything under `.agents/` still applies; this file adds what is specific to the
 fork. Human-facing documentation lives in `docs/` (Chinese).
 
+Everything below describes the Flutter app, which is now in maintenance. Its replacement, the native apps on a shared Rust
+core, follows ADR 0018 and `docs/development/native-rewrite.md`; none of the Flutter-specific rules bind the new apps
+unless that plan says so.
+
 ## What the fork adds
 
 - po0 firewall auto-whitelist (port of `w0ven/po0fw`): `lib/common/po0_firewall.dart`, `lib/models/po0_firewall.dart`,
