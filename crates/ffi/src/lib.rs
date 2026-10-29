@@ -8,20 +8,23 @@ use po0_core as core;
 
 uniffi::setup_scaffolding!();
 
+/// Flat, so Kotlin's `CoreException.Invalid(message)` carries the Display text as
+/// `Throwable.message` instead of a clashing field.
 #[derive(Debug, uniffi::Error)]
+#[uniffi(flat_error)]
 pub enum CoreError {
-    Invalid { message: String },
-    Network { message: String },
-    Engine { message: String },
-    Io { message: String },
+    Invalid(String),
+    Network(String),
+    Engine(String),
+    Io(String),
 }
 
 impl fmt::Display for CoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let (Self::Invalid { message }
-        | Self::Network { message }
-        | Self::Engine { message }
-        | Self::Io { message }) = self;
+        let (Self::Invalid(message)
+        | Self::Network(message)
+        | Self::Engine(message)
+        | Self::Io(message)) = self;
         f.write_str(message)
     }
 }
@@ -31,10 +34,10 @@ impl std::error::Error for CoreError {}
 impl From<core::CoreError> for CoreError {
     fn from(error: core::CoreError) -> Self {
         match error {
-            core::CoreError::Invalid(message) => Self::Invalid { message },
-            core::CoreError::Network(message) => Self::Network { message },
-            core::CoreError::Engine(message) => Self::Engine { message },
-            core::CoreError::Io(message) => Self::Io { message },
+            core::CoreError::Invalid(message) => Self::Invalid(message),
+            core::CoreError::Network(message) => Self::Network(message),
+            core::CoreError::Engine(message) => Self::Engine(message),
+            core::CoreError::Io(message) => Self::Io(message),
         }
     }
 }
