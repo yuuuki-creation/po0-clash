@@ -32,7 +32,7 @@ Ubuntu 上的 `native-core.yaml` 通过，macOS 的 CI 里内核测试和真实�
 
 ## macOS
 
-已完成（CI 验证，macos-26、Xcode 26.6、SDK 26，通用包 arm64 + x86_64）：
+已完成（CI 验证；构建在 macos-26、Xcode 26.6、SDK 26 上，产物是 arm64 + x86_64 通用包）：
 
 - SwiftPM 包，最低 macOS 13，不显示程序坞图标，中英文跟随系统，用真实内核绑定。
 - 菜单栏窗口：连接开关与状态、当前节点、出口 IP、速率、模式、系统代理 / 虚拟网卡、切换订阅、选节点与测延迟、加白开关和摘要、
@@ -40,16 +40,23 @@ Ubuntu 上的 `native-core.yaml` 通过，macOS 的 CI 里内核测试和真实�
 - 虚拟网卡：首次使用时用一次管理员授权把 mihomo 装到 `/Library/Application Support/io.github.yuuukicreation.po0clash/mihomo`
   （root:wheel、4755，SHA-256 与包内一致才复用），取消授权就退回系统代理。
 - 开机自启后，如果用户上次是连接状态（内核的 `wasConnected()`），自动重新连接；手动打开不会自动连接。
-- 菜单窗口在 macOS 13/14 上也会每次打开时刷新（除了 onAppear 还跟踪窗口的遮挡状态）。
+- 菜单窗口每次打开都刷新（除了 onAppear 还跟踪窗口的遮挡状态）。
 - 旧数据：Flutter 版的偏好在 UserDefaults 里，应用导出成 `core/legacy_shared_preferences.json` 交给内核。
 - 液态玻璃：只在浮动控件层用玻璃，内容是不透明的分组卡片，设置窗口用 `.formStyle(.grouped)`；浅色、深色和中文截图已核对。
-- CI 的真实流程（`scripts/e2e.sh`）：本地 shadowsocks 节点和订阅，添加订阅、导入分享链接，系统代理 → 虚拟网卡（sudo 装
-  setuid 内核，路径和命令与应用相同）→ 系统代理，三次请求都确认经过节点；root 文件归属问题在 `mihomo-root` 改动后不再出现。
+- 安装脚本 `scripts/install-macos-native.sh`：默认装最新的 `native-v*` 发布（含测试版），也可指定版本或本地 zip；核对
+  SHA-256、应用 ID、架构和签名，退出并替换已装的原生版或 Flutter 版，移除隔离属性后打开。随 `native-v7.0.0-beta.1` 发布。
+- CI 的检查矩阵（只下载产物、不编译）在 macOS 26.x arm64、macOS 14.8 arm64、macOS 15.7 Intel 上都通过：
+  - 安装脚本覆盖假的 Flutter 版（正在运行的进程和 `Po0ClashCore`），旧订阅和加白 token 被导入；通过模拟的 releases API
+    再装两次（不带版本 / 带版本），跳过草稿和 Flutter 发布、校验 digest、重启应用；
+  - 真实流程（`po0-e2e`）：本地 shadowsocks 节点和订阅，系统代理 → 虚拟网卡（sudo 装 setuid 内核，命令与应用相同）→
+    系统代理，三次请求都确认经过节点；
+  - 普通启动不自动连接、SIGTERM 后正常关闭；菜单窗口开两次至少刷新两次；macos-26 上另有截图（含模拟开机自启的重连）。
 
-没有验证：开机自启在真机上的触发（CI 用启动参数模拟登录启动）、管理员授权弹窗本身（CI 用 sudo 代替）、macOS 13/14
-上的实际表现（runner 只有 macOS 26）、Intel 机器上运行通用包。
+没有验证：开机自启在真机上的触发（CI 用启动参数模拟）、管理员授权弹窗本身（CI 用 sudo 代替）、macOS 13（GitHub 已不提供
+这个镜像）、Flutter 版真实运行时被安装脚本退出（CI 用假进程，真机上第一次给 po0-clash 发 Apple 事件可能要求用户同意，
+超时后脚本改发 SIGTERM，这时 Flutter 版来不及清除系统代理）。
 
-下一步：在真机上装 CI 产物 `po0-clash-macos.zip`，试一次管理员授权和开机自启；有条件时在 macOS 13/14 上看一眼菜单窗口。
+下一步：在真机上用 `native-v7.0.0-beta.1` 的安装命令覆盖 Flutter 版，试管理员授权、开机自启和系统代理的清理。
 
 ## Windows
 

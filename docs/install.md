@@ -44,6 +44,22 @@ curl -fsSL https://raw.githubusercontent.com/yuuuki-creation/po0-clash/main/scri
 应用未经 Apple 公证，脚本会执行 `xattr -dr com.apple.quarantine /Applications/po0-clash.app`，否则首次打开会被 Gatekeeper 拦截。
 脚本不会动 `/Applications/FlClash.app`。
 
+### macOS 原生版（测试版）
+
+7.0.0 起 macOS 改用原生版（菜单栏应用，macOS 13 及以上，Apple Silicon 与 Intel 通用）。安装脚本随每个原生版发布
+（`native-v*` 标签）一起上传，在「终端」中执行，例如：
+
+```bash
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.0.0-beta.1/install-macos-native.sh | bash
+```
+
+不带参数时安装最新的原生版（包括测试版）；指定版本写在 `bash -s --` 后，例如 `curl -fsSL ... | bash -s -- 7.0.0-beta.1`；
+也可以传本地的 `po0-clash-macos.zip` 路径。脚本会核对下载文件的 SHA-256、
+应用 ID、架构和签名，退出正在运行的 po0-clash（包括 Flutter 版），替换 `/Applications/po0-clash.app`，移除隔离属性后打开。
+
+原生版与 Flutter 版是同一个应用 ID，会直接替换 Flutter 版；数据目录不动，首次启动时自动导入 Flutter 版的订阅和加白 token，
+其它设置不迁移。
+
 ## Android
 
 1. 下载与设备架构匹配的 APK（绝大多数手机为 `arm64-v8a`）。

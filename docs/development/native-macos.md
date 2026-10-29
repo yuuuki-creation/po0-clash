@@ -28,19 +28,35 @@ SwiftUI 菜单栏应用，代码在 `apps/macos`，方案见 [native-rewrite.md]
 mihomo 的 SHA-256 不同，就弹一次管理员授权，复制并设为 `root:wheel 4755`，然后把该路径交给内核。用户取消时退回系统代理。
 系统代理模式始终使用包内的 mihomo。
 
+## 安装
+
+`scripts/install-macos-native.sh`（用法见 [install.md](../install.md)）：从 `native-v*` 发布下载 `po0-clash-macos.zip`
+（不带版本时取最新的一个，包括测试版），核对 SHA-256、应用 ID、架构和签名；退出正在运行的副本（原生版发 SIGTERM，
+Flutter 版先发正常退出的 Apple 事件，再退回 SIGTERM，并结束它包内的 `Po0ClashCore`），替换 `/Applications/po0-clash.app`，
+移除隔离属性后打开。数据目录不动，原生版首次启动时导入 Flutter 版的订阅和加白 token。
+
 ## 构建与测试
 
-不在本机构建。推送 `native*` 分支后由 `.github/workflows/native-macos.yaml` 在 `macos-26` 上：
+不在本机构建。推送 `native*` 分支后由 `.github/workflows/native-macos.yaml` 运行。
+
+`build`（macos-26）：
 
 1. `cargo test -p po0-core`；
-2. `apps/macos/scripts/bundle.sh`（CI 用 `ARCHS="arm64 x86_64"`）：构建 `po0-ffi` 静态库、用宿主 debug 库生成 Swift 绑定、
-   构建 darwin 版 mihomo，组装通用的 `po0-clash.app` 并 ad-hoc 签名，打包成 `dist/po0-clash-macos.zip`；
-3. 用刚构建的 mihomo 跑内核的真实引擎测试；
-4. `apps/macos/scripts/e2e.sh`：在本机起一个 shadowsocks 节点（第二个 mihomo，出站绑定物理网卡）和一个带用量头的 HTTP
-   订阅，`RealFlowTests` 用真实绑定添加订阅、导入分享链接，依次以系统代理、虚拟网卡（用 sudo 执行与应用相同的安装命令，
-   得到同一路径的 setuid 内核）、再以系统代理连接，每次都在节点日志里确认请求经过了节点；最后测延迟、写入加白条目，
-   数据留在应用的真实数据目录里；
-5. 普通启动 10 秒，确认没有自动连接、SIGTERM 后正常关闭；
-6. 截图：`-launchedAtLogin YES` 模拟开机自启（必须自动重连）、`-testDelays YES` 先测延迟、`-showMenu YES` /
+2. `WITH_E2E=1 ARCHS="arm64 x86_64" apps/macos/scripts/bundle.sh`：构建 `po0-ffi` 静态库、用宿主 debug 库生成 Swift 绑定、
+   构建 darwin 版 mihomo，组装通用的 `po0-clash.app` 并 ad-hoc 签名，打包成 `dist/po0-clash-macos.zip`，另外编出通用的
+   检查工具 `dist/po0-e2e`；
+3. 用刚构建的 mihomo 跑内核的真实引擎测试，上传应用和检查工具。
+
+`check`（macos-26、macos-14、macos-15-intel 各一份，只下载产物、不编译；GitHub 已不提供 macOS 13）：
+
+1. 安装：先放一个假的 Flutter 版（同一应用 ID、正在运行的进程和 `Po0ClashCore`）和它的旧数据，用安装脚本的本地 zip
+   模式安装，确认旧进程已退出、订阅和加白 token 已导入；再通过本地模拟的 GitHub API 各装一次（不带版本 / 带版本），
+   确认选中的发布、SHA-256 校验和应用重启；
+2. `apps/macos/scripts/e2e.sh`：本机起 shadowsocks 节点（第二个 mihomo，出站绑定物理网卡）和带用量头的 HTTP 订阅，
+   `po0-e2e` 用真实绑定添加订阅、导入分享链接，依次以系统代理、虚拟网卡（sudo 执行与应用相同的安装命令）、再以系统代理
+   连接，每次都在节点日志里确认请求经过了节点；最后测延迟、写入加白条目，数据留在应用的数据目录里；
+3. 普通启动 10 秒，确认没有自动连接、SIGTERM 后正常关闭；
+4. `-showMenu YES -reopenMenu YES` 打开、关闭、再打开菜单窗口，在系统日志里确认刷新了至少两次；
+5. 仅 macos-26：截图。`-launchedAtLogin YES` 模拟开机自启（必须自动重连）、`-testDelays YES` 先测延迟、`-showMenu YES` /
    `-showSettings <tab>` 打开界面，`-appearance dark` 强制深色（runner 的系统外观改不了），`-AppleLanguages '(zh-Hans)'`
-   切中文；截图与应用压缩包作为构建产物上传。
+   切中文。
