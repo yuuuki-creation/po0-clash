@@ -33,11 +33,14 @@ mihomo 的 SHA-256 不同，就弹一次管理员授权，复制并设为 `root:
 不在本机构建。推送 `native*` 分支后由 `.github/workflows/native-macos.yaml` 在 `macos-26` 上：
 
 1. `cargo test -p po0-core`；
-2. `apps/macos/scripts/bundle.sh`：构建 `po0-ffi` 静态库、用宿主 debug 库生成 Swift 绑定、构建 darwin 版 mihomo，
-   组装并 ad-hoc 签名 `po0-clash.app`，打包成 `dist/po0-clash-macos.zip`；
+2. `apps/macos/scripts/bundle.sh`（CI 用 `ARCHS="arm64 x86_64"`）：构建 `po0-ffi` 静态库、用宿主 debug 库生成 Swift 绑定、
+   构建 darwin 版 mihomo，组装通用的 `po0-clash.app` 并 ad-hoc 签名，打包成 `dist/po0-clash-macos.zip`；
 3. 用刚构建的 mihomo 跑内核的真实引擎测试；
-4. 启动应用 10 秒确认不退出，发 SIGTERM 确认正常关闭，并检查内核日志；
-5. 用启动参数 `-showMenu YES`、`-showSettings <tab>`（可加 `-AppleLanguages '(zh-Hans)'`）打开界面截图，
-   截图与应用压缩包作为构建产物上传。
-
-`ARCHS="arm64 x86_64"` 可构建通用二进制，CI 目前只构建 arm64。
+4. `apps/macos/scripts/e2e.sh`：在本机起一个 shadowsocks 节点（第二个 mihomo，出站绑定物理网卡）和一个带用量头的 HTTP
+   订阅，`RealFlowTests` 用真实绑定添加订阅、导入分享链接，依次以系统代理、虚拟网卡（用 sudo 执行与应用相同的安装命令，
+   得到同一路径的 setuid 内核）、再以系统代理连接，每次都在节点日志里确认请求经过了节点；最后测延迟、写入加白条目，
+   数据留在应用的真实数据目录里；
+5. 普通启动 10 秒，确认没有自动连接、SIGTERM 后正常关闭；
+6. 截图：`-launchedAtLogin YES` 模拟开机自启（必须自动重连）、`-testDelays YES` 先测延迟、`-showMenu YES` /
+   `-showSettings <tab>` 打开界面，`-appearance dark` 强制深色（runner 的系统外观改不了），`-AppleLanguages '(zh-Hans)'`
+   切中文；截图与应用压缩包作为构建产物上传。

@@ -37,21 +37,24 @@ Ubuntu 上的 `native-core.yaml` 通过，macOS 的 CI 里内核测试和真实�
 
 ## macOS
 
-已完成（CI 验证，macos-26、Xcode 26.6、SDK 26）：
+已完成（CI 验证，macos-26、Xcode 26.6、SDK 26，通用包 arm64 + x86_64）：
 
 - SwiftPM 包，最低 macOS 13，不显示程序坞图标，中英文跟随系统，用真实内核绑定。
 - 菜单栏窗口：连接开关与状态、当前节点、出口 IP、速率、模式、系统代理 / 虚拟网卡、切换订阅、选节点与测延迟、加白开关和摘要、
   失败时的「重新连接」。设置窗口三个标签：通用（开机自启、导出诊断、版本）、订阅、加白。
 - 虚拟网卡：首次使用时用一次管理员授权把 mihomo 装到 `/Library/Application Support/io.github.yuuukicreation.po0clash/mihomo`
   （root:wheel、4755，SHA-256 与包内一致才复用），取消授权就退回系统代理。
+- 开机自启后，如果用户上次是连接状态（内核的 `wasConnected()`），自动重新连接；手动打开不会自动连接。
+- 菜单窗口在 macOS 13/14 上也会每次打开时刷新（除了 onAppear 还跟踪窗口的遮挡状态）。
 - 旧数据：Flutter 版的偏好在 UserDefaults 里，应用导出成 `core/legacy_shared_preferences.json` 交给内核。
-- 液态玻璃：只在浮动控件层用玻璃，内容是不透明的分组卡片，设置窗口用 `.formStyle(.grouped)`。
-- CI：macOS 上的内核测试与真实引擎测试、打包与 ad-hoc 签名、启动 10 秒、SIGTERM 后正常关闭、截图上传。
+- 液态玻璃：只在浮动控件层用玻璃，内容是不透明的分组卡片，设置窗口用 `.formStyle(.grouped)`；浅色、深色和中文截图已核对。
+- CI 的真实流程（`scripts/e2e.sh`）：本地 shadowsocks 节点和订阅，添加订阅、导入分享链接，系统代理 → 虚拟网卡（sudo 装
+  setuid 内核，路径和命令与应用相同）→ 系统代理，三次请求都确认经过节点；root 文件归属问题在 `mihomo-root` 改动后不再出现。
 
-没有验证：真机上的整套流程（订阅、连接、切节点、加白、导出、开机自启），虚拟网卡授权与 setuid 运行，深色模式，
-有数据时的界面，通用包（`ARCHS="arm64 x86_64"`），macOS 13/14 上菜单窗口的刷新时机。
+没有验证：开机自启在真机上的触发（CI 用启动参数模拟登录启动）、管理员授权弹窗本身（CI 用 sudo 代替）、macOS 13/14
+上的实际表现（runner 只有 macOS 26）、Intel 机器上运行通用包。
 
-下一步：在真机上装 CI 产物 `po0-clash-macos.zip` 走一遍上面的流程；验证虚拟网卡和切回系统代理；检查深色模式；打通用包。
+下一步：在真机上装 CI 产物 `po0-clash-macos.zip`，试一次管理员授权和开机自启；有条件时在 macOS 13/14 上看一眼菜单窗口。
 
 ## Windows
 
