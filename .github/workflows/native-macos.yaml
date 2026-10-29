@@ -1,0 +1,95 @@
+name: native-macos
+
+on:
+  push:
+    branches:
+      - 'native*'
+    paths:
+      - 'apps/macos/**'
+      - 'crates/**'
+      - 'mihomo/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/native-macos.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      ARCHS: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Only the pinned engine; core/Clash.Meta belongs to the Flutter app.
+      - name: Checkout mihomo
+        run: git submodule update --init --depth 1 mihomo/upstream
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: mihomo/upstream/go.mod
+          cache-dependency-path: mihomo/upstream/go.sum
+
+      - name: Setup Rust
+        if: hashFiles('crates/ffi/Cargo.toml') != ''
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add aarch64-apple-darwin
+
+      - name: Cache Rust
+        if: hashFiles('crates/ffi/Cargo.toml') != ''
+        uses: Swatinem/rust-cache@v2
+
+      - name: Toolchain versions
+        run: |
+          xcodebuild -version
+          swift --version
+          go version
+
+      - name: Test core
+        if: hashFiles('crates/core/Cargo.toml') != ''
+        run: cargo test -p po0-core
+
+      - name: Build app
+        run: apps/macos/scripts/bundle.sh
+
+      - name: Smoke launch
+        run: |
+          app=apps/macos/dist/po0-clash.app
+          "$app/Contents/MacOS/po0-clash" > smoke.log 2>&1 &
+          pid=$!
+          sleep 10
+          if ! kill -0 "$pid" 2>/dev/null; then
+            echo "po0-clash exited during the first 10 s"
+            cat smoke.log
+            exit 1
+          fi
+          kill -TERM "$pid"
+          for _ in $(seq 20); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
+          if kill -0 "$pid" 2>/dev/null; then
+            echo "po0-clash did not shut down within 10 s of SIGTERM"
+            kill -KILL "$pid"
+            exit 1
+          fi
+          cat smoke.log
+          if [ -f crates/ffi/Cargo.toml ]; then
+            ls -la "$HOME/Library/Application Support/io.github.yuuukicreation.po0clash/core"
+          fi
+
+      - name: Upload app
+        uses: actions/upload-artifact@v4
+        with:
+          name: po0-clash-macos
+          path: apps/macos/dist/po0-clash-macos.zip
+          if-no-files-found: error
