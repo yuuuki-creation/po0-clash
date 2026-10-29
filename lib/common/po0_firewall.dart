@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:fl_clash/common/constant.dart';
 import 'package:fl_clash/common/string.dart';
 import 'package:fl_clash/models/po0_firewall.dart';
+import 'package:rust_api/rust_api.dart';
 
 const po0FirewallApiHost = '124.221.69.228';
 
@@ -269,90 +270,62 @@ class Po0HttpResponse {
 
 typedef Po0HttpSend = Future<Po0HttpResponse> Function(String method, Uri uri);
 
-/// Android 7.0 lacks ISRG Root X1, and Windows installs it only on demand.
-final po0SecurityContext = SecurityContext(withTrustedRoots: true)
-  ..setTrustedCertificatesBytes(utf8.encode(_isrgRootX1));
+typedef Po0RouteSend =
+    Future<Po0HttpResponse> Function(
+      String method,
+      Uri uri, {
+      required String route,
+      required Duration timeout,
+    });
 
-const _isrgRootX1 = '''
------BEGIN CERTIFICATE-----
-MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
-TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
-cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4
-WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu
-ZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBY
-MTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAK3oJHP0FDfzm54rVygc
-h77ct984kIxuPOZXoHj3dcKi/vVqbvYATyjb3miGbESTtrFj/RQSa78f0uoxmyF+
-0TM8ukj13Xnfs7j/EvEhmkvBioZxaUpmZmyPfjxwv60pIgbz5MDmgK7iS4+3mX6U
-A5/TR5d8mUgjU+g4rk8Kb4Mu0UlXjIB0ttov0DiNewNwIRt18jA8+o+u3dpjq+sW
-T8KOEUt+zwvo/7V3LvSye0rgTBIlDHCNAymg4VMk7BPZ7hm/ELNKjD+Jo2FR3qyH
-B5T0Y3HsLuJvW5iB4YlcNHlsdu87kGJ55tukmi8mxdAQ4Q7e2RCOFvu396j3x+UC
-B5iPNgiV5+I3lg02dZ77DnKxHZu8A/lJBdiB3QW0KtZB6awBdpUKD9jf1b0SHzUv
-KBds0pjBqAlkd25HN7rOrFleaJ1/ctaJxQZBKT5ZPt0m9STJEadao0xAH0ahmbWn
-OlFuhjuefXKnEgV4We0+UXgVCwOPjdAvBbI+e0ocS3MFEvzG6uBQE3xDk3SzynTn
-jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
-qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
-rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
-HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
-hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
-ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
-3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
-NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
-ORAzI4JMPJ+GslWYHb4phowim57iaztXOoJwTdwJx4nLCgdNbOhdjsnvzqvHu7Ur
-TkXWStAmzOVyyghqpZXjFaH3pO3JLF+l+/+sKAIuvtd7u+Nxe5AW0wdeRlN8NwdC
-jNPElpzVmbUq4JUagEiuTDkHzsxHpFKVK7q4+63SM1N95R1NbdWhscdCb+ZAJzVc
-oyi3B43njTOQ5yOf+1CceWxG1bQVs5ZufpsMljq4Ui0/1lvh+wjChP4kqKOJ2qxq
-4RgqsahDYVvTH9w7jXbyLeiNdd8XM2w9U/t7y0Ff/9yi0GE44Za4rF2LN9d11TPA
-mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
-emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
------END CERTIFICATE-----
-''';
+Future<Po0HttpResponse> _nativeSend(
+  String method,
+  Uri uri, {
+  required String route,
+  required Duration timeout,
+}) async {
+  final response = await whitelistSend(
+    method: method,
+    url: uri.toString(),
+    route: route,
+    timeoutMs: timeout.inMilliseconds,
+  );
+  return Po0HttpResponse(response.status, response.body);
+}
 
 /// The API sees the request's source address, so the request must leave on
 /// the physical network. The app's global [HttpOverrides] would send it to the
 /// mixed port, and TUN or the VPN capture a DIRECT socket while the proxy
 /// runs, so the route then names the core's DIRECT-only listener. The pooled
-/// socket outlives a network switch, so it is dropped on failure and on change.
+/// socket outlives a network switch, so the native pool drops it on failure.
 class Po0DirectTransport {
-  Po0DirectTransport({Future<String> Function()? route})
-    : _route = route ?? _direct;
+  Po0DirectTransport({
+    Future<String> Function()? route,
+    Po0RouteSend? send,
+    void Function()? reset,
+  }) : _route = route ?? _direct,
+       _send = send ?? _nativeSend,
+       _reset = reset ?? whitelistResetConnections;
+
+  /// Dart's own timeout fires first; the native deadline only frees a worker.
+  static const nativeDeadlineSlack = Duration(seconds: 1);
 
   static Future<String> _direct() async => 'DIRECT';
 
   final Future<String> Function() _route;
-  HttpClient? _client;
-  String? _clientRoute;
+  final Po0RouteSend _send;
+  final void Function() _reset;
 
-  HttpClient _clientFor(String route) {
-    if (route != _clientRoute) {
-      reset();
-      _clientRoute = route;
-    }
-    return _client ??= HttpClient(context: po0SecurityContext)
-      ..findProxy = ((uri) => po0FindProxy(uri, route))
-      ..connectionTimeout = const Duration(seconds: 5)
-      ..idleTimeout = const Duration(seconds: 30);
+  Future<Po0HttpResponse> send(String method, Uri uri, Duration timeout) async {
+    return _send(
+      method,
+      uri,
+      route: po0FindProxy(uri, await _route()),
+      timeout: timeout + nativeDeadlineSlack,
+    );
   }
 
-  Future<Po0HttpResponse> send(String method, Uri uri) async {
-    final client = _clientFor(await _route());
-    try {
-      final request = await client.openUrl(method, uri);
-      request.headers.contentType = ContentType.json;
-      final response = await request.close();
-      final body = await response.transform(utf8.decoder).join();
-      return Po0HttpResponse(response.statusCode, body);
-    } catch (_) {
-      if (identical(client, _client)) {
-        reset();
-      }
-      rethrow;
-    }
-  }
-
-  void reset() {
-    _client?.close(force: true);
-    _client = null;
-  }
+  void reset() => _reset();
 }
 
 class Po0FirewallClient {
@@ -368,16 +341,24 @@ class Po0FirewallClient {
     Po0HttpSend? send,
     void Function()? resetConnections,
     Future<String> Function()? route,
+    Po0DirectTransport? transport,
     this.retryDelay = const Duration(milliseconds: 1500),
     this.requestTimeout = const Duration(seconds: 20),
     this.pollTimeout = const Duration(seconds: 5),
     this.maxAttempts = 3,
   }) : _customSend = send,
        _customReset = resetConnections,
-       _transport = send == null ? Po0DirectTransport(route: route) : null;
+       _transport = send == null
+           ? transport ?? Po0DirectTransport(route: route)
+           : null;
 
-  Future<Po0HttpResponse> _send(String method, Uri uri) =>
-      (_customSend ?? _transport!.send)(method, uri);
+  Future<Po0HttpResponse> _send(String method, Uri uri, Duration timeout) {
+    final customSend = _customSend;
+    if (customSend != null) {
+      return customSend(method, uri);
+    }
+    return _transport!.send(method, uri, timeout);
+  }
 
   void resetConnections() => (_customReset ?? _transport?.reset)?.call();
 
@@ -418,10 +399,8 @@ class Po0FirewallClient {
         await Future.delayed(retryDelay * (attempt - 1));
       }
       try {
-        final response = await _send(
-          method,
-          uri,
-        ).timeout(timeout ?? requestTimeout);
+        final limit = timeout ?? requestTimeout;
+        final response = await _send(method, uri, limit).timeout(limit);
         if (_isTransient(response)) {
           lastError = 'HTTP ${response.statusCode}';
           continue;

@@ -42,7 +42,7 @@ bash scripts/vps/provision.sh
 子模块 `core/Clash.Meta` 通过 `url.https://github.com/.insteadOf git@github.com:` 走 HTTPS。
 
 ```bash
-bash scripts/vps/verify.sh            # format 检查 + analyze + test + 覆盖率门槛
+bash scripts/vps/verify.sh            # rust_api 的 cargo fmt / clippy / test，再做 format 检查 + analyze + test + 覆盖率门槛
 ```
 
 `verify.sh` 会临时把 `pubspec.yaml` 中的 `build_assets` 置为 `false`（跳过 Go / Rust 原生构建）并在退出时恢复。

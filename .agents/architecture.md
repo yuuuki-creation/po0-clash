@@ -643,6 +643,11 @@ targets on first use.
   codes, `owner` runs every registration on the thread the platform binds it to (a dedicated message-loop thread on
   Windows, the main dispatch queue on macOS, in place on Linux), and `service` owns the registry and forwards presses
   to Dart. Linux is X11 only; a Wayland session without XWayland gets an error rather than a silent no-op.
+- `whitelist/` sends the po0 / ggy whitelist requests (ADR 0017) on every platform: `route` parses the Dart
+  `findProxy` string the request must take, and `transport` runs it through `ureq` with rustls and the bundled
+  webpki roots, IPv4 only. It pools one DIRECT agent plus the agent of the current `po0-direct` listener and drops
+  both on any failure or reset. `api/whitelist.rs` runs each request on a blocking worker, never on the frb pool
+  that carries the desktop Core IPC calls.
 
 What a platform does not use, it does not compile. `interprocess` and `global-hotkey` are declared under
 `cfg(not(target_os = "android"))`, and `ipc/mod.rs` and `hotkey/mod.rs` swap in their `unsupported.rs` there, because
