@@ -15,4 +15,6 @@
   }
 </script>
 
-<button type="button" class="danger" class:armed {disabled} onclick={click}>{armed ? confirmLabel : label}</button>
+<button type="button" class={armed ? 'pill destructive' : 'text-button destructive'} {disabled} onclick={click}
+  >{armed ? confirmLabel : label}</button
+>

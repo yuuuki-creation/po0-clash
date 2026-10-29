@@ -2,7 +2,7 @@
   let { options, value, onchange, disabled = false, label } = $props();
 </script>
 
-<div class="segmented" role="radiogroup" aria-label={label}>
+<div class="segmented glass" role="radiogroup" aria-label={label}>
   {#each options as option (option.value)}
     <button
       type="button"

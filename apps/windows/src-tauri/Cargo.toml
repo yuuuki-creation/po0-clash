@@ -17,6 +17,7 @@ sys-locale = "0.3"
 tauri = { version = "2", features = ["tray-icon", "image-ico"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-single-instance = "2"
+window-vibrancy = "0.8"
 windows-sys = { version = "0.61", features = [
   "Win32_Foundation",
   "Win32_NetworkManagement_IpHelper",

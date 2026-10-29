@@ -7,7 +7,7 @@ use tauri_plugin_dialog::DialogExt;
 use super::po0::{
     Core, CoreError, ExitIp, ImportResult, Mode, Profile, ProxyGroup, RouteMode, Status, Traffic, WhitelistState,
 };
-use super::{autostart, locale_is_zh};
+use super::{Backdrop, autostart, locale_is_zh};
 
 type CoreState<'a> = State<'a, Arc<Core>>;
 type Reply<T> = Result<T, String>;
@@ -28,11 +28,12 @@ where
 pub struct AppInfo {
     version: String,
     zh: bool,
+    backdrop: bool,
 }
 
 #[tauri::command]
-pub fn app_info(app: AppHandle) -> AppInfo {
-    AppInfo { version: app.package_info().version.to_string(), zh: locale_is_zh() }
+pub fn app_info(app: AppHandle, backdrop: State<'_, Backdrop>) -> AppInfo {
+    AppInfo { version: app.package_info().version.to_string(), zh: locale_is_zh(), backdrop: backdrop.0 }
 }
 
 #[tauri::command]

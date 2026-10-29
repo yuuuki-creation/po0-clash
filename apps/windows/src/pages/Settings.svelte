@@ -22,17 +22,24 @@
   }
 </script>
 
-<section class="card row">
-  <div class="grow-text">
-    <span class="title">{t('settings.autostart')}</span>
-    <span class="sub">{t('settings.autostartHint')}</span>
+<div class="group">
+  <div class="row">
+    <span class="grow">{t('settings.autostart')}</span>
+    <Switch label={t('settings.autostart')} checked={autostart} disabled={app.busy.autostart} onchange={setAutostart} />
   </div>
-  <Switch label={t('settings.autostart')} checked={autostart} disabled={app.busy.autostart} onchange={setAutostart} />
-</section>
+</div>
+<div class="footnote">{t('settings.autostartHint')}</div>
 
-<section class="card row">
-  <span class="title grow">{t('settings.diagnostics')}</span>
-  <button type="button" disabled={app.busy.diagnostics} onclick={exportDiagnostics}>{t('settings.export')}</button>
-</section>
-
-<p class="version">po0-clash {app.version}</p>
+<div class="spacer"></div>
+<div class="group">
+  <div class="row">
+    <span class="grow">{t('settings.diagnostics')}</span>
+    <button type="button" class="text-button" disabled={app.busy.diagnostics} onclick={exportDiagnostics}
+      >{t('settings.export')}</button
+    >
+  </div>
+  <div class="row">
+    <span class="grow">{t('settings.version')}</span>
+    <span class="value">{app.version}</span>
+  </div>
+</div>

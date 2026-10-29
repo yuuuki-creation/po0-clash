@@ -7,6 +7,7 @@ import { setChinese } from './lib/i18n.js';
 
 const info = await invoke('app_info');
 setChinese(info.zh);
+document.documentElement.classList.toggle('backdrop', info.backdrop);
 app.version = info.version;
 
 document.addEventListener('contextmenu', (event) => {

@@ -13,6 +13,8 @@ pub fn locale_is_zh() -> bool {
     sys_locale::get_locale().is_some_and(|l| l.to_ascii_lowercase().starts_with("zh"))
 }
 
+pub struct Backdrop(pub bool);
+
 pub fn show_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
@@ -94,6 +96,8 @@ pub fn run() {
             let handle = app.handle();
             let core = open_core(handle).unwrap_or_else(|e| fatal(&e));
             app.manage(Arc::clone(&core));
+            let window = app.get_webview_window("main").expect("main window");
+            app.manage(Backdrop(window_vibrancy::apply_mica(&window, None).is_ok()));
             tray::create(handle)?;
             core.set_listener(Arc::new(Bridge(handle.clone())));
             netwatch::spawn(core);

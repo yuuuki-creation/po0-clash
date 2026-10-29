@@ -2,6 +2,7 @@
   import { act, app, notify } from '../lib/core.svelte.js';
   import { formatBytes, formatDate, formatTime, t } from '../lib/i18n.js';
   import ConfirmButton from '../lib/ConfirmButton.svelte';
+  import Icon from '../lib/Icon.svelte';
 
   let url = $state('');
   let links = $state('');
@@ -25,64 +26,70 @@
   }
 </script>
 
-<form class="card inline-form" onsubmit={add}>
-  <input type="url" bind:value={url} placeholder={t('profiles.urlPlaceholder')} spellcheck="false" />
-  <button type="submit" class="accent" disabled={!url.trim() || app.busy.add}>{t('profiles.add')}</button>
-</form>
-
+<div class="section-title">{t('profiles.title')}</div>
+<div class="group">
+  {#each app.profiles as profile (profile.id)}
+    <div class="row">
+      <button
+        type="button"
+        class="check text-button"
+        aria-label={t('profiles.use')}
+        disabled={profile.selected || app.busy[`select:${profile.id}`]}
+        onclick={() => act(`select:${profile.id}`, 'select_profile', { id: profile.id })}
+      >
+        {#if profile.selected}<Icon name="check" />{:else}<span class="dot"></span>{/if}
+      </button>
+      <div class="grow">
+        <span class="title">{profile.kind === 'links' ? t('profiles.links') : profile.name}</span>
+        {#if profile.usage}
+          <div class="meter"><span style:width="{percent(profile.usage)}%"></span></div>
+          <span class="sub">
+            {t('profiles.used', {
+              used: formatBytes(profile.usage.upload + profile.usage.download),
+              total: formatBytes(profile.usage.total),
+            })}{#if profile.usage.expire}
+              · {t('profiles.expire', { date: formatDate(profile.usage.expire) })}{/if}
+          </span>
+        {/if}
+        {#if profile.updatedAt}
+          <span class="sub">{t('profiles.updated', { time: formatTime(profile.updatedAt) })}</span>
+        {/if}
+      </div>
+      <div class="actions">
+        {#if profile.kind === 'subscription'}
+          <button
+            type="button"
+            class="text-button"
+            disabled={app.busy[`update:${profile.id}`]}
+            onclick={() => act(`update:${profile.id}`, 'update_profile', { id: profile.id })}>{t('profiles.update')}</button
+          >
+        {/if}
+        <ConfirmButton
+          label={t('profiles.delete')}
+          confirmLabel={t('profiles.confirmDelete')}
+          disabled={app.busy[`remove:${profile.id}`]}
+          onconfirm={() => act(`remove:${profile.id}`, 'remove_profile', { id: profile.id })}
+        />
+      </div>
+    </div>
+  {/each}
+  <form class="row" onsubmit={add}>
+    <input type="url" bind:value={url} placeholder={t('profiles.urlPlaceholder')} spellcheck="false" />
+    <button type="submit" class="pill" disabled={!url.trim() || app.busy.add}>{t('profiles.add')}</button>
+  </form>
+</div>
 {#if !app.profiles.length}
-  <p class="empty">{t('profiles.empty')}</p>
+  <div class="footnote">{t('profiles.empty')}</div>
 {/if}
 
-{#each app.profiles as profile (profile.id)}
-  <section class="card profile" class:selected={profile.selected}>
-    <div class="profile-head">
-      <span class="title">{profile.kind === 'links' ? t('profiles.links') : profile.name}</span>
-      {#if profile.selected}<span class="badge">{t('profiles.inUse')}</span>{/if}
-    </div>
-    {#if profile.usage}
-      <div class="meter"><span style:width="{percent(profile.usage)}%"></span></div>
-      <div class="sub">
-        {t('profiles.used', {
-          used: formatBytes(profile.usage.upload + profile.usage.download),
-          total: formatBytes(profile.usage.total),
-        })}
-        {#if profile.usage.expire}· {t('profiles.expire', { date: formatDate(profile.usage.expire) })}{/if}
-      </div>
-    {/if}
-    {#if profile.updatedAt}
-      <div class="sub">{t('profiles.updated', { time: formatTime(profile.updatedAt) })}</div>
-    {/if}
+<div class="section-title">{t('profiles.import')}</div>
+<div class="group">
+  <div class="row stack">
+    <textarea rows="4" bind:value={links} placeholder={t('profiles.importPlaceholder')} spellcheck="false"></textarea>
     <div class="actions">
-      {#if !profile.selected}
-        <button
-          type="button"
-          class="accent"
-          disabled={app.busy[`select:${profile.id}`]}
-          onclick={() => act(`select:${profile.id}`, 'select_profile', { id: profile.id })}>{t('profiles.use')}</button
-        >
-      {/if}
-      {#if profile.kind === 'subscription'}
-        <button
-          type="button"
-          disabled={app.busy[`update:${profile.id}`]}
-          onclick={() => act(`update:${profile.id}`, 'update_profile', { id: profile.id })}>{t('profiles.update')}</button
-        >
-      {/if}
-      <ConfirmButton
-        label={t('profiles.delete')}
-        confirmLabel={t('profiles.confirmDelete')}
-        disabled={app.busy[`remove:${profile.id}`]}
-        onconfirm={() => act(`remove:${profile.id}`, 'remove_profile', { id: profile.id })}
-      />
+      <button type="button" class="pill" disabled={!links.trim() || app.busy.import} onclick={importLinks}
+        >{t('profiles.importButton')}</button
+      >
     </div>
-  </section>
-{/each}
-
-<section class="card stack">
-  <div class="label">{t('profiles.import')}</div>
-  <textarea rows="4" bind:value={links} placeholder={t('profiles.importPlaceholder')} spellcheck="false"></textarea>
-  <div class="actions">
-    <button type="button" disabled={!links.trim() || app.busy.import} onclick={importLinks}>{t('profiles.importButton')}</button>
   </div>
-</section>
+</div>

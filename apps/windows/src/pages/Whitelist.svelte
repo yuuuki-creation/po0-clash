@@ -18,37 +18,51 @@
   }
 </script>
 
-<section class="card row">
-  <div class="grow-text">
-    <span class="title">{t('whitelist.enabled')}</span>
-    <span class="sub">{t('whitelist.hint')}</span>
+<div class="group">
+  <div class="row">
+    <span class="grow">{t('whitelist.enabled')}</span>
+    <Switch
+      label={t('whitelist.enabled')}
+      checked={app.whitelist.enabled}
+      disabled={app.busy['wl:enabled']}
+      onchange={(enabled) => act('wl:enabled', 'set_whitelist_enabled', { enabled })}
+    />
   </div>
-  <Switch
-    label={t('whitelist.enabled')}
-    checked={app.whitelist.enabled}
-    disabled={app.busy['wl:enabled']}
-    onchange={(enabled) => act('wl:enabled', 'set_whitelist_enabled', { enabled })}
-  />
-</section>
+</div>
+<div class="footnote">{t('whitelist.hint')}</div>
 
-{#if app.whitelist.entries.length}
-  <div class="toolbar">
-    <button type="button" disabled={app.busy['wl:now']} onclick={() => act('wl:now', 'whitelist_now')}
-      >{t('whitelist.now')}</button
+<div class="section-title">
+  <span>{t('whitelist.entries')}</span>
+  {#if app.whitelist.entries.length}
+    <button
+      type="button"
+      class="text-button"
+      disabled={app.busy['wl:now']}
+      onclick={() => act('wl:now', 'whitelist_now')}>{t('whitelist.now')}</button
     >
-  </div>
-{:else}
-  <p class="empty">{t('whitelist.empty')}</p>
-{/if}
-
-{#each app.whitelist.entries as entry (entry.id)}
-  <section class="card entry">
-    <div class="entry-head">
+  {/if}
+</div>
+<div class="group">
+  {#each app.whitelist.entries as entry (entry.id)}
+    <div class="row">
       <span class="tag">{entry.kind}</span>
-      <span class="grow-text">
+      <div class="grow">
         <span class="title">{entry.name || entry.label}</span>
         {#if entry.name}<span class="sub mono">{entry.label}</span>{/if}
-      </span>
+        <div class="result {entry.result?.outcome ?? ''}">
+          <span class="dot"></span>
+          {#if entry.result}
+            <span class="title"
+              >{t(`outcome.${entry.result.outcome}`)}{entry.result.ip ? ` · ${entry.result.ip}` : ''} · {formatTime(
+                entry.result.at,
+              )}</span
+            >
+          {:else}
+            <span>{t('whitelist.pending')}</span>
+          {/if}
+        </div>
+        {#if entry.result?.message}<span class="sub">{entry.result.message}</span>{/if}
+      </div>
       <ConfirmButton
         label={t('whitelist.remove')}
         confirmLabel={t('profiles.confirmDelete')}
@@ -56,26 +70,12 @@
         onconfirm={() => act(`wl:remove:${entry.id}`, 'remove_whitelist_entry', { id: entry.id })}
       />
     </div>
-    {#if entry.result}
-      <div class="result {entry.result.outcome}">
-        <span class="dot" aria-hidden="true"></span>
-        <span>
-          {t(`outcome.${entry.result.outcome}`)}{entry.result.ip ? ` · ${entry.result.ip}` : ''} · {formatTime(
-            entry.result.at,
-          )}
-        </span>
-      </div>
-      {#if entry.result.message}<div class="sub">{entry.result.message}</div>{/if}
-    {:else}
-      <div class="result"><span class="dot" aria-hidden="true"></span><span>{t('whitelist.pending')}</span></div>
-    {/if}
-  </section>
-{/each}
-
-<form class="card stack" onsubmit={add}>
-  <textarea rows="3" bind:value={text} placeholder={t('whitelist.textPlaceholder')} spellcheck="false"></textarea>
-  <div class="inline-form">
-    <input bind:value={name} placeholder={t('whitelist.namePlaceholder')} />
-    <button type="submit" class="accent" disabled={!text.trim() || app.busy['wl:add']}>{t('whitelist.add')}</button>
-  </div>
-</form>
+  {/each}
+  <form class="row stack" onsubmit={add}>
+    <textarea rows="3" bind:value={text} placeholder={t('whitelist.textPlaceholder')} spellcheck="false"></textarea>
+    <div class="actions">
+      <input bind:value={name} placeholder={t('whitelist.namePlaceholder')} />
+      <button type="submit" class="pill" disabled={!text.trim() || app.busy['wl:add']}>{t('whitelist.add')}</button>
+    </div>
+  </form>
+</div>
