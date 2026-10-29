@@ -3,17 +3,22 @@
 # native or the Flutter build. Settings and data stay where they are; the first launch of the native app imports
 # the Flutter build's subscriptions and whitelist tokens.
 #
-#   install-macos-native.sh [<release tag> | <path to po0-clash-macos.zip>]   (default: the latest release)
+#   install-macos-native.sh [<version> | <path to po0-clash-macos.zip>]
 #   curl -fsSL https://raw.githubusercontent.com/yuuuki-creation/po0-clash/main/scripts/install-macos-native.sh | bash
+#
+# Native builds are released under native-v* tags (7.0.0-beta.1, v7.0.0-beta.1 and native-v7.0.0-beta.1 name the
+# same release); without a version the newest native release is installed, prereleases included.
 #
 #   PO0CLASH_REPO    owner/repo (default: yuuuki-creation/po0-clash)
 #   PO0CLASH_SHA256  expected SHA-256 of the zip; a release asset's own digest is checked automatically
 #   GH_TOKEN         token for API rate limits or a private repository
+#   PO0CLASH_API     GitHub API base URL (CI points it at a local stand-in)
 set -euo pipefail
 # macOS ships bash 3.2, where "${a[@]}" on an empty array trips set -u; arrays expand as ${a[@]+"${a[@]}"}.
 
 repo="${PO0CLASH_REPO:-yuuuki-creation/po0-clash}"
-source_arg="${1:-latest}"
+api="${PO0CLASH_API:-https://api.github.com}"
+source_arg="${1:-}"
 bundle_id=io.github.yuuukicreation.po0clash
 target=/Applications/po0-clash.app
 expected="${PO0CLASH_SHA256:-}"
@@ -31,27 +36,32 @@ trap 'rm -rf "$work"' EXIT
 zip="$work/po0-clash-macos.zip"
 
 download() {
-  local endpoint auth=() release asset
-  if [ "$source_arg" = latest ]; then
-    endpoint="https://api.github.com/repos/$repo/releases/latest"
-  else
-    endpoint="https://api.github.com/repos/$repo/releases/tags/$source_arg"
-  fi
+  local endpoint auth=() releases found
+  case "$source_arg" in
+    "") endpoint="$api/repos/$repo/releases?per_page=50" ;;
+    native-v*) endpoint="$api/repos/$repo/releases/tags/$source_arg" ;;
+    v*) endpoint="$api/repos/$repo/releases/tags/native-$source_arg" ;;
+    *) endpoint="$api/repos/$repo/releases/tags/native-v$source_arg" ;;
+  esac
   [ -z "${GH_TOKEN:-}" ] || auth=(-H "Authorization: Bearer $GH_TOKEN")
-  release="$(curl -fsSL ${auth[@]+"${auth[@]}"} -H "Accept: application/vnd.github+json" "$endpoint")" ||
-    die "cannot read release $source_arg of $repo"
-  # JavaScript for Automation ships with every macOS; jq and python do not.
-  asset="$(osascript -l JavaScript -e '
+  releases="$(curl -fsSL ${auth[@]+"${auth[@]}"} -H "Accept: application/vnd.github+json" "$endpoint")" ||
+    die "cannot find the native release ${source_arg:-list} in $repo"
+  # JavaScript for Automation ships with every macOS; jq and python do not. The list comes newest first.
+  found="$(osascript -l JavaScript -e '
     function run(argv) {
-      const assets = JSON.parse(argv[0]).assets || [];
-      const asset = assets.find((a) => /^po0-clash(-[^/]+)?-macos\.zip$/.test(a.name));
-      return asset ? asset.url + " " + (asset.digest || "").replace(/^sha256:/, "") : "";
-    }' "$release")"
-  [ -n "$asset" ] || die "release $source_arg has no native macOS build (po0-clash-macos.zip)"
-  set -- $asset
-  [ -n "$expected" ] || expected="${2:-}"
-  echo "Downloading po0-clash $source_arg..."
-  curl -fL --progress-bar ${auth[@]+"${auth[@]}"} -H "Accept: application/octet-stream" -o "$zip" "$1"
+      const data = JSON.parse(argv[0]);
+      const release = Array.isArray(data) ? data.find((r) => !r.draft && r.tag_name.startsWith("native-v")) : data;
+      if (!release) return "";
+      const asset = (release.assets || []).find((a) => /^po0-clash(-[^/]+)?-macos\.zip$/.test(a.name));
+      if (!asset) return release.tag_name;
+      return [release.tag_name, asset.url, (asset.digest || "").replace(/^sha256:/, "")].join(" ");
+    }' "$releases")"
+  [ -n "$found" ] || die "$repo has no native release yet"
+  set -- $found
+  [ $# -ge 2 ] || die "release $1 has no po0-clash-macos.zip"
+  [ -n "$expected" ] || expected="${3:-}"
+  echo "Downloading po0-clash $1..."
+  curl -fL --progress-bar ${auth[@]+"${auth[@]}"} -H "Accept: application/octet-stream" -o "$zip" "$2"
 }
 
 case "$source_arg" in
