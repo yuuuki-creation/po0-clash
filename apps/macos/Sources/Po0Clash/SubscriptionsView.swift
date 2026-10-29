@@ -12,28 +12,29 @@ struct SubscriptionsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            if model.profiles.isEmpty {
-                EmptyState(symbol: "tray", title: "No subscriptions", detail: "Add a subscription URL or import share links.")
-            } else {
-                List {
+        Form {
+            Section {
+                if model.profiles.isEmpty {
+                    EmptyRow(title: "No subscriptions", detail: "Add a subscription URL or import share links.")
+                } else {
                     ForEach(model.profiles, id: \.id) { profile in
                         ProfileRow(profile: profile) { pendingRemoval = profile }
                     }
                 }
-                .listStyle(.inset)
+            } footer: {
+                HStack {
+                    Spacer()
+                    Button("Import Share Links…") { sheet = .links }
+                    Button("Add Subscription…") { sheet = .subscription }
+                }
             }
             if let notice = model.notice {
-                NoticeBanner(text: notice) { model.notice = nil }.padding([.horizontal, .top], 12)
+                Section {
+                    NoticeBanner(text: notice) { model.notice = nil }
+                }
             }
-            Divider()
-            HStack {
-                Button("Add Subscription…") { sheet = .subscription }
-                Button("Import Share Links…") { sheet = .links }
-                Spacer()
-            }
-            .padding(12)
         }
+        .formStyle(.grouped)
         .sheet(item: $sheet) { sheet in
             switch sheet {
             case .subscription: AddSubscriptionSheet().environmentObject(model)
@@ -211,21 +212,5 @@ private struct ImportLinksSheet: View {
             }
             working = false
         }
-    }
-}
-
-struct EmptyState: View {
-    let symbol: String
-    let title: LocalizedStringKey
-    let detail: LocalizedStringKey
-
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: symbol).font(.largeTitle).foregroundStyle(.tertiary)
-            Text(title).font(.headline)
-            Text(detail).font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
     }
 }

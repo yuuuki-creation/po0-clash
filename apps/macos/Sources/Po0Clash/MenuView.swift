@@ -6,29 +6,26 @@ struct MenuView: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             if let error = model.launchError {
                 Label {
                     Text(error).textSelection(.enabled)
                 } icon: {
                     Image(systemName: "exclamationmark.triangle").foregroundStyle(.red)
                 }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .card()
+                .groupedSection()
             } else {
-                ConnectionCard()
-                ControlsGrid()
+                ConnectionCard().groupedSection()
+                ControlsGrid().groupedSection()
                 if model.status?.mode != .direct, !model.groups.isEmpty {
                     GroupsSection()
                 }
-                WhitelistSummary()
+                WhitelistSummary().groupedSection()
             }
             if let notice = model.notice {
-                NoticeBanner(text: notice) { model.notice = nil }
+                NoticeBanner(text: notice) { model.notice = nil }.groupedSection()
             }
-            Divider()
-            HStack {
+            ControlBar {
                 Button {
                     SettingsWindow.shared.show()
                 } label: {
@@ -43,9 +40,8 @@ struct MenuView: View {
                 }
                 .keyboardShortcut("q")
             }
-            .glassButton()
         }
-        .padding(14)
+        .padding(12)
         .frame(width: 340)
         .onAppear { model.menuAppeared() }
         .onDisappear { model.menuDisappeared() }
@@ -96,9 +92,6 @@ private struct ConnectionCard: View {
             }
             .font(.callout)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .card()
     }
 
     private var stateTitle: String {
@@ -184,20 +177,23 @@ private struct GroupsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Proxies").font(.caption).foregroundStyle(.secondary)
-            if model.groups.count > 6 {
-                ScrollView {
+            Text("Proxies").font(.subheadline).foregroundStyle(.secondary).padding(.leading, 4)
+            Group {
+                if model.groups.count > 6 {
+                    ScrollView {
+                        rows
+                    }
+                    .frame(height: 210)
+                } else {
                     rows
                 }
-                .frame(height: 210)
-            } else {
-                rows
             }
+            .groupedSection()
         }
     }
 
     private var rows: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 6) {
             ForEach(model.groups, id: \.name) { group in
                 GroupRow(group: group)
             }
@@ -291,14 +287,12 @@ struct NoticeBanner: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "info.circle").foregroundStyle(.secondary)
-            Text(text).font(.caption).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+            Text(text).font(.callout).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
             Button(action: dismiss) {
                 Image(systemName: "xmark")
             }
             .buttonStyle(.borderless)
             .help("Dismiss")
         }
-        .padding(10)
-        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }

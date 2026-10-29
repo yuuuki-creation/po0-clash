@@ -20,20 +20,13 @@ enum Format {
     }
 }
 
+/// Liquid Glass belongs to the floating control layer only (HIG, macOS 26); content sits on opaque grouped
+/// surfaces like a grouped `Form`.
 extension View {
-    /// Liquid Glass only on macOS 26; earlier systems keep a plain grouped background.
-    @ViewBuilder
-    func card() -> some View {
-        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
-        #if compiler(>=6.2)
-        if #available(macOS 26, *) {
-            glassEffect(.regular, in: shape)
-        } else {
-            background(Color.primary.opacity(0.05), in: shape)
-        }
-        #else
-        background(Color.primary.opacity(0.05), in: shape)
-        #endif
+    func groupedSection() -> some View {
+        padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     @ViewBuilder
@@ -60,6 +53,42 @@ extension View {
         } else {
             buttonStyle(.bordered)
         }
+    }
+}
+
+/// A row of floating controls; on macOS 26 its glass buttons share one container so they render as one layer.
+struct ControlBar<Content: View>: View {
+    private let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        #if compiler(>=6.2)
+        if #available(macOS 26, *) {
+            GlassEffectContainer {
+                HStack(spacing: 8) { content }.glassButton()
+            }
+        } else {
+            HStack(spacing: 8) { content }.glassButton()
+        }
+        #else
+        HStack(spacing: 8) { content }.glassButton()
+        #endif
+    }
+}
+
+struct EmptyRow: View {
+    let title: LocalizedStringKey
+    let detail: LocalizedStringKey
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+            Text(detail).font(.callout).foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 4)
     }
 }
 

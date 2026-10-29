@@ -67,6 +67,7 @@
 "Import" = "导入";
 "Keeps this Mac's real exit IP on the po0 and ggy whitelists while po0-clash is open, connected or not." = "只要 po0-clash 开着，无论是否连接，都会把这台 Mac 的真实出口 IP 保持在 po0 与 ggy 白名单中。";
 "No tokens or links" = "没有 token 或链接";
+"Tokens and links" = "token 与链接";
 "Add a po0 token or a ggy whitelist link." = "添加 po0 token 或 ggy 加白链接。";
 "Add…" = "添加…";
 "Waiting for the first check" = "等待首次检查";

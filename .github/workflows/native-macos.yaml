@@ -37,7 +37,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: mihomo/upstream/go.mod
+          go-version: stable
           cache-dependency-path: mihomo/upstream/go.sum
 
       - name: Setup Rust
@@ -49,11 +49,14 @@ jobs:
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
 
+      # Liquid Glass comes from building against the macOS 26 SDK.
       - name: Toolchain versions
         run: |
           xcodebuild -version
           swift --version
           go version
+          sdk=$(xcrun --sdk macosx --show-sdk-version)
+          [ "${sdk%%.*}" -ge 26 ] || { echo "::error::macOS SDK $sdk is older than 26"; exit 1; }
 
       - name: Test core
         run: cargo test -p po0-core
@@ -112,6 +115,8 @@ jobs:
           shoot menu-zh -showMenu YES -AppleLanguages '(zh-Hans)'
           for tab in general subscriptions whitelist; do shoot "settings-$tab" -showSettings "$tab"; done
           shoot settings-whitelist-zh -showSettings whitelist -AppleLanguages '(zh-Hans)'
+          shoot menu-dark -showMenu YES -AppleInterfaceStyle Dark
+          shoot settings-whitelist-dark -showSettings whitelist -AppleInterfaceStyle Dark
 
       - name: Upload screenshots
         uses: actions/upload-artifact@v4

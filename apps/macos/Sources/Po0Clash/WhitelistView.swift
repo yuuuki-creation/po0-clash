@@ -8,43 +8,40 @@ struct WhitelistView: View {
     private var entries: [WhitelistEntry] { model.whitelist?.entries ?? [] }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Auto whitelist").font(.headline)
-                    Text("Keeps this Mac's real exit IP on the po0 and ggy whitelists while po0-clash is open, connected or not.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer()
-                Toggle("Auto whitelist", isOn: Binding(
+        Form {
+            Section {
+                Toggle(isOn: Binding(
                     get: { model.whitelist?.enabled ?? false },
                     set: { model.setWhitelistEnabled($0) }
-                ))
-                .toggleStyle(.switch)
-                .labelsHidden()
+                )) {
+                    Text("Auto whitelist")
+                    Text("Keeps this Mac's real exit IP on the po0 and ggy whitelists while po0-clash is open, connected or not.")
+                }
                 .disabled(model.whitelist == nil)
             }
-            .padding(16)
-            Divider()
-            if entries.isEmpty {
-                EmptyState(symbol: "checkmark.shield", title: "No tokens or links", detail: "Add a po0 token or a ggy whitelist link.")
-            } else {
-                List {
+            Section {
+                if entries.isEmpty {
+                    EmptyRow(title: "No tokens or links", detail: "Add a po0 token or a ggy whitelist link.")
+                } else {
                     ForEach(entries, id: \.id) { entry in
                         EntryRow(entry: entry)
                     }
                 }
-                .listStyle(.inset)
+            } header: {
+                Text("Tokens and links")
+            } footer: {
+                HStack {
+                    Spacer()
+                    Button("Add…") { adding = true }
+                }
             }
-            Divider()
-            HStack {
-                Button("Add…") { adding = true }
-                Spacer()
+            if let notice = model.notice {
+                Section {
+                    NoticeBanner(text: notice) { model.notice = nil }
+                }
             }
-            .padding(12)
         }
+        .formStyle(.grouped)
         .sheet(isPresented: $adding) {
             AddEntriesSheet().environmentObject(model)
         }
@@ -58,10 +55,9 @@ private struct EntryRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Text(verbatim: entry.kind == .po0 ? "po0" : "ggy")
-                .font(.caption.monospaced())
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color.primary.opacity(0.07), in: Capsule())
+                .font(.callout.monospaced())
+                .foregroundStyle(.secondary)
+                .frame(width: 32, alignment: .leading)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     if !entry.name.isEmpty { Text(entry.name).fontWeight(.medium) }
