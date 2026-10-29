@@ -115,8 +115,6 @@ jobs:
           shoot menu-zh -showMenu YES -AppleLanguages '(zh-Hans)'
           for tab in general subscriptions whitelist; do shoot "settings-$tab" -showSettings "$tab"; done
           shoot settings-whitelist-zh -showSettings whitelist -AppleLanguages '(zh-Hans)'
-          shoot menu-dark -showMenu YES -AppleInterfaceStyle Dark
-          shoot settings-whitelist-dark -showSettings whitelist -AppleInterfaceStyle Dark
 
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
