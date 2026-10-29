@@ -19,6 +19,7 @@ po0-clash 以独立应用的身份发布，可与官方 FlClash 同时安装（�
 | [development/build.md](development/build.md) | 构建：VPS（校验）、GitHub Actions（Android / Windows / macOS 发版）、签名、本地开发 |
 | [development/release.md](development/release.md) | 发版流程、版本号与产物命名 |
 | [development/upstream-sync.md](development/upstream-sync.md) | 如何合并上游 FlClash 更新 |
+| [development/rust-migration.md](development/rust-migration.md) | 应用后端分阶段迁到 Rust 的执行计划（提议） |
 | [adr/](adr/) | 架构决策记录（ADR） |
 
 ## 工作流约定
