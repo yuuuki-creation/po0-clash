@@ -5,7 +5,10 @@ set -euo pipefail
 app_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 root="$(cd "$app_dir/../.." && pwd)"
 archs="${ARCHS:-$(uname -m)}"
-version="${VERSION:-$(sed -n 's/^version *= *"\(.*\)"/\1/p' "$root/Cargo.toml" 2>/dev/null | head -n1)}"
+version="${VERSION:-}"
+if [[ -z "$version" && -f "$root/Cargo.toml" ]]; then
+  version="$(sed -n 's/^version *= *"\(.*\)"/\1/p' "$root/Cargo.toml" | head -n1)"
+fi
 version="${version:-0.1.0}"
 build_number="${BUILD_NUMBER:-1}"
 bundle_id=io.github.yuuukicreation.po0clash
