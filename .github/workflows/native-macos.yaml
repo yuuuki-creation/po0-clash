@@ -109,8 +109,9 @@ jobs:
           uname -m
           chmod +x dist/po0-e2e
 
-      - name: Install over a stand-in Flutter build
+      - name: Install over a stand-in Flutter build, then from a release
         run: |
+          set -o pipefail
           support="$HOME/Library/Application Support/io.github.yuuukicreation.po0clash"
           old=/Applications/po0-clash.app
           mkdir -p "$old/Contents/MacOS" "$support/profiles"
@@ -137,15 +138,34 @@ jobs:
           grep -q '"Legacy sub"' "$settings" || { cat "$settings" || true; echo "::error::subscriptions were not imported"; exit 1; }
           grep -q pgnfw_legacy "$settings" || { echo "::error::whitelist tokens were not imported"; exit 1; }
 
-          first=$(pgrep -x po0-clash)
-          scripts/install-macos-native.sh "$PWD/dist/po0-clash-macos.zip"
-          second=""
-          for _ in $(seq 20); do
-            second=$(pgrep -x po0-clash || true)
-            [ -n "$second" ] && [ "$second" != "$first" ] && break
-            sleep 0.5
-          done
-          [ -n "$second" ] && [ "$second" != "$first" ] || { echo "::error::reinstalling did not restart po0-clash"; exit 1; }
+          # A stand-in for the GitHub API: a draft, a Flutter release and the native prerelease, newest first.
+          api="$RUNNER_TEMP/api"
+          releases="$api/repos/yuuuki-creation/po0-clash/releases"
+          mkdir -p "$releases/tags"
+          cp dist/po0-clash-macos.zip "$api/"
+          digest=$(shasum -a 256 dist/po0-clash-macos.zip | cut -d' ' -f1)
+          native='{"tag_name":"native-v7.0.0-beta.1","draft":false,"prerelease":true,"assets":[{"name":"po0-clash-macos.zip","url":"http://127.0.0.1:18400/po0-clash-macos.zip","digest":"sha256:'"$digest"'"}]}'
+          echo '[{"tag_name":"native-v7.0.0-beta.2","draft":true,"assets":[]},{"tag_name":"v6.4.4","draft":false,"assets":[]},'"$native"']' > "$releases/index.html"
+          echo "$native" > "$releases/tags/native-v7.0.0-beta.1"
+          python3 -m http.server 18400 --bind 127.0.0.1 --directory "$api" > /dev/null 2>&1 &
+          for _ in $(seq 20); do nc -z 127.0.0.1 18400 && break; sleep 0.2; done
+
+          reinstall() {
+            local before now log="$RUNNER_TEMP/install.log"
+            before=$(pgrep -x po0-clash)
+            PO0CLASH_API=http://127.0.0.1:18400 scripts/install-macos-native.sh "$@" | tee "$log"
+            grep -q "Downloading po0-clash native-v7.0.0-beta.1" "$log" || { echo "::error::picked the wrong release"; exit 1; }
+            grep -q "Checksum verified" "$log" || { echo "::error::the release digest was not checked"; exit 1; }
+            for _ in $(seq 20); do
+              now=$(pgrep -x po0-clash || true)
+              [ -n "$now" ] && [ "$now" != "$before" ] && return 0
+              sleep 0.5
+            done
+            echo "::error::reinstalling did not restart po0-clash"
+            exit 1
+          }
+          reinstall
+          reinstall 7.0.0-beta.1
 
           pkill -TERM -x po0-clash
           for _ in $(seq 30); do pgrep -x po0-clash >/dev/null || break; sleep 0.5; done
