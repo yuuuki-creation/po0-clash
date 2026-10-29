@@ -2,3 +2,6 @@
 	path = core/Clash.Meta
 	url = git@github.com:chen08209/Clash.Meta.git
 	branch = FlClash
+[submodule "mihomo/upstream"]
+	path = mihomo/upstream
+	url = https://github.com/MetaCubeX/mihomo.git
