@@ -27,6 +27,11 @@ let package = Package(
                 .linkedFramework("SystemConfiguration"),
             ]
         ),
+        .testTarget(
+            name: "Po0ClashTests",
+            dependencies: ["Po0Clash", "Po0FFI"],
+            path: "Tests/Po0ClashTests"
+        ),
     ],
     swiftLanguageVersions: [.v5]
 )

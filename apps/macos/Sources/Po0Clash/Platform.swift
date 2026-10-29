@@ -82,16 +82,21 @@ enum TunEngine {
         return SHA256.hash(data: data)
     }
 
-    private static func install(from bundled: String) throws {
+    /// The root shell command that installs the copy; CI runs the same command with sudo.
+    static func installCommand(from bundled: String) -> String {
         let folder = (installedPath as NSString).deletingLastPathComponent
         let staged = installedPath + ".new"
-        let shell = [
+        return [
             "mkdir -p \(shellQuote(folder))",
             "cp -fX \(shellQuote(bundled)) \(shellQuote(staged))",
             "chown root:wheel \(shellQuote(staged))",
             "chmod 4755 \(shellQuote(staged))",
             "mv -f \(shellQuote(staged)) \(shellQuote(installedPath))",
         ].joined(separator: " && ")
+    }
+
+    private static func install(from bundled: String) throws {
+        let shell = installCommand(from: bundled)
         let prompt = String(localized: "po0-clash needs administrator permission to install its TUN engine.")
         let script = "do shell script \"\(appleScriptQuote(shell))\" with prompt \"\(appleScriptQuote(prompt))\" with administrator privileges"
 
