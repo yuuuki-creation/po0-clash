@@ -1,6 +1,6 @@
 # 原生重写进度
 
-计划见 [native-rewrite.md](native-rewrite.md)。本页记录 2026-10-29 暂停时的状态，恢复工作时从「下一步」接着做。
+计划见 [native-rewrite.md](native-rewrite.md)。本页记录 2026-10-29 第一轮暂停时的状态；第二轮已按各平台的「下一步」继续。
 
 ## 分支
 
@@ -23,17 +23,12 @@
 模式切换、热重载、选节点、崩溃检测与重启）；真实 po0 接口的证书校验；Windows 交叉编译的 clippy；Android 发版构建。
 Ubuntu 上的 `native-core.yaml` 通过，macOS 的 CI 里内核测试和真实引擎测试也通过。
 
-待处理（三端反馈）：
+三端第一轮反馈已在 8b84b14 处理：setuid 的 mihomo 用单独的 `mihomo-root` 目录，分享链接文件移出 `providers/`，崩溃记录移到
+`run/`；首次启动就写出 `settings.json`；新增 `was_connected()`，开机自启后据此恢复连接；加白的最近结果跨重启保留；网络变化和
+亮屏状态写日志；Android 诊断里的路由显示为 VPN。
 
-- macOS 用 setuid 的 mihomo 跑虚拟网卡后，`mihomo/` 下的 cache.db、geo 文件归 root 所有，切回系统代理后普通权限的
-  mihomo 可能写不了；需要在真机上确认，必要时内核在启动前修正归属或换目录。
-- `settings.json` 要到第一次修改才写出，在这之前每次启动都会重新导入一遍旧数据（结果相同，无害）。
-- Android 的诊断里显示 `route SystemProxy`，应该显示 VPN。
-- `network_changed` 和 `set_active` 不写日志，排查时看不到。
-- 加白的「最近结果」不持久化，应用被杀后显示为尚未执行，直到下一轮请求。
-- 开机自启后不会自动连接；要恢复连接，内核得保存连接意图。
-- Windows 下的引擎路径（命名管道、Job Object、系统代理、名为 `po0-clash` 的 TUN 网卡）只靠应用的冒烟测试覆盖，
-  内核的集成测试目前只在 Unix 上跑。
+仍待处理：Windows 下的引擎路径（命名管道、Job Object、系统代理、名为 `po0-clash` 的 TUN 网卡）只靠应用在测试虚拟机里的
+冒烟测试覆盖，内核的集成测试目前只在 Unix 上跑。
 
 ## macOS
 
