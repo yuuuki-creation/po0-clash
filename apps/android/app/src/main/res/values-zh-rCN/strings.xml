@@ -16,7 +16,9 @@
     <string name="traffic">速率</string>
     <string name="rate">↑ %1$s/s  ↓ %2$s/s</string>
     <string name="notification_channel">VPN 状态</string>
+    <string name="notification_channel_alerts">连接问题</string>
     <string name="notification_running">已连接 · %s</string>
+    <string name="notification_failed">po0-clash 无法连接</string>
     <string name="error_vpn_permission">未获得 VPN 权限</string>
 
     <string name="empty_title">还没有订阅</string>
