@@ -76,20 +76,24 @@ Ubuntu 上的 `native-core.yaml` 通过，macOS 的 CI 里内核测试和真实�
 
 ## Android
 
-已完成（NL 模拟器上验证，改版前的版本）：
+已完成（NL 上的 API 35 与 API 30 模拟器验证，已合入 `native`）：
 
 - `mihomo/android`：Go c-shared 库，C 接口为 `po0_mihomo_start/stop/free`；start 等控制器可连才返回，stop 关掉全部入口和 TUN。
   必须带 `cmfa` 编译标签（否则 TUN 要读只有 root 能读的 `packages.xml`），库在 `init()` 里恢复 `/configs` 接口供内核热重载。
-- Gradle（AGP 9.5.0、Kotlin 2.4.21）一条 `./gradlew assembleRelease` 编出 mihomo、内核和绑定；同一把签名 key，按 ABI 分包，
-  versionCode 大于 Flutter 6.4.4。受 compileSdk 36 限制固定了 Compose BOM 2026.06.01 和 Haze 1.7.1。
-- 模拟器上走通：订阅与用量、分享链接导入、VPN 路由（排除 po0 地址）与应用自身绕过 VPN、流量走节点、切节点 / 模式 / 测速、
-  三次断开重连无残留 fd、启动失败与重新连接、快捷设置磁贴、网络切换、加白请求链路、导出诊断、中英文。
-- 液态玻璃：浅色中文界面已在模拟器上看过（#F2F2F7 底色、白色分组卡片、Haze 毛玻璃顶栏和悬浮连接胶囊、玻璃分段控件和底部弹层）。
+- Gradle 一条 `./gradlew assembleRelease` 编出 mihomo、内核和绑定；compileSdk 37、targetSdk 36，Compose BOM 2026.09.00、
+  Haze 2.0.1。同一把签名 key，按 ABI 分包，三个分包的 versionCode 都大于 Flutter 6.4.4 对应的分包；版本名暂为 7.0.0-alpha1，
+  正式版本号由维护者定。
+- 模拟器上走通：VPN 路由（排除 po0 地址）与应用自身绕过 VPN、流量走节点、切节点 / 模式 / 测速、三轮断开重连无残留 fd、
+  启动失败与重新连接、快捷设置磁贴（真实点击）、导出诊断、加白请求与结果跨进程保留、进程重建后按 `wasConnected()` 自动连回。
+- 从 Flutter 6.4.4 覆盖升级：导入 2 条订阅（当前订阅对应正确）和 2 条加白条目，缺内容的订阅在连接时先下载，重启后不重复导入。
+- API 30 上手动拆分路由：tun0 上 33 条路由，po0 地址走物理网卡，相邻地址仍走 VPN。
+- 网络变化只监听物理网络（排除自己的 VPN）并去抖 1 秒；VPN 服务指令按 start id 只执行最新的一条。
+- 液态玻璃：#F2F2F7 / 黑色底，不透明分组卡片，系统蓝，Haze 毛玻璃顶栏、悬浮连接胶囊、分段控件、底部弹层与操作单；
+  浅色、深色、中英文都核对过。API 31 以下没有模糊，玻璃底色用约 93% 的近不透明色（与苹果「降低透明度」一致），
+  半透明会让弹层透出下面的文字。
 
-没有验证：改版后的完整流程、深色模式、改版后的英文界面、真机 arm64、API 26–32 的手动路由拆分（只有单元测试）、
-从 Flutter 版覆盖升级与旧数据导入、always-on VPN。
+没有验证：真机 arm64、always-on VPN。
 
-已知问题：`cmfa` 标签下订阅里写 `system` 的 DNS 解析不了；TUN fd 交给 mihomo 后由它关闭，内核在启动前失败时由 Kotlin 兜底关闭。
+已知问题：`cmfa` 标签下订阅里写 `system` 的 DNS 解析不了；同时连着 Wi-Fi 和移动数据时，移动数据的变化也会触发一轮加白请求。
 
-下一步：在 NL 上用 `/srv/build/po0-native-android/.tools` 里的脚本把改版后的版本完整重测，补深色和英文；编三个 ABI 上真机测；
-测覆盖升级；整理提交历史后合入 `native`。
+下一步：在 arm64 真机上装 `app-arm64-v8a-release.apk` 走一遍；发版前由维护者定版本号。
