@@ -161,6 +161,32 @@ fn diagnostics_never_contain_secrets() {
 }
 
 #[test]
+fn a_subscription_without_content_is_downloaded_before_starting() {
+    let dir = temp_dir();
+    let database = dir.join("database.sqlite");
+    let url = serve_once("HTTP/1.1 200 OK\r\nContent-Length: 6\r\nConnection: close\r\n\r\nmode: ");
+    let connection = rusqlite::Connection::open(&database).unwrap();
+    connection
+        .execute_batch(&format!(
+            r#"CREATE TABLE profiles (id INTEGER PRIMARY KEY, label TEXT NOT NULL, url TEXT NOT NULL, "order" INTEGER);
+            INSERT INTO profiles VALUES (1, 'old', '{url}', 0);"#
+        ))
+        .unwrap();
+    drop(connection);
+    let mut opts = options(&dir);
+    opts.legacy_database = Some(database);
+    let core = Core::new(opts).unwrap();
+    assert_eq!(core.profiles()[0].updated_at, None);
+    let error = core.start(None).unwrap_err();
+    assert!(
+        error.to_string().contains("not a Clash/mihomo config"),
+        "{error}"
+    );
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn starting_without_a_profile_fails_cleanly() {
     let dir = temp_dir();
     let core = Core::new(options(&dir)).unwrap();

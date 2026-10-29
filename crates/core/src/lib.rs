@@ -262,6 +262,12 @@ impl Core {
             .ok_or_else(|| CoreError::Invalid("add a subscription first".into()))?;
         engine::recover(&self.paths.home);
         let runtime = Runtime::new(self.platform, &self.paths.run, tun_fd)?;
+        let missing =
+            !self.paths.yaml(&profile.id).exists() && !self.paths.links(&profile.id).exists();
+        if missing && profile.url.is_some() {
+            self.download(&profile.id)?;
+            self.emit(&[Change::Profiles]);
+        }
         let config = self.write_config(&profile, &settings, &runtime)?;
         let binary = lock(&self.mihomo_path).clone();
         let runner = engine::launch(
@@ -570,18 +576,19 @@ impl Core {
         self.profile(&id)
     }
 
-    pub fn update_profile(&self, id: String) -> Result<Profile> {
+    /// Never reloads the engine, so `launch` can call it with the engine lock held.
+    fn download(&self, id: &str) -> Result<()> {
         let url = self
             .store
-            .read(|s| s.profile(&id).and_then(|profile| profile.url.clone()))
+            .read(|s| s.profile(id).and_then(|profile| profile.url.clone()))
             .ok_or_else(|| CoreError::Invalid("only subscriptions can be updated".into()))?;
         let fetched = self.fetch(&url).inspect_err(|error| {
             logfile::warn(format!("subscription {id} update failed: {error}"));
         })?;
-        self.store_content(&id, &fetched.content)?;
+        self.store_content(id, &fetched.content)?;
         self.store.update(|s| {
             let profile = s
-                .profile_mut(&id)
+                .profile_mut(id)
                 .ok_or_else(|| CoreError::Invalid("no such profile".into()))?;
             profile.updated_at = Some(util::now());
             profile.usage = fetched.usage.clone().or(profile.usage.take());
@@ -589,6 +596,11 @@ impl Core {
             Ok(())
         })?;
         logfile::info(format!("subscription {id} updated"));
+        Ok(())
+    }
+
+    pub fn update_profile(&self, id: String) -> Result<Profile> {
+        self.download(&id)?;
         let reloaded = self.reload_if_current(&id);
         self.emit(&[Change::Profiles]);
         reloaded?;
