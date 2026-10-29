@@ -46,6 +46,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
 
       - name: Test core
         run: cargo test -p po0-core
@@ -76,11 +78,7 @@ jobs:
           & "$dir\mihomo.exe" -v
           if ($LASTEXITCODE -ne 0) { throw 'mihomo.exe does not run' }
 
-          # The UAC launch builds the app's environment from the registry, not from this shell.
-          [Environment]::SetEnvironmentVariable('WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS', '--remote-debugging-port=9222', 'User')
           $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9222'
-          $elevated = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole('Administrators')
-          "runner shell elevated: $elevated"
           $app = Start-Process -FilePath "$dir\po0-clash.exe" -PassThru
           Start-Sleep -Seconds 10
           try {
@@ -98,6 +96,11 @@ jobs:
 
           node apps/windows/scripts/smoke.mjs
           $smoke = $LASTEXITCODE
+          if ($smoke -ne 0) {
+            $views = Get-CimInstance Win32_Process -Filter "Name = 'msedgewebview2.exe'"
+            $views | Where-Object CommandLine -NotMatch '--type=' | ForEach-Object { $_.CommandLine }
+            Get-NetTCPConnection -State Listen | Where-Object OwningProcess -In $views.ProcessId | Format-Table LocalAddress, LocalPort, OwningProcess
+          }
           Get-Process po0-clash, mihomo, msedgewebview2 -ErrorAction SilentlyContinue | Format-Table Id, ProcessName, WorkingSet64
           if ($app.HasExited) { throw "po0-clash exited with code $($app.ExitCode)" }
           Stop-Process -Id $app.Id -Force
