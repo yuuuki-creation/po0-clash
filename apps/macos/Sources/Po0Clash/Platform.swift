@@ -86,7 +86,7 @@ enum TunEngine {
         let staged = installedPath + ".new"
         let shell = [
             "mkdir -p \(shellQuote(folder))",
-            "cp -f \(shellQuote(bundled)) \(shellQuote(staged))",
+            "cp -fX \(shellQuote(bundled)) \(shellQuote(staged))",
             "chown root:wheel \(shellQuote(staged))",
             "chmod 4755 \(shellQuote(staged))",
             "mv -f \(shellQuote(staged)) \(shellQuote(installedPath))",
