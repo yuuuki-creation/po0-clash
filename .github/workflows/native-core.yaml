@@ -1,0 +1,40 @@
+name: native-core
+
+on:
+  push:
+    branches: ["native*"]
+    paths:
+      - "crates/**"
+      - "mihomo/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/native-core.yaml"
+  pull_request:
+    paths:
+      - "crates/**"
+      - "mihomo/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  workflow_dispatch:
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - run: rustup update stable && rustup default stable && rustup component add rustfmt clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: mihomo/upstream/go.sum
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      - name: Build mihomo
+        working-directory: mihomo/upstream
+        run: CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -tags with_gvisor -o "$RUNNER_TEMP/mihomo" .
+      - name: Real engine
+        run: MIHOMO_BIN="$RUNNER_TEMP/mihomo" cargo test -p po0-core -- --ignored engine
