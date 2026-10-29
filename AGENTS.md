@@ -10,6 +10,11 @@ standalone app po0-clash (its own app id, installer, process names and semver, i
 Read [.agents/fork.md](.agents/fork.md) first; project goals, feature designs, build/release process and ADRs are in
 [docs/](docs/README.md). Release builds run only when the maintainer explicitly asks for a release.
 
+A native rewrite is under way ([ADR 0018](docs/adr/0018-native-rewrite.md), plan in
+[docs/development/native-rewrite.md](docs/development/native-rewrite.md)): SwiftUI on macOS, Tauri on Windows, Jetpack
+Compose on Android, all on one small shared Rust core. The Flutter app is in maintenance: fix serious bugs only, add no
+features. New apps are designed from scratch with the minimal feature set; do not port Flutter screens or behavior.
+
 ## Start Here
 
 Read these files before making changes:
