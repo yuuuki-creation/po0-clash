@@ -17,13 +17,17 @@ Tauri 2 应用，代码在 `apps/windows`：`src/` 是 Svelte 界面（不用组
 
 ## 构建
 
-不在本机编译。构建机 `contabo-fr` 上交叉编译：
+不在本机编译。构建机 `contabo-fr` 上交叉编译（需要 cargo-xwin、clang、lld、llvm-rc、NSIS、Node、Go）：
 
 ```bash
-apps/windows/scripts/build-mihomo.sh        # mihomo/upstream → src-tauri/resources/mihomo.exe
-cd apps/windows && npm ci
-npx tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc --bundles nsis
+apps/windows/scripts/cross-build.sh
 ```
+
+脚本缺 `mihomo.exe` 时先用 `build-mihomo.sh` 从 `mihomo/upstream` 编译，再执行
+`tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc --bundles nsis`，产物在
+`target/x86_64-pc-windows-msvc/release/bundle/nsis/`。它在 `target/windows-shims` 里补三处 Linux 交叉编译的缺口：
+`clang-cl` 链接、tauri-cli 在 Linux 上查找托盘库用的 pkg-config 占位，以及 Debian 的 NSIS 3.08 缺少的
+`Win\RestartManager.nsh`。多人共用构建机时，用 `XWIN_CACHE_DIR` 给 cargo-xwin 指定各自的缓存目录。
 
 安装包是 NSIS，按机器安装到 `C:\Program Files\po0-clash`。外壳只在 Windows 上编译；在 Linux 和 macOS 上，
 这个 crate 是空程序，工作区构建不需要 WebKit 或 GTK。
