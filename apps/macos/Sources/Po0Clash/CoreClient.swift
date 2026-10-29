@@ -48,17 +48,17 @@ final class CoreClient: @unchecked Sendable {
         try await perform(on: workQueue) { try body(self.core) }
     }
 
-    func status() async throws -> Status { try await work { try $0.status() } }
-    func traffic() async throws -> Traffic { try await work { try $0.traffic() } }
+    func status() async throws -> Status { try await work { $0.status() } }
+    func traffic() async throws -> Traffic { try await work { $0.traffic() } }
     func exitIp() async throws -> ExitIp { try await work { try $0.exitIp() } }
 
     func start() async throws { try await control { try $0.start(tunFd: nil) } }
-    func stop() async throws { try await control { try $0.stop() } }
+    func stop() async throws { try await control { $0.stop() } }
     func setMode(_ mode: Mode) async throws { try await control { try $0.setMode(mode: mode) } }
     func setRouteMode(_ mode: RouteMode) async throws { try await control { try $0.setRouteMode(routeMode: mode) } }
-    func setMihomoPath(_ path: String) async throws { try await control { try $0.setMihomoPath(path: path) } }
+    func setMihomoPath(_ path: String) async throws { try await control { $0.setMihomoPath(path: path) } }
 
-    func profiles() async throws -> [Profile] { try await work { try $0.profiles() } }
+    func profiles() async throws -> [Profile] { try await work { $0.profiles() } }
     func addSubscription(_ url: String) async throws -> Profile { try await work { try $0.addSubscription(url: url) } }
     func updateProfile(_ id: String) async throws -> Profile { try await work { try $0.updateProfile(id: id) } }
     func removeProfile(_ id: String) async throws { try await control { try $0.removeProfile(id: id) } }
@@ -71,14 +71,14 @@ final class CoreClient: @unchecked Sendable {
     }
     func testDelay(_ group: String) async throws -> ProxyGroup { try await work { try $0.testDelay(group: group) } }
 
-    func whitelist() async throws -> WhitelistState { try await work { try $0.whitelist() } }
+    func whitelist() async throws -> WhitelistState { try await work { $0.whitelist() } }
     func setWhitelistEnabled(_ enabled: Bool) async throws { try await control { try $0.setWhitelistEnabled(enabled: enabled) } }
     func addWhitelistEntries(_ text: String, name: String) async throws -> [WhitelistEntry] {
         try await work { try $0.addWhitelistEntries(text: text, name: name) }
     }
     func removeWhitelistEntry(_ id: String) async throws { try await control { try $0.removeWhitelistEntry(id: id) } }
 
-    func networkChanged() async throws { try await work { try $0.networkChanged() } }
+    func networkChanged() async throws { try await work { $0.networkChanged() } }
     func exportDiagnostics(to path: String) async throws { try await work { try $0.exportDiagnostics(path: path) } }
 
     /// Queued behind pending commands so a stop or route change in flight cannot run after it and leave a proxy set.
