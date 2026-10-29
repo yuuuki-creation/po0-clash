@@ -2,8 +2,15 @@ import Po0FFI
 import SwiftUI
 
 enum Format {
+    private static let byteCount: ByteCountFormatter = {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        formatter.allowsNonnumericFormatting = false
+        return formatter
+    }()
+
     static func bytes(_ value: UInt64) -> String {
-        ByteCountFormatter.string(fromByteCount: Int64(clamping: value), countStyle: .file)
+        byteCount.string(fromByteCount: Int64(clamping: value))
     }
 
     static func rate(_ value: UInt64) -> String {
