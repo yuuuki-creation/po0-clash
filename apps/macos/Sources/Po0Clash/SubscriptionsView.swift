@@ -41,7 +41,7 @@ struct SubscriptionsView: View {
             }
         }
         .alert(
-            String(localized: "Delete \(pendingRemoval?.name ?? "")?"),
+            String(localized: "Delete \(pendingRemoval?.title ?? "")?"),
             isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } }),
             presenting: pendingRemoval
         ) { profile in
@@ -69,7 +69,7 @@ private struct ProfileRow: View {
             .help("Use this subscription")
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(profile.name).fontWeight(.medium).lineLimit(1)
+                Text(profile.title).fontWeight(.medium).lineLimit(1)
                 if let usage = profile.usage, usage.total > 0 {
                     let used = usage.upload + usage.download
                     ProgressView(value: min(Double(used) / Double(usage.total), 1))
@@ -80,9 +80,6 @@ private struct ProfileRow: View {
                         .foregroundStyle(.secondary)
                 }
                 HStack(spacing: 12) {
-                    if profile.kind == .links {
-                        Text("Imported share links")
-                    }
                     if let expire = profile.usage?.expire {
                         Text("Expires \(Format.date(expire), format: .dateTime.year().month().day())")
                     }

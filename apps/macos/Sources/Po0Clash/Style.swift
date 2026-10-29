@@ -63,6 +63,13 @@ extension View {
     }
 }
 
+extension Profile {
+    /// The core names the share-link profile in English; show it in the user's language instead.
+    var title: String {
+        kind == .links ? String(localized: "Share links") : name
+    }
+}
+
 extension WhitelistOutcome {
     var title: String {
         switch self {

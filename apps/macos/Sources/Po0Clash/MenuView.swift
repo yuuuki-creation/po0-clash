@@ -168,7 +168,7 @@ private struct ControlsGrid: View {
                         set: { if let id = $0 { model.selectProfile(id) } }
                     )) {
                         ForEach(model.profiles, id: \.id) { profile in
-                            Text(profile.name).tag(Optional(profile.id))
+                            Text(profile.title).tag(Optional(profile.id))
                         }
                     }
                     .labelsHidden()

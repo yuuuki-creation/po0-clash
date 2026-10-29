@@ -53,7 +53,7 @@
 "Cancel" = "取消";
 "Use this subscription" = "使用此订阅";
 "%@ of %@ used" = "已用 %1$@ / %2$@";
-"Imported share links" = "导入的分享链接";
+"Share links" = "分享链接";
 "Expires %@" = "%@ 到期";
 "Updated %@" = "更新于 %@";
 "Update" = "更新";

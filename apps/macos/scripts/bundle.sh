@@ -35,11 +35,6 @@ go_arch() {
 build_core() {
   local swift_dir="$app_dir/Sources/Po0FFI" header_dir="$app_dir/Sources/Po0FFIFFI" out="$work/bindings"
   rm -rf "$swift_dir" "$header_dir" "$app_dir/.ffi" "$out"
-  if [[ ! -f "$root/crates/ffi/Cargo.toml" ]]; then
-    echo "crates/ffi not found: building against the mock core" >&2
-    return
-  fi
-
   local libs=() arch target
   for arch in $archs; do
     target="$(rust_target "$arch")"
@@ -50,8 +45,10 @@ build_core() {
   mkdir -p "$app_dir/.ffi/lib" "$swift_dir" "$header_dir" "$out"
   lipo -create "${libs[@]}" -output "$app_dir/.ffi/lib/libpo0_ffi.a"
 
-  cargo run --manifest-path "$root/Cargo.toml" -p po0-ffi --bin uniffi-bindgen -- \
-    generate --library "${libs[0]}" --language swift --out-dir "$out"
+  # Release builds strip the UniFFI metadata, so the bindings come from an unstripped host debug build.
+  cargo build --manifest-path "$root/Cargo.toml" -p po0-ffi
+  cargo run --manifest-path "$root/Cargo.toml" -p po0-ffi --features cli --bin uniffi-bindgen -- \
+    generate --library "$root/target/debug/libpo0_ffi.dylib" --language swift --out-dir "$out"
   local swift_files=("$out"/*.swift) maps=("$out"/*.modulemap)
   if [[ ${#swift_files[@]} -ne 1 || ${#maps[@]} -ne 1 ]]; then
     echo "expected one Swift file and one module map from uniffi-bindgen, got: $(ls "$out")" >&2
@@ -61,7 +58,7 @@ build_core() {
   cp "$out"/*.h "$header_dir/"
   cp "${maps[0]}" "$header_dir/module.modulemap"
   if ! grep -q 'module Po0FFIFFI' "$header_dir/module.modulemap"; then
-    echo "the FFI module must be Po0FFIFFI (crates/ffi/uniffi.toml: Swift module Po0FFI)" >&2
+    echo "the FFI module must be Po0FFIFFI (crates/ffi/uniffi.toml)" >&2
     exit 1
   fi
 }

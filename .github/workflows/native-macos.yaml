@@ -41,14 +41,12 @@ jobs:
           cache-dependency-path: mihomo/upstream/go.sum
 
       - name: Setup Rust
-        if: hashFiles('crates/ffi/Cargo.toml') != ''
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
           rustup target add aarch64-apple-darwin
 
       - name: Cache Rust
-        if: hashFiles('crates/ffi/Cargo.toml') != ''
         uses: Swatinem/rust-cache@v2
 
       - name: Toolchain versions
@@ -58,11 +56,13 @@ jobs:
           go version
 
       - name: Test core
-        if: hashFiles('crates/core/Cargo.toml') != ''
         run: cargo test -p po0-core
 
       - name: Build app
         run: apps/macos/scripts/bundle.sh
+
+      - name: Test core with the darwin engine
+        run: MIHOMO_BIN="$PWD/apps/macos/.build/bundle/mihomo-arm64" cargo test -p po0-core -- --ignored engine
 
       - name: Smoke launch
         run: |
@@ -83,9 +83,10 @@ jobs:
             exit 1
           fi
           cat smoke.log
-          if [ -f crates/ffi/Cargo.toml ]; then
-            ls -la "$HOME/Library/Application Support/io.github.yuuukicreation.po0clash/core"
-          fi
+          data="$HOME/Library/Application Support/io.github.yuuukicreation.po0clash/core"
+          ls -la "$data"
+          grep -q "starting, app" "$data/logs/core.log"
+          tail -n 20 "$data/logs/core.log"
 
       - name: Screenshots
         run: |
