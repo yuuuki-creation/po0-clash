@@ -3,6 +3,8 @@ mod route;
 mod transport;
 
 use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread;
@@ -13,6 +15,7 @@ use crate::model::{
     WhitelistEntry, WhitelistKind, WhitelistOutcome, WhitelistResult, WhitelistState,
 };
 use crate::settings::{EntryRecord, WhitelistSettings};
+use crate::util;
 use client::Client;
 use transport::Transport;
 
@@ -121,6 +124,7 @@ type NotifyFn = Box<dyn Fn() + Send + Sync>;
 struct Shared {
     settings: Mutex<WhitelistSettings>,
     results: Mutex<HashMap<String, WhitelistResult>>,
+    results_path: PathBuf,
     active: AtomicBool,
     stopped: AtomicBool,
     transport: Transport,
@@ -153,10 +157,21 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 impl Whitelist {
-    pub fn start(settings: WhitelistSettings, route: RouteFn, notify: NotifyFn) -> Self {
+    /// Last results are kept in `results_path` so a restarted app shows them before its first round.
+    pub fn start(
+        settings: WhitelistSettings,
+        results_path: PathBuf,
+        route: RouteFn,
+        notify: NotifyFn,
+    ) -> Self {
+        let results = fs::read(&results_path)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or_default();
         let shared = Arc::new(Shared {
             settings: Mutex::new(settings),
-            results: Mutex::new(HashMap::new()),
+            results: Mutex::new(results),
+            results_path,
             active: AtomicBool::new(true),
             stopped: AtomicBool::new(false),
             transport: Transport::default(),
@@ -210,7 +225,11 @@ impl Whitelist {
     pub fn update(&self, settings: WhitelistSettings) {
         {
             let mut results = lock(&self.shared.results);
+            let before = results.len();
             results.retain(|id, _| settings.entries.iter().any(|entry| &entry.id == id));
+            if results.len() != before {
+                save_results(&self.shared.results_path, &results);
+            }
         }
         *lock(&self.shared.settings) = settings;
         self.kick(false);
@@ -325,14 +344,31 @@ fn run(shared: &Shared, lane: &Lane) {
         let current = entries_of(shared, lane.kind).unwrap_or_default();
         {
             let mut results = lock(&shared.results);
+            let mut changed = false;
             for ((entry, secret), polled) in entries.iter().zip(&polled) {
                 if current.iter().any(|(still, _)| still.id == entry.id) {
-                    results.insert(entry.id.clone(), polled.result.clone());
+                    let previous = results.insert(entry.id.clone(), polled.result.clone());
+                    changed |=
+                        previous.is_none_or(|previous| !same_outcome(&previous, &polled.result));
                 }
                 log_result(&mut signatures, lane.kind, entry, secret, polled);
             }
+            if changed {
+                save_results(&shared.results_path, &results);
+            }
         }
         (shared.notify)();
+    }
+}
+
+/// Only a change in what the entry shows is written, not every poll's timestamp.
+fn same_outcome(a: &WhitelistResult, b: &WhitelistResult) -> bool {
+    a.outcome == b.outcome && a.ip == b.ip && a.message == b.message
+}
+
+fn save_results(path: &Path, results: &HashMap<String, WhitelistResult>) {
+    if let Ok(json) = serde_json::to_vec(results) {
+        let _ = util::write_atomic(path, &json);
     }
 }
 
@@ -420,6 +456,7 @@ mod tests {
     fn a_disabled_whitelist_sends_nothing_and_stops() {
         let route_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let counted = route_calls.clone();
+        let dir = std::env::temp_dir().join(format!("po0-wl-{}", util::random_id()));
         let whitelist = Whitelist::start(
             WhitelistSettings {
                 enabled: false,
@@ -429,6 +466,7 @@ mod tests {
                     value: "pgnfw_abc".into(),
                 }],
             },
+            dir.join("whitelist.json"),
             Box::new(move || {
                 counted.fetch_add(1, Ordering::SeqCst);
                 "DIRECT".into()

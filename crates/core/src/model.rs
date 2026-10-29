@@ -134,7 +134,7 @@ pub enum WhitelistKind {
     Ggy,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum WhitelistOutcome {
     Applied,
@@ -144,7 +144,7 @@ pub enum WhitelistOutcome {
     Error,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WhitelistResult {
     pub outcome: WhitelistOutcome,

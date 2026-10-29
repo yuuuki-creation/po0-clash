@@ -328,6 +328,10 @@ impl Po0Core {
         self.inner.stop();
     }
 
+    pub fn was_connected(&self) -> bool {
+        self.inner.was_connected()
+    }
+
     pub fn traffic(&self) -> Traffic {
         let traffic = self.inner.traffic();
         Traffic {
