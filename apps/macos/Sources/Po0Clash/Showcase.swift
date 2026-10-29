@@ -13,8 +13,11 @@ enum Showcase {
                 SettingsWindow.shared.show(tabs[name] ?? .general)
             }
             if defaults.bool(forKey: "showMenu") {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                statusItem()?.button?.performClick(nil)
+                let clicks = defaults.bool(forKey: "reopenMenu") ? 3 : 1
+                for _ in 0..<clicks {
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                    statusItem()?.button?.performClick(nil)
+                }
             }
         }
     }

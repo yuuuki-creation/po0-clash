@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Po0FFI
+import Po0System
 import UniformTypeIdentifiers
 
 @MainActor
@@ -264,6 +265,7 @@ final class AppModel: ObservableObject {
     func menuAppeared() {
         guard !menuVisible else { return }
         menuVisible = true
+        logger.notice("menu panel shown")
         updateTrafficTimer()
         Task { await refreshGroups() }
         if exitIpFetchedAt.map({ Date().timeIntervalSince($0) > 60 }) ?? true { refreshExitIp() }

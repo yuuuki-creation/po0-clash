@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Builds dist/po0-clash.app and dist/po0-clash-macos.zip. ARCHS="arm64 x86_64" makes a universal app.
+# Builds dist/po0-clash.app and dist/po0-clash-macos.zip. ARCHS="arm64 x86_64" makes a universal app;
+# WITH_E2E=1 also builds the real-flow checker dist/po0-e2e (scripts/e2e.sh).
 set -euo pipefail
 
 app_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -89,11 +90,20 @@ make_icon() {
 }
 
 build_app() {
-  local bins=() arch
+  local bins=() e2e=() arch bin_dir
   for arch in $archs; do
     swift build --package-path "$app_dir" -c release --arch "$arch" --product po0-clash
-    bins+=("$(swift build --package-path "$app_dir" -c release --arch "$arch" --show-bin-path)/po0-clash")
+    bin_dir="$(swift build --package-path "$app_dir" -c release --arch "$arch" --show-bin-path)"
+    bins+=("$bin_dir/po0-clash")
+    if [[ "${WITH_E2E:-}" == 1 ]]; then
+      swift build --package-path "$app_dir" -c release --arch "$arch" --product po0-e2e
+      e2e+=("$bin_dir/po0-e2e")
+    fi
   done
+  if [[ "${WITH_E2E:-}" == 1 ]]; then
+    lipo -create "${e2e[@]}" -output "$dist/po0-e2e"
+    codesign --force --sign - "$dist/po0-e2e"
+  fi
 
   plutil -lint "$app_dir"/Resources/*.lproj/Localizable.strings >/dev/null
   rm -rf "$app"
