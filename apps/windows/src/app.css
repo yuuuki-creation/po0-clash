@@ -57,6 +57,11 @@ body {
   background: var(--page);
 }
 
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--tertiary) transparent;
+}
+
 /* The window has a Mica backdrop; the page lets it through and only the grouped rows stay opaque. */
 html.backdrop,
 html.backdrop body {
@@ -97,7 +102,7 @@ button:disabled {
 main {
   display: flex;
   flex-direction: column;
-  padding: 12px 16px 104px;
+  padding: 12px 16px 92px;
 }
 
 .section-title {
@@ -313,17 +318,17 @@ textarea {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 18px 0 6px;
+  gap: 4px;
+  padding: 6px 0 0;
   text-align: center;
 }
 
 .power {
   display: grid;
   place-items: center;
-  width: 84px;
-  height: 84px;
-  margin-bottom: 8px;
+  width: 76px;
+  height: 76px;
+  margin-bottom: 6px;
   border-radius: 50%;
   color: var(--label);
 }

@@ -51,7 +51,8 @@ async function refresh(kind) {
 
 let exitIpRequest = 0;
 
-export async function refreshExitIp() {
+// Right after a start the engine may still be loading its nodes, so a failed lookup is retried a few times.
+export async function refreshExitIp(attempt = 0) {
   const request = ++exitIpRequest;
   app.exitIpLoading = true;
   let result = null;
@@ -60,9 +61,11 @@ export async function refreshExitIp() {
   } catch {
     result = null;
   }
-  if (request === exitIpRequest) {
-    app.exitIp = result;
-    app.exitIpLoading = false;
+  if (request !== exitIpRequest) return;
+  app.exitIp = result;
+  app.exitIpLoading = false;
+  if (!result && attempt < 3 && app.status?.engine.state === 'running') {
+    setTimeout(() => request === exitIpRequest && refreshExitIp(attempt + 1), 3000);
   }
 }
 

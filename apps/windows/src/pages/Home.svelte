@@ -45,7 +45,7 @@
     <span class="grow">{t('home.node')}</span>
     <span class="value">{app.status?.currentNode ?? '—'}</span>
   </div>
-  <button type="button" class="row" onclick={refreshExitIp}>
+  <button type="button" class="row" onclick={() => refreshExitIp()}>
     <span class="grow">{t('home.exitIp')}</span>
     <span class="value">{exitIpText}</span>
   </button>
