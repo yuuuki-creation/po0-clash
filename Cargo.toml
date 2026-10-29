@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/core", "crates/ffi"]
+members = ["crates/core", "crates/ffi", "apps/windows/src-tauri"]
 exclude = ["plugins/rust_api/rust", "services/helper"]
 
 [workspace.package]

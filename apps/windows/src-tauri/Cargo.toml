@@ -1,0 +1,26 @@
+[package]
+name = "po0-clash"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+# The shell only exists on Windows; elsewhere the crate is an empty binary so workspace builds on Linux and macOS
+# need no WebKit or GTK.
+[target.'cfg(windows)'.dependencies]
+po0-core = { path = "../../../crates/core" }
+serde = { version = "1", features = ["derive"] }
+sys-locale = "0.3"
+tauri = { version = "2", features = ["tray-icon", "image-ico"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-single-instance = "2"
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_NetworkManagement_IpHelper",
+  "Win32_NetworkManagement_Ndis",
+  "Win32_Networking_WinSock",
+  "Win32_UI_WindowsAndMessaging",
+] }
