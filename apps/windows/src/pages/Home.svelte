@@ -5,6 +5,7 @@
 
   const engine = $derived(app.status?.engine.state ?? 'stopped');
   const active = $derived(engine === 'running' || engine === 'starting');
+  const profile = $derived(app.profiles.find((p) => p.selected));
   const exitIpText = $derived.by(() => {
     if (app.exitIpLoading && !app.exitIp) return '…';
     if (!app.exitIp) return '—';
@@ -37,8 +38,8 @@
       <button type="button" class="accent" disabled={app.busy.power} onclick={() => act('power', 'start')}
         >{t('home.reconnect')}</button
       >
-    {:else}
-      <div class="sub">{active ? t('home.disconnect') : t('home.connect')}</div>
+    {:else if profile}
+      <div class="sub">{profile.kind === 'links' ? t('profiles.links') : profile.name}</div>
     {/if}
   </div>
 </section>
