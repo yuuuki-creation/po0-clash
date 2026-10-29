@@ -36,8 +36,8 @@ fork. Human-facing documentation lives in `docs/` (Chinese).
   classes) unchanged. Where code needs the installed app id, read it at runtime (`context.packageName`), never from
   the namespace.
 - The po0 request must leave on the physical network. Do not route it through `request`/`FlClashHttpOverrides`, and do
-  not drop any of the three layers in ADR 0001 (DIRECT `HttpClient`, DIRECT rule plus `route-exclude-address`, Android
-  VPN route split) without a new ADR. While the proxy runs, requests go through the core's DIRECT-only listener
+  not drop any of the three layers in ADR 0001 (the DIRECT transport, now `plugins/rust_api`'s `whitelist` module per
+  ADR 0017; DIRECT rule plus `route-exclude-address`; Android VPN route split) without a new ADR. While the proxy runs, requests go through the core's DIRECT-only listener
   (`po0-direct`, ADR 0012), authenticated with per-session credentials. Only po0's own address may fall back to a plain
   DIRECT socket then (`po0FindProxy`); for anything else TUN would capture it and a ggy link would whitelist the node.
 - A ggy whitelist link writes on every GET (ADR 0012), so `Po0FirewallClient.poll`/`query` send it too. ggy shares the

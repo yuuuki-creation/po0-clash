@@ -162,3 +162,49 @@ Android 不在这一阶段：Android 的 Core 在 VpnService 进程内以 cgo �
 | 1 | 约 1,050 行 | 约 1,230 行 |
 | 2 | 约 300 行，另有 `request.dart` 的相关部分 | `task_test.dart` 与 `setup_action_test.dart` 的相关用例 |
 | 3 | 约 2,650 行 | 约 2,700 行 |
+
+## 实施记录
+
+### 2026-10-29：阶段 0 与阶段 1b（分支 `feat/rust-whitelist-transport`）
+
+完成：
+
+- 加白的 HTTP 请求改由 Rust 发送。`plugins/rust_api/rust/src/whitelist/` 中，`route` 解析 Dart 的 `findProxy` 字符串，
+  `transport` 执行请求并管理连接池；`api/whitelist.rs` 暴露 `whitelist_send` 与 `whitelist_reset_connections`。
+  Dart 侧 `Po0DirectTransport` 改为调用它们；`Po0FirewallClient` 的重试、结果解析和两个调度器不变。
+- 选型：`ureq` 3.5（同步、体积小）+ rustls 0.23（ring）+ webpki-roots。Cargo.lock 中的 `cc` 随之从 1.0.83 升到 1.10.0，
+  rquickjs 的 C 代码也改用新版本编译。
+- 阻塞请求放在 tokio 的 blocking 线程上（`spawn_blocking_with`），不占用承载桌面 Core IPC 的 frb 线程池。
+- `scripts/vps/verify.sh` 在 Flutter 检查之前运行 rust_api 的 `cargo fmt --check`、`cargo clippy -D warnings` 与
+  `cargo test --locked`。
+
+与计划不同的决定：
+
+- 先做 1b，1a 的纯函数（token 解析、`sameC24` 等）留到 1c 与调度一起迁。它们由界面校验和 Dart 调度同步调用，
+  单独迁只会多出 FFI 调用。
+- 日志桥暂不做：错误以字符串返回，Dart 照旧记录并脱敏，等调度迁入 Rust 时再加。
+- 阶段 0 的「空 API」退出条件由真实的加白接口代替。
+
+行为变化：
+
+- 证书一律严格校验，不再受「检查证书」开关影响；根证书改用内置的 webpki-roots，不再依赖系统证书库和手工内置的
+  ISRG Root X1。
+- 只走 IPv4。po0 根路径会 302 到双栈域名 `console.po0.io`，ureq 不做 Happy Eyeballs，先试 IPv6 就会卡到超时；
+  两种服务本来也都按 IPv4 /24 加白。
+- UA 固定为 `po0-clash`，原来是 dart:io 的默认 UA。
+- 超时仍由 Dart 判定。原生请求的截止时间比 Dart 的超时多 1 秒，只用来释放工作线程。
+
+验证（NL）：
+
+- `cargo test`：rust_api 共 61 个通过。新增 13 个，覆盖路由解析、假 CONNECT 代理与认证、只有路由列出 DIRECT 时才兜底直连、
+  超时、连接池复用与重置、拒绝 IPv6、错误信息不含 URL。
+- 默认忽略的 `the_po0_certificate_verifies` 手动运行通过：rustls 校验了 po0 的真实 IP 证书。
+- `verify.sh` 全部通过：`flutter analyze` 无问题，2091 个 Flutter 测试通过，覆盖率 79.27%（门槛 75%）。
+- Android arm64 release 交叉编译通过（含升级 `cc` 后 rquickjs 的 bindgen 与 C 代码、ring）。`librust_api.so` 从
+  1,268,432 字节增至 2,437,552 字节，多出约 1.11 MiB，在每个 ABI 3 MB 的建议预算内；增量主要来自 rustls、ring 和内置根证书。
+
+尚未验证：
+
+- Windows 与 macOS 的编译（`cc` 升级与 ring 的 C 代码）：需要 `windows-validation.yaml`（开 PR 时触发）和发版工作流。
+- 真机：Android VPN 接管测试、Windows 虚拟网卡与系统代理两种路由、真实 token 的加白请求。
+- 常驻内存增量。

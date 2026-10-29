@@ -101,8 +101,9 @@ ggy 返回的 `removed_cidr` 非空（FIFO 挤掉了一条记录）时每次都�
 
 服务端按**请求来源 IP**识别出口网段，所以请求必须从物理网卡直接发出：
 
-1. 请求使用独立的 `HttpClient`，绕过应用自身对 mixed-port 的代理设置（`FlClashHttpOverrides`）。代理未运行时
-   `findProxy` 为 `DIRECT`；代理运行时走内核的专用直连入口 `PROXY <账号>@127.0.0.1:<端口>`。
+1. 请求由 Rust 传输层发出（`plugins/rust_api` 的 `whitelist` 模块，ureq + rustls，见 ADR 0017），绕过应用自身对
+   mixed-port 的代理设置（`FlClashHttpOverrides`）。Dart 侧仍用 `po0FindProxy` 算出路由：代理未运行时为 `DIRECT`；
+   代理运行时走内核的专用直连入口 `PROXY <账号>@127.0.0.1:<端口>`。
    端口和账号都不固定：每次应用会话由系统分配一个空闲端口，并随机生成一组账号，生成配置和发请求共用。
    这个入口是总开关开启后强制写入配置的 listener `po0-direct`（`type: http`、`proxy: DIRECT`，带上述 `users`），
    内核先按入站指定的 `proxy` 分流、再看模式，所以规则、全局模式和 TUN 都改变不了它的去向，域名（ggy）也一样适用。
@@ -114,15 +115,12 @@ ggy 返回的 `removed_cidr` 非空（FIFO 挤掉了一条记录）时每次都�
    `124.221.69.228/32` 从路由列表（默认 `0.0.0.0/0`）中拆分剔除。VPN 路由只在 VPN 启动时生效；由于代理运行时请求走第 1 条的
    直连入口（listener 随配置热加载），开启功能后不必再重启 VPN。
 
-证书校验沿用应用的「检查证书」开关。po0 端点使用 Let's Encrypt IP 证书，服务端发送到 ISRG Root X1 的完整链；
-传输层在系统根证书之外额外信任内置的 ISRG Root X1（`po0SecurityContext`），因为 dart:io 在两种情况下拿不到它：
+证书一律严格校验，不受应用「检查证书」开关影响，因为请求里带着 token。传输层使用内置的 Mozilla 根证书库
+（webpki-roots），不读系统证书库：po0 端点的 Let's Encrypt 短期 IP 证书经 YE1 → Root YE → ISRG Root X2 → ISRG Root X1
+的交叉签名链校验，因此 Windows 证书库尚未下载 ISRG Root X1、Android 7.0 证书库缺少它的情况都不再影响加白。
 
-- Windows：dart:io 在建立 `SecurityContext` 时一次性复制系统证书库，之后不再刷新；而 Windows 只在某个程序首次通过系统
-  API 用到第三方根证书时才自动下载安装。新装或重置的系统上，应用可能先于 ISRG Root X1 安装启动，此后一直报
-  `CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate`，直到重启应用。
-- Android 7.0（API 24，应用最低版本）：系统证书库从 7.1.1 起才包含 ISRG Root X1。
-
-macOS 把整条链交给系统 SecTrust 实时校验，不受影响。
+请求只走 IPv4：两种服务都按 IPv4 /24 加白。双栈域名若先尝试 IPv6，要么在 IPv6 不通的网络里卡到超时，要么让服务端看到
+IPv6 来源。连接池保留一个 DIRECT 连接和当前直连入口的连接，任一请求失败或网络变化时整体丢弃。
 
 ## 配置迁移
 
