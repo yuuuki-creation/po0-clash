@@ -1,0 +1,115 @@
+name: native-windows
+
+on:
+  push:
+    branches: ['native*']
+    paths:
+      - 'apps/windows/**'
+      - 'crates/**'
+      - 'mihomo/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/native-windows.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch mihomo
+        run: git submodule update --init --depth 1 mihomo/upstream
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache-dependency-path: mihomo/upstream/go.sum
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: apps/windows/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Test core
+        run: cargo test -p po0-core
+
+      - name: Build mihomo
+        shell: bash
+        run: apps/windows/scripts/build-mihomo.sh
+
+      - name: Build installer
+        working-directory: apps/windows
+        run: |
+          npm ci --no-fund --no-audit
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' }
+          npx tauri build --bundles nsis
+          if ($LASTEXITCODE -ne 0) { throw 'tauri build failed' }
+
+      - name: Install and launch
+        id: smoke
+        run: |
+          $installer = Get-ChildItem -File -Filter '*-setup.exe' -Path target/release/bundle/nsis | Select-Object -First 1
+          if (-not $installer) { throw 'installer not found' }
+          "installer=$($installer.FullName)" >> $env:GITHUB_OUTPUT
+          $setup = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "installer exited with $($setup.ExitCode)" }
+
+          $dir = 'C:\Program Files\po0-clash'
+          Get-ChildItem $dir | Format-Table Name, Length
+          & "$dir\mihomo.exe" -v
+          if ($LASTEXITCODE -ne 0) { throw 'mihomo.exe does not run' }
+
+          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9222'
+          $app = Start-Process -FilePath "$dir\po0-clash.exe" -PassThru
+          Start-Sleep -Seconds 10
+          try {
+            Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+            $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bitmap = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
+            [System.Drawing.Graphics]::FromImage($bitmap).CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size)
+            $bitmap.Save("$env:RUNNER_TEMP\po0-clash.png")
+          } catch { Write-Warning "screenshot failed: $_" }
+
+          if ($app.HasExited) { throw "po0-clash exited with code $($app.ExitCode)" }
+          $data = Join-Path $env:APPDATA 'io.github.yuuukicreation.po0clash\core'
+          if (-not (Test-Path $data)) { throw "core data dir $data was not created" }
+          Get-ChildItem -Recurse $data | Format-Table FullName, Length
+
+          node apps/windows/scripts/smoke.mjs
+          $smoke = $LASTEXITCODE
+          Get-Process po0-clash, mihomo, msedgewebview2 -ErrorAction SilentlyContinue | Format-Table Id, ProcessName, WorkingSet64
+          if ($app.HasExited) { throw "po0-clash exited with code $($app.ExitCode)" }
+          Stop-Process -Id $app.Id -Force
+          if ($smoke -ne 0) { throw 'engine smoke test failed' }
+
+      - name: Show core logs
+        if: failure()
+        run: |
+          $logs = Join-Path $env:APPDATA 'io.github.yuuukicreation.po0clash\core\logs'
+          if (Test-Path $logs) { Get-ChildItem -Recurse -File $logs | ForEach-Object { "== $_"; Get-Content $_ -Tail 100 } }
+
+      - uses: actions/upload-artifact@v5
+        if: always() && steps.smoke.outputs.installer != ''
+        with:
+          name: po0-clash-windows-x64
+          path: |
+            ${{ steps.smoke.outputs.installer }}
+            ${{ runner.temp }}/po0-clash.png
+          if-no-files-found: warn
