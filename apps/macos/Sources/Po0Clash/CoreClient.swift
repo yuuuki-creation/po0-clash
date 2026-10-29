@@ -9,6 +9,14 @@ func background<T>(_ body: @escaping () throws -> T) async throws -> T {
     try await perform(on: workQueue, body)
 }
 
+/// Termination waits in a nested run loop that cannot drain the main dispatch queue when it was entered from a
+/// main-queue block, so anything that must reach it is scheduled on the run loop instead.
+func onMainRunLoop(_ block: @escaping () -> Void) {
+    let loop = CFRunLoopGetMain()
+    CFRunLoopPerformBlock(loop, CFRunLoopMode.commonModes.rawValue, block)
+    CFRunLoopWakeUp(loop)
+}
+
 private func perform<T>(on queue: DispatchQueue, _ body: @escaping () throws -> T) async throws -> T {
     try await withCheckedThrowingContinuation { continuation in
         queue.async { continuation.resume(with: Result(catching: body)) }
@@ -77,7 +85,7 @@ final class CoreClient: @unchecked Sendable {
     func shutdown(then done: @escaping () -> Void) {
         controlQueue.async {
             self.core.shutdown()
-            DispatchQueue.main.async(execute: done)
+            onMainRunLoop(done)
         }
     }
 }

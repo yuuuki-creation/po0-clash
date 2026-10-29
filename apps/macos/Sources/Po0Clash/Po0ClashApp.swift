@@ -26,7 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // A plain `kill` must still go through shutdown so the system proxy is not left pointing at a dead port.
         signal(SIGTERM, SIG_IGN)
         let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
-        source.setEventHandler { NSApp.terminate(nil) }
+        source.setEventHandler { onMainRunLoop { NSApp.terminate(nil) } }
         source.resume()
         terminationSignal = source
 
@@ -45,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard AppModel.shared.hasCore else { return .terminateNow }
         AppModel.shared.shutdown { sender.reply(toApplicationShouldTerminate: true) }
         return .terminateLater
     }

@@ -72,8 +72,10 @@ final class AppModel: ObservableObject {
             done()
         }
         client.shutdown(then: finish)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: finish)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 8) { onMainRunLoop(finish) }
     }
+
+    var hasCore: Bool { client != nil }
 
     // MARK: Connection
 
