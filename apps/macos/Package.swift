@@ -7,13 +7,22 @@ let root = Context.packageDirectory
 let package = Package(
     name: "Po0Clash",
     platforms: [.macOS(.v13)],
-    products: [.executable(name: "po0-clash", targets: ["Po0Clash"])],
+    products: [
+        .executable(name: "po0-clash", targets: ["Po0Clash"]),
+        .executable(name: "po0-e2e", targets: ["Po0E2E"]),
+    ],
     targets: [
         .executableTarget(
             name: "Po0Clash",
-            dependencies: ["Po0FFI"],
+            dependencies: ["Po0FFI", "Po0System"],
             path: "Sources/Po0Clash"
         ),
+        .executableTarget(
+            name: "Po0E2E",
+            dependencies: ["Po0FFI", "Po0System"],
+            path: "Sources/Po0E2E"
+        ),
+        .target(name: "Po0System", path: "Sources/Po0System"),
         .systemLibrary(name: "Po0FFIFFI", path: "Sources/Po0FFIFFI"),
         .target(
             name: "Po0FFI",
@@ -26,11 +35,6 @@ let package = Package(
                 .linkedFramework("Security"),
                 .linkedFramework("SystemConfiguration"),
             ]
-        ),
-        .testTarget(
-            name: "Po0ClashTests",
-            dependencies: ["Po0Clash", "Po0FFI"],
-            path: "Tests/Po0ClashTests"
         ),
     ],
     swiftLanguageVersions: [.v5]

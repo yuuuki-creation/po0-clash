@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# Real-flow test on a disposable macOS machine with passwordless sudo (the CI runner): serves a local shadowsocks
-# node and subscription, then runs RealFlowTests against the bundle's mihomo and the app's real data dir. The
-# fixtures keep running afterwards so the screenshot step can connect through them.
+# Real-flow check on a disposable macOS machine with passwordless sudo (the CI runner): serves a local shadowsocks
+# node and subscription, then runs po0-e2e against the app's mihomo and the app's real data dir. The fixtures keep
+# running afterwards so later steps can connect through them.
+#   PO0_APP      app bundle (default: dist/po0-clash.app)
+#   PO0_E2E_BIN  checker built with WITH_E2E=1 (default: dist/po0-e2e)
 set -euo pipefail
 
 app_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-app="$app_dir/dist/po0-clash.app"
+app="${PO0_APP:-$app_dir/dist/po0-clash.app}"
+checker="${PO0_E2E_BIN:-$app_dir/dist/po0-e2e}"
 work="${RUNNER_TEMP:-$app_dir/.build}/e2e"
 port=18388
 sub_port=18390
@@ -63,7 +66,7 @@ export PO0_E2E_NODE_LOG="$work/node.log"
 export PO0_E2E_DATA="$HOME/Library/Application Support/io.github.yuuukicreation.po0clash/core"
 
 status=0
-swift test --package-path "$app_dir" --filter RealFlowTests || status=$?
+"$checker" || status=$?
 echo "--- node log (last 20 lines)"
 tail -n 20 "$work/node.log"
 exit "$status"
