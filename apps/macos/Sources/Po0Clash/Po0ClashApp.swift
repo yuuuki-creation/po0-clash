@@ -41,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         AppModel.shared.launch()
+        Showcase.run()
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

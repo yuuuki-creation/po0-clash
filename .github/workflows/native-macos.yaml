@@ -87,6 +87,31 @@ jobs:
             ls -la "$HOME/Library/Application Support/io.github.yuuukicreation.po0clash/core"
           fi
 
+      - name: Screenshots
+        run: |
+          bin=apps/macos/dist/po0-clash.app/Contents/MacOS/po0-clash
+          mkdir -p shots
+          shoot() {
+            local name=$1
+            shift
+            "$bin" "$@" > /dev/null 2>&1 &
+            local pid=$!
+            sleep 5
+            screencapture -x "shots/$name.png" || true
+            kill -TERM "$pid" 2>/dev/null || true
+            wait "$pid" || true
+          }
+          shoot menu -showMenu YES
+          shoot menu-zh -showMenu YES -AppleLanguages '(zh-Hans)'
+          for tab in general subscriptions whitelist; do shoot "settings-$tab" -showSettings "$tab"; done
+          shoot settings-whitelist-zh -showSettings whitelist -AppleLanguages '(zh-Hans)'
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: shots
+
       - name: Upload app
         uses: actions/upload-artifact@v4
         with:
