@@ -1,16 +1,34 @@
 import AppKit
 
-/// Launch arguments (`-showSettings <tab>`, `-showMenu YES`) that open the UI without a click, for CI screenshots.
+/// Launch arguments that put the UI on screen without a click, for CI screenshots.
 @MainActor
 enum Showcase {
     static func run() {
         let defaults = UserDefaults.standard
-        if let name = defaults.string(forKey: "showSettings") {
-            let tabs: [String: SettingsTab] = ["general": .general, "subscriptions": .subscriptions, "whitelist": .whitelist]
-            SettingsWindow.shared.show(tabs[name] ?? .general)
+        Task {
+            if defaults.bool(forKey: "testDelays") { await testDelays() }
+            if let name = defaults.string(forKey: "showSettings") {
+                let tabs: [String: SettingsTab] = ["general": .general, "subscriptions": .subscriptions, "whitelist": .whitelist]
+                SettingsWindow.shared.show(tabs[name] ?? .general)
+            }
+            if defaults.bool(forKey: "showMenu") {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                statusItem()?.button?.performClick(nil)
+            }
         }
-        if defaults.bool(forKey: "showMenu") {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { statusItem()?.button?.performClick(nil) }
+    }
+
+    private static func testDelays() async {
+        let model = AppModel.shared
+        await wait(seconds: 20) { model.isRunning && !model.groups.isEmpty }
+        for group in model.groups where group.selectable { model.testDelay(group.name) }
+        await wait(seconds: 15) { model.testing.isEmpty }
+    }
+
+    private static func wait(seconds: Double, until done: () -> Bool) async {
+        let deadline = Date().addingTimeInterval(seconds)
+        while !done(), Date() < deadline {
+            try? await Task.sleep(nanoseconds: 200_000_000)
         }
     }
 

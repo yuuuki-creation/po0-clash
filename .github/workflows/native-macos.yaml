@@ -25,7 +25,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 45
     env:
-      ARCHS: arm64
+      ARCHS: arm64 x86_64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,7 +44,7 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
-          rustup target add aarch64-apple-darwin
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
@@ -67,6 +67,10 @@ jobs:
       - name: Test core with the darwin engine
         run: MIHOMO_BIN="$PWD/apps/macos/.build/bundle/mihomo-arm64" cargo test -p po0-core -- --ignored engine
 
+      # Leaves a subscription, share links and whitelist results in the app's data dir and the node running.
+      - name: Real flow
+        run: apps/macos/scripts/e2e.sh
+
       - name: Smoke launch
         run: |
           app=apps/macos/dist/po0-clash.app
@@ -82,6 +86,10 @@ jobs:
           if ! kill -0 "$pid" 2>/dev/null; then
             echo "::error::po0-clash exited during the first 10 s"
             report
+            exit 1
+          fi
+          if scutil --proxy | grep -q "HTTPEnable : 1"; then
+            echo "::error::a normal launch connected without being asked"
             exit 1
           fi
           kill -TERM "$pid"
@@ -102,19 +110,30 @@ jobs:
           bin=apps/macos/dist/po0-clash.app/Contents/MacOS/po0-clash
           mkdir -p shots
           shoot() {
-            local name=$1
-            shift
+            local name=$1 seconds=$2
+            shift 2
             "$bin" "$@" > /dev/null 2>&1 &
             local pid=$!
-            sleep 5
+            sleep "$seconds"
+            scutil --proxy > "$RUNNER_TEMP/$name-proxy.txt"
             screencapture -x "shots/$name.png" || true
             kill -TERM "$pid" 2>/dev/null || true
             wait "$pid" || true
           }
-          shoot menu -showMenu YES
-          shoot menu-zh -showMenu YES -AppleLanguages '(zh-Hans)'
-          for tab in general subscriptions whitelist; do shoot "settings-$tab" -showSettings "$tab"; done
-          shoot settings-whitelist-zh -showSettings whitelist -AppleLanguages '(zh-Hans)'
+          login=(-launchedAtLogin YES -testDelays YES -showMenu YES)
+          shoot menu 15 "${login[@]}"
+          if ! grep -q "HTTPEnable : 1" "$RUNNER_TEMP/menu-proxy.txt"; then
+            echo "::error::a launch at login did not reconnect"
+            exit 1
+          fi
+          shoot menu-zh 15 "${login[@]}" -AppleLanguages '(zh-Hans)'
+          for tab in general subscriptions whitelist; do shoot "settings-$tab" 6 -showSettings "$tab"; done
+          shoot settings-subscriptions-zh 6 -showSettings subscriptions -AppleLanguages '(zh-Hans)'
+          defaults write -g AppleInterfaceStyle Dark
+          shoot menu-dark 15 "${login[@]}"
+          shoot settings-subscriptions-dark 6 -showSettings subscriptions
+          shoot settings-whitelist-dark 6 -showSettings whitelist
+          defaults delete -g AppleInterfaceStyle
 
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
