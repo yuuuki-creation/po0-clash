@@ -1,0 +1,4 @@
+-keep class com.sun.jna.** { *; }
+-keep class * implements com.sun.jna.** { *; }
+-keep class io.github.yuuukicreation.po0clash.core.** { *; }
+-dontwarn java.awt.**
