@@ -1,3 +1,4 @@
+import AppKit
 import CryptoKit
 import Foundation
 import Network
@@ -164,5 +165,14 @@ enum LaunchAtLogin {
 
     static func openSystemSettings() {
         SMAppService.openSystemSettingsLoginItems()
+    }
+
+    /// Valid only while the launch's open-application event is being handled; `-launchedAtLogin YES` stands in for CI.
+    static var launchedAtLogin: Bool {
+        if UserDefaults.standard.bool(forKey: "launchedAtLogin") { return true }
+        guard let event = NSAppleEventManager.shared().currentAppleEvent,
+              event.eventID == AEEventID(kAEOpenApplication)
+        else { return false }
+        return event.paramDescriptor(forKeyword: AEKeyword(keyAEPropData))?.enumCodeValue == OSType(keyAELaunchedAsLogInItem)
     }
 }

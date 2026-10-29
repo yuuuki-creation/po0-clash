@@ -51,6 +51,7 @@ final class CoreClient: @unchecked Sendable {
     func status() async throws -> Status { try await work { $0.status() } }
     func traffic() async throws -> Traffic { try await work { $0.traffic() } }
     func exitIp() async throws -> ExitIp { try await work { try $0.exitIp() } }
+    func wasConnected() async throws -> Bool { try await work { $0.wasConnected() } }
 
     func start() async throws { try await control { try $0.start(tunFd: nil) } }
     func stop() async throws { try await control { $0.stop() } }

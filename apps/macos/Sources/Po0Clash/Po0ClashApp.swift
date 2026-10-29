@@ -40,7 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.terminate(nil)
             return
         }
-        AppModel.shared.launch()
+        AppModel.shared.launch(atLogin: LaunchAtLogin.launchedAtLogin)
         Showcase.run()
     }
 

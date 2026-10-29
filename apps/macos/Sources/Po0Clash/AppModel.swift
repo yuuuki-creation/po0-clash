@@ -39,7 +39,7 @@ final class AppModel: ObservableObject {
         return false
     }
 
-    func launch() {
+    func launch(atLogin: Bool) {
         Task {
             do {
                 let options = try await background { try AppPaths.coreOptions() }
@@ -52,6 +52,7 @@ final class AppModel: ObservableObject {
                 await refreshAll()
                 await adoptInstalledTunEngine()
                 network.start { Task { try? await client.networkChanged() } }
+                if atLogin, (try? await client.wasConnected()) == true { connect() }
             } catch {
                 launchError = describe(error)
                 logger.error("core failed to start: \(self.launchError ?? "", privacy: .public)")
