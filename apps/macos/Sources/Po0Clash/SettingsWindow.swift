@@ -33,6 +33,7 @@ final class SettingsWindow {
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.toolbarStyle = .preference
         window.isReleasedWhenClosed = false
+        window.setContentSize(NSSize(width: 600, height: 460))
         window.center()
         self.tabs = tabs
         self.window = window
@@ -40,6 +41,8 @@ final class SettingsWindow {
 
     private func item<Content: View>(_ title: String, symbol: String, _ content: Content) -> NSTabViewItem {
         let host = NSHostingController(rootView: content.environmentObject(AppModel.shared).frame(width: 600, height: 460))
+        host.sizingOptions = .preferredContentSize
+        host.title = title
         let item = NSTabViewItem(viewController: host)
         item.label = title
         item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
