@@ -87,6 +87,8 @@ UniFFI 和 Tauri 命令只做转换：
   `po0-direct` 入口。
 - 匿名：提交与发布都用 yuuuki-creation，不申请实名开发者账号。
 
+进度记录在 [native-progress.md](native-progress.md)。
+
 ## 顺序
 
 1. 共享内核，加上原版 mihomo 的接入：桌面进程管理和 external-controller 客户端。
@@ -102,11 +104,12 @@ UniFFI 和 Tauri 命令只做转换：
 
 | 机器 | 用途 |
 |---|---|
-| `nobrand-tokyo-perf` | Rust 内核：`cargo fmt`、`clippy`、`test`，以及真实 mihomo 的集成测试 |
+| `contabo-fr` | Rust 内核：`cargo fmt`、`clippy`、`test`，以及真实 mihomo 的集成测试 |
+| `nobrand-tokyo-perf` | Windows：cargo-xwin 交叉编译与 NSIS 打包；KVM 上的 Windows 测试虚拟机做安装与运行测试 |
 | `hostdzire-nl` | Android：cargo-ndk、Gradle 构建，KVM 模拟器（AVD `po0-api35`）上测试 |
-| `contabo-fr` | Windows：cargo-xwin 交叉编译与 NSIS 打包 |
 
-- macOS 只能在 macOS 上编译，由 GitHub Actions 的 macOS runner 构建和测试；Windows 的运行时测试同样在 Actions 上做。
+- Android 和 Windows 的编译与测试都在构建机上做，不依赖 GitHub Actions；Actions 只负责 macOS，因为 macOS 只能在苹果硬件上
+  编译。Windows 的 Actions 工作流只保留手动触发，作为发版前的补充检查。
 - 内核的集成测试默认跳过，需要一个 mihomo 可执行文件：
   `MIHOMO_BIN=<mihomo> cargo test -p po0-core -- --ignored engine`。它在本地起一个 shadowsocks 入口当节点，覆盖启动、
   策略组、延迟测试、出口 IP、模式切换、热重载、选节点、崩溃检测与重启。
