@@ -1,0 +1,1134 @@
+mod config;
+mod engine;
+mod error;
+mod legacy;
+mod logfile;
+mod model;
+mod profiles;
+mod settings;
+mod util;
+mod whitelist;
+
+use std::collections::BTreeMap;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError, RwLock, Weak};
+use std::thread;
+use std::time::Duration;
+
+use serde_json::{Value, json};
+
+pub use error::{CoreError, Result};
+pub use model::*;
+
+use engine::{Engine, Runtime, Session, sysproxy};
+use logfile::LogFile;
+use profiles::Content;
+use settings::{EntryRecord, ProfileRecord, Settings, Store};
+use whitelist::Whitelist;
+
+const LINKS_PROFILE_NAME: &str = "Share links";
+const DEFAULT_UPDATE_HOURS: u32 = 24;
+const UPDATE_CHECK: Duration = Duration::from_secs(600);
+const FIRST_UPDATE_CHECK: Duration = Duration::from_secs(20);
+const DELAY_TIMEOUT_MS: u32 = 5000;
+const EXIT_IP_URL: &str = "https://www.cloudflare.com/cdn-cgi/trace";
+const GROUP_TYPES: &[&str] = &["Selector", "URLTest", "Fallback", "LoadBalance", "Relay"];
+
+pub trait Listener: Send + Sync {
+    fn on_change(&self, change: Change);
+}
+
+#[derive(Debug, Clone)]
+pub struct CoreOptions {
+    pub data_dir: PathBuf,
+    pub platform: Platform,
+    pub mihomo_path: Option<PathBuf>,
+    pub legacy_prefs: Option<PathBuf>,
+    pub legacy_database: Option<PathBuf>,
+    pub app_version: String,
+}
+
+struct Paths {
+    profiles: PathBuf,
+    home: PathBuf,
+    run: PathBuf,
+}
+
+impl Paths {
+    fn new(data_dir: &Path) -> Self {
+        Self {
+            profiles: data_dir.join("profiles"),
+            home: data_dir.join("mihomo"),
+            run: data_dir.join("run"),
+        }
+    }
+
+    fn yaml(&self, id: &str) -> PathBuf {
+        self.profiles.join(format!("{id}.yaml"))
+    }
+
+    fn links(&self, id: &str) -> PathBuf {
+        self.profiles.join(format!("{id}.txt"))
+    }
+}
+
+struct Updater {
+    stopped: Mutex<bool>,
+    signal: Condvar,
+}
+
+/// Owns every piece of state; the platform apps only call these methods (ADR 0018). Every
+/// method blocks, so UI code calls them off its main thread.
+pub struct Core {
+    me: Weak<Core>,
+    platform: Platform,
+    app_version: String,
+    paths: Paths,
+    mihomo_path: Mutex<Option<PathBuf>>,
+    store: Store,
+    engine: Engine,
+    whitelist: Whitelist,
+    listener: RwLock<Option<Arc<dyn Listener>>>,
+    updater: Updater,
+    mihomo_log: Arc<LogFile>,
+}
+
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+fn engine_error(error: impl std::fmt::Display) -> CoreError {
+    CoreError::Engine(error.to_string())
+}
+
+impl Core {
+    pub fn new(options: CoreOptions) -> Result<Arc<Self>> {
+        let data_dir = options.data_dir.clone();
+        let paths = Paths::new(&data_dir);
+        for dir in [&data_dir, &paths.profiles, &paths.home, &paths.run] {
+            fs::create_dir_all(dir)?;
+        }
+        logfile::init(data_dir.join("logs").join("core.log"));
+        logfile::info(format!(
+            "core {} starting, app {} on {:?}",
+            env!("CARGO_PKG_VERSION"),
+            options.app_version,
+            options.platform
+        ));
+        let (store, existed) = Store::open(data_dir.join("settings.json"));
+        if !existed {
+            import_legacy(&store, &paths, &options);
+        }
+        engine::recover(&paths.home);
+        let whitelist_settings = store.read(|s| s.whitelist.clone());
+        let core = Arc::new_cyclic(|me: &Weak<Core>| {
+            let (route_core, notify_core) = (me.clone(), me.clone());
+            Self {
+                me: me.clone(),
+                platform: options.platform,
+                app_version: options.app_version.clone(),
+                mihomo_path: Mutex::new(options.mihomo_path.clone()),
+                store,
+                engine: Engine::default(),
+                whitelist: Whitelist::start(
+                    whitelist_settings,
+                    Box::new(move || {
+                        route_core
+                            .upgrade()
+                            .and_then(|core| core.engine.session())
+                            .map_or_else(
+                                || "DIRECT".to_owned(),
+                                |session| session.runtime.direct.route(),
+                            )
+                    }),
+                    Box::new(move || {
+                        if let Some(core) = notify_core.upgrade() {
+                            core.emit(&[Change::Whitelist]);
+                        }
+                    }),
+                ),
+                listener: RwLock::new(None),
+                updater: Updater {
+                    stopped: Mutex::new(false),
+                    signal: Condvar::new(),
+                },
+                mihomo_log: Arc::new(LogFile::new(data_dir.join("logs").join("mihomo.log"))),
+                paths,
+            }
+        });
+        let updater = Arc::downgrade(&core);
+        thread::Builder::new()
+            .name("profile-updater".into())
+            .spawn(move || run_updater(&updater))
+            .map_err(CoreError::from)?;
+        Ok(core)
+    }
+
+    pub fn set_listener(&self, listener: Arc<dyn Listener>) {
+        *self
+            .listener
+            .write()
+            .unwrap_or_else(PoisonError::into_inner) = Some(listener);
+    }
+
+    pub fn set_mihomo_path(&self, path: PathBuf) {
+        *lock(&self.mihomo_path) = Some(path);
+    }
+
+    /// Called without the settings or session locks held, so a listener may read the core
+    /// from `on_change`; it must not start or stop the engine there.
+    fn emit(&self, changes: &[Change]) {
+        let listener = self
+            .listener
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
+        if let Some(listener) = listener {
+            for change in changes {
+                listener.on_change(*change);
+            }
+        }
+    }
+
+    pub fn status(&self) -> Status {
+        let settings = self.store.get();
+        Status {
+            engine: self.engine.state(),
+            mode: settings.mode,
+            route_mode: settings.route_mode,
+            profile_id: settings.current_profile,
+            current_node: self
+                .engine
+                .session()
+                .and_then(|session| session.current_node()),
+        }
+    }
+
+    pub fn traffic(&self) -> Traffic {
+        self.engine
+            .session()
+            .map(|session| session.traffic.get())
+            .unwrap_or_default()
+    }
+
+    fn proxy_url(&self) -> Option<String> {
+        self.engine
+            .session()
+            .map(|session| session.runtime.proxy_url())
+    }
+
+    // Engine lifecycle.
+
+    pub fn start(&self, tun_fd: Option<i32>) -> Result<()> {
+        let result = {
+            let _ops = lock(&self.engine.ops);
+            if let Some(session) = self.engine.session() {
+                if session.runtime.tun_fd == tun_fd {
+                    return Ok(());
+                }
+                self.teardown(&session);
+            }
+            self.start_locked(tun_fd)
+        };
+        self.emit(&[Change::Status, Change::Groups]);
+        result
+    }
+
+    fn start_locked(&self, tun_fd: Option<i32>) -> Result<()> {
+        self.engine.set_state(EngineState::Starting);
+        self.emit(&[Change::Status]);
+        match self.launch(tun_fd) {
+            Ok(()) => {
+                self.engine.set_state(EngineState::Running);
+                logfile::info("engine running");
+                Ok(())
+            }
+            Err(error) => {
+                logfile::warn(format!("engine start failed: {error}"));
+                self.engine
+                    .set_state(EngineState::Failed(error.to_string()));
+                Err(error)
+            }
+        }
+    }
+
+    fn launch(&self, tun_fd: Option<i32>) -> Result<()> {
+        let settings = self.store.get();
+        let profile = settings
+            .current()
+            .cloned()
+            .ok_or_else(|| CoreError::Invalid("add a subscription first".into()))?;
+        engine::recover(&self.paths.home);
+        let runtime = Runtime::new(self.platform, &self.paths.run, tun_fd)?;
+        let config = self.write_config(&profile, &settings, &runtime)?;
+        let binary = lock(&self.mihomo_path).clone();
+        let runner = engine::launch(
+            binary.as_deref(),
+            &self.paths.home,
+            &config,
+            &self.mihomo_log,
+        )?;
+        let session = Arc::new(Session::new(runtime, runner, self.engine.next_generation()));
+        let ready = engine::wait_ready(session.controller(), &session.runner, &self.mihomo_log)
+            .and_then(|()| {
+                self.apply_selections(&session, &profile.selections);
+                if self.platform != Platform::Android
+                    && settings.route_mode == RouteMode::SystemProxy
+                {
+                    sysproxy::set(session.runtime.mixed_port).map_err(|error| {
+                        CoreError::Engine(format!("cannot set the system proxy: {error}"))
+                    })?;
+                    session.system_proxy.store(true, Ordering::SeqCst);
+                }
+                Ok(())
+            });
+        if let Err(error) = ready {
+            session.release(&self.paths.home);
+            session.runner.stop();
+            return Err(error);
+        }
+        engine::save_record(&self.paths.home, &session);
+        session.start_traffic();
+        self.engine.install(session.clone());
+        self.refresh_current_node(&session, settings.mode);
+        self.watch_exit(session.generation);
+        Ok(())
+    }
+
+    fn watch_exit(&self, generation: u64) {
+        if self.platform == Platform::Android {
+            return;
+        }
+        let me = self.me.clone();
+        thread::spawn(move || {
+            loop {
+                thread::sleep(Duration::from_millis(500));
+                let Some(core) = me.upgrade() else {
+                    return;
+                };
+                let Some(session) = core.engine.session() else {
+                    return;
+                };
+                if session.generation != generation {
+                    return;
+                }
+                if let Some(status) = session.runner.exited() {
+                    core.on_exit(generation, &status);
+                    return;
+                }
+            }
+        });
+    }
+
+    /// An engine that dies on its own is reported, never restarted (native-rewrite.md).
+    fn on_exit(&self, generation: u64, status: &str) {
+        {
+            let _ops = lock(&self.engine.ops);
+            let Some(session) = self.engine.session() else {
+                return;
+            };
+            if session.generation != generation {
+                return;
+            }
+            self.engine.take();
+            session.release(&self.paths.home);
+            let message = format!(
+                "mihomo exited ({status}): {}",
+                engine::last_lines(&self.mihomo_log, 3)
+            );
+            logfile::warn(&message);
+            self.engine.set_state(EngineState::Failed(message));
+        }
+        self.emit(&[Change::Status, Change::Groups]);
+    }
+
+    pub fn stop(&self) {
+        {
+            let _ops = lock(&self.engine.ops);
+            if let Some(session) = self.engine.take() {
+                self.teardown(&session);
+                logfile::info("engine stopped");
+            }
+            self.engine.set_state(EngineState::Stopped);
+        }
+        self.emit(&[Change::Status, Change::Groups]);
+    }
+
+    fn teardown(&self, session: &Session) {
+        self.engine.take();
+        session.release(&self.paths.home);
+        session.runner.stop();
+    }
+
+    fn restart(&self) -> Result<()> {
+        let result = {
+            let _ops = lock(&self.engine.ops);
+            match self.engine.session() {
+                Some(session) => {
+                    let tun_fd = session.runtime.tun_fd;
+                    self.teardown(&session);
+                    self.start_locked(tun_fd)
+                }
+                None => Ok(()),
+            }
+        };
+        self.emit(&[Change::Status, Change::Groups]);
+        result
+    }
+
+    /// Hot reload keeps TUN up; on Android a restart would close the VPN's descriptor.
+    fn reload(&self) -> Result<()> {
+        let result = {
+            let _ops = lock(&self.engine.ops);
+            let Some(session) = self.engine.session() else {
+                return Ok(());
+            };
+            let settings = self.store.get();
+            match settings.current().cloned() {
+                None => {
+                    self.teardown(&session);
+                    self.engine.set_state(EngineState::Stopped);
+                    Ok(())
+                }
+                Some(profile) => {
+                    let config = self.write_config(&profile, &settings, &session.runtime)?;
+                    let body = json!({ "path": config.to_string_lossy() });
+                    session
+                        .controller()
+                        .json("PUT", "/configs?force=true", Some(&body))
+                        .map(|_| {
+                            self.apply_selections(&session, &profile.selections);
+                            self.refresh_current_node(&session, settings.mode);
+                        })
+                }
+            }
+        };
+        self.emit(&[Change::Status, Change::Groups]);
+        result
+    }
+
+    fn write_config(
+        &self,
+        profile: &ProfileRecord,
+        settings: &Settings,
+        runtime: &Runtime,
+    ) -> Result<PathBuf> {
+        let base = if let Ok(yaml) = fs::read_to_string(self.paths.yaml(&profile.id)) {
+            yaml
+        } else if let Ok(links) = fs::read_to_string(self.paths.links(&profile.id)) {
+            let relative = format!("providers/po0-links-{}.txt", profile.id);
+            util::write_atomic(&self.paths.home.join(&relative), links.as_bytes())?;
+            config::links_base(&format!("./{relative}"))
+        } else {
+            return Err(CoreError::Invalid(format!(
+                "{} has not been downloaded yet",
+                profile.name
+            )));
+        };
+        let rendered = config::render(
+            &base,
+            &config::Params {
+                platform: self.platform,
+                mode: settings.mode,
+                route_mode: settings.route_mode,
+                tun_fd: runtime.tun_fd,
+                mixed_port: runtime.mixed_port,
+                controller: runtime.controller.endpoint.config_entry(),
+                secret: runtime.controller.secret(),
+                direct: &runtime.direct,
+            },
+        )?;
+        let path = self.paths.home.join("config.yaml");
+        util::write_atomic(&path, rendered.as_bytes())?;
+        Ok(path)
+    }
+
+    fn apply_selections(&self, session: &Session, selections: &BTreeMap<String, String>) {
+        for (group, node) in selections {
+            let path = format!("/proxies/{}", util::encode_component(group));
+            let _ = session
+                .controller()
+                .json("PUT", &path, Some(&json!({ "name": node })));
+        }
+    }
+
+    // Mode and routing.
+
+    pub fn set_mode(&self, mode: Mode) -> Result<()> {
+        self.store.update(|s| {
+            s.mode = mode;
+            Ok(())
+        })?;
+        if let Some(session) = self.engine.session() {
+            session.controller().json(
+                "PATCH",
+                "/configs",
+                Some(&json!({ "mode": mode.as_str() })),
+            )?;
+            self.refresh_current_node(&session, mode);
+        }
+        self.emit(&[Change::Status, Change::Groups]);
+        Ok(())
+    }
+
+    pub fn set_route_mode(&self, route_mode: RouteMode) -> Result<()> {
+        let changed = self.store.update(|s| {
+            let changed = s.route_mode != route_mode;
+            s.route_mode = route_mode;
+            Ok(changed)
+        })?;
+        if changed && self.platform != Platform::Android {
+            self.restart()?;
+        }
+        self.emit(&[Change::Status]);
+        Ok(())
+    }
+
+    // Profiles.
+
+    pub fn profiles(&self) -> Vec<Profile> {
+        self.store.read(|s| {
+            s.profiles
+                .iter()
+                .map(|record| Profile {
+                    id: record.id.clone(),
+                    name: record.name.clone(),
+                    kind: record.kind,
+                    url: record.url.clone(),
+                    updated_at: record.updated_at,
+                    usage: record.usage.clone(),
+                    selected: s.current_profile.as_deref() == Some(record.id.as_str()),
+                })
+                .collect()
+        })
+    }
+
+    fn profile(&self, id: &str) -> Result<Profile> {
+        self.profiles()
+            .into_iter()
+            .find(|profile| profile.id == id)
+            .ok_or_else(|| CoreError::Invalid("no such profile".into()))
+    }
+
+    fn fetch(&self, url: &str) -> Result<profiles::Fetched> {
+        let proxy = self.proxy_url();
+        match profiles::fetch(url, proxy.as_deref(), &self.app_version) {
+            Err(CoreError::Network(_)) if proxy.is_some() => {
+                profiles::fetch(url, None, &self.app_version)
+            }
+            other => other,
+        }
+    }
+
+    fn store_content(&self, id: &str, content: &Content) -> Result<()> {
+        let (keep, drop, text) = match content {
+            Content::Yaml(text) => (self.paths.yaml(id), self.paths.links(id), text),
+            Content::Links(text) => (self.paths.links(id), self.paths.yaml(id), text),
+        };
+        util::write_atomic(&keep, text.as_bytes())?;
+        let _ = fs::remove_file(drop);
+        Ok(())
+    }
+
+    fn reload_if_current(&self, id: &str) -> Result<()> {
+        if self
+            .store
+            .read(|s| s.current_profile.as_deref() == Some(id))
+        {
+            self.reload()?;
+        }
+        Ok(())
+    }
+
+    pub fn add_subscription(&self, url: String) -> Result<Profile> {
+        let url = url.trim().to_owned();
+        let fetched = self.fetch(&url)?;
+        let id = util::random_id();
+        self.store_content(&id, &fetched.content)?;
+        self.store.update(|s| {
+            s.profiles.push(ProfileRecord {
+                id: id.clone(),
+                name: fetched.name.clone().unwrap_or_else(|| url.clone()),
+                kind: ProfileKind::Subscription,
+                url: Some(url.clone()),
+                updated_at: Some(util::now()),
+                usage: fetched.usage.clone(),
+                update_hours: fetched.update_hours,
+                selections: BTreeMap::new(),
+            });
+            if s.current().is_none() {
+                s.current_profile = Some(id.clone());
+            }
+            Ok(())
+        })?;
+        logfile::info(format!("subscription {id} added"));
+        let reloaded = self.reload_if_current(&id);
+        self.emit(&[Change::Profiles, Change::Status]);
+        reloaded?;
+        self.profile(&id)
+    }
+
+    pub fn update_profile(&self, id: String) -> Result<Profile> {
+        let url = self
+            .store
+            .read(|s| s.profile(&id).and_then(|profile| profile.url.clone()))
+            .ok_or_else(|| CoreError::Invalid("only subscriptions can be updated".into()))?;
+        let fetched = self.fetch(&url).inspect_err(|error| {
+            logfile::warn(format!("subscription {id} update failed: {error}"));
+        })?;
+        self.store_content(&id, &fetched.content)?;
+        self.store.update(|s| {
+            let profile = s
+                .profile_mut(&id)
+                .ok_or_else(|| CoreError::Invalid("no such profile".into()))?;
+            profile.updated_at = Some(util::now());
+            profile.usage = fetched.usage.clone().or(profile.usage.take());
+            profile.update_hours = fetched.update_hours.or(profile.update_hours);
+            Ok(())
+        })?;
+        logfile::info(format!("subscription {id} updated"));
+        let reloaded = self.reload_if_current(&id);
+        self.emit(&[Change::Profiles]);
+        reloaded?;
+        self.profile(&id)
+    }
+
+    pub fn remove_profile(&self, id: String) -> Result<()> {
+        let was_current = self.store.update(|s| {
+            let before = s.profiles.len();
+            s.profiles.retain(|profile| profile.id != id);
+            if s.profiles.len() == before {
+                return Err(CoreError::Invalid("no such profile".into()));
+            }
+            let was_current = s.current_profile.as_deref() == Some(id.as_str());
+            if was_current {
+                s.current_profile = s.profiles.first().map(|profile| profile.id.clone());
+            }
+            Ok(was_current)
+        })?;
+        let _ = fs::remove_file(self.paths.yaml(&id));
+        let _ = fs::remove_file(self.paths.links(&id));
+        let reloaded = if was_current { self.reload() } else { Ok(()) };
+        self.emit(&[Change::Profiles, Change::Status]);
+        reloaded
+    }
+
+    pub fn select_profile(&self, id: String) -> Result<()> {
+        let changed = self.store.update(|s| {
+            if s.profile(&id).is_none() {
+                return Err(CoreError::Invalid("no such profile".into()));
+            }
+            let changed = s.current_profile.as_deref() != Some(id.as_str());
+            s.current_profile = Some(id.clone());
+            Ok(changed)
+        })?;
+        let reloaded = if changed { self.reload() } else { Ok(()) };
+        self.emit(&[Change::Profiles, Change::Status]);
+        reloaded
+    }
+
+    pub fn import_links(&self, text: String) -> Result<ImportResult> {
+        let links = profiles::extract_links(&text);
+        if links.is_empty() {
+            return Err(CoreError::Invalid("no share links found".into()));
+        }
+        let existing = self.store.read(|s| {
+            s.profiles
+                .iter()
+                .find(|profile| profile.kind == ProfileKind::Links)
+                .map(|profile| profile.id.clone())
+        });
+        let id = existing.unwrap_or_else(util::random_id);
+        let mut merged =
+            profiles::extract_links(&fs::read_to_string(self.paths.links(&id)).unwrap_or_default());
+        let before = merged.len();
+        for link in links {
+            if !merged.contains(&link) {
+                merged.push(link);
+            }
+        }
+        let added = (merged.len() - before) as u32;
+        self.store_content(&id, &Content::Links(merged.join("\n")))?;
+        self.store.update(|s| {
+            match s.profile_mut(&id) {
+                Some(profile) => profile.updated_at = Some(util::now()),
+                None => s.profiles.push(ProfileRecord {
+                    id: id.clone(),
+                    name: LINKS_PROFILE_NAME.into(),
+                    kind: ProfileKind::Links,
+                    url: None,
+                    updated_at: Some(util::now()),
+                    usage: None,
+                    update_hours: None,
+                    selections: BTreeMap::new(),
+                }),
+            }
+            if s.current().is_none() {
+                s.current_profile = Some(id.clone());
+            }
+            Ok(())
+        })?;
+        let reloaded = if added > 0 {
+            self.reload_if_current(&id)
+        } else {
+            Ok(())
+        };
+        self.emit(&[Change::Profiles, Change::Status]);
+        reloaded?;
+        Ok(ImportResult {
+            profile: self.profile(&id)?,
+            added,
+        })
+    }
+
+    // Proxy groups.
+
+    fn proxies(&self, session: &Session) -> Result<serde_json::Map<String, Value>> {
+        let value = session.controller().json("GET", "/proxies", None)?;
+        match value.get("proxies") {
+            Some(Value::Object(map)) => Ok(map.clone()),
+            _ => Err(engine_error("unexpected /proxies answer")),
+        }
+    }
+
+    fn group_names(proxies: &serde_json::Map<String, Value>, mode: Mode) -> Vec<String> {
+        match mode {
+            Mode::Direct => Vec::new(),
+            Mode::Global => vec!["GLOBAL".to_owned()],
+            Mode::Rule => proxies
+                .get("GLOBAL")
+                .and_then(|global| global.get("all"))
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .filter(|name| {
+                    *name != "GLOBAL"
+                        && proxies
+                            .get(*name)
+                            .and_then(|proxy| proxy.get("type"))
+                            .and_then(Value::as_str)
+                            .is_some_and(|kind| GROUP_TYPES.contains(&kind))
+                })
+                .map(str::to_owned)
+                .collect(),
+        }
+    }
+
+    fn build_group(proxies: &serde_json::Map<String, Value>, name: &str) -> Option<ProxyGroup> {
+        let group = proxies.get(name)?;
+        let kind = group
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        let nodes = group
+            .get("all")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .map(|node| {
+                let proxy = proxies.get(node);
+                Node {
+                    name: node.to_owned(),
+                    kind: proxy
+                        .and_then(|proxy| proxy.get("type"))
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_owned(),
+                    delay: proxy
+                        .and_then(|proxy| proxy.get("history"))
+                        .and_then(Value::as_array)
+                        .and_then(|history| history.last())
+                        .and_then(|last| last.get("delay"))
+                        .and_then(Value::as_u64)
+                        .map(|delay| delay as u32),
+                }
+            })
+            .collect();
+        Some(ProxyGroup {
+            name: name.to_owned(),
+            selectable: kind == "Selector",
+            now: group.get("now").and_then(Value::as_str).map(str::to_owned),
+            kind,
+            nodes,
+        })
+    }
+
+    fn resolve_node(proxies: &serde_json::Map<String, Value>, group: &str) -> Option<String> {
+        let mut current = group.to_owned();
+        for _ in 0..8 {
+            let next = proxies.get(&current)?.get("now").and_then(Value::as_str)?;
+            current = next.to_owned();
+            if proxies
+                .get(&current)
+                .and_then(|proxy| proxy.get("now"))
+                .is_none()
+            {
+                return Some(current);
+            }
+        }
+        Some(current)
+    }
+
+    fn refresh_current_node(&self, session: &Session, mode: Mode) {
+        let node = self.proxies(session).ok().and_then(|proxies| {
+            let first = Self::group_names(&proxies, mode).into_iter().next()?;
+            Self::resolve_node(&proxies, &first)
+        });
+        session.set_current_node(if mode == Mode::Direct {
+            Some("DIRECT".into())
+        } else {
+            node
+        });
+    }
+
+    pub fn groups(&self) -> Result<Vec<ProxyGroup>> {
+        let Some(session) = self.engine.session() else {
+            return Ok(Vec::new());
+        };
+        let proxies = self.proxies(&session)?;
+        let mode = self.store.read(|s| s.mode);
+        Ok(Self::group_names(&proxies, mode)
+            .iter()
+            .filter_map(|name| Self::build_group(&proxies, name))
+            .collect())
+    }
+
+    pub fn select_node(&self, group: String, node: String) -> Result<()> {
+        if let Some(session) = self.engine.session() {
+            let path = format!("/proxies/{}", util::encode_component(&group));
+            session
+                .controller()
+                .json("PUT", &path, Some(&json!({ "name": node })))?;
+            self.refresh_current_node(&session, self.store.read(|s| s.mode));
+        }
+        self.store.update(|s| {
+            let id = s.current_profile.clone();
+            if let Some(profile) = id.and_then(|id| s.profile_mut(&id)) {
+                profile.selections.insert(group.clone(), node.clone());
+            }
+            Ok(())
+        })?;
+        self.emit(&[Change::Status, Change::Groups]);
+        Ok(())
+    }
+
+    pub fn test_delay(&self, group: String) -> Result<ProxyGroup> {
+        let session = self
+            .engine
+            .session()
+            .ok_or_else(|| CoreError::Engine("not connected".into()))?;
+        let path = format!(
+            "/group/{}/delay?url={}&timeout={DELAY_TIMEOUT_MS}",
+            util::encode_component(&group),
+            util::encode_component(config::DELAY_URL)
+        );
+        let delays = session
+            .controller()
+            .json("GET", &path, None)
+            .unwrap_or(Value::Null);
+        let proxies = self.proxies(&session)?;
+        let mut result = Self::build_group(&proxies, &group)
+            .ok_or_else(|| CoreError::Invalid("no such group".into()))?;
+        for node in &mut result.nodes {
+            node.delay = Some(delays.get(&node.name).and_then(Value::as_u64).unwrap_or(0) as u32);
+        }
+        self.refresh_current_node(&session, self.store.read(|s| s.mode));
+        self.emit(&[Change::Status, Change::Groups]);
+        Ok(result)
+    }
+
+    pub fn exit_ip(&self) -> Result<ExitIp> {
+        let proxy = self
+            .proxy_url()
+            .map(|url| ureq::Proxy::new(&url))
+            .transpose()
+            .map_err(|error| CoreError::Network(error.to_string()))?;
+        let agent = ureq::Agent::new_with_config(
+            ureq::Agent::config_builder()
+                .proxy(proxy)
+                .timeout_global(Some(Duration::from_secs(8)))
+                .build(),
+        );
+        let body = agent
+            .get(EXIT_IP_URL)
+            .call()
+            .and_then(|mut response| response.body_mut().read_to_string())
+            .map_err(|error| CoreError::Network(error.to_string()))?;
+        let field = |name: &str| {
+            body.lines()
+                .find_map(|line| line.strip_prefix(name)?.strip_prefix('='))
+                .map(str::to_owned)
+        };
+        let ip =
+            field("ip").ok_or_else(|| CoreError::Network("no address in the answer".into()))?;
+        Ok(ExitIp {
+            ip,
+            country: field("loc").filter(|loc| loc != "XX"),
+        })
+    }
+
+    // Whitelist.
+
+    pub fn whitelist(&self) -> WhitelistState {
+        self.whitelist.state()
+    }
+
+    fn update_whitelist<T>(
+        &self,
+        f: impl FnOnce(&mut settings::WhitelistSettings) -> Result<T>,
+    ) -> Result<T> {
+        let value = self.store.update(|s| f(&mut s.whitelist))?;
+        self.whitelist
+            .update(self.store.read(|s| s.whitelist.clone()));
+        self.emit(&[Change::Whitelist]);
+        Ok(value)
+    }
+
+    pub fn set_whitelist_enabled(&self, enabled: bool) -> Result<()> {
+        self.update_whitelist(|w| {
+            w.enabled = enabled;
+            Ok(())
+        })
+    }
+
+    pub fn add_whitelist_entries(&self, text: String, name: String) -> Result<Vec<WhitelistEntry>> {
+        let secrets = whitelist::parse_secrets(&text);
+        if secrets.is_empty() {
+            return Err(CoreError::Invalid("no po0 token or ggy link found".into()));
+        }
+        let ids = self.update_whitelist(|w| {
+            let mut ids = Vec::new();
+            for secret in secrets {
+                if w.entries.iter().any(|entry| entry.value == secret.value) {
+                    continue;
+                }
+                let id = util::random_id();
+                w.entries.push(EntryRecord {
+                    id: id.clone(),
+                    name: name.trim().to_owned(),
+                    value: secret.value,
+                });
+                ids.push(id);
+            }
+            Ok(ids)
+        })?;
+        Ok(self
+            .whitelist
+            .state()
+            .entries
+            .into_iter()
+            .filter(|entry| ids.contains(&entry.id))
+            .collect())
+    }
+
+    pub fn remove_whitelist_entry(&self, id: String) -> Result<()> {
+        self.update_whitelist(|w| {
+            w.entries.retain(|entry| entry.id != id);
+            Ok(())
+        })
+    }
+
+    pub fn whitelist_now(&self) {
+        self.whitelist.now();
+    }
+
+    pub fn network_changed(&self) {
+        self.whitelist.network_changed();
+        self.emit(&[Change::Status]);
+    }
+
+    pub fn set_active(&self, active: bool) {
+        self.whitelist.set_active(active);
+    }
+
+    // Diagnostics and shutdown.
+
+    pub fn export_diagnostics(&self, path: PathBuf) -> Result<()> {
+        let settings = self.store.get();
+        let mut text = format!(
+            "po0-clash diagnostics\napp {} / core {} / {:?} / {} {}\ngenerated {}\nengine {:?}, mode {:?}, route {:?}\n",
+            self.app_version,
+            env!("CARGO_PKG_VERSION"),
+            self.platform,
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+            util::now(),
+            self.engine.state(),
+            settings.mode,
+            settings.route_mode,
+        );
+        text.push_str("\nprofiles:\n");
+        for profile in &settings.profiles {
+            let host = profile
+                .url
+                .as_deref()
+                .and_then(|url| url.split("://").nth(1))
+                .and_then(|rest| rest.split(['/', '?']).next())
+                .unwrap_or("-");
+            let current = if settings.current_profile.as_deref() == Some(profile.id.as_str()) {
+                "*"
+            } else {
+                " "
+            };
+            text.push_str(&format!(
+                "{current} {} {:?} {host} updated {:?}\n",
+                profile.name, profile.kind, profile.updated_at
+            ));
+        }
+        let whitelist = self.whitelist.state();
+        text.push_str(&format!("\nwhitelist enabled {}\n", whitelist.enabled));
+        for entry in &whitelist.entries {
+            let result = entry.result.as_ref();
+            text.push_str(&format!(
+                "  {:?} {} {:?} {} {}\n",
+                entry.kind,
+                entry.label,
+                result.map(|r| r.outcome),
+                result.and_then(|r| r.ip.as_deref()).unwrap_or("-"),
+                result.and_then(|r| r.message.as_deref()).unwrap_or(""),
+            ));
+        }
+        text.push_str("\n== core.log ==\n");
+        text.push_str(&logfile::core().map(LogFile::read_all).unwrap_or_default());
+        text.push_str("\n== mihomo.log ==\n");
+        text.push_str(&self.mihomo_log.read_all());
+        for entry in &settings.whitelist.entries {
+            if let Some(secret) = whitelist::Secret::new(&entry.value) {
+                text = secret.redact(&text);
+            }
+        }
+        for url in settings
+            .profiles
+            .iter()
+            .filter_map(|profile| profile.url.as_deref())
+        {
+            text = text.replace(url, "<subscription url>");
+        }
+        util::write_atomic(&path, text.as_bytes())?;
+        Ok(())
+    }
+
+    pub fn shutdown(&self) {
+        self.stop();
+        self.whitelist.stop();
+        *lock(&self.updater.stopped) = true;
+        self.updater.signal.notify_all();
+        logfile::info("core shut down");
+    }
+
+    fn auto_update(&self) {
+        let now = util::now();
+        let due: Vec<String> = self.store.read(|s| {
+            s.profiles
+                .iter()
+                .filter(|profile| {
+                    profile.kind == ProfileKind::Subscription && profile.url.is_some()
+                })
+                .filter(|profile| {
+                    let hours =
+                        i64::from(profile.update_hours.unwrap_or(DEFAULT_UPDATE_HOURS).max(1));
+                    profile.updated_at.is_none_or(|at| now - at >= hours * 3600)
+                })
+                .map(|profile| profile.id.clone())
+                .collect()
+        });
+        for id in due {
+            let _ = self.update_profile(id);
+        }
+    }
+}
+
+fn run_updater(core: &Weak<Core>) {
+    let mut wait = FIRST_UPDATE_CHECK;
+    loop {
+        {
+            let Some(strong) = core.upgrade() else {
+                return;
+            };
+            let stopped = lock(&strong.updater.stopped);
+            let (stopped, _) = strong
+                .updater
+                .signal
+                .wait_timeout_while(stopped, wait, |stopped| !*stopped)
+                .unwrap_or_else(PoisonError::into_inner);
+            if *stopped {
+                return;
+            }
+        }
+        wait = UPDATE_CHECK;
+        if let Some(strong) = core.upgrade() {
+            strong.auto_update();
+        }
+    }
+}
+
+fn import_legacy(store: &Store, paths: &Paths, options: &CoreOptions) {
+    if options.legacy_prefs.is_none() && options.legacy_database.is_none() {
+        return;
+    }
+    let legacy = legacy::read(
+        options.legacy_prefs.as_deref(),
+        options.legacy_database.as_deref(),
+    );
+    let mut current = None;
+    let mut records = Vec::new();
+    for profile in &legacy.profiles {
+        let id = util::random_id();
+        if let Some(Ok(content)) = profile.yaml.as_deref().map(profiles::classify) {
+            let (path, text) = match &content {
+                Content::Yaml(text) => (paths.yaml(&id), text),
+                Content::Links(text) => (paths.links(&id), text),
+            };
+            if util::write_atomic(&path, text.as_bytes()).is_err() {
+                continue;
+            }
+        }
+        if legacy.current.as_deref() == Some(profile.id.as_str()) {
+            current = Some(id.clone());
+        }
+        records.push(ProfileRecord {
+            id,
+            name: profile.name.clone(),
+            kind: ProfileKind::Subscription,
+            url: Some(profile.url.clone()),
+            updated_at: None,
+            usage: None,
+            update_hours: None,
+            selections: BTreeMap::new(),
+        });
+    }
+    let mut entries: Vec<EntryRecord> = Vec::new();
+    for (name, text) in &legacy.entries {
+        for secret in whitelist::parse_secrets(text) {
+            if !entries.iter().any(|entry| entry.value == secret.value) {
+                entries.push(EntryRecord {
+                    id: util::random_id(),
+                    name: name.clone(),
+                    value: secret.value,
+                });
+            }
+        }
+    }
+    let (profile_count, entry_count) = (records.len(), entries.len());
+    let result = store.update(|s| {
+        s.current_profile = current.or_else(|| records.first().map(|record| record.id.clone()));
+        s.profiles = records;
+        s.whitelist.enabled = legacy.whitelist_enabled && !entries.is_empty();
+        s.whitelist.entries = entries;
+        Ok(())
+    });
+    match result {
+        Ok(()) => logfile::info(format!(
+            "imported {profile_count} subscriptions and {entry_count} whitelist entries from the Flutter app"
+        )),
+        Err(error) => logfile::warn(format!("legacy import failed: {error}")),
+    }
+}
+
+#[cfg(test)]
+mod tests;
