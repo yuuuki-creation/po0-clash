@@ -1,15 +1,8 @@
 name: native-windows
 
+# Builds and tests run on the Tokyo build machine (docs/development/native-rewrite.md);
+# this runner is a manual check before a release.
 on:
-  push:
-    branches: ['native*']
-    paths:
-      - 'apps/windows/**'
-      - 'crates/**'
-      - 'mihomo/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - '.github/workflows/native-windows.yaml'
   workflow_dispatch:
 
 permissions:
