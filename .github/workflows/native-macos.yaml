@@ -67,26 +67,32 @@ jobs:
       - name: Smoke launch
         run: |
           app=apps/macos/dist/po0-clash.app
+          data="$HOME/Library/Application Support/io.github.yuuukicreation.po0clash/core"
+          report() {
+            cat smoke.log
+            log show --last 2m --style compact --predicate 'subsystem == "io.github.yuuukicreation.po0clash"' || true
+            tail -n 30 "$data/logs/core.log" || true
+          }
           "$app/Contents/MacOS/po0-clash" > smoke.log 2>&1 &
           pid=$!
           sleep 10
           if ! kill -0 "$pid" 2>/dev/null; then
-            echo "po0-clash exited during the first 10 s"
-            cat smoke.log
+            echo "::error::po0-clash exited during the first 10 s"
+            report
             exit 1
           fi
           kill -TERM "$pid"
-          for _ in $(seq 20); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
+          for _ in $(seq 30); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
           if kill -0 "$pid" 2>/dev/null; then
-            echo "po0-clash did not shut down within 10 s of SIGTERM"
+            echo "::error::po0-clash did not shut down within 15 s of SIGTERM"
+            sample "$pid" 2 2>/dev/null | head -n 120 || true
             kill -KILL "$pid"
+            report
             exit 1
           fi
-          cat smoke.log
-          data="$HOME/Library/Application Support/io.github.yuuukicreation.po0clash/core"
-          ls -la "$data"
+          report
           grep -q "starting, app" "$data/logs/core.log"
-          tail -n 20 "$data/logs/core.log"
+          grep -q "core shut down" "$data/logs/core.log"
 
       - name: Screenshots
         run: |

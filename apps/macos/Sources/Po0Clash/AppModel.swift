@@ -48,16 +48,19 @@ final class AppModel: ObservableObject {
                 }
                 let client = try await CoreClient.open(options, listener: forwarder)
                 self.client = client
+                logger.notice("core ready")
                 await refreshAll()
                 await adoptInstalledTunEngine()
                 network.start { Task { try? await client.networkChanged() } }
             } catch {
                 launchError = describe(error)
+                logger.error("core failed to start: \(self.launchError ?? "", privacy: .public)")
             }
         }
     }
 
     func shutdown(then done: @escaping () -> Void) {
+        logger.notice("shutting down")
         network.stop()
         trafficTimer?.invalidate()
         guard let client else { return done() }
@@ -65,6 +68,7 @@ final class AppModel: ObservableObject {
         let finish = {
             guard !finished else { return }
             finished = true
+            logger.notice("shutdown finished")
             done()
         }
         client.shutdown(then: finish)
