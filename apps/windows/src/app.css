@@ -52,7 +52,6 @@ body {
   margin: 0;
   background: var(--bg);
   user-select: none;
-  overflow-y: scroll;
 }
 
 button,
