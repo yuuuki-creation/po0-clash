@@ -17,25 +17,31 @@ Flutter 版的目录（`lib`、`android`、`macos`、`windows`、`core`、`plugi
 
 ## 共享内核
 
-`crates/core` 只做六件事，接口用普通 Rust 类型，UniFFI 和 Tauri 命令只做转换：
+`crates/core` 只做六件事。所有状态由内核持有，设置文件只由内核读写，界面只通过内核接口操作；接口用普通 Rust 类型，
+UniFFI 和 Tauri 命令只做转换：
 
 1. **设置**：一个 JSON 文件加一个订阅目录，不用数据库。
 2. **订阅**：按 URL 下载，读取流量与到期信息，定时更新。
 3. **节点导入**：粘贴的分享链接存成本地文件，作为 `file` 类型的 proxy-provider 交给 mihomo 解析。实施前先确认 mihomo
    能直接读 V2RayN 格式的链接列表；读不了再在内核里转换。
-4. **配置生成**：订阅加少量固定覆盖，包括端口、虚拟网卡或系统代理、DNS 默认值、po0 直连规则与 `po0-direct` 入口。
-   不提供规则编辑和覆写。
+4. **配置生成**：订阅加少量固定覆盖，包括端口、虚拟网卡或系统代理、po0 直连规则与 `po0-direct` 入口。DNS 沿用订阅里的
+   设置，订阅没写时才用内置默认值。不提供规则编辑和覆写。
 5. **加白**：po0 与 ggy 的请求和调度。请求部分直接用 PR #26 已完成的 Rust 传输层（ureq + rustls，只走 IPv4）。
 6. **引擎控制**：桌面端启动、停止、重载 mihomo 进程；通过 external-controller 读策略组、切换节点、测延迟、读流量；
-   mihomo 的 stderr 和内核自身的错误写入滚动日志文件。
+   mihomo 的 stderr 和内核自身的错误写入滚动日志文件。引擎意外退出时只报错并写日志，界面给一个「重新连接」按钮，
+   不自动重启。
 
 ## 引擎运行方式
 
 | 平台 | 运行方式 | external-controller |
 |---|---|---|
-| macOS | mihomo 二进制设 setuid root，沿用现在的授权方式，以支持虚拟网卡 | Unix 套接字 |
-| Windows | 虚拟网卡模式由 Rust helper 服务以 SYSTEM 启动；系统代理模式由应用直接启动 | 命名管道 |
-| Android | VpnService 建立 TUN，mihomo 以库的形式在同一进程运行 | 应用私有目录下的 Unix 套接字 |
+| macOS | 界面和内核在同一个进程；mihomo 是子进程，二进制设 setuid root，首次使用时授权一次，以支持虚拟网卡 | Unix 套接字 |
+| Windows | 应用以管理员身份运行，两种模式都由应用直接启动 mihomo | 命名管道 |
+| Android | 界面、内核和 VpnService 在同一个进程；VpnService 建立 TUN，mihomo 编成 Go 库在进程内运行，外面只包一层很薄的 JNI | 应用私有目录下的 Unix 套接字 |
+
+- 桌面端没有单独的后台服务，菜单栏和托盘应用本身就常驻。Flutter 版的 Rust helper 服务不再需要。
+- Windows 每次启动都会弹出 UAC 提示；开机自启用计划任务的「使用最高权限运行」，登录时不弹窗。
+- Android 用单进程换最简单的结构，代价是界面进程崩溃时 VPN 也会断开。
 
 ## 功能范围
 
@@ -71,7 +77,7 @@ Flutter 版的目录（`lib`、`android`、`macos`、`windows`、`core`、`plugi
 ## 不变的约束
 
 - 应用 ID `io.github.yuuukicreation.po0clash`、已提交的 Android 签名密钥和递增的 versionCode 都保留，老用户可以覆盖升级。
-- 首次启动时从 Flutter 版的数据目录导入订阅和加白 token。drift 数据库就是 SQLite，内核可以直接读。
+- 首次启动时从 Flutter 版的数据目录只导入订阅和加白 token，其它设置不迁移。drift 数据库就是 SQLite，内核可以直接读。
 - 加白请求走物理出口的三层保证（ADR 0001、0012）：直连规则与 `route-exclude-address`、Android VPN 路由拆分、内核运行时走
   `po0-direct` 入口。
 - 匿名：提交与发布都用 yuuuki-creation，不申请实名开发者账号。
