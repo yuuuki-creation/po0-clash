@@ -115,7 +115,11 @@ await invoke('set_route_mode', { routeMode: 'systemProxy' });
 await invoke('start');
 await waitFor('running');
 check(proxyEnabled(), 'system proxy set while running');
-const groups = await invoke('groups');
+let groups = [];
+for (let i = 0; i < 20 && !groups.length; i++) {
+  groups = await invoke('groups');
+  if (!groups.length) await sleep(500);
+}
 check(groups.length > 0, `engine reports ${groups.length} groups`);
 if (probes[0]) check(fetchThroughSystemProxy(probes[0]) === '200', `fetched ${probes[0]} through the system proxy`);
 console.log('traffic', JSON.stringify(await invoke('traffic')));
