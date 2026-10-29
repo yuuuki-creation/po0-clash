@@ -93,8 +93,17 @@ UniFFI 和 Tauri 命令只做转换：
 
 ## 构建与测试
 
-不在本机编译。
+不在本机编译。三台构建机各管一端，工具链由 `/etc/profile.d/po0-native.sh` 加载，每个任务用自己的 `/srv/build/po0-<任务名>` 目录：
 
-- Rust 内核：在构建机 NL 上跑 `cargo fmt`、`clippy`、`test`，再用真实的 mihomo 进程做集成测试。
-- Android：在 NL 上用 Gradle 构建，并在模拟器上测试。
-- macOS 与 Windows：由 GitHub Actions 的对应 runner 构建和测试。
+| 机器 | 用途 |
+|---|---|
+| `nobrand-tokyo-perf` | Rust 内核：`cargo fmt`、`clippy`、`test`，以及真实 mihomo 的集成测试 |
+| `hostdzire-nl` | Android：cargo-ndk、Gradle 构建，KVM 模拟器（AVD `po0-api35`）上测试 |
+| `contabo-fr` | Windows：cargo-xwin 交叉编译与 NSIS 打包 |
+
+- macOS 只能在 macOS 上编译，由 GitHub Actions 的 macOS runner 构建和测试；Windows 的运行时测试同样在 Actions 上做。
+- 内核的集成测试默认跳过，需要一个 mihomo 可执行文件：
+  `MIHOMO_BIN=<mihomo> cargo test -p po0-core -- --ignored engine`。它在本地起一个 shadowsocks 入口当节点，覆盖启动、
+  策略组、延迟测试、出口 IP、模式切换、热重载、选节点、崩溃检测与重启。
+- UniFFI 绑定从未裁剪的宿主库生成（发版库会去掉元数据）：`cargo build -p po0-ffi`，再运行
+  `cargo run -p po0-ffi --features cli --bin uniffi-bindgen -- generate --library target/debug/libpo0_ffi.<so|dylib> --language <kotlin|swift> --out-dir <目录>`。
