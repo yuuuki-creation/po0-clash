@@ -76,7 +76,11 @@ jobs:
           & "$dir\mihomo.exe" -v
           if ($LASTEXITCODE -ne 0) { throw 'mihomo.exe does not run' }
 
+          # The UAC launch builds the app's environment from the registry, not from this shell.
+          [Environment]::SetEnvironmentVariable('WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS', '--remote-debugging-port=9222', 'User')
           $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9222'
+          $elevated = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole('Administrators')
+          "runner shell elevated: $elevated"
           $app = Start-Process -FilePath "$dir\po0-clash.exe" -PassThru
           Start-Sleep -Seconds 10
           try {
