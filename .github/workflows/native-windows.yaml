@@ -78,7 +78,9 @@ jobs:
           & "$dir\mihomo.exe" -v
           if ($LASTEXITCODE -ne 0) { throw 'mihomo.exe does not run' }
 
-          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9222'
+          $policy = 'HKCU:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'
+          New-Item -Path $policy -Force | Out-Null
+          New-ItemProperty -Path $policy -Name 'po0-clash.exe' -Value '--remote-debugging-port=9222' -Force | Out-Null
           $app = Start-Process -FilePath "$dir\po0-clash.exe" -PassThru
           Start-Sleep -Seconds 10
           try {
