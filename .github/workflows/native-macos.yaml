@@ -129,11 +129,10 @@ jobs:
           shoot menu-zh 15 "${login[@]}" -AppleLanguages '(zh-Hans)'
           for tab in general subscriptions whitelist; do shoot "settings-$tab" 6 -showSettings "$tab"; done
           shoot settings-subscriptions-zh 6 -showSettings subscriptions -AppleLanguages '(zh-Hans)'
-          defaults write -g AppleInterfaceStyle Dark
-          shoot menu-dark 15 "${login[@]}"
-          shoot settings-subscriptions-dark 6 -showSettings subscriptions
-          shoot settings-whitelist-dark 6 -showSettings whitelist
-          defaults delete -g AppleInterfaceStyle
+          # The runner's system appearance cannot be switched, so the app forces its own.
+          shoot menu-dark 15 "${login[@]}" -appearance dark
+          shoot settings-subscriptions-dark 6 -showSettings subscriptions -appearance dark
+          shoot settings-whitelist-dark 6 -showSettings whitelist -appearance dark
 
       - name: Upload screenshots
         uses: actions/upload-artifact@v4

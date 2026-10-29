@@ -5,6 +5,7 @@ import AppKit
 enum Showcase {
     static func run() {
         let defaults = UserDefaults.standard
+        if defaults.string(forKey: "appearance") == "dark" { NSApp.appearance = NSAppearance(named: .darkAqua) }
         Task {
             if defaults.bool(forKey: "testDelays") { await testDelays() }
             if let name = defaults.string(forKey: "showSettings") {
