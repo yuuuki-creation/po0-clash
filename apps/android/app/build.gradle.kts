@@ -89,7 +89,7 @@ android {
         minSdk = minApi
         targetSdk = 36
         versionCode = baseVersionCode
-        versionName = "7.0.0-alpha1"
+        versionName = "7.0.0-beta.1"
     }
 
     signingConfigs {
