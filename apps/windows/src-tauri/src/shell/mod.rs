@@ -100,9 +100,16 @@ pub fn run() {
             app.manage(Backdrop(window_vibrancy::apply_mica(&window, None).is_ok()));
             tray::create(handle)?;
             core.set_listener(Arc::new(Bridge(handle.clone())));
-            netwatch::spawn(core);
+            netwatch::spawn(Arc::clone(&core));
             if !autostarted {
                 show_window(handle);
+            } else if core.was_connected() {
+                let handle = handle.clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    if let Err(e) = core.start(None) {
+                        let _ = handle.emit("shell-error", e.to_string());
+                    }
+                });
             }
             Ok(())
         })
