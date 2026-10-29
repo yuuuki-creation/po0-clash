@@ -187,6 +187,51 @@ fn a_subscription_without_content_is_downloaded_before_starting() {
 }
 
 #[test]
+fn settings_and_whitelist_results_survive_a_restart() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    assert!(
+        dir.join("core/settings.json").exists(),
+        "written on first run"
+    );
+    let entry = core
+        .add_whitelist_entries("pgnfw_persisted01".into(), String::new())
+        .unwrap()
+        .remove(0);
+    core.shutdown();
+    let result = WhitelistResult {
+        outcome: WhitelistOutcome::Applied,
+        ip: Some("1.2.3.4".into()),
+        message: None,
+        at: 1,
+    };
+    fs::write(
+        dir.join("core/whitelist-results.json"),
+        serde_json::to_vec(&std::collections::HashMap::from([(
+            entry.id.clone(),
+            result.clone(),
+        )]))
+        .unwrap(),
+    )
+    .unwrap();
+    let reopened = Core::new(options(&dir)).unwrap();
+    assert_eq!(reopened.whitelist().entries[0].result, Some(result));
+    assert!(!reopened.was_connected());
+    reopened.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn only_a_setuid_root_binary_is_privileged() {
+    let dir = temp_dir();
+    let binary = dir.join("mihomo");
+    fs::write(&binary, "").unwrap();
+    assert!(!engine::is_privileged(&binary));
+    assert!(!engine::is_privileged(&dir.join("missing")));
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn starting_without_a_profile_fails_cleanly() {
     let dir = temp_dir();
     let core = Core::new(options(&dir)).unwrap();
@@ -272,7 +317,7 @@ fn engine_runs_a_real_mihomo() {
     assert_eq!(core.status().current_node.as_deref(), Some("second"));
 
     let pid: u32 =
-        serde_json::from_slice::<Value>(&fs::read(dir.join("core/mihomo/session.json")).unwrap())
+        serde_json::from_slice::<Value>(&fs::read(dir.join("core/run/session.json")).unwrap())
             .unwrap()["pid"]
             .as_u64()
             .unwrap() as u32;
@@ -286,9 +331,15 @@ fn engine_runs_a_real_mihomo() {
 
     core.start(None).unwrap();
     assert_eq!(core.status().engine, EngineState::Running);
-    core.stop();
-    assert_eq!(core.status().engine, EngineState::Stopped);
+    assert!(core.was_connected());
     core.shutdown();
+    let reopened = Core::new(options(&dir)).unwrap();
+    assert!(reopened.was_connected(), "quitting keeps the intent");
+    reopened.start(None).unwrap();
+    reopened.stop();
+    assert_eq!(reopened.status().engine, EngineState::Stopped);
+    assert!(!reopened.was_connected());
+    reopened.shutdown();
     server.kill().unwrap();
     server.wait().unwrap();
     fs::remove_dir_all(dir).unwrap();

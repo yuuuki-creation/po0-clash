@@ -34,6 +34,7 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 
 /// Fresh per start: the controller secret and the po0-direct login never outlive a session.
 pub struct Runtime {
+    pub home: PathBuf,
     pub controller: Controller,
     pub direct: DirectListener,
     pub mixed_port: u16,
@@ -61,8 +62,14 @@ fn socket_path(run_dir: &Path) -> PathBuf {
 }
 
 impl Runtime {
-    pub fn new(platform: Platform, run_dir: &Path, tun_fd: Option<i32>) -> io::Result<Self> {
+    pub fn new(
+        platform: Platform,
+        run_dir: &Path,
+        home: PathBuf,
+        tun_fd: Option<i32>,
+    ) -> io::Result<Self> {
         fs::create_dir_all(run_dir)?;
+        fs::create_dir_all(&home)?;
         let endpoint = match platform {
             Platform::Windows => Endpoint::Pipe(format!(r"\\.\pipe\po0clash-{}", random_id())),
             Platform::MacOs | Platform::Android => Endpoint::Unix(socket_path(run_dir)),
@@ -72,6 +79,7 @@ impl Runtime {
             Err(_) => free_port()?,
         };
         Ok(Self {
+            home,
             controller: Controller::new(endpoint, random_secret(32)),
             direct: DirectListener {
                 port: free_port()?,
@@ -254,12 +262,12 @@ impl Session {
     }
 
     /// Everything but the runner's own shutdown, which differs between a stop and a crash.
-    pub fn release(&self, home: &Path) {
+    pub fn release(&self, run_dir: &Path) {
         self.traffic.stop();
         if self.system_proxy.swap(false, Ordering::SeqCst) {
             sysproxy::clear(self.runtime.mixed_port);
         }
-        clear_record(home);
+        clear_record(run_dir);
     }
 }
 
@@ -306,11 +314,11 @@ struct Record {
     system_proxy: bool,
 }
 
-fn record_path(home: &Path) -> PathBuf {
-    home.join("session.json")
+fn record_path(run_dir: &Path) -> PathBuf {
+    run_dir.join("session.json")
 }
 
-pub fn save_record(home: &Path, session: &Session) {
+pub fn save_record(run_dir: &Path, session: &Session) {
     let record = Record {
         pid: session.runner.pid(),
         endpoint: session.runtime.controller.endpoint.describe(),
@@ -318,16 +326,16 @@ pub fn save_record(home: &Path, session: &Session) {
         system_proxy: session.system_proxy.load(Ordering::SeqCst),
     };
     if let Ok(json) = serde_json::to_vec(&record) {
-        let _ = util::write_atomic(&record_path(home), &json);
+        let _ = util::write_atomic(&record_path(run_dir), &json);
     }
 }
 
-pub fn clear_record(home: &Path) {
-    let _ = fs::remove_file(record_path(home));
+pub fn clear_record(run_dir: &Path) {
+    let _ = fs::remove_file(record_path(run_dir));
 }
 
-pub fn recover(home: &Path) {
-    let Some(record) = fs::read(record_path(home))
+pub fn recover(run_dir: &Path) {
+    let Some(record) = fs::read(record_path(run_dir))
         .ok()
         .and_then(|bytes| serde_json::from_slice::<Record>(&bytes).ok())
     else {
@@ -343,5 +351,18 @@ pub fn recover(home: &Path) {
             process::kill_stale(pid);
         }
     }
-    clear_record(home);
+    clear_record(run_dir);
+}
+
+pub fn is_privileged(binary: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        fs::metadata(binary).is_ok_and(|meta| meta.uid() == 0 && meta.mode() & 0o4000 != 0)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = binary;
+        false
+    }
 }

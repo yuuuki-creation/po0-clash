@@ -17,6 +17,7 @@ pub struct Settings {
     pub current_profile: Option<String>,
     pub profiles: Vec<ProfileRecord>,
     pub whitelist: WhitelistSettings,
+    pub connected: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -93,6 +94,11 @@ impl Store {
 
     pub fn read<T>(&self, f: impl FnOnce(&Settings) -> T) -> T {
         f(&self.lock())
+    }
+
+    pub fn save(&self) -> Result<()> {
+        let json = serde_json::to_vec_pretty(&*self.lock()).expect("settings serialize");
+        Ok(util::write_atomic(&self.path, &json)?)
     }
 
     pub fn update<T>(&self, f: impl FnOnce(&mut Settings) -> Result<T>) -> Result<T> {

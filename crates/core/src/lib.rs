@@ -72,6 +72,17 @@ impl Paths {
     fn links(&self, id: &str) -> PathBuf {
         self.profiles.join(format!("{id}.txt"))
     }
+
+    /// A setuid-root mihomo leaves root-owned files behind, which an unprivileged one could not
+    /// write, so the two never share a home. Share-link files sit in the home's root because
+    /// mihomo may create `providers/` as root.
+    fn home_for(&self, binary: Option<&Path>) -> PathBuf {
+        if binary.is_some_and(engine::is_privileged) {
+            self.home.with_file_name("mihomo-root")
+        } else {
+            self.home.clone()
+        }
+    }
 }
 
 struct Updater {
@@ -120,8 +131,9 @@ impl Core {
         let (store, existed) = Store::open(data_dir.join("settings.json"));
         if !existed {
             import_legacy(&store, &paths, &options);
+            store.save()?;
         }
-        engine::recover(&paths.home);
+        engine::recover(&paths.run);
         let whitelist_settings = store.read(|s| s.whitelist.clone());
         let core = Arc::new_cyclic(|me: &Weak<Core>| {
             let (route_core, notify_core) = (me.clone(), me.clone());
@@ -134,6 +146,7 @@ impl Core {
                 engine: Engine::default(),
                 whitelist: Whitelist::start(
                     whitelist_settings,
+                    data_dir.join("whitelist-results.json"),
                     Box::new(move || {
                         route_core
                             .upgrade()
@@ -243,6 +256,7 @@ impl Core {
             Ok(()) => {
                 self.engine.set_state(EngineState::Running);
                 logfile::info("engine running");
+                self.set_connected(true);
                 Ok(())
             }
             Err(error) => {
@@ -260,8 +274,10 @@ impl Core {
             .current()
             .cloned()
             .ok_or_else(|| CoreError::Invalid("add a subscription first".into()))?;
-        engine::recover(&self.paths.home);
-        let runtime = Runtime::new(self.platform, &self.paths.run, tun_fd)?;
+        engine::recover(&self.paths.run);
+        let binary = lock(&self.mihomo_path).clone();
+        let home = self.paths.home_for(binary.as_deref());
+        let runtime = Runtime::new(self.platform, &self.paths.run, home, tun_fd)?;
         let missing =
             !self.paths.yaml(&profile.id).exists() && !self.paths.links(&profile.id).exists();
         if missing && profile.url.is_some() {
@@ -269,13 +285,7 @@ impl Core {
             self.emit(&[Change::Profiles]);
         }
         let config = self.write_config(&profile, &settings, &runtime)?;
-        let binary = lock(&self.mihomo_path).clone();
-        let runner = engine::launch(
-            binary.as_deref(),
-            &self.paths.home,
-            &config,
-            &self.mihomo_log,
-        )?;
+        let runner = engine::launch(binary.as_deref(), &runtime.home, &config, &self.mihomo_log)?;
         let session = Arc::new(Session::new(runtime, runner, self.engine.next_generation()));
         let ready = engine::wait_ready(session.controller(), &session.runner, &self.mihomo_log)
             .and_then(|()| {
@@ -291,11 +301,11 @@ impl Core {
                 Ok(())
             });
         if let Err(error) = ready {
-            session.release(&self.paths.home);
+            session.release(&self.paths.run);
             session.runner.stop();
             return Err(error);
         }
-        engine::save_record(&self.paths.home, &session);
+        engine::save_record(&self.paths.run, &session);
         session.start_traffic();
         self.engine.install(session.clone());
         self.refresh_current_node(&session, settings.mode);
@@ -339,7 +349,7 @@ impl Core {
                 return;
             }
             self.engine.take();
-            session.release(&self.paths.home);
+            session.release(&self.paths.run);
             let message = format!(
                 "mihomo exited ({status}): {}",
                 engine::last_lines(&self.mihomo_log, 3)
@@ -350,7 +360,25 @@ impl Core {
         self.emit(&[Change::Status, Change::Groups]);
     }
 
+    /// The user's own stop; quitting the app goes through `shutdown`, which keeps the intent.
     pub fn stop(&self) {
+        self.stop_engine();
+        self.set_connected(false);
+    }
+
+    /// Whether the user left the proxy connected, so an app launched at login can reconnect.
+    pub fn was_connected(&self) -> bool {
+        self.store.read(|s| s.connected)
+    }
+
+    fn set_connected(&self, connected: bool) {
+        let _ = self.store.update(|s| {
+            s.connected = connected;
+            Ok(())
+        });
+    }
+
+    fn stop_engine(&self) {
         {
             let _ops = lock(&self.engine.ops);
             if let Some(session) = self.engine.take() {
@@ -364,7 +392,7 @@ impl Core {
 
     fn teardown(&self, session: &Session) {
         self.engine.take();
-        session.release(&self.paths.home);
+        session.release(&self.paths.run);
         session.runner.stop();
     }
 
@@ -424,9 +452,9 @@ impl Core {
         let base = if let Ok(yaml) = fs::read_to_string(self.paths.yaml(&profile.id)) {
             yaml
         } else if let Ok(links) = fs::read_to_string(self.paths.links(&profile.id)) {
-            let relative = format!("providers/po0-links-{}.txt", profile.id);
-            util::write_atomic(&self.paths.home.join(&relative), links.as_bytes())?;
-            config::links_base(&format!("./{relative}"))
+            let name = format!("po0-links-{}.txt", profile.id);
+            util::write_atomic(&runtime.home.join(&name), links.as_bytes())?;
+            config::links_base(&format!("./{name}"))
         } else {
             return Err(CoreError::Invalid(format!(
                 "{} has not been downloaded yet",
@@ -446,7 +474,7 @@ impl Core {
                 direct: &runtime.direct,
             },
         )?;
-        let path = self.paths.home.join("config.yaml");
+        let path = runtime.home.join("config.yaml");
         util::write_atomic(&path, rendered.as_bytes())?;
         Ok(path)
     }
@@ -950,11 +978,13 @@ impl Core {
     }
 
     pub fn network_changed(&self) {
+        logfile::info("network changed");
         self.whitelist.network_changed();
         self.emit(&[Change::Status]);
     }
 
     pub fn set_active(&self, active: bool) {
+        logfile::info(if active { "active" } else { "inactive" });
         self.whitelist.set_active(active);
     }
 
@@ -963,7 +993,7 @@ impl Core {
     pub fn export_diagnostics(&self, path: PathBuf) -> Result<()> {
         let settings = self.store.get();
         let mut text = format!(
-            "po0-clash diagnostics\napp {} / core {} / {:?} / {} {}\ngenerated {}\nengine {:?}, mode {:?}, route {:?}\n",
+            "po0-clash diagnostics\napp {} / core {} / {:?} / {} {}\ngenerated {}\nengine {:?}, mode {:?}, route {}\n",
             self.app_version,
             env!("CARGO_PKG_VERSION"),
             self.platform,
@@ -972,7 +1002,11 @@ impl Core {
             util::now(),
             self.engine.state(),
             settings.mode,
-            settings.route_mode,
+            if self.platform == Platform::Android {
+                "VPN".to_owned()
+            } else {
+                format!("{:?}", settings.route_mode)
+            },
         );
         text.push_str("\nprofiles:\n");
         for profile in &settings.profiles {
@@ -1026,7 +1060,7 @@ impl Core {
     }
 
     pub fn shutdown(&self) {
-        self.stop();
+        self.stop_engine();
         self.whitelist.stop();
         *lock(&self.updater.stopped) = true;
         self.updater.signal.notify_all();
