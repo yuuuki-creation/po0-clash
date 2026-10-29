@@ -85,3 +85,6 @@ devtools_options.yaml
 .fvm/
 .fvmrc
 /coverage/lcov.info
+
+# Native apps (Rust workspace)
+/target/

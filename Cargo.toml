@@ -1,0 +1,15 @@
+[workspace]
+resolver = "3"
+members = ["crates/core", "crates/ffi"]
+exclude = ["plugins/rust_api/rust", "services/helper"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true

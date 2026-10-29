@@ -1,0 +1,8 @@
+[bindings.kotlin]
+package_name = "io.github.yuuukicreation.po0clash.core"
+cdylib_name = "po0_ffi"
+
+[bindings.swift]
+module_name = "Po0FFI"
+ffi_module_name = "Po0FFIFFI"
+ffi_module_filename = "Po0FFIFFI"
