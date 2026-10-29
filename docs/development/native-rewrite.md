@@ -68,11 +68,16 @@ UniFFI 和 Tauri 命令只做转换：
 
 ## 界面
 
-各端从零设计，不参照 Flutter 版的页面结构和样式：
+各端从零设计，不参照 Flutter 版的页面结构和样式。三端都按苹果液态玻璃（Liquid Glass）的规范来做，而且要克制：
+玻璃只用在浮动的控件层（导航栏、分段控件、连接按钮、工具栏、弹窗），内容区是不透明的分组列表；背景用中性色，
+强调色用系统蓝，状态用苹果系统色，图标单色；不加彩色背景、渐变和发光。
 
-- **macOS**：以菜单栏为主（`MenuBarExtra`），另有一个设置窗口。用系统原生控件；macOS 26 上用液态玻璃，更早的系统用系统默认外观。
-- **Windows**：托盘加一个小窗口。Web 界面用轻量框架（倾向 Svelte），不引入组件库。
-- **Android**：一个主屏加一个设置页，Material 3。
+- **macOS**：以菜单栏为主（`MenuBarExtra`），另有一个设置窗口。用 macOS 26 SDK 编译，系统控件自带液态玻璃，只在浮动控件上
+  另加 `glassEffect`；更早的系统用系统默认外观。
+- **Windows**：托盘加一个小窗口。Web 界面用轻量框架（倾向 Svelte），不引入组件库。窗口背景用 Mica（退回 Acrylic），浮动控件
+  用 `backdrop-filter` 模仿玻璃。
+- **Android**：一个主屏加一个设置页。以 Material 3 组件为底，按上面的规范改样式，不用动态取色；API 31 起浮动控件做背景模糊，
+  更早的系统只用半透明底色。
 
 ## 不变的约束
 
@@ -81,6 +86,8 @@ UniFFI 和 Tauri 命令只做转换：
 - 加白请求走物理出口的三层保证（ADR 0001、0012）：直连规则与 `route-exclude-address`、Android VPN 路由拆分、内核运行时走
   `po0-direct` 入口。
 - 匿名：提交与发布都用 yuuuki-creation，不申请实名开发者账号。
+
+进度记录在 [native-progress.md](native-progress.md)。
 
 ## 顺序
 
@@ -97,11 +104,12 @@ UniFFI 和 Tauri 命令只做转换：
 
 | 机器 | 用途 |
 |---|---|
-| `nobrand-tokyo-perf` | Rust 内核：`cargo fmt`、`clippy`、`test`，以及真实 mihomo 的集成测试 |
+| `contabo-fr` | Rust 内核：`cargo fmt`、`clippy`、`test`，以及真实 mihomo 的集成测试 |
+| `nobrand-tokyo-perf` | Windows：cargo-xwin 交叉编译与 NSIS 打包；KVM 上的 Windows 测试虚拟机做安装与运行测试 |
 | `hostdzire-nl` | Android：cargo-ndk、Gradle 构建，KVM 模拟器（AVD `po0-api35`）上测试 |
-| `contabo-fr` | Windows：cargo-xwin 交叉编译与 NSIS 打包 |
 
-- macOS 只能在 macOS 上编译，由 GitHub Actions 的 macOS runner 构建和测试；Windows 的运行时测试同样在 Actions 上做。
+- Android 和 Windows 的编译与测试都在构建机上做，不依赖 GitHub Actions；Actions 只负责 macOS，因为 macOS 只能在苹果硬件上
+  编译。Windows 的 Actions 工作流只保留手动触发，作为发版前的补充检查。
 - 内核的集成测试默认跳过，需要一个 mihomo 可执行文件：
   `MIHOMO_BIN=<mihomo> cargo test -p po0-core -- --ignored engine`。它在本地起一个 shadowsocks 入口当节点，覆盖启动、
   策略组、延迟测试、出口 IP、模式切换、热重载、选节点、崩溃检测与重启。
