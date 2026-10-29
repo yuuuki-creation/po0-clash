@@ -45,6 +45,59 @@ struct MenuView: View {
         .frame(width: 340)
         .onAppear { model.menuAppeared() }
         .onDisappear { model.menuDisappeared() }
+        .background(PanelVisibility { visible in
+            if visible {
+                model.menuAppeared()
+            } else {
+                model.menuDisappeared()
+            }
+        })
+    }
+}
+
+/// macOS 13 and 14 do not call onAppear/onDisappear every time the MenuBarExtra panel opens and closes, but the
+/// panel window's occlusion state always changes.
+private struct PanelVisibility: NSViewRepresentable {
+    let onChange: @MainActor (Bool) -> Void
+
+    func makeNSView(context: Context) -> Probe {
+        Probe(onChange: onChange)
+    }
+
+    func updateNSView(_ probe: Probe, context: Context) {
+        probe.onChange = onChange
+    }
+
+    final class Probe: NSView {
+        var onChange: @MainActor (Bool) -> Void
+        private var observer: NSObjectProtocol?
+
+        init(onChange: @escaping @MainActor (Bool) -> Void) {
+            self.onChange = onChange
+            super.init(frame: .zero)
+        }
+
+        required init?(coder: NSCoder) {
+            nil
+        }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+            observer = nil
+            guard let window else { return }
+            observer = NotificationCenter.default.addObserver(
+                forName: NSWindow.didChangeOcclusionStateNotification, object: window, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in self?.report() }
+            }
+            report()
+        }
+
+        private func report() {
+            guard let window else { return }
+            onChange(window.occlusionState.contains(.visible))
+        }
     }
 }
 

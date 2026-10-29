@@ -262,6 +262,7 @@ final class AppModel: ObservableObject {
     // MARK: Menu visibility
 
     func menuAppeared() {
+        guard !menuVisible else { return }
         menuVisible = true
         updateTrafficTimer()
         Task { await refreshGroups() }
@@ -269,6 +270,7 @@ final class AppModel: ObservableObject {
     }
 
     func menuDisappeared() {
+        guard menuVisible else { return }
         menuVisible = false
         updateTrafficTimer()
     }
