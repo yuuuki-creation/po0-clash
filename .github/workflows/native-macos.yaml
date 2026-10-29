@@ -1,0 +1,148 @@
+name: native-macos
+
+on:
+  push:
+    branches:
+      - 'native*'
+    paths:
+      - 'apps/macos/**'
+      - 'crates/**'
+      - 'mihomo/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/native-macos.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      ARCHS: arm64 x86_64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Only the pinned engine; core/Clash.Meta belongs to the Flutter app.
+      - name: Checkout mihomo
+        run: git submodule update --init --depth 1 mihomo/upstream
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: mihomo/upstream/go.sum
+
+      - name: Setup Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+
+      # Liquid Glass comes from building against the macOS 26 SDK.
+      - name: Toolchain versions
+        run: |
+          xcodebuild -version
+          swift --version
+          go version
+          sdk=$(xcrun --sdk macosx --show-sdk-version)
+          [ "${sdk%%.*}" -ge 26 ] || { echo "::error::macOS SDK $sdk is older than 26"; exit 1; }
+
+      - name: Test core
+        run: cargo test -p po0-core
+
+      - name: Build app
+        run: apps/macos/scripts/bundle.sh
+
+      - name: Test core with the darwin engine
+        run: MIHOMO_BIN="$PWD/apps/macos/.build/bundle/mihomo-arm64" cargo test -p po0-core -- --ignored engine
+
+      # Leaves a subscription, share links and whitelist results in the app's data dir and the node running.
+      - name: Real flow
+        run: apps/macos/scripts/e2e.sh
+
+      - name: Smoke launch
+        run: |
+          app=apps/macos/dist/po0-clash.app
+          data="$HOME/Library/Application Support/io.github.yuuukicreation.po0clash/core"
+          report() {
+            cat smoke.log
+            log show --last 2m --style compact --predicate 'subsystem == "io.github.yuuukicreation.po0clash"' || true
+            tail -n 30 "$data/logs/core.log" || true
+          }
+          "$app/Contents/MacOS/po0-clash" > smoke.log 2>&1 &
+          pid=$!
+          sleep 10
+          if ! kill -0 "$pid" 2>/dev/null; then
+            echo "::error::po0-clash exited during the first 10 s"
+            report
+            exit 1
+          fi
+          if scutil --proxy | grep -q "HTTPEnable : 1"; then
+            echo "::error::a normal launch connected without being asked"
+            exit 1
+          fi
+          kill -TERM "$pid"
+          for _ in $(seq 30); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
+          if kill -0 "$pid" 2>/dev/null; then
+            echo "::error::po0-clash did not shut down within 15 s of SIGTERM"
+            sample "$pid" 2 2>/dev/null | head -n 120 || true
+            kill -KILL "$pid"
+            report
+            exit 1
+          fi
+          report
+          grep -q "starting, app" "$data/logs/core.log"
+          grep -q "core shut down" "$data/logs/core.log"
+
+      - name: Screenshots
+        run: |
+          bin=apps/macos/dist/po0-clash.app/Contents/MacOS/po0-clash
+          mkdir -p shots
+          shoot() {
+            local name=$1 seconds=$2
+            shift 2
+            "$bin" "$@" > /dev/null 2>&1 &
+            local pid=$!
+            sleep "$seconds"
+            scutil --proxy > "$RUNNER_TEMP/$name-proxy.txt"
+            screencapture -x "shots/$name.png" || true
+            kill -TERM "$pid" 2>/dev/null || true
+            wait "$pid" || true
+          }
+          login=(-launchedAtLogin YES -testDelays YES -showMenu YES)
+          shoot menu 15 "${login[@]}"
+          if ! grep -q "HTTPEnable : 1" "$RUNNER_TEMP/menu-proxy.txt"; then
+            echo "::error::a launch at login did not reconnect"
+            exit 1
+          fi
+          shoot menu-zh 15 "${login[@]}" -AppleLanguages '(zh-Hans)'
+          for tab in general subscriptions whitelist; do shoot "settings-$tab" 6 -showSettings "$tab"; done
+          shoot settings-subscriptions-zh 6 -showSettings subscriptions -AppleLanguages '(zh-Hans)'
+          # The runner's system appearance cannot be switched, so the app forces its own.
+          shoot menu-dark 15 "${login[@]}" -appearance dark
+          shoot settings-subscriptions-dark 6 -showSettings subscriptions -appearance dark
+          shoot settings-whitelist-dark 6 -showSettings whitelist -appearance dark
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: shots
+
+      - name: Upload app
+        uses: actions/upload-artifact@v4
+        with:
+          name: po0-clash-macos
+          path: apps/macos/dist/po0-clash-macos.zip
+          if-no-files-found: error
