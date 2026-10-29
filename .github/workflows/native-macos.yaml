@@ -1,0 +1,260 @@
+name: native-macos
+
+on:
+  push:
+    branches:
+      - 'native*'
+    paths:
+      - 'apps/macos/**'
+      - 'crates/**'
+      - 'mihomo/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'scripts/install-macos-native.sh'
+      - '.github/workflows/native-macos.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      ARCHS: arm64 x86_64
+      WITH_E2E: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Only the pinned engine; core/Clash.Meta belongs to the Flutter app.
+      - name: Checkout mihomo
+        run: git submodule update --init --depth 1 mihomo/upstream
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: mihomo/upstream/go.sum
+
+      - name: Setup Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+
+      # Liquid Glass comes from building against the macOS 26 SDK.
+      - name: Toolchain versions
+        run: |
+          xcodebuild -version
+          swift --version
+          go version
+          sdk=$(xcrun --sdk macosx --show-sdk-version)
+          [ "${sdk%%.*}" -ge 26 ] || { echo "::error::macOS SDK $sdk is older than 26"; exit 1; }
+
+      - name: Test core
+        run: cargo test -p po0-core
+
+      - name: Build app
+        run: apps/macos/scripts/bundle.sh
+
+      - name: Test core with the darwin engine
+        run: MIHOMO_BIN="$PWD/apps/macos/.build/bundle/mihomo-arm64" cargo test -p po0-core -- --ignored engine
+
+      - name: Upload app
+        uses: actions/upload-artifact@v4
+        with:
+          name: po0-clash-macos
+          path: apps/macos/dist/po0-clash-macos.zip
+          if-no-files-found: error
+
+      - name: Upload checker
+        uses: actions/upload-artifact@v4
+        with:
+          name: po0-e2e
+          path: apps/macos/dist/po0-e2e
+          if-no-files-found: error
+
+  # The universal app on the newest system, an older Apple-silicon system and Intel. GitHub no longer offers macOS 13.
+  check:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, macos-14, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download app and checker
+        uses: actions/download-artifact@v4
+        with:
+          pattern: po0-*
+          path: dist
+          merge-multiple: true
+
+      - name: System
+        run: |
+          sw_vers
+          uname -m
+          chmod +x dist/po0-e2e
+
+      - name: Install over a stand-in Flutter build, then from a release
+        run: |
+          set -o pipefail
+          support="$HOME/Library/Application Support/io.github.yuuukicreation.po0clash"
+          old=/Applications/po0-clash.app
+          mkdir -p "$old/Contents/MacOS" "$support/profiles"
+          cp /bin/sleep "$old/Contents/MacOS/po0-clash"
+          cp /bin/sleep "$old/Contents/MacOS/Po0ClashCore"
+          plutil -convert xml1 -o "$old/Contents/Info.plist" - <<'EOF'
+          {"CFBundleIdentifier": "io.github.yuuukicreation.po0clash", "CFBundleExecutable": "po0-clash", "CFBundleShortVersionString": "6.4.4"}
+          EOF
+          "$old/Contents/MacOS/po0-clash" 600 &
+          "$old/Contents/MacOS/Po0ClashCore" 600 &
+          sqlite3 "$support/database.sqlite" \
+            "CREATE TABLE profiles (id INTEGER PRIMARY KEY, label TEXT NOT NULL, url TEXT NOT NULL, \"order\" INTEGER);
+             INSERT INTO profiles VALUES (7, 'Legacy sub', 'https://example.com/legacy.yaml', 0);"
+          printf 'proxies: []\n' > "$support/profiles/7.yaml"
+          defaults write io.github.yuuukicreation.po0clash flutter.config -string \
+            '{"currentProfileId":7,"po0FirewallProps":{"enable":false,"tokenEntries":[{"token":"pgnfw_legacy0000000000","name":"legacy"}],"ggyEntries":[],"pollSeconds":5}}'
+
+          scripts/install-macos-native.sh "$PWD/dist/po0-clash-macos.zip"
+
+          if pgrep -x Po0ClashCore; then echo "::error::the Flutter engine is still running"; exit 1; fi
+          test -x /Applications/po0-clash.app/Contents/MacOS/mihomo
+          settings="$support/core/settings.json"
+          for _ in $(seq 40); do grep -q pgnfw_legacy "$settings" 2>/dev/null && break; sleep 0.5; done
+          grep -q '"Legacy sub"' "$settings" || { cat "$settings" || true; echo "::error::subscriptions were not imported"; exit 1; }
+          grep -q pgnfw_legacy "$settings" || { echo "::error::whitelist tokens were not imported"; exit 1; }
+
+          # A stand-in for the GitHub API: a draft, a Flutter release and the native prerelease, newest first.
+          api="$RUNNER_TEMP/api"
+          releases="$api/repos/yuuuki-creation/po0-clash/releases"
+          mkdir -p "$releases/tags"
+          cp dist/po0-clash-macos.zip "$api/"
+          digest=$(shasum -a 256 dist/po0-clash-macos.zip | cut -d' ' -f1)
+          native='{"tag_name":"native-v7.0.0-beta.1","draft":false,"prerelease":true,"assets":[{"name":"po0-clash-macos.zip","url":"http://127.0.0.1:18400/po0-clash-macos.zip","digest":"sha256:'"$digest"'"}]}'
+          echo '[{"tag_name":"native-v7.0.0-beta.2","draft":true,"assets":[]},{"tag_name":"v6.4.4","draft":false,"assets":[]},'"$native"']' > "$releases/index.html"
+          echo "$native" > "$releases/tags/native-v7.0.0-beta.1"
+          python3 -m http.server 18400 --bind 127.0.0.1 --directory "$api" > /dev/null 2>&1 &
+          for _ in $(seq 20); do nc -z 127.0.0.1 18400 && break; sleep 0.2; done
+
+          reinstall() {
+            local before now log="$RUNNER_TEMP/install.log"
+            before=$(pgrep -x po0-clash)
+            PO0CLASH_API=http://127.0.0.1:18400 scripts/install-macos-native.sh "$@" | tee "$log"
+            grep -q "Downloading po0-clash native-v7.0.0-beta.1" "$log" || { echo "::error::picked the wrong release"; exit 1; }
+            grep -q "Checksum verified" "$log" || { echo "::error::the release digest was not checked"; exit 1; }
+            for _ in $(seq 20); do
+              now=$(pgrep -x po0-clash || true)
+              [ -n "$now" ] && [ "$now" != "$before" ] && return 0
+              sleep 0.5
+            done
+            echo "::error::reinstalling did not restart po0-clash"
+            exit 1
+          }
+          reinstall
+          reinstall 7.0.0-beta.1
+
+          pkill -TERM -x po0-clash
+          for _ in $(seq 30); do pgrep -x po0-clash >/dev/null || break; sleep 0.5; done
+          rm -rf "$support/core" "$support/database.sqlite" "$support/profiles"
+          defaults delete io.github.yuuukicreation.po0clash
+
+      - name: Real flow
+        run: PO0_APP=/Applications/po0-clash.app PO0_E2E_BIN="$PWD/dist/po0-e2e" apps/macos/scripts/e2e.sh
+
+      - name: Smoke launch
+        run: |
+          bin=/Applications/po0-clash.app/Contents/MacOS/po0-clash
+          data="$HOME/Library/Application Support/io.github.yuuukicreation.po0clash/core"
+          report() {
+            log show --last 3m --style compact --predicate 'subsystem == "io.github.yuuukicreation.po0clash"' || true
+            tail -n 30 "$data/logs/core.log" || true
+          }
+          "$bin" > /dev/null 2>&1 &
+          pid=$!
+          sleep 10
+          if ! kill -0 "$pid" 2>/dev/null; then
+            echo "::error::po0-clash exited during the first 10 s"
+            report
+            exit 1
+          fi
+          if scutil --proxy | grep -q "HTTPEnable : 1"; then
+            echo "::error::a normal launch connected without being asked"
+            exit 1
+          fi
+          kill -TERM "$pid"
+          for _ in $(seq 30); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
+          if kill -0 "$pid" 2>/dev/null; then
+            echo "::error::po0-clash did not shut down within 15 s of SIGTERM"
+            sample "$pid" 2 2>/dev/null | head -n 120 || true
+            kill -KILL "$pid"
+            report
+            exit 1
+          fi
+          report
+          grep -q "core shut down" "$data/logs/core.log"
+
+      - name: Menu refreshes on every opening
+        run: |
+          mkdir -p shots
+          /Applications/po0-clash.app/Contents/MacOS/po0-clash -showMenu YES -reopenMenu YES > /dev/null 2>&1 &
+          pid=$!
+          sleep 10
+          screencapture -x "shots/menu-reopened-${{ matrix.os }}.png" || true
+          kill -TERM "$pid"
+          wait "$pid" || true
+          shown=$(log show --last 1m --style compact \
+            --predicate 'subsystem == "io.github.yuuukicreation.po0clash" AND eventMessage == "menu panel shown"' |
+            grep -c "menu panel shown" || true)
+          echo "panel refreshed $shown times"
+          [ "$shown" -ge 2 ] || { echo "::error::opening the panel twice refreshed it $shown times"; exit 1; }
+
+      - name: Screenshots
+        if: matrix.os == 'macos-26'
+        run: |
+          bin=/Applications/po0-clash.app/Contents/MacOS/po0-clash
+          shoot() {
+            local name=$1 seconds=$2
+            shift 2
+            "$bin" "$@" > /dev/null 2>&1 &
+            local pid=$!
+            sleep "$seconds"
+            scutil --proxy > "$RUNNER_TEMP/$name-proxy.txt"
+            screencapture -x "shots/$name.png" || true
+            kill -TERM "$pid" 2>/dev/null || true
+            wait "$pid" || true
+          }
+          login=(-launchedAtLogin YES -testDelays YES -showMenu YES)
+          shoot menu 15 "${login[@]}"
+          if ! grep -q "HTTPEnable : 1" "$RUNNER_TEMP/menu-proxy.txt"; then
+            echo "::error::a launch at login did not reconnect"
+            exit 1
+          fi
+          shoot menu-zh 15 "${login[@]}" -AppleLanguages '(zh-Hans)'
+          for tab in general subscriptions whitelist; do shoot "settings-$tab" 6 -showSettings "$tab"; done
+          shoot settings-subscriptions-zh 6 -showSettings subscriptions -AppleLanguages '(zh-Hans)'
+          # The runner's system appearance cannot be switched, so the app forces its own.
+          shoot menu-dark 15 "${login[@]}" -appearance dark
+          shoot settings-subscriptions-dark 6 -showSettings subscriptions -appearance dark
+          shoot settings-whitelist-dark 6 -showSettings whitelist -appearance dark
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.os }}
+          path: shots
+          if-no-files-found: ignore

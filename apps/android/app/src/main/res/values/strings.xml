@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">po0-clash</string>
+    <string name="settings">Settings</string>
+    <string name="back">Back</string>
+    <string name="startup_failed">po0-clash could not start: %s</string>
+
+    <string name="state_stopped">Disconnected</string>
+    <string name="state_starting">Connecting…</string>
+    <string name="state_running">Connected</string>
+    <string name="state_failed">Connection failed</string>
+    <string name="reconnect">Reconnect</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="no_profile">No subscription selected</string>
+    <string name="node">Node</string>
+    <string name="exit_ip">Exit IP</string>
+    <string name="traffic">Speed</string>
+    <string name="rate">↑ %1$s/s  ↓ %2$s/s</string>
+    <string name="notification_channel">VPN status</string>
+    <string name="notification_channel_alerts">Connection problems</string>
+    <string name="notification_running">Connected · %s</string>
+    <string name="notification_failed">po0-clash could not connect</string>
+    <string name="error_vpn_permission">VPN permission was not granted</string>
+
+    <string name="empty_title">No subscription yet</string>
+    <string name="empty_body">Add a subscription or import share links to connect.</string>
+    <string name="empty_action">Open settings</string>
+
+    <string name="mode">Mode</string>
+    <string name="mode_rule">Rule</string>
+    <string name="mode_global">Global</string>
+    <string name="mode_direct">Direct</string>
+    <string name="groups">Proxy groups</string>
+    <string name="groups_unavailable">Connect to choose nodes.</string>
+    <string name="test_delay">Test</string>
+    <string name="delay_ms">%d ms</string>
+    <string name="delay_timeout">Timeout</string>
+
+    <string name="subscriptions">Subscriptions</string>
+    <string name="no_subscriptions">No subscriptions</string>
+    <string name="add_subscription">Add subscription</string>
+    <string name="subscription_url">Subscription URL</string>
+    <string name="import_links">Import share links</string>
+    <string name="share_links">Share links, one per line</string>
+    <string name="links_profile">Imported nodes</string>
+    <plurals name="imported_links">
+        <item quantity="one">Imported %d node</item>
+        <item quantity="other">Imported %d nodes</item>
+    </plurals>
+    <string name="usage">%1$s of %2$s used</string>
+    <string name="expires">Expires %s</string>
+    <string name="updated">Updated %s</string>
+    <string name="just_now">just now</string>
+    <string name="update">Update</string>
+    <string name="more">More</string>
+    <string name="delete">Delete</string>
+    <string name="delete_title">Delete “%s”?</string>
+    <string name="add">Add</string>
+    <string name="cancel">Cancel</string>
+
+    <string name="whitelist">Whitelist</string>
+    <string name="whitelist_enabled">Auto whitelist</string>
+    <string name="whitelist_hint">Keeps this device\'s exit IP on the po0 and ggy whitelists</string>
+    <string name="whitelist_add">Add whitelist entries</string>
+    <string name="whitelist_name">Name</string>
+    <string name="whitelist_text">po0 tokens or ggy links, one per line</string>
+    <string name="whitelist_now">Run now</string>
+    <string name="whitelist_pending">Not run yet</string>
+    <string name="outcome_applied">Whitelisted</string>
+    <string name="outcome_not_applied">Not whitelisted</string>
+    <string name="outcome_disabled">Off</string>
+    <string name="outcome_rejected">Rejected</string>
+    <string name="outcome_error">Failed</string>
+
+    <string name="diagnostics">Diagnostics</string>
+    <string name="export_diagnostics">Export diagnostic log</string>
+    <string name="export_diagnostics_hint">Saves the app and engine logs to a text file</string>
+    <string name="export_done">Diagnostic log exported</string>
+    <string name="about">About</string>
+    <string name="version">Version</string>
+</resources>

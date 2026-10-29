@@ -1,0 +1,104 @@
+import Foundation
+import Po0FFI
+
+private let controlQueue = DispatchQueue(label: "io.github.yuuukicreation.po0clash.control", qos: .userInitiated)
+private let workQueue = DispatchQueue(label: "io.github.yuuukicreation.po0clash.work", qos: .userInitiated, attributes: .concurrent)
+
+/// Runs blocking work (core calls, file hashing, osascript) without holding the main actor or the cooperative pool.
+func background<T>(_ body: @escaping () throws -> T) async throws -> T {
+    try await perform(on: workQueue, body)
+}
+
+/// Termination waits in a nested run loop that cannot drain the main dispatch queue when it was entered from a
+/// main-queue block, so anything that must reach it is scheduled on the run loop instead.
+func onMainRunLoop(_ block: @escaping () -> Void) {
+    let loop = CFRunLoopGetMain()
+    CFRunLoopPerformBlock(loop, CFRunLoopMode.commonModes.rawValue, block)
+    CFRunLoopWakeUp(loop)
+}
+
+private func perform<T>(on queue: DispatchQueue, _ body: @escaping () throws -> T) async throws -> T {
+    try await withCheckedThrowingContinuation { continuation in
+        queue.async { continuation.resume(with: Result(catching: body)) }
+    }
+}
+
+/// The only file that calls `Po0Core`. Engine and route commands share one serial queue so they apply in the order
+/// the user gave them; reads and slow network calls run concurrently.
+final class CoreClient: @unchecked Sendable {
+    private let core: Po0Core
+
+    private init(core: Po0Core) {
+        self.core = core
+    }
+
+    static func open(_ options: CoreOptions, listener: CoreListener) async throws -> CoreClient {
+        try await perform(on: controlQueue) {
+            let core = try Po0Core(options: options)
+            core.setListener(listener: listener)
+            return CoreClient(core: core)
+        }
+    }
+
+    private func control<T>(_ body: @escaping (Po0Core) throws -> T) async throws -> T {
+        try await perform(on: controlQueue) { try body(self.core) }
+    }
+
+    private func work<T>(_ body: @escaping (Po0Core) throws -> T) async throws -> T {
+        try await perform(on: workQueue) { try body(self.core) }
+    }
+
+    func status() async throws -> Status { try await work { $0.status() } }
+    func traffic() async throws -> Traffic { try await work { $0.traffic() } }
+    func exitIp() async throws -> ExitIp { try await work { try $0.exitIp() } }
+    func wasConnected() async throws -> Bool { try await work { $0.wasConnected() } }
+
+    func start() async throws { try await control { try $0.start(tunFd: nil) } }
+    func stop() async throws { try await control { $0.stop() } }
+    func setMode(_ mode: Mode) async throws { try await control { try $0.setMode(mode: mode) } }
+    func setRouteMode(_ mode: RouteMode) async throws { try await control { try $0.setRouteMode(routeMode: mode) } }
+    func setMihomoPath(_ path: String) async throws { try await control { $0.setMihomoPath(path: path) } }
+
+    func profiles() async throws -> [Profile] { try await work { $0.profiles() } }
+    func addSubscription(_ url: String) async throws -> Profile { try await work { try $0.addSubscription(url: url) } }
+    func updateProfile(_ id: String) async throws -> Profile { try await work { try $0.updateProfile(id: id) } }
+    func removeProfile(_ id: String) async throws { try await control { try $0.removeProfile(id: id) } }
+    func selectProfile(_ id: String) async throws { try await control { try $0.selectProfile(id: id) } }
+    func importLinks(_ text: String) async throws -> ImportResult { try await work { try $0.importLinks(text: text) } }
+
+    func groups() async throws -> [ProxyGroup] { try await work { try $0.groups() } }
+    func selectNode(group: String, node: String) async throws {
+        try await control { try $0.selectNode(group: group, node: node) }
+    }
+    func testDelay(_ group: String) async throws -> ProxyGroup { try await work { try $0.testDelay(group: group) } }
+
+    func whitelist() async throws -> WhitelistState { try await work { $0.whitelist() } }
+    func setWhitelistEnabled(_ enabled: Bool) async throws { try await control { try $0.setWhitelistEnabled(enabled: enabled) } }
+    func addWhitelistEntries(_ text: String, name: String) async throws -> [WhitelistEntry] {
+        try await work { try $0.addWhitelistEntries(text: text, name: name) }
+    }
+    func removeWhitelistEntry(_ id: String) async throws { try await control { try $0.removeWhitelistEntry(id: id) } }
+
+    func networkChanged() async throws { try await work { $0.networkChanged() } }
+    func exportDiagnostics(to path: String) async throws { try await work { try $0.exportDiagnostics(path: path) } }
+
+    /// Queued behind pending commands so a stop or route change in flight cannot run after it and leave a proxy set.
+    func shutdown(then done: @escaping () -> Void) {
+        controlQueue.async {
+            self.core.shutdown()
+            onMainRunLoop(done)
+        }
+    }
+}
+
+final class ChangeForwarder: CoreListener, @unchecked Sendable {
+    private let handler: (Change) -> Void
+
+    init(_ handler: @escaping (Change) -> Void) {
+        self.handler = handler
+    }
+
+    func onChange(change: Change) {
+        handler(change)
+    }
+}

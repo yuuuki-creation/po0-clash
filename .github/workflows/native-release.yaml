@@ -1,0 +1,167 @@
+name: native-release
+
+# Native apps only (ADR 0018); the Flutter app keeps release.yaml and its v* tags.
+# The release starts as a draft so its own assets are smoke-tested before it is published.
+# A push to `native` that edits this file builds without publishing.
+on:
+  push:
+    tags: ['native-v*']
+    branches: ['native']
+    paths: ['.github/workflows/native-release.yaml']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: native-v<version> tag to publish to (empty only builds)
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build: ${{ steps.version.outputs.build }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          gradle=apps/android/app/build.gradle.kts
+          version=$(sed -n 's/^ *versionName = "\(.*\)"/\1/p' "$gradle")
+          build=$(sed -n 's/^val baseVersionCode = \([0-9]*\)/\1/p' "$gradle")
+          tag=""
+          if [[ "$GITHUB_REF" == refs/tags/native-v* ]]; then
+            tag=${GITHUB_REF#refs/tags/}
+          elif [[ -n "$INPUT_TAG" ]]; then
+            tag=$INPUT_TAG
+          fi
+          if [[ -n "$tag" && "$tag" != "native-v$version" ]]; then
+            echo "::error::tag $tag does not match versionName $version in $gradle"
+            exit 1
+          fi
+          [[ -n "$version" && -n "$build" ]] || { echo "::error::cannot read the version from $gradle"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  macos:
+    needs: version
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - run: git submodule update --init --depth 1 mihomo/upstream
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: mihomo/upstream/go.sum
+      - run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test -p po0-core
+      - name: Build
+        env:
+          ARCHS: arm64 x86_64
+          VERSION: ${{ needs.version.outputs.version }}
+          BUILD_NUMBER: ${{ needs.version.outputs.build }}
+        run: |
+          apps/macos/scripts/bundle.sh
+          plutil -p apps/macos/dist/po0-clash.app/Contents/Info.plist | grep -E "CFBundleShortVersionString|CFBundleVersion"
+          lipo -archs apps/macos/dist/po0-clash.app/Contents/MacOS/po0-clash
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: apps/macos/dist/po0-clash-macos.zip
+          if-no-files-found: error
+
+  android:
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      NDK_VERSION: 28.2.13676358
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout mihomo
+        run: |
+          git submodule update --init --depth 1 mihomo/upstream
+          git -C mihomo/upstream fetch --depth 1 --tags origin
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: mihomo/upstream/go.sum
+      - name: Android SDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" "ndk;$NDK_VERSION" > /dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+      - name: Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+          cargo install cargo-ndk --locked
+      - uses: Swatinem/rust-cache@v2
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Build
+        working-directory: apps/android
+        run: ./gradlew assembleRelease --no-daemon
+      - name: Collect
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          mkdir -p dist
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            cp "apps/android/app/build/outputs/apk/release/app-$abi-release.apk" "dist/po0-clash-$VERSION-android-$abi.apk"
+          done
+          ls -l dist
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "dist/po0-clash-$VERSION-android-arm64-v8a.apk" | grep -E "Signer #1 certificate DN"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dist/*.apk
+          if-no-files-found: error
+
+  publish:
+    needs: [version, macos, android]
+    if: needs.version.outputs.tag != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          assets=(dist/*)
+          if [[ -f scripts/install-macos-native.sh ]]; then
+            assets+=(scripts/install-macos-native.sh)
+          fi
+          (cd dist && sha256sum *) > SHA256SUMS.txt
+          assets+=(SHA256SUMS.txt)
+          notes=docs/native-release-notes.md
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+          else
+            gh release create "$TAG" "${assets[@]}" --draft --prerelease --latest=false \
+              --title "po0-clash $VERSION（原生版测试）" --notes-file "$notes"
+          fi

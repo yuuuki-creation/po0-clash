@@ -23,7 +23,8 @@ po0-clash 以独立应用的身份发布，可与官方 FlClash 同时安装（�
 | [development/release.md](development/release.md) | 发版流程、版本号与产物命名 |
 | [development/upstream-sync.md](development/upstream-sync.md) | 如何合并上游 FlClash 更新 |
 | [development/native-rewrite.md](development/native-rewrite.md) | 三端原生重写：结构、共享内核、功能范围、界面与顺序 |
-| [development/native-windows.md](development/native-windows.md) | Windows 原生版（Tauri）：运行方式、构建与 CI |
+| [development/native-macos.md](development/native-macos.md) | macOS 原生版：结构、数据迁移、虚拟网卡授权、构建与测试 |
+| [development/native-windows.md](development/native-windows.md) | Windows 原生版（Tauri）：安装与升级、构建、虚拟机测试 |
 | [adr/](adr/) | 架构决策记录（ADR） |
 
 ## 工作流约定

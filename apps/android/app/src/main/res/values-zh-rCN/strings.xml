@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings">设置</string>
+    <string name="back">返回</string>
+    <string name="startup_failed">po0-clash 无法启动：%s</string>
+
+    <string name="state_stopped">未连接</string>
+    <string name="state_starting">正在连接…</string>
+    <string name="state_running">已连接</string>
+    <string name="state_failed">连接失败</string>
+    <string name="reconnect">重新连接</string>
+    <string name="disconnect">断开</string>
+    <string name="no_profile">未选择订阅</string>
+    <string name="node">节点</string>
+    <string name="exit_ip">出口 IP</string>
+    <string name="traffic">速率</string>
+    <string name="rate">↑ %1$s/s  ↓ %2$s/s</string>
+    <string name="notification_channel">VPN 状态</string>
+    <string name="notification_channel_alerts">连接问题</string>
+    <string name="notification_running">已连接 · %s</string>
+    <string name="notification_failed">po0-clash 无法连接</string>
+    <string name="error_vpn_permission">未获得 VPN 权限</string>
+
+    <string name="empty_title">还没有订阅</string>
+    <string name="empty_body">添加订阅或导入分享链接后即可连接。</string>
+    <string name="empty_action">打开设置</string>
+
+    <string name="mode">模式</string>
+    <string name="mode_rule">规则</string>
+    <string name="mode_global">全局</string>
+    <string name="mode_direct">直连</string>
+    <string name="groups">策略组</string>
+    <string name="groups_unavailable">连接后可选择节点。</string>
+    <string name="test_delay">测速</string>
+    <string name="delay_ms">%d ms</string>
+    <string name="delay_timeout">超时</string>
+
+    <string name="subscriptions">订阅</string>
+    <string name="no_subscriptions">暂无订阅</string>
+    <string name="add_subscription">添加订阅</string>
+    <string name="subscription_url">订阅链接</string>
+    <string name="import_links">导入分享链接</string>
+    <string name="share_links">分享链接，每行一个</string>
+    <string name="links_profile">导入的节点</string>
+    <plurals name="imported_links">
+        <item quantity="other">已导入 %d 个节点</item>
+    </plurals>
+    <string name="usage">已用 %1$s / 共 %2$s</string>
+    <string name="expires">%s 到期</string>
+    <string name="updated">%s更新</string>
+    <string name="just_now">刚刚</string>
+    <string name="update">更新</string>
+    <string name="more">更多</string>
+    <string name="delete">删除</string>
+    <string name="delete_title">删除「%s」？</string>
+    <string name="add">添加</string>
+    <string name="cancel">取消</string>
+
+    <string name="whitelist">加白</string>
+    <string name="whitelist_enabled">自动加白</string>
+    <string name="whitelist_hint">让本机出口 IP 持续留在 po0 与 ggy 的白名单中</string>
+    <string name="whitelist_add">添加加白条目</string>
+    <string name="whitelist_name">名称</string>
+    <string name="whitelist_text">po0 token 或 ggy 链接，每行一个</string>
+    <string name="whitelist_now">立即执行</string>
+    <string name="whitelist_pending">尚未执行</string>
+    <string name="outcome_applied">已加白</string>
+    <string name="outcome_not_applied">未加白</string>
+    <string name="outcome_disabled">已关闭</string>
+    <string name="outcome_rejected">被拒绝</string>
+    <string name="outcome_error">失败</string>
+
+    <string name="diagnostics">诊断</string>
+    <string name="export_diagnostics">导出诊断日志</string>
+    <string name="export_diagnostics_hint">把应用和引擎日志保存为文本文件</string>
+    <string name="export_done">已导出诊断日志</string>
+    <string name="about">关于</string>
+    <string name="version">版本</string>
+</resources>
