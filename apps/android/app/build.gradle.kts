@@ -33,6 +33,9 @@ abstract class NativeBuild : DefaultTask() {
     @get:Internal
     abstract val workDir: Property<File>
 
+    @get:Internal
+    abstract val ndkDir: DirectoryProperty
+
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
 
@@ -42,10 +45,15 @@ abstract class NativeBuild : DefaultTask() {
         commands.get().forEach { command ->
             exec.exec {
                 workingDir = this@NativeBuild.workDir.get()
+                ndkDir.orNull?.asFile?.let { environment("ANDROID_NDK_HOME", it.absolutePath) }
                 commandLine("bash", "-c", command.replace("{out}", out.absolutePath))
             }
         }
     }
+}
+
+fun NativeBuild.useAgpNdk() {
+    ndkDir.set(androidComponents.sdkComponents.ndkDirectory)
 }
 
 fun NativeBuild.rustSources() {
@@ -58,11 +66,13 @@ val mihomo = tasks.register<NativeBuild>("buildMihomo") {
     sources.from(fileTree(repoRoot.resolve("mihomo/android")) { include("*.go", "go.mod", "go.sum", "build.sh") })
     sources.from(fileTree(repoRoot.resolve("mihomo/upstream")) { include("**/*.go", "go.mod", "go.sum") })
     workDir.set(repoRoot)
+    useAgpNdk()
     commands.set(abis.map { "bash mihomo/android/build.sh $it {out} $minApi" })
 }
 
 val ffi = tasks.register<NativeBuild>("buildPo0Ffi") {
     rustSources()
+    useAgpNdk()
     val targets = abis.joinToString(" ") { "-t $it" }
     commands.set(listOf("cargo ndk -P $minApi $targets -o {out} build --release -p po0-ffi"))
 }
