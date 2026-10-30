@@ -9,8 +9,12 @@ use po0_core as po0;
 use po0::{Change, Core, CoreOptions, Listener, Platform};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 
-pub fn locale_is_zh() -> bool {
-    sys_locale::get_locale().is_some_and(|l| l.to_ascii_lowercase().starts_with("zh"))
+/// The language chosen in the app settings, or the system's when none is.
+pub fn is_zh(core: &Core) -> bool {
+    core.app_settings()
+        .language
+        .or_else(sys_locale::get_locale)
+        .is_some_and(|l| l.to_ascii_lowercase().starts_with("zh"))
 }
 
 pub struct Backdrop(pub bool);
@@ -111,6 +115,8 @@ pub fn run() {
             commands::add_whitelist_entries,
             commands::remove_whitelist_entry,
             commands::whitelist_now,
+            commands::app_settings,
+            commands::set_app_settings,
             commands::engine_options,
             commands::set_engine_options,
             commands::providers,
@@ -136,9 +142,12 @@ pub fn run() {
             tray::create(handle)?;
             core.set_listener(Arc::new(Bridge(handle.clone())));
             netwatch::spawn(Arc::clone(&core));
-            if !autostarted {
+            let settings = core.app_settings();
+            if !autostarted && !settings.silent_launch {
                 show_window(handle);
-            } else if core.was_connected() {
+            }
+            let connect = if autostarted { core.was_connected() } else { settings.auto_connect };
+            if connect {
                 let handle = handle.clone();
                 tauri::async_runtime::spawn_blocking(move || {
                     if let Err(e) = core.start(None) {
@@ -150,8 +159,13 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
+                let minimize = window
+                    .try_state::<Arc<Core>>()
+                    .is_none_or(|core| core.app_settings().minimize_on_close);
+                if minimize {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
             }
         })
         .build(tauri::generate_context!())

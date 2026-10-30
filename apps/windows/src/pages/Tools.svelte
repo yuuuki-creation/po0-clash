@@ -11,6 +11,8 @@
   import Icon from '../lib/Icon.svelte';
   import Page from '../lib/Page.svelte';
   import Switch from '../lib/Switch.svelte';
+  import Toggle from '../lib/form/Toggle.svelte';
+  import { settings, updateSettings } from '../lib/settings.svelte.js';
   import Advanced from './tools/Advanced.svelte';
   import Appearance from './tools/Appearance.svelte';
   import Basic from './tools/Basic.svelte';
@@ -79,6 +81,21 @@
     if ((await act('flush', 'flush_dns_cache')) !== undefined) notify(t('opt.flushed'));
   }
 
+  const s = $derived(settings.value);
+  const set = (key) => (value) => updateSettings({ [key]: value });
+  const languages = [
+    [null, 'lang.system'],
+    ['zh_CN', 'lang.zh'],
+    ['en', 'lang.en'],
+  ];
+  const languageLabel = $derived(t(languages.find(([value]) => value === s.language)?.[1] ?? 'lang.system'));
+
+  async function setLanguage(language) {
+    if (language === s.language) return;
+    await updateSettings({ language });
+    location.reload();
+  }
+
   const back = () => (app.tool = null);
   const Sub = $derived(pages[app.tool]);
   const ready = $derived(!engineForms[app.tool] || engine.options);
@@ -118,7 +135,7 @@
               <span class="row-icon"><Icon name={icon} /></span>
               <span class="label">{t(`tools.${id}`)}</span>
               <span class="trailing">
-                {#if id === 'about'}{app.version}{:else if id === 'language'}{t('tools.languageSystem')}{/if}
+                {#if id === 'about'}{app.version}{:else if id === 'language'}{languageLabel}{/if}
                 <span class="chevron"><Icon name="chevron" /></span>
               </span>
             </button>
@@ -129,12 +146,44 @@
   </Page>
 {:else if app.tool === 'application'}
   <Page title={t('tools.application')} subtitle={t('page.tools')} onback={back} form>
+    <h2 class="group-title">{t('app.launch')}</h2>
     <div class="list">
       <div class="row tall">
         <div class="label"><span>{t('tools.autostart')}</span><span class="sub">{t('tools.autostartHint')}</span></div>
         <Switch label={t('tools.autostart')} checked={autostart} disabled={app.busy.autostart} onchange={setAutostart} />
       </div>
+      {#each [['silentLaunch', true], ['autoConnect', true], ['minimizeOnClose', true]] as [key, hint] (key)}
+        <Toggle label={t(`app.${key}`)} hint={hint ? t(`app.${key}Hint`) : ''} checked={s[key]} onchange={set(key)} />
+      {/each}
     </div>
+    <h2 class="group-title">{t('app.interface')}</h2>
+    <div class="list">
+      <Toggle label={t('app.pageAnimation')} checked={s.pageAnimation} onchange={set('pageAnimation')} />
+      <Toggle label={t('app.showNavLabels')} checked={s.showNavLabels} onchange={set('showNavLabels')} />
+      <Toggle label={t('app.captureLogs')} hint={t('app.captureLogsHint')} checked={s.captureLogs} onchange={set('captureLogs')} />
+    </div>
+    <h2 class="group-title">{t('app.network')}</h2>
+    <div class="list">
+      <Toggle
+        label={t('app.closeOnSwitch')}
+        hint={t('app.closeOnSwitchHint')}
+        checked={s.closeConnectionsOnSwitch}
+        onchange={set('closeConnectionsOnSwitch')}
+      />
+      <Toggle label={t('app.checkCertificate')} checked={s.checkCertificate} onchange={set('checkCertificate')} />
+    </div>
+  </Page>
+{:else if app.tool === 'language'}
+  <Page title={t('tools.language')} subtitle={t('page.tools')} onback={back} form>
+    <div class="list">
+      {#each languages as [value, key] (key)}
+        <button type="button" class="row" onclick={() => setLanguage(value)}>
+          <span class="label">{t(key)}</span>
+          {#if s.language === value}<span class="row-icon"><Icon name="check" /></span>{/if}
+        </button>
+      {/each}
+    </div>
+    <p class="note">{t('lang.hint')}</p>
   </Page>
 {:else if app.tool === 'about'}
   <Page title={t('tools.about')} subtitle={t('page.tools')} onback={back} form>

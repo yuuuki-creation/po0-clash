@@ -1,5 +1,4 @@
-// Appearance is kept in this webview's storage until the core has an app settings model to hold it.
-const KEY = 'po0.appearance';
+import { settings } from './settings.svelte.js';
 
 export const presets = [
   ['blue', '#007AFF'],
@@ -12,18 +11,10 @@ export const presets = [
   ['graphite', '#8E8E93'],
 ];
 
-const defaults = { mode: 'system', black: false, accent: '#007AFF', custom: [], scheme: 'standard', scaled: false, scale: 100 };
-const softness = { vivid: '22%', muted: '6%' };
+export const toHex = (argb) => `#${(argb & 0xffffff).toString(16).padStart(6, '0').toUpperCase()}`;
+export const toArgb = (hex) => (0xff000000 | parseInt(hex.slice(1), 16)) >>> 0;
 
-function load() {
-  try {
-    return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') };
-  } catch {
-    return { ...defaults };
-  }
-}
-
-export const appearance = $state(load());
+const softness = { vibrant: '22%', expressive: '22%', rainbow: '22%', fruitSalad: '22%', monochrome: '6%', neutral: '6%' };
 
 const systemDark = matchMedia('(prefers-color-scheme: dark)');
 let prefersDark = $state(systemDark.matches);
@@ -32,23 +23,21 @@ systemDark.addEventListener('change', (event) => (prefersDark = event.matches));
 export function watchAppearance() {
   $effect.root(() => {
     $effect(() => {
+      const s = settings.value;
+      if (!s) return;
       const root = document.documentElement;
-      const dark = appearance.mode === 'dark' || (appearance.mode === 'system' && prefersDark);
-      root.toggleAttribute('data-dark', dark);
-      root.toggleAttribute('data-black', appearance.black);
-      const custom = appearance.accent.toUpperCase() !== '#007AFF';
+      root.toggleAttribute('data-dark', s.themeMode === 'dark' || (s.themeMode === 'system' && prefersDark));
+      root.toggleAttribute('data-black', s.pureBlack);
+      root.classList.toggle('nav-icons', !s.showNavLabels);
+      root.classList.toggle('animate', s.pageAnimation);
+      const accent = toHex(s.themeColor);
       for (const name of ['--accent', '--accent-text', '--accent-solid']) {
-        if (custom) root.style.setProperty(name, appearance.accent);
+        if (accent !== '#007AFF') root.style.setProperty(name, accent);
         else root.style.removeProperty(name);
       }
-      if (softness[appearance.scheme]) root.style.setProperty('--soft', softness[appearance.scheme]);
+      if (softness[s.schemeVariant]) root.style.setProperty('--soft', softness[s.schemeVariant]);
       else root.style.removeProperty('--soft');
-      root.style.zoom = appearance.scaled ? String(appearance.scale / 100) : '';
-      try {
-        localStorage.setItem(KEY, JSON.stringify(appearance));
-      } catch {
-        // Storage can be unavailable; the choice then lasts for this session.
-      }
+      root.style.zoom = s.textScale ? String(s.textScale / 100) : '';
     });
   });
 }

@@ -6,7 +6,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{AppHandle, Emitter, Manager, Wry};
 
 use super::po0::{Core, EngineState, RouteMode};
-use super::{locale_is_zh, show_window};
+use super::{is_zh, show_window};
 
 const TRAY_ID: &str = "main";
 
@@ -20,8 +20,8 @@ struct Labels {
     failed: &'static str,
 }
 
-fn labels() -> Labels {
-    if locale_is_zh() {
+fn labels(app: &AppHandle) -> Labels {
+    if is_zh(&app.state::<Arc<Core>>()) {
         Labels {
             connect: "连接",
             open: "打开 po0-clash",
@@ -59,7 +59,7 @@ struct Tray {
 }
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
-    let labels = labels();
+    let labels = labels(app);
     let connect = CheckMenuItem::with_id(app, "connect", labels.connect, true, false, None::<&str>)?;
     let open = MenuItem::with_id(app, "open", labels.open, true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", labels.quit, true, None::<&str>)?;
@@ -93,7 +93,7 @@ pub fn refresh(app: &AppHandle) {
         let tray = app.state::<Tray>();
         let _serial = tray.refreshing.lock().unwrap_or_else(|e| e.into_inner());
         let status = app.state::<Arc<Core>>().status();
-        let labels = labels();
+        let labels = labels(&app);
         let state = match &status.engine {
             EngineState::Stopped => labels.stopped,
             EngineState::Starting => labels.starting,

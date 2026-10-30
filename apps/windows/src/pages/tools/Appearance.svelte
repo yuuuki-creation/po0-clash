@@ -4,24 +4,38 @@
   import Menu from '../../lib/Menu.svelte';
   import Segmented from '../../lib/Segmented.svelte';
   import Switch from '../../lib/Switch.svelte';
-  import { appearance, presets } from '../../lib/theme.svelte.js';
+  import { settings, updateSettings } from '../../lib/settings.svelte.js';
+  import { presets, toArgb, toHex } from '../../lib/theme.svelte.js';
 
+  const variants = ['tonalSpot', 'fidelity', 'monochrome', 'neutral', 'vibrant', 'expressive', 'content', 'rainbow', 'fruitSalad'];
+  const presetHex = presets.map(([, hex]) => hex);
+
+  const s = $derived(settings.value);
+  const colors = $derived(s.themeColors.map(toHex));
   let picker;
+  let lastScale = $state(110);
 
-  const same = (a, b) => a.toUpperCase() === b.toUpperCase();
+  const label = (hex) => {
+    const preset = presets.find(([, c]) => c === hex);
+    return preset ? t(`color.${preset[0]}`) : t('color.custom', { hex });
+  };
 
   function addColor(event) {
-    const color = event.target.value.toUpperCase();
-    if (!appearance.custom.some((c) => same(c, color)) && !presets.some(([, c]) => same(c, color))) {
-      appearance.custom = [...appearance.custom, color];
-    }
-    appearance.accent = color;
+    const argb = toArgb(event.target.value);
+    updateSettings({ themeColor: argb, themeColors: [...s.themeColors.filter((c) => c !== argb), argb] });
   }
 
-  function removeColor(event, color) {
+  function removeColor(event, hex) {
     event.preventDefault();
-    appearance.custom = appearance.custom.filter((c) => !same(c, color));
-    if (same(appearance.accent, color)) appearance.accent = presets[0][1];
+    if (presetHex.includes(hex)) return;
+    const argb = toArgb(hex);
+    const themeColors = s.themeColors.filter((c) => c !== argb);
+    updateSettings({ themeColors, themeColor: s.themeColor === argb ? toArgb(presetHex[0]) : s.themeColor });
+  }
+
+  function setScaled(on) {
+    if (!on) lastScale = s.textScale ?? lastScale;
+    updateSettings({ textScale: on ? lastScale : null });
   }
 </script>
 
@@ -32,15 +46,15 @@
       <Segmented
         small
         label={t('ap.mode')}
-        value={appearance.mode}
+        value={s.themeMode}
         options={['light', 'dark', 'system'].map((value) => ({ value, label: t(`ap.${value}`) }))}
-        onchange={(mode) => (appearance.mode = mode)}
+        onchange={(themeMode) => updateSettings({ themeMode })}
       />
     </div>
   </div>
   <div class="row tall">
     <div class="label"><span>{t('ap.black')}</span><span class="sub">{t('ap.blackHint')}</span></div>
-    <Switch label={t('ap.black')} checked={appearance.black} onchange={(on) => (appearance.black = on)} />
+    <Switch label={t('ap.black')} checked={s.pureBlack} onchange={(pureBlack) => updateSettings({ pureBlack })} />
   </div>
 </div>
 
@@ -49,46 +63,34 @@
   <div class="row tall">
     <span class="label">{t('ap.accent')}</span>
     <div class="swatches">
-      {#each presets as [name, color] (name)}
+      {#each colors as hex (hex)}
+        {@const on = hex === toHex(s.themeColor)}
         <button
           type="button"
           class="swatch"
-          class:on={same(appearance.accent, color)}
-          style:background={color}
-          style:--swatch={color}
-          title={t(`color.${name}`)}
-          aria-label={t(`color.${name}`)}
-          aria-pressed={same(appearance.accent, color)}
-          onclick={() => (appearance.accent = color)}
-        ></button>
-      {/each}
-      {#each appearance.custom as color (color)}
-        <button
-          type="button"
-          class="swatch"
-          class:on={same(appearance.accent, color)}
-          style:background={color}
-          style:--swatch={color}
-          title={t('color.custom', { hex: color })}
-          aria-label={t('color.custom', { hex: color })}
-          aria-pressed={same(appearance.accent, color)}
-          onclick={() => (appearance.accent = color)}
-          oncontextmenu={(event) => removeColor(event, color)}
+          class:on
+          style:background={hex}
+          style:--swatch={hex}
+          title={label(hex)}
+          aria-label={label(hex)}
+          aria-pressed={on}
+          onclick={() => updateSettings({ themeColor: toArgb(hex) })}
+          oncontextmenu={(event) => removeColor(event, hex)}
         ></button>
       {/each}
       <button type="button" class="swatch add" title={t('ap.addColor')} aria-label={t('ap.addColor')} onclick={() => picker.click()}
         ><Icon name="plus" /></button
       >
-      <input bind:this={picker} type="color" value={appearance.accent} hidden onchange={addColor} />
+      <input bind:this={picker} type="color" value={toHex(s.themeColor)} hidden onchange={addColor} />
     </div>
   </div>
   <div class="row">
     <span class="label">{t('ap.scheme')}</span>
     <Menu
       label={t('ap.scheme')}
-      value={appearance.scheme}
-      options={['standard', 'vivid', 'muted'].map((value) => ({ value, label: t(`scheme.${value}`) }))}
-      onchange={(scheme) => (appearance.scheme = scheme)}
+      value={s.schemeVariant}
+      options={variants.map((value) => ({ value, label: t(`scheme.${value}`) }))}
+      onchange={(schemeVariant) => updateSettings({ schemeVariant })}
     />
   </div>
 </div>
@@ -98,21 +100,21 @@
 <div class="list">
   <div class="row">
     <span class="label">{t('ap.scaled')}</span>
-    <Switch label={t('ap.scaled')} checked={appearance.scaled} onchange={(on) => (appearance.scaled = on)} />
+    <Switch label={t('ap.scaled')} checked={s.textScale != null} onchange={setScaled} />
   </div>
   <div class="row tall">
     <span class="sub strong" style:font-size="11px">A</span>
     <input
       type="range"
       min="80"
-      max="140"
+      max="150"
       step="5"
       aria-label={t('ap.scale')}
-      disabled={!appearance.scaled}
-      value={appearance.scale}
-      onchange={(event) => (appearance.scale = Number(event.target.value))}
+      disabled={s.textScale == null}
+      value={s.textScale ?? lastScale}
+      onchange={(event) => updateSettings({ textScale: Number(event.target.value) })}
     />
     <span class="sub strong" style:font-size="17px">A</span>
-    <span class="sub mono scale-value">{appearance.scale}%</span>
+    <span class="sub mono scale-value">{s.textScale ?? lastScale}%</span>
   </div>
 </div>

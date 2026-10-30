@@ -1712,3 +1712,172 @@ button.row:hover {
 .delay-button.tone-bad {
   color: var(--red-text);
 }
+
+.menu-heading {
+  padding: 6px 10px 2px 30px;
+  color: var(--secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.menu-separator {
+  height: 0.5px;
+  margin: 5px 8px;
+  background: var(--separator);
+}
+
+.group-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  overflow-x: auto;
+  border-radius: 16px;
+  background: var(--fill);
+  scrollbar-width: none;
+}
+
+.group-tabs button {
+  flex: none;
+  height: 28px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.group-tabs button.on {
+  background: var(--thumb);
+  box-shadow: var(--thumb-shadow);
+  font-weight: 600;
+}
+
+.nodes.loose {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.nodes.loose .node {
+  padding: 11px 14px;
+}
+
+.nodes.tight {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.nodes.tight .node {
+  padding: 7px 10px;
+}
+
+.node.inline {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.node.inline .node-top {
+  min-width: 0;
+}
+
+.dash-item {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+.dash-item > .card {
+  flex: 1;
+}
+
+.dash.editing .dash-item {
+  cursor: grab;
+}
+
+.dash.editing .dash-item > .card {
+  box-shadow:
+    var(--card-shadow),
+    0 0 0 1.5px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.dash-item.dragging {
+  opacity: 0.4;
+}
+
+.dash-item.drop-target > .card {
+  box-shadow:
+    var(--card-shadow),
+    0 0 0 2px var(--accent);
+}
+
+.remove-card {
+  position: absolute;
+  top: -7px;
+  left: -7px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 11px;
+  background: var(--secondary);
+  color: var(--card);
+}
+
+.remove-card .icon {
+  width: 12px;
+  height: 12px;
+  stroke-width: 3;
+}
+
+.add-cards {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+:root.nav-icons {
+  --sidebar: 52px;
+}
+
+.nav-icons .sidebar {
+  padding: 14px 6px;
+}
+
+.nav-icons .nav-item span,
+.nav-icons .sidebar-head span {
+  display: none;
+}
+
+.nav-icons .nav-item {
+  justify-content: center;
+  padding: 0;
+}
+
+.nav-icons .sidebar-head {
+  justify-content: center;
+  padding: 0;
+}
+
+.nav-icons .sidebar-head .plain-button {
+  margin: 0;
+}
+
+.animate .content {
+  animation: page-in 0.18s ease-out;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.menu-pop.glass {
+  background: color-mix(in srgb, var(--card) 94%, transparent);
+}

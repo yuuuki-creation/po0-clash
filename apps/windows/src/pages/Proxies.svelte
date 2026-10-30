@@ -2,7 +2,7 @@
   import { SvelteSet } from 'svelte/reactivity';
 
   const expanded = new SvelteSet();
-  const view = $state({ query: '', sort: 'default', layout: 'standard' });
+  const view = $state({ query: '', tab: null });
   let touched = false;
 </script>
 
@@ -14,14 +14,18 @@
   import Icon from '../lib/Icon.svelte';
   import Menu from '../lib/Menu.svelte';
   import Page from '../lib/Page.svelte';
+  import SectionMenu from '../lib/SectionMenu.svelte';
+  import { settings, updateSettings } from '../lib/settings.svelte.js';
 
+  const s = $derived(settings.value);
+  const tabs = $derived(s.proxiesLayout === 'tabs');
   const direct = $derived(app.status?.mode === 'direct');
   const testing = $derived(Object.keys(app.busy).some((key) => key.startsWith('delay:')));
   const query = $derived(view.query.trim().toLowerCase());
 
   const rank = (delay) => (delay ? delay : delay === 0 ? 1e9 : 1e8);
   const sorters = {
-    default: null,
+    profile: null,
     delay: (a, b) => rank(a.delay) - rank(b.delay),
     name: (a, b) => a.name.localeCompare(b.name),
   };
@@ -30,11 +34,15 @@
     app.groups
       .map((group) => {
         let nodes = query ? group.nodes.filter((n) => n.name.toLowerCase().includes(query)) : group.nodes;
-        if (sorters[view.sort]) nodes = nodes.toSorted(sorters[view.sort]);
+        if (sorters[s.proxiesSort]) nodes = nodes.toSorted(sorters[s.proxiesSort]);
         return { ...group, shown: nodes };
       })
       .filter((group) => !query || group.shown.length),
   );
+  const current = $derived(
+    groups.find((g) => g.name === view.tab) ?? groups.find((g) => g.now === app.status?.currentNode) ?? groups[0],
+  );
+  const shownGroups = $derived(tabs ? (current ? [current] : []) : groups);
 
   $effect(() => {
     const first = app.groups.find((g) => g.selectable) ?? app.groups[0];
@@ -51,6 +59,7 @@
     const group = app.groups.find((g) => g.selectable && g.now === app.status?.currentNode) ?? app.groups[0];
     if (!group) return;
     view.query = '';
+    view.tab = group.name;
     touched = true;
     expanded.add(group.name);
     await tick();
@@ -60,6 +69,26 @@
   }
 
   const delayOf = (group) => group.nodes.find((n) => n.name === group.now)?.delay;
+  const viewSections = $derived([
+    {
+      title: t('view.layout'),
+      value: s.proxiesLayout,
+      options: ['tabs', 'list'].map((value) => ({ value, label: t(`layout.${value}`) })),
+      onchange: (proxiesLayout) => updateSettings({ proxiesLayout }),
+    },
+    {
+      title: t('view.density'),
+      value: s.proxiesDensity,
+      options: ['loose', 'standard', 'tight'].map((value) => ({ value, label: t(`density.${value}`) })),
+      onchange: (proxiesDensity) => updateSettings({ proxiesDensity }),
+    },
+    {
+      title: t('view.tile'),
+      value: s.proxyTileStyle,
+      options: ['detailed', 'compact', 'minimal'].map((value) => ({ value, label: t(`tile.${value}`) })),
+      onchange: (proxyTileStyle) => updateSettings({ proxyTileStyle }),
+    },
+  ]);
 </script>
 
 <Page
@@ -75,20 +104,15 @@
     <div class="tb-group glass">
       <Menu
         label={t('proxies.sort')}
-        value={view.sort}
-        options={['default', 'delay', 'name'].map((value) => ({ value, label: t(`sort.${value}`) }))}
-        onchange={(sort) => (view.sort = sort)}
+        value={s.proxiesSort}
+        options={['profile', 'delay', 'name'].map((value) => ({ value, label: t(`sort.${value}`) }))}
+        onchange={(proxiesSort) => updateSettings({ proxiesSort })}
       >
         {#snippet trigger()}<Icon name="sort" />{/snippet}
       </Menu>
-      <Menu
-        label={t('proxies.layout')}
-        value={view.layout}
-        options={['standard', 'compact', 'list'].map((value) => ({ value, label: t(`layout.${value}`) }))}
-        onchange={(layout) => (view.layout = layout)}
-      >
+      <SectionMenu label={t('proxies.layout')} sections={viewSections}>
         {#snippet trigger()}<Icon name="grid" />{/snippet}
-      </Menu>
+      </SectionMenu>
       <button
         type="button"
         title={t('proxies.locate')}
@@ -115,8 +139,21 @@
   {:else if !groups.length}
     <EmptyState icon="search" title={t('proxies.noMatch')} detail={view.query} />
   {:else}
-    {#each groups as group (group.name)}
-      {@const open = expanded.has(group.name) || !!query}
+    {#if tabs}
+      <div class="group-tabs" role="tablist" aria-label={t('page.proxies')}>
+        {#each groups as group (group.name)}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={group.name === current?.name}
+            class:on={group.name === current?.name}
+            onclick={() => (view.tab = group.name)}>{group.name}</button
+          >
+        {/each}
+      </div>
+    {/if}
+    {#each shownGroups as group (group.name)}
+      {@const open = tabs || expanded.has(group.name) || !!query}
       {@const delay = delayOf(group)}
       <section class="pgroup" aria-label={group.name} data-group={group.name}>
         <div class="pg-head">
@@ -140,21 +177,23 @@
           >
             {#if app.busy[`delay:${group.name}`]}<span class="spinner"></span>{:else}<Icon name="bolt" />{/if}
           </button>
-          <button
-            type="button"
-            class="round"
-            title={open ? t('proxies.collapse') : t('proxies.expand')}
-            aria-label={open ? t('proxies.collapse') : t('proxies.expand')}
-            aria-expanded={open}
-            disabled={!!query}
-            onclick={() => toggle(group.name)}><span class="chevron-wrap" class:flip={open}><Icon name="chevron-down" /></span></button
-          >
+          {#if !tabs}
+            <button
+              type="button"
+              class="round"
+              title={open ? t('proxies.collapse') : t('proxies.expand')}
+              aria-label={open ? t('proxies.collapse') : t('proxies.expand')}
+              aria-expanded={open}
+              disabled={!!query}
+              onclick={() => toggle(group.name)}><span class="chevron-wrap" class:flip={open}><Icon name="chevron-down" /></span></button
+            >
+          {/if}
         </div>
         {#if open}
-          <div class="nodes" class:compact={view.layout === 'compact'} class:list={view.layout === 'list'}>
+          <div class="nodes {s.proxiesDensity}">
             {#each group.shown as node (node.name)}
               {@const selected = node.name === group.now}
-              <div class="node" class:selected>
+              <div class="node" class:selected class:inline={s.proxyTileStyle !== 'detailed'}>
                 <button
                   type="button"
                   class="node-select"
@@ -165,21 +204,25 @@
                     !selected && act(`select:${group.name}`, 'select_node', { group: group.name, node: node.name })}
                 ></button>
                 <span class="node-top"><span>{node.name}</span>{#if selected}<Icon name="check" />{/if}</span>
-                <span class="node-meta">
-                  <span>{node.kind}</span>
-                  <button
-                    type="button"
-                    class="delay-button tone-{delayTone(node.delay)}"
-                    title={t('proxies.testNode')}
-                    aria-label={t('proxies.testNode')}
-                    disabled={app.busy[`node:${node.name}`]}
-                    onclick={() => testNode(node.name)}
-                  >
-                    {#if app.busy[`node:${node.name}`]}<span class="spinner"></span>{:else if node.delay != null}{formatDelay(
-                        node.delay,
-                      )}{:else}<Icon name="bolt" />{/if}
-                  </button>
-                </span>
+                {#if s.proxyTileStyle === 'minimal'}
+                  <span class="dot {delayTone(node.delay)}"></span>
+                {:else}
+                  <span class="node-meta">
+                    {#if s.proxyTileStyle === 'detailed'}<span>{node.kind}</span>{/if}
+                    <button
+                      type="button"
+                      class="delay-button tone-{delayTone(node.delay)}"
+                      title={t('proxies.testNode')}
+                      aria-label={t('proxies.testNode')}
+                      disabled={app.busy[`node:${node.name}`]}
+                      onclick={() => testNode(node.name)}
+                    >
+                      {#if app.busy[`node:${node.name}`]}<span class="spinner"></span>{:else if node.delay != null}{formatDelay(
+                          node.delay,
+                        )}{:else}<Icon name="bolt" />{/if}
+                    </button>
+                  </span>
+                {/if}
               </div>
             {/each}
           </div>

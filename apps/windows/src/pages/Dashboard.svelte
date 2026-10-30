@@ -13,6 +13,7 @@
   import SpeedChart from '../lib/SpeedChart.svelte';
   import Switch from '../lib/Switch.svelte';
   import Value from '../lib/Value.svelte';
+  import { settings, updateSettings } from '../lib/settings.svelte.js';
 
   const engine = $derived(app.status?.engine.state ?? 'stopped');
   const running = $derived(engine === 'running');
@@ -55,6 +56,51 @@
   const totals = $derived(app.totals);
   const select = (name) => act(`select:${group.name}`, 'select_node', { group: group.name, node: name });
   const profileTitle = (p) => (p.kind === 'links' ? t('profiles.links') : p.name);
+
+  const titles = {
+    currentNode: 'home.node',
+    speed: 'home.speed',
+    mode: 'home.mode',
+    takeover: 'home.route',
+    whitelist: 'home.whitelist',
+    traffic: 'home.traffic',
+    connections: 'home.connections',
+    memory: 'home.memory',
+    intranetIp: 'home.lan',
+    subscription: 'home.profile',
+    exitIp: 'home.exitIp',
+  };
+  const wide = new Set(['currentNode', 'speed', 'mode', 'subscription', 'exitIp']);
+  const blocks = {
+    currentNode,
+    speed,
+    mode,
+    takeover,
+    whitelist,
+    traffic,
+    connections,
+    memory,
+    intranetIp,
+    subscription,
+    exitIp,
+  };
+  const cards = $derived(settings.value.dashboardCards.filter((id) => blocks[id]));
+  const hidden = $derived(Object.keys(titles).filter((id) => !cards.includes(id)));
+
+  let editing = $state(false);
+  let dragged = $state(null);
+  let target = $state(null);
+
+  const saveCards = (dashboardCards) => updateSettings({ dashboardCards });
+
+  function drop(over) {
+    const from = dragged;
+    dragged = target = null;
+    if (!from || from === over) return;
+    const order = cards.filter((id) => id !== from);
+    order.splice(order.indexOf(over), 0, from);
+    saveCards(order);
+  }
 </script>
 
 <Page title={t('page.dashboard')} {subtitle}>
@@ -69,6 +115,14 @@
       >
         {#if group && app.busy[`delay:${group.name}`]}<span class="spinner"></span>{:else}<Icon name="bolt" />{/if}
       </button>
+      <button
+        type="button"
+        class:on={editing}
+        title={editing ? t('home.done') : t('home.edit')}
+        aria-label={editing ? t('home.done') : t('home.edit')}
+        aria-pressed={editing}
+        onclick={() => (editing = !editing)}>{#if editing}{t('home.done')}{:else}<Icon name="grid" />{/if}</button
+      >
     </div>
   {/snippet}
 
@@ -85,199 +139,270 @@
     </div>
   {/if}
 
-  <div class="dash">
-    <Card title={t('home.node')} icon="globe" span>
-      {#snippet accessory()}
-        {#if selectable.length > 1}
-          <Menu
-            small
-            label={t('home.group')}
-            value={group?.name}
-            options={selectable.map((g) => ({ value: g.name, label: g.name }))}
-            onchange={(name) => (chosenGroup = name)}
-          />
-        {/if}
-      {/snippet}
-      <div class="split end">
-        <div class="grow">
-          <span class="node-name">{node?.name ?? '—'}</span>
-          <span class="sub title">
-            {#if node}{[node.kind, t('home.nodeMeta', { group: group.name, count: group.nodes.length })]
-                .filter(Boolean)
-                .join(' · ')}{:else}{t(`status.${engine}`)}{/if}
-          </span>
-        </div>
-        {#if node}
-          <div class="split">
-            {#if node.delay != null}
-              <span class="caption strong tone-{delayTone(node.delay)}" style:font-size="15px"
-                ><span class="dot {delayTone(node.delay)}"></span>{formatDelay(node.delay)}</span
-              >
-            {/if}
-            <button
-              type="button"
-              class="round"
-              title={t('home.testNode')}
-              aria-label={t('home.testNode')}
-              disabled={app.busy[`node:${node.name}`]}
-              onclick={() => testNode(node.name)}
-            >
-              {#if app.busy[`node:${node.name}`]}<span class="spinner"></span>{:else}<Icon name="bolt" />{/if}
-            </button>
-          </div>
-        {/if}
-      </div>
-      {#if alternatives.length}
-        <div class="hr"></div>
-        <div class="chips">
-          <span class="sub">{t('home.switchTo')}</span>
-          {#each alternatives as n (n.name)}
-            <button
-              type="button"
-              class="chip"
-              disabled={app.busy[`select:${group.name}`]}
-              onclick={() => select(n.name)}
-            >
-              <span>{n.name}</span>{#if n.delay != null}<span class="mono tone-{delayTone(n.delay)}"
-                  >{formatDelay(n.delay)}</span
-                >{/if}
-            </button>
-          {/each}
-        </div>
-      {/if}
-    </Card>
-
-    <Card title={t('home.speed')} icon="chart" span>
-      {#snippet accessory()}<span>{t('home.last60')}</span>{/snippet}
-      <div class="speed-values">
-        <div>
-          <Value text={formatRate(app.traffic.down)} />
-          <span class="caption"><span class="dot accent"></span>{t('home.download')}</span>
-        </div>
-        <div>
-          <Value text={formatRate(app.traffic.up)} />
-          <span class="caption"><span class="dot up"></span>{t('home.upload')}</span>
-        </div>
-      </div>
-      <SpeedChart history={app.history} />
-    </Card>
-
-    <Card title={t('home.mode')} icon="branch" span>
-      <Segmented
-        label={t('home.mode')}
-        options={['rule', 'global', 'direct'].map((value) => ({ value, label: t(`mode.${value}`) }))}
-        value={app.status?.mode}
-        disabled={app.busy.mode || !app.status}
-        onchange={(mode) => act('mode', 'set_mode', { mode })}
-      />
-      <span class="caption">{app.status ? t(`mode.${app.status.mode}Desc`) : ''}</span>
-    </Card>
-
-    <Card title={t('home.route')} icon="wifi">
-      <Segmented
-        label={t('home.route')}
-        options={['tun', 'systemProxy'].map((value) => ({ value, label: t(`route.${value}`) }))}
-        value={app.status?.routeMode}
-        disabled={app.busy.route || !app.status}
-        onchange={(routeMode) => act('route', 'set_route_mode', { routeMode })}
-      />
-      <span class="caption"
-        ><span class="dot" class:good={running}></span>{running
-          ? t(`home.routeOn.${app.status.routeMode}`)
-          : t(`status.${engine}`)}</span
+  <div class="dash" class:editing>
+    {#each cards as id (id)}
+      <div
+        class="dash-item"
+        class:span2={wide.has(id)}
+        class:dragging={dragged === id}
+        class:drop-target={target === id && dragged !== id}
+        role="listitem"
+        draggable={editing}
+        ondragstart={(event) => {
+          dragged = id;
+          event.dataTransfer.effectAllowed = 'move';
+        }}
+        ondragover={(event) => {
+          if (!dragged) return;
+          event.preventDefault();
+          target = id;
+        }}
+        ondrop={(event) => {
+          event.preventDefault();
+          drop(id);
+        }}
+        ondragend={() => (dragged = target = null)}
       >
-    </Card>
-
-    <Card title={t('home.whitelist')} icon="shield">
-      {#snippet accessory()}
-        <Switch
-          label={t('whitelist.enabled')}
-          checked={app.whitelist.enabled}
-          disabled={app.busy['wl:enabled']}
-          onchange={(enabled) => act('wl:enabled', 'set_whitelist_enabled', { enabled })}
-        />
-      {/snippet}
-      <Value text={`${entries.length} ${t('home.entryUnit')}`} />
-      <button type="button" class="caption link-caption" onclick={() => (app.page = 'whitelist')}
-        ><span class="dot {whitelistStatus.tone}"></span><span class="title">{whitelistStatus.text}</span></button
-      >
-    </Card>
-
-    <Card title={t('home.traffic')} icon="updown">
-      <Value text={formatBytes(totals ? totals.uploadTotal + totals.downloadTotal : 0)} />
-      <span class="caption">↑ {formatBytes(totals?.uploadTotal ?? 0)} · ↓ {formatBytes(totals?.downloadTotal ?? 0)}</span>
-    </Card>
-
-    <Card title={t('home.connections')} icon="link">
-      {#snippet accessory()}
-        <button type="button" class="plain-button" aria-label={t('page.activity')} onclick={() => (app.page = 'activity')}
-          ><Icon name="chevron" /></button
-        >
-      {/snippet}
-      <Value text={`${totals?.items.length ?? 0} ${t('home.connectionUnit')}`.trim()} />
-      <span class="caption">{t('home.requestsTotal', { count: app.requestCount.toLocaleString() })}</span>
-    </Card>
-
-    <Card title={t('home.memory')} icon="chip">
-      <Value text={app.memory ? formatBytes(app.memory) : '—'} />
-      <span class="caption">{t('home.memoryCaption')}</span>
-    </Card>
-
-    <Card title={t('home.lan')} icon="monitor">
-      <Value text={app.lan?.ip ?? '—'} size="small" />
-      <span class="caption title">{app.lan?.interface ?? ''}</span>
-    </Card>
-
-    <Card title={t('home.profile')} icon="stack" span>
-      {#snippet accessory()}
-        {#if profile?.updatedAt}<span>{t('home.updated', { ago: formatAgo(profile.updatedAt) })}</span>{/if}
-        {#if profile?.kind === 'subscription'}
+        {#if editing}
           <button
             type="button"
-            class="round small"
-            title={t('home.update')}
-            aria-label={t('home.update')}
-            disabled={app.busy[`update:${profile.id}`]}
-            onclick={() => act(`update:${profile.id}`, 'update_profile', { id: profile.id })}
+            class="remove-card"
+            title={t('home.removeCard')}
+            aria-label={t('home.removeCard')}
+            onclick={() => saveCards(cards.filter((c) => c !== id))}><Icon name="minimize" /></button
           >
-            {#if app.busy[`update:${profile.id}`]}<span class="spinner"></span>{:else}<Icon name="refresh" />{/if}
-          </button>
         {/if}
-      {/snippet}
-      {#if !profile}
-        <button type="button" class="text-button start-aligned" onclick={() => (app.page = 'profiles')}
-          >{t('home.addProfile')}</button
+        {@render blocks[id]()}
+      </div>
+    {/each}
+  </div>
+  {#if editing}
+    <h2 class="group-title">{t('home.addCards')}</h2>
+    <div class="add-cards">
+      {#each hidden as id (id)}
+        <button type="button" class="chip" onclick={() => saveCards([...cards, id])}
+          ><Icon name="plus" /><span>{t(titles[id])}</span></button
         >
       {:else}
-        <div class="split spread">
-          <span class="title profile-name">{profileTitle(profile)}</span>
-          {#if percent != null}<span class="sub mono">{t('home.percent', { percent })}</span>{/if}
-        </div>
-        {#if percent != null}
-          <div class="bar"><span style:width="{percent}%"></span></div>
-          <div class="usage">
-            <span>{t('home.usedOf', { used: formatBytes(used), total: formatBytes(usage.total) })}</span>
-            {#if usage.expire}<span>{t('profiles.expire', { date: formatDate(usage.expire) })}</span>{/if}
-          </div>
-        {:else}
-          <span class="caption">{t('home.noUsage')}</span>
-        {/if}
-      {/if}
-    </Card>
+        <span class="sub">{t('home.allCards')}</span>
+      {/each}
+    </div>
+    <p class="note">{t('home.editHint')}</p>
+  {/if}
+</Page>
 
-    <Card title={t('home.exitIp')} icon="pin" span>
-      {#snippet accessory()}
+{#snippet currentNode()}
+  <Card title={t('home.node')} icon="globe">
+    {#snippet accessory()}
+      {#if selectable.length > 1}
+        <Menu
+          small
+          label={t('home.group')}
+          value={group?.name}
+          options={selectable.map((g) => ({ value: g.name, label: g.name }))}
+          onchange={(name) => (chosenGroup = name)}
+        />
+      {/if}
+    {/snippet}
+    <div class="split end">
+      <div class="grow">
+        <span class="node-name">{node?.name ?? '—'}</span>
+        <span class="sub title">
+          {#if node}{[node.kind, t('home.nodeMeta', { group: group.name, count: group.nodes.length })]
+              .filter(Boolean)
+              .join(' · ')}{:else}{t(`status.${engine}`)}{/if}
+        </span>
+      </div>
+      {#if node}
+        <div class="split">
+          {#if node.delay != null}
+            <span class="caption strong tone-{delayTone(node.delay)}" style:font-size="15px"
+              ><span class="dot {delayTone(node.delay)}"></span>{formatDelay(node.delay)}</span
+            >
+          {/if}
+          <button
+            type="button"
+            class="round"
+            title={t('home.testNode')}
+            aria-label={t('home.testNode')}
+            disabled={app.busy[`node:${node.name}`]}
+            onclick={() => testNode(node.name)}
+          >
+            {#if app.busy[`node:${node.name}`]}<span class="spinner"></span>{:else}<Icon name="bolt" />{/if}
+          </button>
+        </div>
+      {/if}
+    </div>
+    {#if alternatives.length}
+      <div class="hr"></div>
+      <div class="chips">
+        <span class="sub">{t('home.switchTo')}</span>
+        {#each alternatives as n (n.name)}
+          <button
+            type="button"
+            class="chip"
+            disabled={app.busy[`select:${group.name}`]}
+            onclick={() => select(n.name)}
+          >
+            <span>{n.name}</span>{#if n.delay != null}<span class="mono tone-{delayTone(n.delay)}"
+                >{formatDelay(n.delay)}</span
+              >{/if}
+          </button>
+        {/each}
+      </div>
+    {/if}
+  </Card>
+{/snippet}
+
+{#snippet speed()}
+  <Card title={t('home.speed')} icon="chart">
+    {#snippet accessory()}<span>{t('home.last60')}</span>{/snippet}
+    <div class="speed-values">
+      <div>
+        <Value text={formatRate(app.traffic.down)} />
+        <span class="caption"><span class="dot accent"></span>{t('home.download')}</span>
+      </div>
+      <div>
+        <Value text={formatRate(app.traffic.up)} />
+        <span class="caption"><span class="dot up"></span>{t('home.upload')}</span>
+      </div>
+    </div>
+    <SpeedChart history={app.history} />
+  </Card>
+{/snippet}
+
+{#snippet mode()}
+  <Card title={t('home.mode')} icon="branch">
+    <Segmented
+      label={t('home.mode')}
+      options={['rule', 'global', 'direct'].map((value) => ({ value, label: t(`mode.${value}`) }))}
+      value={app.status?.mode}
+      disabled={app.busy.mode || !app.status}
+      onchange={(mode) => act('mode', 'set_mode', { mode })}
+    />
+    <span class="caption">{app.status ? t(`mode.${app.status.mode}Desc`) : ''}</span>
+  </Card>
+{/snippet}
+
+{#snippet takeover()}
+  <Card title={t('home.route')} icon="wifi">
+    <Segmented
+      label={t('home.route')}
+      options={['tun', 'systemProxy'].map((value) => ({ value, label: t(`route.${value}`) }))}
+      value={app.status?.routeMode}
+      disabled={app.busy.route || !app.status}
+      onchange={(routeMode) => act('route', 'set_route_mode', { routeMode })}
+    />
+    <span class="caption"
+      ><span class="dot" class:good={running}></span>{running
+        ? t(`home.routeOn.${app.status.routeMode}`)
+        : t(`status.${engine}`)}</span
+    >
+  </Card>
+{/snippet}
+
+{#snippet whitelist()}
+  <Card title={t('home.whitelist')} icon="shield">
+    {#snippet accessory()}
+      <Switch
+        label={t('whitelist.enabled')}
+        checked={app.whitelist.enabled}
+        disabled={app.busy['wl:enabled']}
+        onchange={(enabled) => act('wl:enabled', 'set_whitelist_enabled', { enabled })}
+      />
+    {/snippet}
+    <Value text={`${entries.length} ${t('home.entryUnit')}`} />
+    <button type="button" class="caption link-caption" onclick={() => (app.page = 'whitelist')}
+      ><span class="dot {whitelistStatus.tone}"></span><span class="title">{whitelistStatus.text}</span></button
+    >
+  </Card>
+{/snippet}
+
+{#snippet traffic()}
+  <Card title={t('home.traffic')} icon="updown">
+    <Value text={formatBytes(totals ? totals.uploadTotal + totals.downloadTotal : 0)} />
+    <span class="caption">↑ {formatBytes(totals?.uploadTotal ?? 0)} · ↓ {formatBytes(totals?.downloadTotal ?? 0)}</span>
+  </Card>
+{/snippet}
+
+{#snippet connections()}
+  <Card title={t('home.connections')} icon="link">
+    {#snippet accessory()}
+      <button type="button" class="plain-button" aria-label={t('page.activity')} onclick={() => (app.page = 'activity')}
+        ><Icon name="chevron" /></button
+      >
+    {/snippet}
+    <Value text={`${totals?.items.length ?? 0} ${t('home.connectionUnit')}`.trim()} />
+    <span class="caption">{t('home.requestsTotal', { count: app.requestCount.toLocaleString() })}</span>
+  </Card>
+{/snippet}
+
+{#snippet memory()}
+  <Card title={t('home.memory')} icon="chip">
+    <Value text={app.memory ? formatBytes(app.memory) : '—'} />
+    <span class="caption">{t('home.memoryCaption')}</span>
+  </Card>
+{/snippet}
+
+{#snippet intranetIp()}
+  <Card title={t('home.lan')} icon="monitor">
+    <Value text={app.lan?.ip ?? '—'} size="small" />
+    <span class="caption title">{app.lan?.interface ?? ''}</span>
+  </Card>
+{/snippet}
+
+{#snippet subscription()}
+  <Card title={t('home.profile')} icon="stack">
+    {#snippet accessory()}
+      {#if profile?.updatedAt}<span>{t('home.updated', { ago: formatAgo(profile.updatedAt) })}</span>{/if}
+      {#if profile?.kind === 'subscription'}
         <button
           type="button"
           class="round small"
-          title={t('home.refresh')}
-          aria-label={t('home.refresh')}
-          disabled={app.exitIpLoading}
-          onclick={() => refreshExitIp()}><Icon name="refresh" /></button
+          title={t('home.update')}
+          aria-label={t('home.update')}
+          disabled={app.busy[`update:${profile.id}`]}
+          onclick={() => act(`update:${profile.id}`, 'update_profile', { id: profile.id })}
         >
-      {/snippet}
-      <Value text={app.exitIp?.ip ?? (app.exitIpLoading ? '…' : '—')} size="medium" />
-      <span class="caption">{app.exitIp?.country ?? ''}</span>
-    </Card>
-  </div>
-</Page>
+          {#if app.busy[`update:${profile.id}`]}<span class="spinner"></span>{:else}<Icon name="refresh" />{/if}
+        </button>
+      {/if}
+    {/snippet}
+    {#if !profile}
+      <button type="button" class="text-button start-aligned" onclick={() => (app.page = 'profiles')}
+        >{t('home.addProfile')}</button
+      >
+    {:else}
+      <div class="split spread">
+        <span class="title profile-name">{profileTitle(profile)}</span>
+        {#if percent != null}<span class="sub mono">{t('home.percent', { percent })}</span>{/if}
+      </div>
+      {#if percent != null}
+        <div class="bar"><span style:width="{percent}%"></span></div>
+        <div class="usage">
+          <span>{t('home.usedOf', { used: formatBytes(used), total: formatBytes(usage.total) })}</span>
+          {#if usage.expire}<span>{t('profiles.expire', { date: formatDate(usage.expire) })}</span>{/if}
+        </div>
+      {:else}
+        <span class="caption">{t('home.noUsage')}</span>
+      {/if}
+    {/if}
+  </Card>
+{/snippet}
+
+{#snippet exitIp()}
+  <Card title={t('home.exitIp')} icon="pin">
+    {#snippet accessory()}
+      <button
+        type="button"
+        class="round small"
+        title={t('home.refresh')}
+        aria-label={t('home.refresh')}
+        disabled={app.exitIpLoading}
+        onclick={() => refreshExitIp()}><Icon name="refresh" /></button
+      >
+    {/snippet}
+    <Value text={app.exitIp?.ip ?? (app.exitIpLoading ? '…' : '—')} size="medium" />
+    <span class="caption">{app.exitIp?.country ?? ''}</span>
+  </Card>
+{/snippet}

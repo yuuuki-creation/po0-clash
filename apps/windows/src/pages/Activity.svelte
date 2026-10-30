@@ -10,8 +10,9 @@
   import Icon from '../lib/Icon.svelte';
   import Menu from '../lib/Menu.svelte';
   import Page from '../lib/Page.svelte';
+  import { settings } from '../lib/settings.svelte.js';
 
-  const tabs = ['requests', 'connections', 'logs'];
+  const tabs = $derived(settings.value.captureLogs ? ['requests', 'connections', 'logs'] : ['requests', 'connections']);
   const levels = ['all', 'debug', 'info', 'warning', 'error'];
   let requests = $state([]);
   let connections = $state([]);
@@ -41,6 +42,10 @@
       count: total,
     }),
   );
+
+  $effect(() => {
+    if (!tabs.includes(view.tab)) view.tab = 'requests';
+  });
 
   $effect(() => {
     const load = loaders[view.tab];

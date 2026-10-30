@@ -5,11 +5,11 @@ use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 use super::po0::{
-    Connection, Connections, Core, CoreError, EngineOptions, ExitIp, GeoFile, ImportResult, IntranetIp, LogEntry, Mode, Profile,
+    AppSettings, Connection, Connections, Core, CoreError, EngineOptions, ExitIp, GeoFile, ImportResult, IntranetIp, LogEntry, Mode, Profile,
     ProfileEdit, Provider, ProviderKind, ProxyGroup, RouteMode, Rule,
     Status, Traffic, WhitelistState,
 };
-use super::{Backdrop, autostart, locale_is_zh};
+use super::{Backdrop, autostart, is_zh};
 
 type CoreState<'a> = State<'a, Arc<Core>>;
 type Reply<T> = Result<T, String>;
@@ -34,8 +34,8 @@ pub struct AppInfo {
 }
 
 #[tauri::command]
-pub fn app_info(app: AppHandle, backdrop: State<'_, Backdrop>) -> AppInfo {
-    AppInfo { version: app.package_info().version.to_string(), zh: locale_is_zh(), backdrop: backdrop.0 }
+pub fn app_info(app: AppHandle, core: CoreState<'_>, backdrop: State<'_, Backdrop>) -> AppInfo {
+    AppInfo { version: app.package_info().version.to_string(), zh: is_zh(&core), backdrop: backdrop.0 }
 }
 
 #[tauri::command]
@@ -242,6 +242,16 @@ pub async fn whitelist_now(core: CoreState<'_>) -> Reply<()> {
         Ok(())
     })
     .await
+}
+
+#[tauri::command]
+pub async fn app_settings(core: CoreState<'_>) -> Reply<AppSettings> {
+    blocking(&core, |c| Ok(c.app_settings())).await
+}
+
+#[tauri::command]
+pub async fn set_app_settings(core: CoreState<'_>, settings: AppSettings) -> Reply<()> {
+    blocking(&core, move |c| c.set_app_settings(settings)).await
 }
 
 #[tauri::command]
