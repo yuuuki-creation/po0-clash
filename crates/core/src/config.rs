@@ -12,6 +12,7 @@ pub const DELAY_URL: &str = "https://www.gstatic.com/generate_204";
 const DIRECT_LISTENER: &str = "po0-direct";
 const LOOPBACK: &str = "127.0.0.1";
 const EXTERNAL_CONTROLLER: &str = "127.0.0.1:9090";
+const SYSTEM_DNS: &str = "system://";
 
 /// Android VpnService addresses; the Builder in the app must use the same ones and MTU.
 pub const ANDROID_TUN_V4: &str = "172.19.0.1/30";
@@ -246,6 +247,18 @@ pub fn render(base: &str, params: &Params) -> Result<String> {
         }
         Some(Value::Mapping(_)) => {}
         _ => set(&mut root, "dns", yaml(DEFAULT_DNS)),
+    }
+    if options.append_system_dns
+        && let Some(Value::Mapping(dns)) = root.get_mut("dns")
+    {
+        let nameserver = dns
+            .entry(key("nameserver"))
+            .or_insert_with(|| Value::Sequence(Vec::new()));
+        if let Value::Sequence(servers) = nameserver
+            && !servers.contains(&key(SYSTEM_DNS))
+        {
+            servers.push(key(SYSTEM_DNS));
+        }
     }
 
     let mut listeners: Vec<Value> = match root.remove("listeners") {
@@ -589,6 +602,7 @@ rules:
             tun_route_address: vec!["0.0.0.0/1".into()],
             added_rules: vec!["DOMAIN,example.com,DIRECT".into(), " ".into()],
             override_dns: true,
+            append_system_dns: true,
             ..EngineOptions::default()
         };
         options
@@ -621,6 +635,8 @@ rules:
         assert_eq!(config["tun"]["route-exclude-address"][0], key(PO0_CIDR));
         assert_eq!(config["dns"]["enable"], Value::Bool(true));
         assert_eq!(config["dns"]["nameserver-policy"]["+.cn"], key("223.5.5.5"));
+        let nameservers = config["dns"]["nameserver"].as_sequence().unwrap();
+        assert_eq!(nameservers.last(), Some(&key(SYSTEM_DNS)));
         let rules = config["rules"].as_sequence().unwrap();
         assert_eq!(rules[0], key("IP-CIDR,124.221.69.228/32,DIRECT,no-resolve"));
         assert_eq!(rules[1], key("DOMAIN,example.com,DIRECT"));
