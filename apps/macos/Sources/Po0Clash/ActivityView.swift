@@ -37,15 +37,21 @@ final class ActivityModel: ObservableObject {
 struct ActivityView: View {
     @EnvironmentObject private var model: AppModel
     @StateObject private var activity = ActivityModel()
-    @AppStorage("activityTab") private var tab = ActivityTab.requests
+    @AppStorage("activityTab") private var storedTab = ActivityTab.requests
     @State private var search = ""
     @State private var searching = false
     @State private var minimumLevel = LogLevel.debug
 
+    private var tabs: [ActivityTab] {
+        model.appSettings?.captureLogs == true ? ActivityTab.allCases : [.requests, .connections]
+    }
+
+    private var tab: ActivityTab { tabs.contains(storedTab) ? storedTab : .requests }
+
     var body: some View {
         PageScaffold("Activity", subtitle: subtitle) {
-            Picker("Activity", selection: $tab) {
-                ForEach(ActivityTab.allCases, id: \.self) { Text($0.title).tag($0) }
+            Picker("Activity", selection: Binding(get: { tab }, set: { storedTab = $0 })) {
+                ForEach(tabs, id: \.self) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()

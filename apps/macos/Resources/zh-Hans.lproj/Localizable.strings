@@ -326,3 +326,32 @@
 "Only takes effect when the system proxy is enabled; one per line" = "仅在系统代理启用时生效，每行一个";
 "Append system DNS" = "追加系统 DNS";
 "Force-append the system DNS to the configuration" = "强制为配置附加系统 DNS";
+
+/* Application and language */
+"Startup" = "启动";
+"Opens po0-clash when you log in, and reconnects if it was connected before." = "登录时打开 po0-clash；之前处于连接状态时会自动重连。";
+"Silent launch" = "静默启动";
+"Opens only in the menu bar, without the main window." = "启动时只在菜单栏显示，不打开主窗口。";
+"Auto connect" = "自动连接";
+"Connects whenever po0-clash opens." = "每次打开 po0-clash 时自动连接。";
+"Window" = "窗口";
+"Keep running when closed" = "关闭窗口后保持运行";
+"Closing the window leaves po0-clash in the menu bar. Turn this off to quit instead." = "关闭主窗口后 po0-clash 仍在菜单栏运行；关掉此项则关闭窗口即退出。";
+"Page animation" = "页面切换动画";
+"Fades each page in as you switch to it." = "切换页面时淡入。";
+"Shows the upload and download rates beside the menu bar icon while connected." = "连接时在菜单栏图标旁显示上下行速率。";
+"Close connections on switch" = "切换节点后断开连接";
+"Closes open connections after you switch nodes, so they reconnect through the new one." = "切换节点后关闭现有连接，让它们经新节点重连。";
+"Only count proxy traffic" = "仅统计代理流量";
+"Leaves direct connections out of the traffic statistics." = "流量统计不计入直连流量。";
+"Verify TLS certificates" = "校验 TLS 证书";
+"Rejects untrusted certificates. Turning this off exposes subscriptions and backups to man-in-the-middle attacks." = "拒绝不受信任的证书。关闭后订阅和备份将暴露于中间人攻击。";
+"Capture logs" = "日志捕获";
+"Shows the engine log in Activity. Turning this off hides the Logs tab." = "在「活动」中显示内核日志；关闭后隐藏「日志」标签。";
+"Check for updates" = "自动检查更新";
+"Looks for a new version when po0-clash opens." = "打开 po0-clash 时检查新版本。";
+"Follow system" = "跟随系统";
+"The new language applies after po0-clash restarts." = "新语言在 po0-clash 重启后生效。";
+"Restart po0-clash now to use the new language?" = "现在重启 po0-clash 以使用新语言吗？";
+"Restart Now" = "立即重启";
+"Later" = "稍后";

@@ -1,3 +1,4 @@
+import AppKit
 import Po0FFI
 import SwiftUI
 
@@ -39,6 +40,7 @@ enum ToolsPage: String, Hashable {
     @MainActor @ViewBuilder
     var destination: some View {
         switch self {
+        case .language: LanguageView()
         case .appearance: AppearanceView()
         case .application: ApplicationView()
         case .basic: BasicConfigView()
@@ -132,11 +134,11 @@ private struct ApplicationView: View {
 
     var body: some View {
         Form {
-            Section {
-                Toggle("Launch at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
-                    .toggleStyle(.switch)
-                Toggle("Show speed in the menu bar", isOn: $model.showsMenuBarSpeed)
-                    .toggleStyle(.switch)
+            Section("Startup") {
+                Toggle(isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin)) {
+                    Text("Launch at login")
+                    Text("Opens po0-clash when you log in, and reconnects if it was connected before.")
+                }
                 if needsApproval {
                     LabeledContent {
                         Button("Open Login Items") { LaunchAtLogin.openSystemSettings() }
@@ -146,10 +148,55 @@ private struct ApplicationView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                toggle(\.silentLaunch, or: false, "Silent launch", "Opens only in the menu bar, without the main window.")
+                toggle(\.autoConnect, or: false, "Auto connect", "Connects whenever po0-clash opens.")
+            }
+            Section("Window") {
+                toggle(
+                    \.minimizeOnClose, or: true, "Keep running when closed",
+                    "Closing the window leaves po0-clash in the menu bar. Turn this off to quit instead."
+                )
+                toggle(\.pageAnimation, or: true, "Page animation", "Fades each page in as you switch to it.")
+                toggle(
+                    \.traySpeed, or: true, "Show speed in the menu bar",
+                    "Shows the upload and download rates beside the menu bar icon while connected."
+                )
+            }
+            Section("Connections") {
+                toggle(
+                    \.closeConnectionsOnSwitch, or: true, "Close connections on switch",
+                    "Closes open connections after you switch nodes, so they reconnect through the new one."
+                )
+                toggle(
+                    \.onlyProxyTraffic, or: false, "Only count proxy traffic",
+                    "Leaves direct connections out of the traffic statistics."
+                )
+                toggle(
+                    \.checkCertificate, or: true, "Verify TLS certificates",
+                    "Rejects untrusted certificates. Turning this off exposes subscriptions and backups to man-in-the-middle attacks."
+                )
+            }
+            Section("Other") {
+                toggle(\.captureLogs, or: false, "Capture logs", "Shows the engine log in Activity. Turning this off hides the Logs tab.")
+                toggle(\.autoCheckUpdate, or: true, "Check for updates", "Looks for a new version when po0-clash opens.")
             }
         }
         .formStyle(.grouped)
+        .toggleStyle(.switch)
         .onAppear(perform: reloadLaunchAtLogin)
+    }
+
+    private func toggle(
+        _ key: WritableKeyPath<AppSettings, Bool>,
+        or fallback: Bool,
+        _ title: LocalizedStringKey,
+        _ detail: LocalizedStringKey
+    ) -> some View {
+        Toggle(isOn: model.setting(key, or: fallback)) {
+            Text(title)
+            Text(detail)
+        }
+        .disabled(model.appSettings == nil)
     }
 
     private func setLaunchAtLogin(_ enabled: Bool) {
@@ -164,6 +211,73 @@ private struct ApplicationView: View {
     private func reloadLaunchAtLogin() {
         launchAtLogin = LaunchAtLogin.isEnabled || LaunchAtLogin.needsApproval
         needsApproval = LaunchAtLogin.needsApproval
+    }
+}
+
+private struct LanguageView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var asksRestart = false
+
+    var body: some View {
+        Form {
+            Section {
+                Picker("Language", selection: Binding(get: { model.appSettings?.language }, set: choose)) {
+                    Text("Follow system").tag(String?.none)
+                    ForEach(AppLanguage.choices) { choice in
+                        Text(verbatim: choice.name).tag(String?.some(choice.id))
+                    }
+                }
+                .pickerStyle(.radioGroup)
+            } footer: {
+                Text("The new language applies after po0-clash restarts.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .disabled(model.appSettings == nil)
+        .alert("Restart po0-clash now to use the new language?", isPresented: $asksRestart) {
+            Button("Restart Now") { AppLanguage.relaunch() }
+            Button("Later", role: .cancel) {}
+        }
+    }
+
+    private func choose(_ code: String?) {
+        guard code != model.appSettings?.language else { return }
+        model.updateAppSettings { $0.language = code }
+        AppLanguage.store(code)
+        asksRestart = true
+    }
+}
+
+/// The core keeps FlClash's language codes; macOS reads an app's language from its own `AppleLanguages` default at
+/// launch, so a choice takes effect on the next start.
+enum AppLanguage {
+    struct Choice: Identifiable {
+        let id: String
+        let name: String
+    }
+
+    static let choices = [Choice(id: "zh_CN", name: "简体中文"), Choice(id: "en", name: "English")]
+
+    static func store(_ code: String?) {
+        if let code {
+            UserDefaults.standard.set([code == "zh_CN" ? "zh-Hans" : code], forKey: "AppleLanguages")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        }
+    }
+
+    /// The new copy waits for this one to exit, since the core and the engine port allow one instance.
+    static func relaunch() {
+        let waiter = Process()
+        waiter.executableURL = URL(fileURLWithPath: "/bin/sh")
+        waiter.arguments = [
+            "-c", "while kill -0 \"$1\" 2>/dev/null; do sleep 0.2; done; /usr/bin/open \"$0\"",
+            Bundle.main.bundlePath, String(ProcessInfo.processInfo.processIdentifier),
+        ]
+        try? waiter.run()
+        NSApp.terminate(nil)
     }
 }
 

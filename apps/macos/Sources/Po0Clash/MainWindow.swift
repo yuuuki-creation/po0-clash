@@ -53,6 +53,12 @@ final class MainWindow: NSObject, NSWindowDelegate {
         window?.makeKeyAndOrderFront(nil)
     }
 
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard AppModel.shared.appSettings?.minimizeOnClose == false else { return true }
+        NSApp.terminate(nil)
+        return false
+    }
+
     func windowWillClose(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
     }
@@ -118,6 +124,8 @@ struct MainView: View {
                 case .tools: ToolsView()
                 }
             }
+            .modifier(FadeIn(enabled: model.appSettings?.pageAnimation ?? true))
+            .id(navigation.page)
             .navigationTitle(navigation.page.title)
         }
         .navigationTitle(navigation.page.title)
@@ -133,6 +141,18 @@ struct MainView: View {
                 if visibility != .all { columns = .all }
             }
         }
+    }
+}
+
+/// FlClash's page animation. Only the incoming page fades, so two pages never share the toolbar mid-transition.
+private struct FadeIn: ViewModifier {
+    let enabled: Bool
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown || !enabled ? 1 : 0)
+            .onAppear { withAnimation(.easeOut(duration: 0.18)) { shown = true } }
     }
 }
 

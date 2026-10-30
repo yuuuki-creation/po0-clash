@@ -43,7 +43,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let atLogin = LaunchAtLogin.launchedAtLogin
         AppModel.shared.launch(atLogin: atLogin)
-        if !atLogin, !Showcase.keepsWindowClosed { MainWindow.shared.show() }
         Showcase.run()
     }
 

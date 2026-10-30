@@ -16,7 +16,10 @@ final class AppModel: ObservableObject {
     @Published private(set) var exitIp: ExitIp?
     @Published private(set) var intranetIp: IntranetIp?
     @Published private(set) var appSettings: AppSettings? {
-        didSet { Theme.apply(appSettings) }
+        didSet {
+            Theme.apply(appSettings)
+            updateTrafficTimer()
+        }
     }
     @Published private(set) var engineOptions: EngineOptions?
     @Published private(set) var profiles: [Profile] = []
@@ -28,12 +31,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var connectedAt: Date?
     @Published private(set) var launchError: String?
     @Published var notice: String?
-    @Published var showsMenuBarSpeed = UserDefaults.standard.object(forKey: "showsMenuBarSpeed") as? Bool ?? true {
-        didSet {
-            UserDefaults.standard.set(showsMenuBarSpeed, forKey: "showsMenuBarSpeed")
-            updateTrafficTimer()
-        }
-    }
+    var showsMenuBarSpeed: Bool { appSettings?.traySpeed ?? true }
 
     private var client: CoreClient?
     private let network = NetworkWatcher()
@@ -66,6 +64,9 @@ final class AppModel: ObservableObject {
                 self.client = client
                 logger.notice("core ready")
                 await refreshAll()
+                adoptLegacySettings()
+                AppLanguage.store(appSettings?.language)
+                if !atLogin, !Showcase.keepsWindowClosed, appSettings?.silentLaunch != true { MainWindow.shared.show() }
                 await adoptInstalledTunEngine()
                 network.start {
                     Task {
@@ -73,10 +74,12 @@ final class AppModel: ObservableObject {
                         await AppModel.shared.refreshIntranetIp()
                     }
                 }
-                if atLogin, (try? await client.wasConnected()) == true { connect() }
+                let resume = atLogin ? (try? await client.wasConnected()) == true : false
+                if resume || appSettings?.autoConnect == true { connect() }
             } catch {
                 launchError = describe(error)
                 logger.error("core failed to start: \(self.launchError ?? "", privacy: .public)")
+                if !Showcase.keepsWindowClosed { MainWindow.shared.show() }
             }
         }
     }
@@ -329,6 +332,14 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: Settings
+
+    /// The menu bar speed switch lived in this app's own defaults before the core kept app settings.
+    private func adoptLegacySettings() {
+        let defaults = UserDefaults.standard
+        guard let traySpeed = defaults.object(forKey: "showsMenuBarSpeed") as? Bool else { return }
+        defaults.removeObject(forKey: "showsMenuBarSpeed")
+        if !traySpeed { updateAppSettings { $0.traySpeed = false } }
+    }
 
     func updateAppSettings(_ change: (inout AppSettings) -> Void) {
         guard let client, var next = appSettings else { return }

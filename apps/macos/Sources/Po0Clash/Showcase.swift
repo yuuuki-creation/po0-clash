@@ -13,6 +13,10 @@ enum Showcase {
             if let name = defaults.string(forKey: "toolsPage"), let page = ToolsPage(rawValue: name) {
                 MainWindow.shared.navigation.tools = [page]
             }
+            if defaults.string(forKey: "activityTab") == "logs" {
+                await wait(seconds: 10) { AppModel.shared.appSettings != nil }
+                AppModel.shared.updateAppSettings { $0.captureLogs = true }
+            }
             if defaults.bool(forKey: "testDelays") { await testDelays() }
             if let layout = defaults.string(forKey: "proxiesLayout") {
                 await wait(seconds: 10) { AppModel.shared.appSettings != nil }
