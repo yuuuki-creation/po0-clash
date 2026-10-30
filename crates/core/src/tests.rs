@@ -267,6 +267,37 @@ fn starting_without_a_profile_fails_cleanly() {
 }
 
 #[test]
+fn profile_text_can_be_edited() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    let yaml = "proxies:\n  - {name: a, type: ss, server: 1.2.3.4, port: 1, cipher: aes-128-gcm, password: p}\n";
+    let file = core.import_file("work.yaml".into(), yaml.into()).unwrap();
+    let edited = yaml.replace("name: a", "name: c");
+    core.save_profile_content(file.id.clone(), edited.clone())
+        .unwrap();
+    assert_eq!(core.profile_content(file.id.clone()).unwrap(), edited);
+    assert!(
+        core.save_profile_content(file.id.clone(), "hello".into())
+            .is_err()
+    );
+    assert_eq!(core.profile_content(file.id.clone()).unwrap(), edited);
+    let links = core
+        .import_links("ss://YWVzLTEyOC1nY206cA@1.2.3.4:1#b".into())
+        .unwrap()
+        .profile;
+    assert!(
+        core.save_profile_content(links.id.clone(), yaml.into())
+            .is_err()
+    );
+    assert!(
+        core.save_profile_content("missing".into(), yaml.into())
+            .is_err()
+    );
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn file_profiles_can_be_edited_exported_previewed_and_ordered() {
     let dir = temp_dir();
     let core = Core::new(options(&dir)).unwrap();
