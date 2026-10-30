@@ -7,7 +7,6 @@
   import { act, app, notify } from '../lib/core.svelte.js';
   import { engine, loadOptions } from '../lib/engine.svelte.js';
   import { t } from '../lib/i18n.js';
-  import EmptyState from '../lib/EmptyState.svelte';
   import Icon from '../lib/Icon.svelte';
   import Page from '../lib/Page.svelte';
   import Switch from '../lib/Switch.svelte';
@@ -17,7 +16,9 @@
   import Appearance from './tools/Appearance.svelte';
   import Backup from './tools/Backup.svelte';
   import Basic from './tools/Basic.svelte';
+  import Developer from './tools/Developer.svelte';
   import Dns from './tools/Dns.svelte';
+  import Hotkeys from './tools/Hotkeys.svelte';
   import Licenses from './tools/Licenses.svelte';
   import Loopback from './tools/Loopback.svelte';
   import Network from './tools/Network.svelte';
@@ -25,7 +26,6 @@
   import Resources from './tools/Resources.svelte';
   import Rules from './tools/Rules.svelte';
 
-  // FlClash's tools page; entries without core support yet open a placeholder (docs/development/native-feature-parity.md).
   const sections = [
     {
       id: 'settings',
@@ -60,7 +60,14 @@
     },
   ];
   const engineForms = { basic: Basic, networkSettings: Network, dns: Dns, advanced: Advanced, resources: Resources };
-  const pages = { appearance: Appearance, providers: Providers, backup: Backup, ...engineForms };
+  const pages = {
+    appearance: Appearance,
+    providers: Providers,
+    backup: Backup,
+    hotkeys: Hotkeys,
+    developer: Developer,
+    ...engineForms,
+  };
 
   let autostart = $state(false);
 
@@ -102,6 +109,14 @@
   }
 
   const back = () => (app.tool = null);
+
+  // FlClash turns developer mode on after five clicks on the version.
+  let versionClicks = 0;
+  async function clickVersion() {
+    if (++versionClicks !== 5 || s.developerMode) return;
+    await updateSettings({ developerMode: true });
+    notify(t('dev.enabled'));
+  }
   const Sub = $derived(pages[app.tool]);
   const ready = $derived(!engineForms[app.tool] || engine.options);
 </script>
@@ -123,7 +138,7 @@
     {#each sections as section (section.id)}
       <h2 class="group-title">{t(`tools.${section.id}`)}</h2>
       <div class="list">
-        {#each section.entries as [id, icon] (id)}
+        {#each section.entries.filter(([id]) => id !== 'developer' || s.developerMode) as [id, icon] (id)}
           {#if id === 'diagnostics'}
             <div class="row tall with-icon">
               <span class="row-icon"><Icon name={icon} /></span>
@@ -193,10 +208,10 @@
 {:else if app.tool === 'about'}
   <Page title={t('tools.about')} subtitle={t('page.tools')} onback={back} form>
     <div class="list">
-      <div class="row">
+      <button type="button" class="row" onclick={clickVersion}>
         <span class="label">{t('tools.version')}</span>
-        <span class="trailing selectable">{app.version}</span>
-      </div>
+        <span class="trailing">{app.version}</span>
+      </button>
       <button type="button" class="row" onclick={() => (app.tool = 'licenses')}>
         <span class="label">{t('licenses.title')}</span>
         <span class="chevron"><Icon name="chevron" /></span>
@@ -229,9 +244,5 @@
       {/if}
     {/snippet}
     {#if ready}<Sub />{/if}
-  </Page>
-{:else}
-  <Page title={t(`tools.${app.tool}`)} subtitle={t('page.tools')} onback={back} fill>
-    <EmptyState icon="hourglass" title={t(`tools.${app.tool}`)} detail={t('tools.comingSoon')} />
   </Page>
 {/if}

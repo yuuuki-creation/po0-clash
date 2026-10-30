@@ -6,11 +6,11 @@ use tauri_plugin_dialog::DialogExt;
 
 use super::po0::{
     AppSettings, Connection, Connections, Core, CoreError, EngineOptions, ExitIp, GeoFile,
-    ImportResult, IntranetIp, LogEntry, Mode, Profile, ProfileEdit, ProfileOverride, Provider,
-    ProviderKind, ProxyGroup, RestoreScope, RouteMode, Rule, Script, Status, Traffic, WebDav,
-    WhitelistState,
+    HotkeyAction, ImportResult, IntranetIp, LogEntry, Mode, Profile, ProfileEdit, ProfileOverride,
+    Provider, ProviderKind, ProxyGroup, RestoreScope, RouteMode, Rule, Script, Status, Traffic,
+    WebDav, WhitelistState,
 };
-use super::{Backdrop, Launch, LaunchNotice, autostart, language, loopback};
+use super::{Backdrop, Launch, LaunchNotice, autostart, hotkeys, language, loopback};
 
 type CoreState<'a> = State<'a, Arc<Core>>;
 type Reply<T> = Result<T, String>;
@@ -273,8 +273,14 @@ pub async fn app_settings(core: CoreState<'_>) -> Reply<AppSettings> {
 }
 
 #[tauri::command]
-pub async fn set_app_settings(core: CoreState<'_>, settings: AppSettings) -> Reply<()> {
-    blocking(&core, move |c| c.set_app_settings(settings)).await
+pub async fn set_app_settings(
+    app: AppHandle,
+    core: CoreState<'_>,
+    settings: AppSettings,
+) -> Reply<()> {
+    blocking(&core, move |c| c.set_app_settings(settings)).await?;
+    hotkeys::refresh(&app);
+    Ok(())
 }
 
 #[tauri::command]
@@ -410,6 +416,7 @@ pub async fn restore_from_file(
         let data = std::fs::read(&path).map_err(|e| e.to_string())?;
         core.restore(data, scope(&scope_name))
             .map_err(|e| e.to_string())?;
+        hotkeys::refresh(&app);
         Ok(true)
     })
     .await
@@ -427,8 +434,14 @@ pub async fn backup_to_webdav(core: CoreState<'_>) -> Reply<()> {
 }
 
 #[tauri::command]
-pub async fn restore_from_webdav(core: CoreState<'_>, scope_name: String) -> Reply<()> {
-    blocking(&core, move |c| c.restore_from_webdav(scope(&scope_name))).await
+pub async fn restore_from_webdav(
+    app: AppHandle,
+    core: CoreState<'_>,
+    scope_name: String,
+) -> Reply<()> {
+    blocking(&core, move |c| c.restore_from_webdav(scope(&scope_name))).await?;
+    hotkeys::refresh(&app);
+    Ok(())
 }
 
 #[tauri::command]
@@ -598,4 +611,49 @@ pub fn open_url(url: String) -> Reply<()> {
     } else {
         Err(std::io::Error::last_os_error().to_string())
     }
+}
+
+#[tauri::command]
+pub fn hotkey_failures(hotkeys: State<'_, hotkeys::Hotkeys>) -> Vec<HotkeyAction> {
+    hotkeys.failed()
+}
+
+/// While a shortcut is being recorded, so the keys reach the window instead of firing.
+#[tauri::command]
+pub async fn pause_hotkeys(app: AppHandle, paused: bool) -> Reply<()> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<hotkeys::Hotkeys>().pause(paused))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn crash_engine(core: CoreState<'_>) -> Reply<()> {
+    blocking(&core, |c| c.crash_engine()).await
+}
+
+#[tauri::command]
+pub async fn add_test_logs(core: CoreState<'_>) -> Reply<()> {
+    blocking(&core, |c| {
+        c.add_test_logs();
+        Ok(())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn prune_cache(core: CoreState<'_>) -> Reply<u32> {
+    blocking(&core, |c| c.prune_cache()).await
+}
+
+/// The core wipes its data at the next start, so the app restarts straight away.
+#[tauri::command]
+pub async fn clear_data(app: AppHandle, core: CoreState<'_>) -> Reply<()> {
+    blocking(&core, |c| c.clear_data()).await?;
+    tauri::async_runtime::spawn_blocking(|| match autostart::enabled() {
+        true => autostart::set(false),
+        false => Ok(()),
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    app.restart()
 }

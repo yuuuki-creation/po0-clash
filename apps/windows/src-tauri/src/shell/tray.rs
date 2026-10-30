@@ -137,7 +137,7 @@ pub fn refresh(app: &AppHandle) {
     });
 }
 
-fn toggle(app: &AppHandle) {
+pub fn toggle(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let core = Arc::clone(&app.state::<Arc<Core>>());
