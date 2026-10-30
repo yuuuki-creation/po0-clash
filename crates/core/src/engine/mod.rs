@@ -129,6 +129,19 @@ impl Runner {
         }
     }
 
+    /// Ends the engine the way a crash would; an engine inside the app process cannot be killed alone.
+    pub fn kill(&self) -> bool {
+        match self {
+            #[cfg(not(target_os = "android"))]
+            Self::Process(process) => {
+                process.kill();
+                true
+            }
+            #[cfg(target_os = "android")]
+            Self::InProcess => false,
+        }
+    }
+
     fn pid(&self) -> Option<u32> {
         match self {
             #[cfg(not(target_os = "android"))]

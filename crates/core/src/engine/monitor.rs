@@ -204,6 +204,21 @@ impl Monitor {
         lock(&self.requests).iter().cloned().collect()
     }
 
+    /// Developer mode's log test fills the log list with lines of varied length.
+    pub fn add_test_logs(&self) {
+        let mut logs = lock(&self.logs);
+        for index in 0..1000 {
+            push_capped(
+                &mut logs,
+                LogEntry {
+                    level: LogLevel::Info,
+                    message: format!("[{index}] {}", util::random_secret(20 + index * 37 % 180)),
+                    at: util::now(),
+                },
+            );
+        }
+    }
+
     pub fn clear_logs(&self) {
         lock(&self.logs).clear();
     }
