@@ -77,7 +77,8 @@ mirror_enum!(Mode {
 mirror_enum!(RouteMode { SystemProxy, Tun });
 mirror_enum!(ProfileKind {
     Subscription,
-    Links
+    Links,
+    File
 });
 mirror_enum!(WhitelistKind { Po0, Ggy });
 mirror_enum!(WhitelistOutcome {
@@ -438,7 +439,16 @@ pub struct Profile {
     pub updated_at: Option<i64>,
     pub usage: Option<Usage>,
     pub selected: bool,
+    pub auto_update: bool,
+    pub update_hours: u32,
 }
+
+mirror_record!(ProfileEdit {
+    name: String,
+    url: Option<String>,
+    auto_update: bool,
+    update_hours: u32,
+});
 
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct ImportResult {
@@ -507,6 +517,8 @@ impl From<core::Profile> for Profile {
             updated_at: value.updated_at,
             usage: value.usage.map(Into::into),
             selected: value.selected,
+            auto_update: value.auto_update,
+            update_hours: value.update_hours,
         }
     }
 }
@@ -737,6 +749,26 @@ impl Po0Core {
 
     pub fn select_profile(&self, id: String) -> Result<()> {
         Ok(self.inner.select_profile(id)?)
+    }
+
+    pub fn import_file(&self, name: String, content: String) -> Result<Profile> {
+        Ok(self.inner.import_file(name, content)?.into())
+    }
+
+    pub fn edit_profile(&self, id: String, edit: ProfileEdit) -> Result<Profile> {
+        Ok(self.inner.edit_profile(id, edit.into())?.into())
+    }
+
+    pub fn profile_content(&self, id: String) -> Result<String> {
+        Ok(self.inner.profile_content(id)?)
+    }
+
+    pub fn preview_config(&self, id: String) -> Result<String> {
+        Ok(self.inner.preview_config(id)?)
+    }
+
+    pub fn reorder_profiles(&self, ids: Vec<String>) -> Result<()> {
+        Ok(self.inner.reorder_profiles(ids)?)
     }
 
     pub fn import_links(&self, text: String) -> Result<ImportResult> {
