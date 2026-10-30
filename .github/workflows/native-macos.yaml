@@ -253,12 +253,17 @@ jobs:
             exit 1
           fi
           shoot menu-zh 15 "${login[@]}" -AppleLanguages '(zh-Hans)'
-          for tab in general subscriptions whitelist; do shoot "settings-$tab" 6 -showSettings "$tab"; done
-          shoot settings-subscriptions-zh 6 -showSettings subscriptions -AppleLanguages '(zh-Hans)'
+          connected=(-launchedAtLogin YES -testDelays YES)
+          for page in dashboard proxies; do shoot "window-$page" 15 "${connected[@]}" -showWindow "$page"; done
+          for page in subscriptions whitelist settings; do shoot "window-$page" 6 -showWindow "$page"; done
+          shoot window-dashboard-zh 15 "${connected[@]}" -showWindow dashboard -AppleLanguages '(zh-Hans)'
+          shoot window-proxies-zh 15 "${connected[@]}" -showWindow proxies -AppleLanguages '(zh-Hans)'
+          shoot window-subscriptions-zh 6 -showWindow subscriptions -AppleLanguages '(zh-Hans)'
           # The runner's system appearance cannot be switched, so the app forces its own.
           shoot menu-dark 15 "${login[@]}" -appearance dark
-          shoot settings-subscriptions-dark 6 -showSettings subscriptions -appearance dark
-          shoot settings-whitelist-dark 6 -showSettings whitelist -appearance dark
+          shoot window-dashboard-dark 15 "${connected[@]}" -showWindow dashboard -appearance dark
+          shoot window-proxies-dark 15 "${connected[@]}" -showWindow proxies -appearance dark
+          shoot window-whitelist-dark 6 -showWindow whitelist -appearance dark
 
       - name: Upload screenshots
         if: always()

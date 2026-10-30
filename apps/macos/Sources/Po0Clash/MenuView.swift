@@ -27,11 +27,11 @@ struct MenuView: View {
             }
             ControlBar {
                 Button {
-                    SettingsWindow.shared.show()
+                    MainWindow.shared.show()
                 } label: {
-                    Label("Settings…", systemImage: "gearshape")
+                    Label("Open po0-clash", systemImage: "macwindow")
                 }
-                .keyboardShortcut(",")
+                .keyboardShortcut("o")
                 Spacer()
                 Button {
                     NSApp.terminate(nil)
@@ -43,21 +43,15 @@ struct MenuView: View {
         }
         .padding(12)
         .frame(width: 340)
-        .onAppear { model.menuAppeared() }
-        .onDisappear { model.menuDisappeared() }
-        .background(PanelVisibility { visible in
-            if visible {
-                model.menuAppeared()
-            } else {
-                model.menuDisappeared()
-            }
-        })
+        .onAppear { model.setVisible(.menu, true) }
+        .onDisappear { model.setVisible(.menu, false) }
+        .background(WindowVisibility { model.setVisible(.menu, $0) })
     }
 }
 
-/// macOS 13 and 14 do not call onAppear/onDisappear every time the MenuBarExtra panel opens and closes, but the
-/// panel window's occlusion state always changes.
-private struct PanelVisibility: NSViewRepresentable {
+/// macOS 13 and 14 do not call onAppear/onDisappear every time the MenuBarExtra panel opens and closes, and a closed
+/// main window keeps its views; the hosting window's occlusion state always changes.
+struct WindowVisibility: NSViewRepresentable {
     let onChange: @MainActor (Bool) -> Void
 
     func makeNSView(context: Context) -> Probe {
@@ -109,7 +103,7 @@ private struct ConnectionCard: View {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(verbatim: "po0-clash").font(.headline)
-                    Text(stateTitle).font(.subheadline).foregroundStyle(.secondary)
+                    Text(model.stateTitle).font(.subheadline).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Toggle("Connect", isOn: Binding(get: { model.isOn }, set: { model.setConnected($0) }))
@@ -131,7 +125,7 @@ private struct ConnectionCard: View {
                 if model.isRunning {
                     InfoRow(title: "Node", value: model.status?.currentNode ?? "—")
                 }
-                InfoRow(title: "Exit IP", value: exitIpText)
+                InfoRow(title: "Exit IP", value: model.exitIpText)
                 if model.isRunning {
                     GridRow {
                         Text("Speed").foregroundStyle(.secondary)
@@ -147,21 +141,6 @@ private struct ConnectionCard: View {
         }
     }
 
-    private var stateTitle: String {
-        switch model.status?.engine {
-        case .running?:
-            return model.status?.routeMode == .tun
-                ? String(localized: "Connected · TUN") : String(localized: "Connected · System proxy")
-        case .starting?: return String(localized: "Connecting…")
-        case .failed?: return String(localized: "Connection failed")
-        default: return String(localized: "Not connected")
-        }
-    }
-
-    private var exitIpText: String {
-        guard let exit = model.exitIp else { return "—" }
-        return exit.country.map { "\(exit.ip) · \($0)" } ?? exit.ip
-    }
 }
 
 private struct InfoRow: View {
@@ -206,7 +185,7 @@ private struct ControlsGrid: View {
             GridRow {
                 Text("Subscription").foregroundStyle(.secondary)
                 if model.profiles.isEmpty {
-                    Button("Add in Settings…") { SettingsWindow.shared.show(.subscriptions) }
+                    Button("Add Subscription…") { MainWindow.shared.show(.subscriptions) }
                         .buttonStyle(.link)
                 } else {
                     Picker("Subscription", selection: Binding<String?>(
@@ -301,13 +280,13 @@ private struct WhitelistSummary: View {
     var body: some View {
         HStack(spacing: 10) {
             Button {
-                SettingsWindow.shared.show(.whitelist)
+                MainWindow.shared.show(.whitelist)
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark.shield").foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Auto whitelist")
-                        Text(summary).font(.caption).foregroundStyle(.secondary)
+                        Text(model.whitelistSummary).font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 .contentShape(Rectangle())
@@ -323,13 +302,6 @@ private struct WhitelistSummary: View {
             .labelsHidden()
             .disabled(model.whitelist == nil)
         }
-    }
-
-    private var summary: String {
-        let entries = model.whitelist?.entries ?? []
-        if entries.isEmpty { return String(localized: "No tokens or links yet") }
-        let applied = entries.filter { $0.result?.outcome == .applied }.count
-        return String(localized: "\(applied) of \(entries.count) whitelisted")
     }
 }
 

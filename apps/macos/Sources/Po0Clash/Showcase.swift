@@ -8,9 +8,8 @@ enum Showcase {
         if defaults.string(forKey: "appearance") == "dark" { NSApp.appearance = NSAppearance(named: .darkAqua) }
         Task {
             if defaults.bool(forKey: "testDelays") { await testDelays() }
-            if let name = defaults.string(forKey: "showSettings") {
-                let tabs: [String: SettingsTab] = ["general": .general, "subscriptions": .subscriptions, "whitelist": .whitelist]
-                SettingsWindow.shared.show(tabs[name] ?? .general)
+            if let name = defaults.string(forKey: "showWindow") {
+                MainWindow.shared.show(Page(rawValue: name) ?? .dashboard)
             }
             if defaults.bool(forKey: "showMenu") {
                 let clicks = defaults.bool(forKey: "reopenMenu") ? 3 : 1
@@ -20,6 +19,11 @@ enum Showcase {
                 }
             }
         }
+    }
+
+    /// Menu screenshots need the screen to themselves.
+    static var keepsWindowClosed: Bool {
+        UserDefaults.standard.bool(forKey: "showMenu")
     }
 
     private static func testDelays() async {

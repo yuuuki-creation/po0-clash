@@ -1,16 +1,21 @@
 # macOS 原生版
 
-SwiftUI 菜单栏应用，代码在 `apps/macos`，方案见 [native-rewrite.md](native-rewrite.md)。
+SwiftUI 应用（主窗口加菜单栏），代码在 `apps/macos`，方案见 [native-rewrite.md](native-rewrite.md)。
 
 ## 结构
 
-- SwiftPM 包（`apps/macos/Package.swift`），最低 macOS 13，`LSUIElement`（不显示程序坞图标）。
-- 菜单栏窗口（`MenuBarExtra`，`.window` 样式）：连接开关与状态、出口 IP、速率、模式、虚拟网卡 / 系统代理、订阅切换、
-  策略组与延迟测试、加白总开关。另有一个工具栏标签式的设置窗口：通用（开机自启、导出诊断日志）、订阅、加白。
+- SwiftPM 包（`apps/macos/Package.swift`），最低 macOS 13，`LSUIElement`；主窗口打开时切成普通应用（显示程序坞图标），
+  关闭后回到只在菜单栏。正常打开应用、再次打开或点程序坞图标时显示主窗口，开机自启时不显示。
+- 主窗口（`MainWindow.swift`，ADR 0019）：AppKit 管理的窗口里放 `NavigationSplitView`，侧边栏依次为仪表盘、代理、订阅、
+  加白、设置。仪表盘是 FlClash 式的卡片网格（速率、出口 IP、当前节点、模式、接管方式、订阅用量、加白）和右下角的浮动
+  启动按钮（已连接时显示时长）；代理页是可展开的策略组卡片和节点卡片网格。每页顶部是大标题和浮动的玻璃按钮组。窗口没有
+  工具栏（macOS 13 的 `NSHostingController` 不桥接 SwiftUI 工具栏），所以页面操作放在标题行，侧边栏也不允许收起。
+- 菜单栏窗口（`MenuBarExtra`，`.window` 样式）作为快捷入口：连接开关与状态、出口 IP、速率、模式、虚拟网卡 / 系统代理、
+  订阅切换、策略组与延迟测试、加白总开关，底部按钮打开主窗口。
 - 内核调用全部经过 `CoreClient.swift`，在后台队列执行；引擎与路由命令走同一个串行队列，保证按用户操作顺序生效。
 - 按 HIG 的液态玻璃规范：用 macOS 26 SDK 构建，系统控件、菜单栏窗口、工具栏与弹出表单自动获得液态玻璃；只有浮动的
-  控件层（菜单底部的按钮栏、「重新连接」）额外用 `.glass` / `.glassProminent` 与 `GlassEffectContainer`。内容一律放在
-  不透明的分组表面上（设置窗口用 `.formStyle(.grouped)`），用系统背景色、系统强调色与语义色，不加渐变、彩色背景或
+  控件层（页面标题行和菜单底部的按钮组、启动按钮、「重新连接」）额外用 `.glass` / `.glassProminent` 与
+  `GlassEffectContainer`。内容一律放在不透明的分组卡片上，用系统背景色、系统强调色与语义色，不加渐变、彩色背景或
   自绘模糊。更早的系统使用默认外观。
 - 界面语言跟随系统，简体中文与英文（`Resources/*.lproj/Localizable.strings`）。
 
@@ -58,5 +63,5 @@ Flutter 版先发正常退出的 Apple 事件，再退回 SIGTERM，并结束它
 3. 普通启动 10 秒，确认没有自动连接、SIGTERM 后正常关闭；
 4. `-showMenu YES -reopenMenu YES` 打开、关闭、再打开菜单窗口，在系统日志里确认刷新了至少两次；
 5. 仅 macos-26：截图。`-launchedAtLogin YES` 模拟开机自启（必须自动重连）、`-testDelays YES` 先测延迟、`-showMenu YES` /
-   `-showSettings <tab>` 打开界面，`-appearance dark` 强制深色（runner 的系统外观改不了），`-AppleLanguages '(zh-Hans)'`
+   `-showWindow <dashboard|proxies|subscriptions|whitelist|settings>` 打开界面，`-appearance dark` 强制深色（runner 的系统外观改不了），`-AppleLanguages '(zh-Hans)'`
    切中文。

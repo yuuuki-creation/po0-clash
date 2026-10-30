@@ -12,29 +12,28 @@ struct SubscriptionsView: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                if model.profiles.isEmpty {
-                    EmptyRow(title: "No subscriptions", detail: "Add a subscription URL or import share links.")
-                } else {
+        PageScaffold("Subscriptions") {
+            Button {
+                sheet = .links
+            } label: {
+                Label("Import Share Links…", systemImage: "link")
+            }
+            Button {
+                sheet = .subscription
+            } label: {
+                Label("Add Subscription…", systemImage: "plus")
+            }
+        } content: {
+            if model.profiles.isEmpty {
+                EmptyRow(title: "No subscriptions", detail: "Add a subscription URL or import share links.").groupedSection()
+            } else {
+                VStack(spacing: 12) {
                     ForEach(model.profiles, id: \.id) { profile in
                         ProfileRow(profile: profile) { pendingRemoval = profile }
                     }
                 }
-            } footer: {
-                HStack {
-                    Spacer()
-                    Button("Import Share Links…") { sheet = .links }
-                    Button("Add Subscription…") { sheet = .subscription }
-                }
-            }
-            if let notice = model.notice {
-                Section {
-                    NoticeBanner(text: notice) { model.notice = nil }
-                }
             }
         }
-        .formStyle(.grouped)
         .sheet(item: $sheet) { sheet in
             switch sheet {
             case .subscription: AddSubscriptionSheet().environmentObject(model)
@@ -69,29 +68,22 @@ private struct ProfileRow: View {
             .buttonStyle(.borderless)
             .help("Use this subscription")
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(profile.title).fontWeight(.medium).lineLimit(1)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(profile.title).fontWeight(.semibold).lineLimit(1)
                 if let usage = profile.usage, usage.total > 0 {
-                    let used = usage.upload + usage.download
-                    ProgressView(value: min(Double(used) / Double(usage.total), 1))
-                        .progressViewStyle(.linear)
-                        .frame(maxWidth: 260)
-                    Text("\(Format.bytes(used)) of \(Format.bytes(usage.total)) used")
+                    UsageBar(usage: usage)
+                } else if let expire = profile.usage?.expire {
+                    Text("Expires \(Format.date(expire), format: .dateTime.year().month().day())")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                HStack(spacing: 12) {
-                    if let expire = profile.usage?.expire {
-                        Text("Expires \(Format.date(expire), format: .dateTime.year().month().day())")
-                    }
-                    if let updated = profile.updatedAt {
-                        Text("Updated \(Format.date(updated), format: .relative(presentation: .named))")
-                    }
+                if let updated = profile.updatedAt {
+                    Text("Updated \(Format.date(updated), format: .relative(presentation: .named))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
             if profile.kind == .subscription {
                 Button {
                     model.updateProfile(profile.id)
@@ -113,7 +105,11 @@ private struct ProfileRow: View {
             .buttonStyle(.borderless)
             .help("Delete")
         }
-        .padding(.vertical, 4)
+        .groupedSection()
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(profile.selected ? Color.accentColor : Color.clear, lineWidth: 1.5)
+        )
     }
 }
 

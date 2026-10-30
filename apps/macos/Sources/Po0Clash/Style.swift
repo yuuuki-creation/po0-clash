@@ -21,6 +21,11 @@ enum Format {
         Date(timeIntervalSince1970: TimeInterval(unixSeconds))
     }
 
+    static func elapsed(_ since: Date, now: Date) -> String {
+        let seconds = max(Int(now.timeIntervalSince(since)), 0)
+        return String(format: "%02d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)
+    }
+
     static func delay(_ node: Node) -> String? {
         guard let delay = node.delay else { return nil }
         return delay == 0 ? String(localized: "Timeout") : "\(delay) ms"
@@ -33,7 +38,7 @@ extension View {
     func groupedSection() -> some View {
         padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     @ViewBuilder
@@ -51,6 +56,15 @@ extension View {
         #else
         plainButton(prominent: prominent)
         #endif
+    }
+
+    @ViewBuilder
+    func buttonBorderShapeCapsule() -> some View {
+        if #available(macOS 14, *) {
+            buttonBorderShape(.capsule)
+        } else {
+            self
+        }
     }
 
     @ViewBuilder
@@ -96,6 +110,31 @@ struct EmptyRow: View {
             Text(detail).font(.callout).foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
+    }
+}
+
+extension AppModel {
+    var stateTitle: String {
+        switch status?.engine {
+        case .running?:
+            return status?.routeMode == .tun
+                ? String(localized: "Connected · TUN") : String(localized: "Connected · System proxy")
+        case .starting?: return String(localized: "Connecting…")
+        case .failed?: return String(localized: "Connection failed")
+        default: return String(localized: "Not connected")
+        }
+    }
+
+    var exitIpText: String {
+        guard let exit = exitIp else { return "—" }
+        return exit.country.map { "\(exit.ip) · \($0)" } ?? exit.ip
+    }
+
+    var whitelistSummary: String {
+        let entries = whitelist?.entries ?? []
+        if entries.isEmpty { return String(localized: "No tokens or links yet") }
+        let applied = entries.filter { $0.result?.outcome == .applied }.count
+        return String(localized: "\(applied) of \(entries.count) whitelisted")
     }
 }
 

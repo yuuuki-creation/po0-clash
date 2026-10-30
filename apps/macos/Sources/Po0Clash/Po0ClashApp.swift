@@ -40,8 +40,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.terminate(nil)
             return
         }
-        AppModel.shared.launch(atLogin: LaunchAtLogin.launchedAtLogin)
+        let atLogin = LaunchAtLogin.launchedAtLogin
+        AppModel.shared.launch(atLogin: atLogin)
+        if !atLogin, !Showcase.keepsWindowClosed { MainWindow.shared.show() }
         Showcase.run()
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        MainWindow.shared.show()
+        return false
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

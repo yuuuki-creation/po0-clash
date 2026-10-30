@@ -36,13 +36,14 @@ Ubuntu 上的 `native-core.yaml` 通过，macOS 的 CI 里内核测试和真实�
 
 - SwiftPM 包，最低 macOS 13，不显示程序坞图标，中英文跟随系统，用真实内核绑定。
 - 菜单栏窗口：连接开关与状态、当前节点、出口 IP、速率、模式、系统代理 / 虚拟网卡、切换订阅、选节点与测延迟、加白开关和摘要、
-  失败时的「重新连接」。设置窗口三个标签：通用（开机自启、导出诊断、版本）、订阅、加白。
+  失败时的「重新连接」。原来的设置窗口已并入主窗口（ADR 0019）：侧边栏导航的仪表盘、代理、订阅、加白、设置，结构接近 FlClash；主窗口还没在真机上看过，
+  只有 CI 截图。
 - 虚拟网卡：首次使用时用一次管理员授权把 mihomo 装到 `/Library/Application Support/io.github.yuuukicreation.po0clash/mihomo`
   （root:wheel、4755，SHA-256 与包内一致才复用），取消授权就退回系统代理。
 - 开机自启后，如果用户上次是连接状态（内核的 `wasConnected()`），自动重新连接；手动打开不会自动连接。
 - 菜单窗口每次打开都刷新（除了 onAppear 还跟踪窗口的遮挡状态）。
 - 旧数据：Flutter 版的偏好在 UserDefaults 里，应用导出成 `core/legacy_shared_preferences.json` 交给内核。
-- 液态玻璃：只在浮动控件层用玻璃，内容是不透明的分组卡片，设置窗口用 `.formStyle(.grouped)`；浅色、深色和中文截图已核对。
+- 液态玻璃：只在浮动控件层用玻璃，内容是不透明的分组卡片，浅色、深色和中文截图已核对（主窗口之前的版本）。
 - 安装脚本 `scripts/install-macos-native.sh`：默认装最新的 `native-v*` 发布（含测试版），也可指定版本或本地 zip；核对
   SHA-256、应用 ID、架构和签名，退出并替换已装的原生版或 Flutter 版，移除隔离属性后打开。随 `native-v7.0.0-beta.1` 发布。
 - CI 的检查矩阵（只下载产物、不编译）在 macOS 26.x arm64、macOS 14.8 arm64、macOS 15.7 Intel 上都通过：

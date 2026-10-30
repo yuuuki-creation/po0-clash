@@ -1,4 +1,3 @@
-"Settings…" = "设置…";
 "Quit" = "退出";
 "Connect" = "连接";
 "Reconnect" = "重新连接";
@@ -18,8 +17,7 @@
 "System proxy" = "系统代理";
 "TUN" = "虚拟网卡";
 "Subscription" = "订阅";
-"Add in Settings…" = "在设置中添加…";
-"Proxies" = "策略组";
+"Proxies" = "代理";
 "Test delay" = "测试延迟";
 "Auto whitelist" = "自动加白";
 "No tokens or links yet" = "还没有 token 或链接";
@@ -75,3 +73,14 @@
 "Add to Whitelist" = "添加加白项";
 "Name (optional)" = "名称（可选）";
 "Paste po0 tokens or ggy whitelist links, one per line." = "粘贴 po0 token 或 ggy 加白链接，每行一条。";
+"Open po0-clash" = "打开 po0-clash";
+"Dashboard" = "仪表盘";
+"Settings" = "设置";
+"Disconnect" = "断开";
+"Current node" = "当前节点";
+"Refresh" = "刷新";
+"Test all" = "全部测速";
+"Direct mode" = "直连模式";
+"Traffic goes out directly, so no proxy is used." = "流量直接出站，不使用代理。";
+"No proxy groups" = "没有策略组";
+"Connect with a subscription to load its proxy groups." = "选好订阅并连接后，这里会显示它的策略组。";

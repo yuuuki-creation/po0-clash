@@ -17,6 +17,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var testing: Set<String> = []
     @Published private(set) var updating: Set<String> = []
     @Published private(set) var busy = false
+    @Published private(set) var connectedAt: Date?
     @Published private(set) var launchError: String?
     @Published var notice: String?
 
@@ -25,7 +26,7 @@ final class AppModel: ObservableObject {
     private var trafficTimer: Timer?
     private var exitIpTask: Task<Void, Never>?
     private var exitIpFetchedAt: Date?
-    private var menuVisible = false
+    private var visibleSurfaces: Set<Surface> = []
     private var busyCount = 0
 
     var isOn: Bool {
@@ -260,21 +261,29 @@ final class AppModel: ObservableObject {
         return formatter
     }()
 
-    // MARK: Menu visibility
+    // MARK: Visibility
 
-    func menuAppeared() {
-        guard !menuVisible else { return }
-        menuVisible = true
-        logger.notice("menu panel shown")
-        updateTrafficTimer()
-        Task { await refreshGroups() }
-        if exitIpFetchedAt.map({ Date().timeIntervalSince($0) > 60 }) ?? true { refreshExitIp() }
+    enum Surface {
+        case menu, dashboard, proxies
     }
 
-    func menuDisappeared() {
-        guard menuVisible else { return }
-        menuVisible = false
+    func setVisible(_ surface: Surface, _ visible: Bool) {
+        guard visibleSurfaces.contains(surface) != visible else { return }
+        if visible {
+            visibleSurfaces.insert(surface)
+            if surface == .menu { logger.notice("menu panel shown") }
+            Task { await refreshGroups() }
+            if surface != .proxies, exitIpFetchedAt.map({ Date().timeIntervalSince($0) > 60 }) ?? true {
+                refreshExitIp()
+            }
+        } else {
+            visibleSurfaces.remove(surface)
+        }
         updateTrafficTimer()
+    }
+
+    func refreshExitIpNow() {
+        refreshExitIp()
     }
 
     // MARK: Refresh
@@ -302,6 +311,11 @@ final class AppModel: ObservableObject {
                 || old.currentNode != next.currentNode || old.profileId != next.profileId
         } ?? true
         status = next
+        if !isRunning {
+            connectedAt = nil
+        } else if connectedAt == nil {
+            connectedAt = Date()
+        }
         if changed {
             refreshExitIp()
             await refreshGroups()
@@ -337,7 +351,7 @@ final class AppModel: ObservableObject {
     }
 
     private func updateTrafficTimer() {
-        let wanted = menuVisible && isRunning
+        let wanted = !visibleSurfaces.isDisjoint(with: [.menu, .dashboard]) && isRunning
         if wanted == (trafficTimer != nil) { return }
         trafficTimer?.invalidate()
         trafficTimer = nil
