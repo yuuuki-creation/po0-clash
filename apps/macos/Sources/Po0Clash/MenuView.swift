@@ -93,7 +93,7 @@ private struct ConnectionCard: View {
                 }
                 Spacer()
                 Toggle("Connect", isOn: Binding(get: { model.isOn }, set: { model.setConnected($0) }))
-                    .toggleStyle(.switch)
+                    .toggleStyle(.themedSwitch)
                     .labelsHidden()
                     .disabled(model.busy || model.status == nil)
             }
@@ -283,7 +283,7 @@ private struct WhitelistSummary: View {
                 get: { model.whitelist?.enabled ?? false },
                 set: { model.setWhitelistEnabled($0) }
             ))
-            .toggleStyle(.switch)
+            .toggleStyle(.themedSwitch)
             .controlSize(.small)
             .labelsHidden()
             .disabled(model.whitelist == nil)

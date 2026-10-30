@@ -186,7 +186,7 @@ private struct ApplicationView: View {
             }
         }
         .formStyle(.grouped)
-        .toggleStyle(.switch)
+        .toggleStyle(.themedSwitch)
         .onAppear(perform: reloadLaunchAtLogin)
     }
 
@@ -307,7 +307,7 @@ private struct AppearanceView: View {
                     Text("Pure black")
                     Text("Uses black instead of dark grey behind the content in dark mode.")
                 }
-                .toggleStyle(.switch)
+                .toggleStyle(.themedSwitch)
             }
             Section("Theme color") {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 34), spacing: 8)], alignment: .leading, spacing: 8) {
@@ -529,7 +529,7 @@ private struct DeveloperView: View {
             .disabled(model.core == nil)
         }
         .formStyle(.grouped)
-        .toggleStyle(.switch)
+        .toggleStyle(.themedSwitch)
         .alert("Crash the engine?", isPresented: $confirmingCrash) {
             Button("Crash", role: .destructive) { model.crashEngine() }
             Button("Cancel", role: .cancel) {}

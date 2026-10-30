@@ -41,6 +41,8 @@ enum Showcase {
 
     static var showsOverride: Bool { UserDefaults.standard.bool(forKey: "showOverride") }
 
+    static var themeColor: UInt32? { UserDefaults.standard.string(forKey: "themeColor").flatMap { UInt32($0) } }
+
     static var forcesAppearance: Bool {
         UserDefaults.standard.string(forKey: "appearance") != nil
     }

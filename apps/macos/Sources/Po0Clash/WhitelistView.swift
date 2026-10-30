@@ -25,7 +25,7 @@ struct WhitelistView: View {
                         Text("Auto whitelist")
                         Text("Keeps this Mac's real exit IP on the po0 and ggy whitelists while po0-clash is open, connected or not.")
                     }
-                    .toggleStyle(.switch)
+                    .toggleStyle(.themedSwitch)
                     .disabled(model.whitelist == nil)
                 }
                 Section("Tokens and links") {

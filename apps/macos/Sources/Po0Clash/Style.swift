@@ -141,12 +141,26 @@ struct AppTheme: ViewModifier {
     @EnvironmentObject private var model: AppModel
 
     func body(content: Content) -> some View {
-        let accent = Theme.accent(model.appSettings?.themeColor ?? Theme.defaultColor)
+        let accent = Theme.accent(Showcase.themeColor ?? model.appSettings?.themeColor ?? Theme.defaultColor)
         content
-            .tint(accent)
             .accentColor(accent)
+            .toggleStyle(.themedSwitch)
             .id(model.appSettings?.pureBlack ?? false)
     }
+}
+
+/// A tint on the whole window would also color every push button and segmented control, which macOS draws
+/// neutral, so the theme color reaches switches through their style instead.
+struct ThemedSwitch: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Toggle(configuration)
+            .toggleStyle(.switch)
+            .tint(Color.accentColor)
+    }
+}
+
+extension ToggleStyle where Self == ThemedSwitch {
+    static var themedSwitch: ThemedSwitch { ThemedSwitch() }
 }
 
 extension Color {
@@ -271,7 +285,7 @@ extension View {
         #if compiler(>=6.2)
         if #available(macOS 26, *) {
             if prominent {
-                buttonStyle(.glassProminent)
+                buttonStyle(.glassProminent).tint(Color.accentColor)
             } else {
                 buttonStyle(.glass)
             }
@@ -295,7 +309,7 @@ extension View {
     @ViewBuilder
     private func plainButton(prominent: Bool) -> some View {
         if prominent {
-            buttonStyle(.borderedProminent)
+            buttonStyle(.borderedProminent).tint(Color.accentColor)
         } else {
             buttonStyle(.bordered)
         }

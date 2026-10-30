@@ -596,7 +596,7 @@ private struct WhitelistCard: View {
                 get: { model.whitelist?.enabled ?? false },
                 set: { model.setWhitelistEnabled($0) }
             ))
-            .toggleStyle(.switch)
+            .toggleStyle(.themedSwitch)
             .controlSize(.mini)
             .labelsHidden()
             .disabled(model.whitelist == nil)

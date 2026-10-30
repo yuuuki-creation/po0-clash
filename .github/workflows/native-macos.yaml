@@ -320,6 +320,7 @@ jobs:
           shoot window-tools-zh 6 -showWindow tools -AppleLanguages '(zh-Hans)'
           shoot window-dashboard-ja 15 "${connected[@]}" -showWindow dashboard -AppleLanguages '(ja)'
           shoot window-application-ru 6 -showWindow tools -toolsPage application -AppleLanguages '(ru)'
+          shoot window-application-pink 6 -showWindow tools -toolsPage application -themeColor 4294913365
           # The runner's system appearance cannot be switched, so the app forces its own.
           shoot menu-dark 15 "${login[@]}" -appearance dark
           shoot window-dashboard-dark 15 "${connected[@]}" -showWindow dashboard -appearance dark
