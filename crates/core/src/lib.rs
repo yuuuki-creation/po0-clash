@@ -6,6 +6,7 @@ mod error;
 mod flutter_backup;
 mod ip_quality;
 mod legacy;
+mod licenses;
 mod links;
 mod logfile;
 mod model;
@@ -1141,6 +1142,10 @@ impl Core {
             profile: self.profile(&id)?,
             added,
         })
+    }
+
+    pub fn licenses(&self) -> Vec<License> {
+        licenses::all()
     }
 
     // Share-link nodes.

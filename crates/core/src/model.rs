@@ -327,3 +327,11 @@ pub struct ShareNode {
     pub name: String,
     pub kind: String,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct License {
+    pub name: String,
+    pub version: String,
+    pub license: String,
+    pub url: String,
+}
