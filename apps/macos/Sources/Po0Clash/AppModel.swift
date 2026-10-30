@@ -344,6 +344,10 @@ final class AppModel: ObservableObject {
         await failure { try await $0.removeShareNode(id, name) }
     }
 
+    func licenses() async -> [License] {
+        (try? await client?.licenses()) ?? []
+    }
+
     func scripts() async -> [Script] {
         (try? await client?.scripts()) ?? []
     }

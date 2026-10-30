@@ -94,6 +94,7 @@ final class CoreClient: @unchecked Sendable {
     }
     func scripts() async throws -> [Script] { try await work { $0.scripts() } }
     func shareNodes(_ id: String) async throws -> [ShareNode] { try await work { try $0.shareNodes(id: id) } }
+    func licenses() async throws -> [License] { try await work { $0.licenses() } }
     func renameShareNode(_ id: String, _ name: String, _ newName: String) async throws {
         try await control { try $0.renameShareNode(id: id, name: name, newName: newName) }
     }

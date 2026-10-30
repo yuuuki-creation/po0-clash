@@ -367,6 +367,7 @@ private struct AppearanceView: View {
 private struct AboutView: View {
     @EnvironmentObject private var model: AppModel
     @State private var versionClicks = 0
+    @State private var showsLicenses = false
 
     var body: some View {
         Form {
@@ -397,9 +398,13 @@ private struct AboutView: View {
                 link("Upstream client", detail: "chen08209/FlClash", to: "https://github.com/chen08209/FlClash")
                 link("Core", detail: "mihomo", to: "https://github.com/MetaCubeX/mihomo")
                 LabeledContent("Upstream contributors") { Text(verbatim: "June2 · Arue") }
+                LabeledContent("Open-source licenses") {
+                    Button("Show…") { showsLicenses = true }
+                }
             }
         }
         .formStyle(.grouped)
+        .sheet(isPresented: $showsLicenses) { LicensesSheet().environmentObject(model) }
     }
 
     private func link(_ title: LocalizedStringKey, detail: String, to address: String) -> some View {
@@ -422,6 +427,57 @@ private struct AboutView: View {
         model.updateAppSettings { $0.developerMode = true }
         model.notice = String(localized: "Developer mode is enabled.")
     }
+}
+
+private struct LicensesSheet: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var licenses: [License] = []
+    @State private var query = ""
+
+    private var shown: [License] {
+        let query = query.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return licenses }
+        return licenses.filter { $0.name.localizedCaseInsensitiveContains(query) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Open-Source Licenses").font(.headline)
+                Spacer()
+                TextField("Search", text: $query)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 180)
+            }
+            List(shown) { license in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: license.version.isEmpty ? license.name : "\(license.name) \(license.version)")
+                        Text(verbatim: license.license).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if !license.url.isEmpty, let url = URL(string: license.url) {
+                        Link(destination: url) { Image(systemName: "arrow.up.right.square") }
+                            .help(license.url)
+                    }
+                }
+            }
+            .listStyle(.inset(alternatesRowBackgrounds: true))
+            HStack {
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 520, height: 560)
+        .task { licenses = await model.licenses() }
+    }
+}
+
+extension License: Identifiable {
+    public var id: String { "\(name) \(version)" }
 }
 
 /// FlClash's developer mode, which About turns on after five clicks on the version.
