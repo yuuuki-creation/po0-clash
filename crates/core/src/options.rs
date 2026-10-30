@@ -17,6 +17,30 @@ pub enum LogLevel {
     Silent,
 }
 
+impl LogLevel {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Debug => "debug",
+            Self::Info => "info",
+            Self::Warning => "warning",
+            Self::Error => "error",
+            Self::Silent => "silent",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<Self> {
+        [
+            Self::Debug,
+            Self::Info,
+            Self::Warning,
+            Self::Error,
+            Self::Silent,
+        ]
+        .into_iter()
+        .find(|level| level.as_str() == text)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum FindProcessMode {

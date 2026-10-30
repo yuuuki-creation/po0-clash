@@ -179,3 +179,76 @@ pub enum Change {
     Groups,
     Whitelist,
 }
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Connection {
+    pub id: String,
+    pub network: String,
+    /// The inbound that accepted it, such as `HTTP Connect`, `Socks5` or `Tun`.
+    pub inbound: String,
+    pub host: String,
+    pub destination: String,
+    pub source: String,
+    pub process: Option<String>,
+    pub process_path: Option<String>,
+    pub rule: String,
+    pub rule_payload: String,
+    /// Outermost group last, as mihomo reports it.
+    pub chains: Vec<String>,
+    pub upload: u64,
+    pub download: u64,
+    pub start: i64,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Connections {
+    pub upload_total: u64,
+    pub download_total: u64,
+    pub items: Vec<Connection>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogEntry {
+    pub level: crate::options::LogLevel,
+    pub message: String,
+    pub at: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ProviderKind {
+    Proxy,
+    Rule,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Provider {
+    pub name: String,
+    pub kind: ProviderKind,
+    /// `HTTP`, `File` or `Inline`.
+    pub vehicle: String,
+    pub behavior: Option<String>,
+    pub count: u32,
+    pub updated_at: Option<i64>,
+    pub usage: Option<Usage>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Rule {
+    pub kind: String,
+    pub payload: String,
+    pub proxy: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeoFile {
+    pub name: String,
+    pub size: Option<u64>,
+    pub modified: Option<i64>,
+}

@@ -127,7 +127,17 @@ impl Controller {
         path: &str,
         body: Option<&Value>,
     ) -> io::Result<(u16, String)> {
-        let mut reader = self.send(method, path, body, Some(TIMEOUT))?;
+        self.request_within(method, path, body, TIMEOUT)
+    }
+
+    fn request_within(
+        &self,
+        method: &str,
+        path: &str,
+        body: Option<&Value>,
+        timeout: Duration,
+    ) -> io::Result<(u16, String)> {
+        let mut reader = self.send(method, path, body, Some(timeout))?;
         let (status, chunked, length) = read_head(&mut reader)?;
         let mut bytes = Vec::new();
         if chunked {
@@ -144,8 +154,19 @@ impl Controller {
     }
 
     pub fn json(&self, method: &str, path: &str, body: Option<&Value>) -> Result<Value> {
+        self.json_within(method, path, body, TIMEOUT)
+    }
+
+    /// For calls that make mihomo download something, which can take far longer than a lookup.
+    pub fn json_within(
+        &self,
+        method: &str,
+        path: &str,
+        body: Option<&Value>,
+        timeout: Duration,
+    ) -> Result<Value> {
         let (status, text) = self
-            .request(method, path, body)
+            .request_within(method, path, body, timeout)
             .map_err(|error| CoreError::Engine(format!("controller: {error}")))?;
         let value: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
         if !(200..300).contains(&status) {

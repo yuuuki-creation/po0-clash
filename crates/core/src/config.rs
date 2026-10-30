@@ -3,7 +3,7 @@ use serde_yaml::{Mapping, Value};
 use crate::error::{CoreError, Result};
 use crate::model::{Mode, Platform, RouteMode};
 use crate::options::{
-    DnsMode, DnsOptions, EngineOptions, FindProcessMode, GeodataLoader, LogLevel, TunStack,
+    DnsMode, DnsOptions, EngineOptions, FindProcessMode, GeodataLoader, TunStack,
 };
 
 pub const PO0_HOST: &str = "124.221.69.228";
@@ -154,7 +154,7 @@ pub fn render(base: &str, params: &Params) -> Result<String> {
         );
     }
     set(&mut root, "mode", key(params.mode.as_str()));
-    set(&mut root, "log-level", key(log_level(options.log_level)));
+    set(&mut root, "log-level", key(options.log_level.as_str()));
     set(&mut root, "ipv6", Value::Bool(options.ipv6));
     set(
         &mut root,
@@ -285,16 +285,6 @@ pub fn render(base: &str, params: &Params) -> Result<String> {
     serde_yaml::to_string(&Value::Mapping(root)).map_err(invalid)
 }
 
-fn log_level(level: LogLevel) -> &'static str {
-    match level {
-        LogLevel::Debug => "debug",
-        LogLevel::Info => "info",
-        LogLevel::Warning => "warning",
-        LogLevel::Error => "error",
-        LogLevel::Silent => "silent",
-    }
-}
-
 fn dns(options: &DnsOptions) -> Value {
     let mut dns = Mapping::new();
     let mut set = |name: &str, value: Value| {
@@ -412,7 +402,7 @@ fn tun(params: &Params) -> Mapping {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::options::GeoxUrl;
+    use crate::options::{GeoxUrl, LogLevel};
 
     fn direct() -> DirectListener {
         DirectListener {

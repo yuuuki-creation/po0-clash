@@ -115,6 +115,7 @@ mirror_enum!(GeodataLoader {
     Standard,
     Memconservative
 });
+mirror_enum!(ProviderKind { Proxy, Rule });
 mirror_enum!(DnsMode {
     Normal,
     FakeIp,
@@ -138,6 +139,48 @@ macro_rules! mirror_record {
             }
         }
     };
+}
+
+mirror_record!(Connection {
+    id: String,
+    network: String,
+    inbound: String,
+    host: String,
+    destination: String,
+    source: String,
+    process: Option<String>,
+    process_path: Option<String>,
+    rule: String,
+    rule_payload: String,
+    chains: Vec<String>,
+    upload: u64,
+    download: u64,
+    start: i64,
+});
+
+mirror_record!(Rule {
+    kind: String,
+    payload: String,
+    proxy: String,
+});
+
+mirror_record!(GeoFile {
+    name: String,
+    size: Option<u64>,
+    modified: Option<i64>,
+});
+
+mirror_record!(Traffic { up: u64, down: u64 });
+
+mirror_record!(Usage {
+    upload: u64,
+    download: u64,
+    total: u64,
+    expire: Option<i64>,
+});
+
+fn convert<T: Into<U>, U>(items: Vec<T>) -> Vec<U> {
+    items.into_iter().map(Into::into).collect()
 }
 
 mirror_record!(GeoxUrl {
@@ -356,23 +399,34 @@ pub struct Status {
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
-pub struct Traffic {
-    pub up: u64,
-    pub down: u64,
+pub struct Connections {
+    pub upload_total: u64,
+    pub download_total: u64,
+    pub items: Vec<Connection>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct LogEntry {
+    pub level: LogLevel,
+    pub message: String,
+    pub at: i64,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct Provider {
+    pub name: String,
+    pub kind: ProviderKind,
+    pub vehicle: String,
+    pub behavior: Option<String>,
+    pub count: u32,
+    pub updated_at: Option<i64>,
+    pub usage: Option<Usage>,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct ExitIp {
     pub ip: String,
     pub country: Option<String>,
-}
-
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct Usage {
-    pub upload: u64,
-    pub download: u64,
-    pub total: u64,
-    pub expire: Option<i64>,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -451,12 +505,7 @@ impl From<core::Profile> for Profile {
             kind: value.kind.into(),
             url: value.url,
             updated_at: value.updated_at,
-            usage: value.usage.map(|usage| Usage {
-                upload: usage.upload,
-                download: usage.download,
-                total: usage.total,
-                expire: usage.expire,
-            }),
+            usage: value.usage.map(Into::into),
             selected: value.selected,
         }
     }
@@ -565,11 +614,93 @@ impl Po0Core {
     }
 
     pub fn traffic(&self) -> Traffic {
-        let traffic = self.inner.traffic();
-        Traffic {
-            up: traffic.up,
-            down: traffic.down,
+        self.inner.traffic().into()
+    }
+
+    pub fn traffic_history(&self) -> Vec<Traffic> {
+        convert(self.inner.traffic_history())
+    }
+
+    pub fn memory(&self) -> u64 {
+        self.inner.memory()
+    }
+
+    pub fn connections(&self) -> Connections {
+        let connections = self.inner.connections();
+        Connections {
+            upload_total: connections.upload_total,
+            download_total: connections.download_total,
+            items: convert(connections.items),
         }
+    }
+
+    pub fn close_connection(&self, id: String) -> Result<()> {
+        Ok(self.inner.close_connection(id)?)
+    }
+
+    pub fn close_all_connections(&self) -> Result<()> {
+        Ok(self.inner.close_all_connections()?)
+    }
+
+    pub fn requests(&self) -> Vec<Connection> {
+        convert(self.inner.requests())
+    }
+
+    pub fn clear_requests(&self) {
+        self.inner.clear_requests();
+    }
+
+    pub fn logs(&self) -> Vec<LogEntry> {
+        self.inner
+            .logs()
+            .into_iter()
+            .map(|entry| LogEntry {
+                level: entry.level.into(),
+                message: entry.message,
+                at: entry.at,
+            })
+            .collect()
+    }
+
+    pub fn clear_logs(&self) {
+        self.inner.clear_logs();
+    }
+
+    pub fn flush_dns_cache(&self) -> Result<()> {
+        Ok(self.inner.flush_dns_cache()?)
+    }
+
+    pub fn providers(&self) -> Result<Vec<Provider>> {
+        Ok(self
+            .inner
+            .providers()?
+            .into_iter()
+            .map(|provider| Provider {
+                name: provider.name,
+                kind: provider.kind.into(),
+                vehicle: provider.vehicle,
+                behavior: provider.behavior,
+                count: provider.count,
+                updated_at: provider.updated_at,
+                usage: provider.usage.map(Into::into),
+            })
+            .collect())
+    }
+
+    pub fn update_provider(&self, kind: ProviderKind, name: String) -> Result<()> {
+        Ok(self.inner.update_provider(kind.into(), name)?)
+    }
+
+    pub fn rules(&self) -> Result<Vec<Rule>> {
+        Ok(convert(self.inner.rules()?))
+    }
+
+    pub fn geo_files(&self) -> Vec<GeoFile> {
+        convert(self.inner.geo_files())
+    }
+
+    pub fn update_geo(&self) -> Result<()> {
+        Ok(self.inner.update_geo()?)
     }
 
     pub fn exit_ip(&self) -> Result<ExitIp> {
@@ -626,6 +757,10 @@ impl Po0Core {
 
     pub fn test_delay(&self, group: String) -> Result<ProxyGroup> {
         Ok(self.inner.test_delay(group)?.into())
+    }
+
+    pub fn test_node_delay(&self, node: String) -> Result<u32> {
+        Ok(self.inner.test_node_delay(node)?)
     }
 
     pub fn whitelist(&self) -> WhitelistState {

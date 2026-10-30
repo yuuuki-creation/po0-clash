@@ -6,6 +6,7 @@ mod logfile;
 mod model;
 mod options;
 mod profiles;
+mod resources;
 mod settings;
 mod util;
 mod whitelist;
@@ -35,6 +36,7 @@ const DEFAULT_UPDATE_HOURS: u32 = 24;
 const UPDATE_CHECK: Duration = Duration::from_secs(600);
 const FIRST_UPDATE_CHECK: Duration = Duration::from_secs(20);
 const DELAY_TIMEOUT_MS: u32 = 5000;
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(180);
 const EXIT_IP_URL: &str = "https://www.cloudflare.com/cdn-cgi/trace";
 const GROUP_TYPES: &[&str] = &["Selector", "URLTest", "Fallback", "LoadBalance", "Relay"];
 
@@ -224,7 +226,7 @@ impl Core {
     pub fn traffic(&self) -> Traffic {
         self.engine
             .session()
-            .map(|session| session.traffic.get())
+            .map(|_| self.engine.monitor.traffic())
             .unwrap_or_default()
     }
 
@@ -314,7 +316,10 @@ impl Core {
             return Err(error);
         }
         engine::save_record(&self.paths.run, &session);
-        session.start_traffic();
+        self.engine
+            .monitor
+            .set_log_level(settings.options.log_level);
+        session.watch(&self.engine.monitor);
         self.engine.install(session.clone());
         self.refresh_current_node(&session, settings.mode);
         self.watch_exit(session.generation);
@@ -505,6 +510,7 @@ impl Core {
 
     /// A new mixed port moves the system proxy, so desktops restart for it; everything else hot-reloads.
     pub fn set_engine_options(&self, options: EngineOptions) -> Result<()> {
+        self.engine.monitor.set_log_level(options.log_level);
         let port_changed = self.store.update(|s| {
             let changed = s.options.mixed_port != options.mixed_port;
             s.options = options;
@@ -887,18 +893,11 @@ impl Core {
     }
 
     pub fn test_delay(&self, group: String) -> Result<ProxyGroup> {
-        let session = self
-            .engine
-            .session()
-            .ok_or_else(|| CoreError::Engine("not connected".into()))?;
+        let session = self.live_session()?;
         let path = format!(
-            "/group/{}/delay?url={}&timeout={DELAY_TIMEOUT_MS}",
+            "/group/{}/delay?{}",
             util::encode_component(&group),
-            util::encode_component(
-                self.store
-                    .read(|s| s.options.delay_url().to_owned())
-                    .as_str()
-            )
+            self.delay_query()
         );
         let delays = session
             .controller()
@@ -913,6 +912,39 @@ impl Core {
         self.refresh_current_node(&session, self.store.read(|s| s.mode));
         self.emit(&[Change::Status, Change::Groups]);
         Ok(result)
+    }
+
+    pub fn test_node_delay(&self, node: String) -> Result<u32> {
+        let session = self.live_session()?;
+        let providers = session.controller().json(
+            "GET",
+            &resources::provider_path(ProviderKind::Proxy, None),
+            None,
+        )?;
+        let provider = resources::provider_of(&providers, &node)
+            .ok_or_else(|| CoreError::Invalid("no such node".into()))?;
+        let path = format!(
+            "{}/{}/healthcheck?{}",
+            resources::provider_path(ProviderKind::Proxy, Some(&provider)),
+            util::encode_component(&node),
+            self.delay_query()
+        );
+        let delay = session
+            .controller()
+            .json("GET", &path, None)
+            .ok()
+            .and_then(|value| value.get("delay")?.as_u64())
+            .unwrap_or(0);
+        self.emit(&[Change::Groups]);
+        Ok(delay as u32)
+    }
+
+    fn delay_query(&self) -> String {
+        let url = self.store.read(|s| s.options.delay_url().to_owned());
+        format!(
+            "url={}&timeout={DELAY_TIMEOUT_MS}",
+            util::encode_component(&url)
+        )
     }
 
     pub fn exit_ip(&self) -> Result<ExitIp> {
@@ -943,6 +975,145 @@ impl Core {
             ip,
             country: field("loc").filter(|loc| loc != "XX"),
         })
+    }
+
+    // Activity: what the engine is doing now and has done this run.
+
+    fn live_session(&self) -> Result<Arc<Session>> {
+        self.engine
+            .session()
+            .ok_or_else(|| CoreError::Engine("not connected".into()))
+    }
+
+    pub fn traffic_history(&self) -> Vec<Traffic> {
+        self.engine
+            .session()
+            .map(|_| self.engine.monitor.traffic_history())
+            .unwrap_or_default()
+    }
+
+    pub fn memory(&self) -> u64 {
+        self.engine
+            .session()
+            .map_or(0, |_| self.engine.monitor.memory())
+    }
+
+    pub fn connections(&self) -> Connections {
+        self.engine
+            .session()
+            .map(|_| self.engine.monitor.connections())
+            .unwrap_or_default()
+    }
+
+    pub fn close_connection(&self, id: String) -> Result<()> {
+        self.close_connections(&format!("/connections/{}", util::encode_component(&id)))
+    }
+
+    pub fn close_all_connections(&self) -> Result<()> {
+        self.close_connections("/connections")
+    }
+
+    fn close_connections(&self, path: &str) -> Result<()> {
+        let session = self.live_session()?;
+        session.controller().json("DELETE", path, None)?;
+        session.poll(&self.engine.monitor)
+    }
+
+    pub fn requests(&self) -> Vec<Connection> {
+        self.engine.monitor.requests()
+    }
+
+    pub fn clear_requests(&self) {
+        self.engine.monitor.clear_requests();
+    }
+
+    pub fn logs(&self) -> Vec<LogEntry> {
+        self.engine.monitor.logs()
+    }
+
+    pub fn clear_logs(&self) {
+        self.engine.monitor.clear_logs();
+    }
+
+    pub fn flush_dns_cache(&self) -> Result<()> {
+        let session = self.live_session()?;
+        session
+            .controller()
+            .json("POST", "/cache/fakeip/flush", None)?;
+        session
+            .controller()
+            .json("POST", "/cache/dns/flush", None)?;
+        Ok(())
+    }
+
+    // Providers, rules and geo databases.
+
+    pub fn providers(&self) -> Result<Vec<Provider>> {
+        let Some(session) = self.engine.session() else {
+            return Ok(Vec::new());
+        };
+        let mut providers = Vec::new();
+        for kind in [ProviderKind::Proxy, ProviderKind::Rule] {
+            let value =
+                session
+                    .controller()
+                    .json("GET", &resources::provider_path(kind, None), None)?;
+            providers.extend(resources::parse_providers(kind, &value));
+        }
+        Ok(providers)
+    }
+
+    pub fn update_provider(&self, kind: ProviderKind, name: String) -> Result<()> {
+        let session = self.live_session()?;
+        session.controller().json_within(
+            "PUT",
+            &resources::provider_path(kind, Some(&name)),
+            None,
+            DOWNLOAD_TIMEOUT,
+        )?;
+        if kind == ProviderKind::Proxy {
+            self.emit(&[Change::Groups]);
+        }
+        Ok(())
+    }
+
+    pub fn rules(&self) -> Result<Vec<Rule>> {
+        let Some(session) = self.engine.session() else {
+            return Ok(Vec::new());
+        };
+        Ok(resources::parse_rules(
+            &session.controller().json("GET", "/rules", None)?,
+        ))
+    }
+
+    fn mihomo_home(&self) -> PathBuf {
+        self.engine.session().map_or_else(
+            || self.paths.home_for(lock(&self.mihomo_path).as_deref()),
+            |session| session.runtime.home.clone(),
+        )
+    }
+
+    pub fn geo_files(&self) -> Vec<GeoFile> {
+        resources::geo_files(&self.mihomo_home())
+    }
+
+    /// A running engine updates the databases it uses and reloads them; otherwise all four are downloaded for the
+    /// next start.
+    pub fn update_geo(&self) -> Result<()> {
+        if let Some(session) = self.engine.session() {
+            session
+                .controller()
+                .json_within("POST", "/configs/geo", None, DOWNLOAD_TIMEOUT)?;
+            return Ok(());
+        }
+        let home = self.mihomo_home();
+        let urls = self.store.read(|s| s.options.geox_url.clone());
+        for (name, url) in resources::geo_targets(&home, &urls) {
+            let bytes = profiles::download(&url, None)?;
+            util::write_atomic(&home.join(&name), &bytes)?;
+            logfile::info(format!("downloaded {name}"));
+        }
+        Ok(())
     }
 
     // Whitelist.
@@ -1018,6 +1189,7 @@ impl Core {
 
     pub fn set_active(&self, active: bool) {
         logfile::info(if active { "active" } else { "inactive" });
+        self.engine.monitor.set_active(active);
         self.whitelist.set_active(active);
     }
 
