@@ -5,6 +5,7 @@
   import { t } from '../../lib/i18n.js';
   import Dialog from '../../lib/Dialog.svelte';
   import Choice from '../../lib/form/Choice.svelte';
+  import { navigate } from '../../lib/motion.svelte.js';
   import Page from '../../lib/Page.svelte';
   import ScriptEditor from '../../lib/ScriptEditor.svelte';
   import Segmented from '../../lib/Segmented.svelte';
@@ -113,7 +114,7 @@
             />
           </div>
         {:else}
-          <button type="button" class="row link-row" onclick={() => ((app.page = 'tools'), (app.tool = 'advanced'))}
+          <button type="button" class="row link-row" onclick={() => navigate('tools', 'advanced', 'forward')}
             >{t('override.noGlobalRules')}</button
           >
         {/each}

@@ -3,6 +3,7 @@
   import { t } from './lib/i18n.js';
   import Dialog from './lib/Dialog.svelte';
   import Icon from './lib/Icon.svelte';
+  import { navigate } from './lib/motion.svelte.js';
   import Activity from './pages/Activity.svelte';
   import Dashboard from './pages/Dashboard.svelte';
   import Profiles from './pages/Profiles.svelte';
@@ -20,6 +21,20 @@
   ];
   const Page = $derived(pages.find((page) => page.id === app.page).page);
   let content;
+  let items = $state({});
+  let highlight = $state(null);
+  let placed = $state(false);
+
+  $effect(() => {
+    const item = items[app.page];
+    if (!item) return;
+    const place = () => (highlight = { top: item.offsetTop, left: item.offsetLeft, width: item.offsetWidth });
+    place();
+    requestAnimationFrame(() => (placed = true));
+    const observer = new ResizeObserver(place);
+    observer.observe(item);
+    return () => observer.disconnect();
+  });
 
   $effect(() => {
     app.page;
@@ -27,10 +42,7 @@
     content?.scrollTo(0, 0);
   });
 
-  function open(id) {
-    app.page = id;
-    app.tool = null;
-  }
+  const open = (id) => navigate(id);
 </script>
 
 <nav class="sidebar glass" class:hidden={!app.sidebar} aria-label="po0-clash">
@@ -44,8 +56,17 @@
       onclick={() => (app.sidebar = false)}><Icon name="sidebar" /></button
     >
   </div>
+  {#if highlight}
+    <span
+      class="nav-highlight"
+      class:placed
+      style:transform="translate({highlight.left}px, {highlight.top}px)"
+      style:width="{highlight.width}px"
+    ></span>
+  {/if}
   {#each pages as page (page.id)}
     <button
+      bind:this={items[page.id]}
       type="button"
       class="nav-item"
       class:active={app.page === page.id}

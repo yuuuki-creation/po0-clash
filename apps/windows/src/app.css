@@ -25,8 +25,13 @@
   --glass: rgba(255, 255, 255, 0.66);
   --glass-sidebar: rgba(255, 255, 255, 0.5);
   --glass-border: rgba(0, 0, 0, 0.06);
-  --glass-shadow: 0 4px 16px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --glass-shadow: 0 4px 16px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.05);
   --glass-blur: blur(24px) saturate(180%);
+  --rim-top: rgba(255, 255, 255, 0.85);
+  --rim-side: rgba(255, 255, 255, 0.18);
+  --rim-bottom: rgba(255, 255, 255, 0.45);
+  --ease: cubic-bezier(0.25, 0.8, 0.25, 1);
+  --spring: cubic-bezier(0.3, 1.25, 0.5, 1);
   --selected: rgba(0, 0, 0, 0.065);
   --scrim: rgba(0, 0, 0, 0.18);
   --sidebar: 220px;
@@ -61,8 +66,11 @@
   --card-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.06);
   --glass: rgba(58, 58, 60, 0.6);
   --glass-sidebar: rgba(44, 44, 46, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --glass-border: rgba(255, 255, 255, 0.07);
+  --glass-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --rim-top: rgba(255, 255, 255, 0.14);
+  --rim-side: rgba(255, 255, 255, 0.02);
+  --rim-bottom: rgba(255, 255, 255, 0.05);
   --selected: rgba(255, 255, 255, 0.1);
   --scrim: rgba(0, 0, 0, 0.4);
 }
@@ -126,10 +134,58 @@ p {
 }
 
 .glass {
+  position: relative;
   border: 0.5px solid var(--glass-border);
   background: var(--glass);
   box-shadow: var(--glass-shadow);
-  backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--refract,) var(--glass-blur);
+}
+
+/* The specular rim: white only, brightest where light would catch the top edge. */
+.glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(var(--rim-top), var(--rim-side) 28%, var(--rim-side) 72%, var(--rim-bottom));
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+
+button,
+.nav-item,
+.row,
+.chip,
+.node {
+  transition:
+    background-color 0.16s var(--ease),
+    border-color 0.16s var(--ease),
+    color 0.16s var(--ease),
+    box-shadow 0.16s var(--ease),
+    opacity 0.16s var(--ease),
+    transform 0.14s var(--ease);
+}
+
+.pill:active:not(:disabled),
+.start:active:not(:disabled),
+.round-glass:active:not(:disabled),
+.tb-group > button:active:not(:disabled),
+.tb-group > .menu > button:active:not(:disabled),
+.chip:active:not(:disabled),
+.round:active:not(:disabled),
+.icon-button:active:not(:disabled),
+.menu-button:active:not(:disabled),
+.delay-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.node:active:not(:has(button:active)),
+.nav-item:active,
+.card.pressable:active {
+  transform: scale(0.98);
 }
 
 .icon {
@@ -251,12 +307,24 @@ p {
   color: var(--accent);
 }
 
-.nav-item:hover {
+.nav-item:hover:not(.active) {
   background: var(--hover);
 }
 
-.nav-item.active {
+.nav-item {
+  position: relative;
+}
+
+.nav-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 32px;
+  border-radius: 9px;
   background: var(--selected);
+  transition:
+    transform 0.34s var(--spring),
+    width 0.2s var(--ease);
 }
 
 .plain-button {
@@ -797,6 +865,7 @@ main.wide .toolbar {
 /* Controls */
 
 .seg {
+  position: relative;
   display: grid;
   grid-auto-columns: minmax(max-content, 1fr);
   grid-auto-flow: column;
@@ -807,6 +876,7 @@ main.wide .toolbar {
 }
 
 .seg button {
+  position: relative;
   height: 28px;
   padding: 0 8px;
   border: 0;
@@ -817,9 +887,29 @@ main.wide .toolbar {
 }
 
 .seg button.on {
+  font-weight: 600;
+}
+
+.seg-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  border-radius: 14px;
   background: var(--thumb);
   box-shadow: var(--thumb-shadow);
-  font-weight: 600;
+  transition:
+    transform 0.32s var(--spring),
+    width 0.32s var(--spring);
+}
+
+.seg-thumb:not(.placed),
+.nav-highlight:not(.placed) {
+  transition: none;
+}
+
+.seg.small .seg-thumb {
+  border-radius: 13px;
 }
 
 .seg.small button {
@@ -849,7 +939,17 @@ main.wide .toolbar {
   border-radius: 9px;
   background: #ffffff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  transition: transform 0.2s;
+  transition:
+    transform 0.28s var(--spring),
+    width 0.18s var(--ease);
+}
+
+.switch:active:not(:disabled) span {
+  width: 22px;
+}
+
+.switch[aria-checked='true']:active:not(:disabled) span {
+  transform: translateX(12px);
 }
 
 .switch[aria-checked='true'] {
@@ -1132,6 +1232,8 @@ button.row.link-row {
 
 .row.tall {
   min-height: 52px;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .row.top {
@@ -1171,6 +1273,10 @@ button.row {
 
 .list > button.row:only-child {
   border-radius: 12px;
+}
+
+button.row:active {
+  background: var(--selected);
 }
 
 button.row:hover {
@@ -1309,6 +1415,23 @@ button.row:hover {
   font-size: 12px;
 }
 
+.result .dot {
+  background: var(--secondary);
+}
+
+.result.applied .dot {
+  background: var(--green);
+}
+
+.result.notApplied .dot {
+  background: var(--orange-text);
+}
+
+.result.rejected .dot,
+.result.error .dot {
+  background: var(--red-text);
+}
+
 .swatches {
   display: flex;
   align-items: center;
@@ -1386,7 +1509,7 @@ button.row:hover {
 .chevron-wrap {
   display: grid;
   place-items: center;
-  transition: transform 0.15s;
+  transition: transform 0.28s var(--spring);
 }
 
 .flip {
@@ -1457,6 +1580,11 @@ button.row:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.check-in {
+  display: grid;
+  place-items: center;
 }
 
 .node-top .icon {
@@ -1730,6 +1858,10 @@ button.row:hover {
   gap: 6px;
 }
 
+.section + .section {
+  margin-top: 12px;
+}
+
 .stacked {
   gap: 6px;
 }
@@ -1904,19 +2036,153 @@ button.row:hover {
   margin: 0;
 }
 
-.animate .content {
-  animation: page-in 0.18s ease-out;
+/* Page changes run as view transitions (lib/motion.svelte.js): only the main column moves, the sidebar stays put. */
+main {
+  view-transition-name: page;
 }
 
-@keyframes page-in {
+/* The window is transparent where Mica shows through, so the old root snapshot would show behind the glass sidebar. */
+::view-transition-old(root) {
+  display: none;
+}
+
+::view-transition-new(root) {
+  animation: none;
+}
+
+/* The toolbar stays in place; only its title and buttons cross-fade while the page under it moves. */
+.toolbar {
+  view-transition-name: toolbar;
+}
+
+.toolbar .heading {
+  view-transition-name: heading;
+}
+
+.toolbar .actions {
+  view-transition-name: actions;
+}
+
+::view-transition-old(toolbar) {
+  display: none;
+}
+
+::view-transition-group(toolbar),
+::view-transition-new(toolbar),
+::view-transition-group(heading),
+::view-transition-group(actions) {
+  animation: none;
+}
+
+::view-transition-old(heading),
+::view-transition-old(actions) {
+  animation: page-leave 0.12s var(--ease) both;
+}
+
+::view-transition-new(heading),
+::view-transition-new(actions) {
+  animation: fade-in 0.24s var(--ease) both;
+}
+
+@keyframes fade-in {
   from {
     opacity: 0;
-    transform: translateY(4px);
+  }
+}
+
+::view-transition-group(page) {
+  animation-duration: 0.3s;
+  animation-timing-function: var(--ease);
+}
+
+::view-transition-old(page) {
+  animation: page-leave 0.16s var(--ease) both;
+}
+
+::view-transition-new(page) {
+  animation: page-enter 0.3s var(--ease) both;
+}
+
+[data-nav='forward']::view-transition-old(page) {
+  animation-name: page-leave-left;
+}
+
+[data-nav='forward']::view-transition-new(page) {
+  animation-name: page-enter-right;
+}
+
+[data-nav='back']::view-transition-old(page) {
+  animation-name: page-leave-right;
+}
+
+[data-nav='back']::view-transition-new(page) {
+  animation-name: page-enter-left;
+}
+
+@keyframes page-leave {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes page-leave-left {
+  to {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+
+@keyframes page-enter-right {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+}
+
+@keyframes page-leave-right {
+  to {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@keyframes page-enter-left {
+  from {
+    opacity: 0;
+    transform: translateX(-32px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .spinner {
+    animation-duration: 0.8s !important;
   }
 }
 
 .menu-pop.glass {
-  background: color-mix(in srgb, var(--card) 94%, transparent);
+  background: color-mix(in srgb, var(--card) 84%, transparent);
+  transform-origin: top right;
+}
+
+.menu-pop.glass.left {
+  transform-origin: top left;
 }
 
 .group-icon {
