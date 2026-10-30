@@ -178,6 +178,12 @@ mirror_record!(GeoFile {
 
 mirror_record!(Traffic { up: u64, down: u64 });
 
+mirror_record!(Release {
+    version: String,
+    url: String,
+    notes: String,
+});
+
 mirror_record!(Usage {
     upload: u64,
     download: u64,
@@ -979,6 +985,10 @@ impl Po0Core {
 
     pub fn update_geo(&self) -> Result<()> {
         Ok(self.inner.update_geo()?)
+    }
+
+    pub fn check_update(&self) -> Result<Option<Release>> {
+        Ok(self.inner.check_update()?.map(Into::into))
     }
 
     pub fn exit_ip(&self) -> Result<ExitIp> {

@@ -11,6 +11,7 @@ mod options;
 mod profiles;
 mod resources;
 mod settings;
+mod update;
 mod util;
 mod webdav;
 mod whitelist;
@@ -326,6 +327,9 @@ impl Core {
         self.engine
             .monitor
             .set_log_level(settings.options.log_level);
+        self.engine
+            .monitor
+            .set_only_proxy(settings.app.only_proxy_traffic);
         session.watch(&self.engine.monitor);
         self.engine.install(session.clone());
         self.refresh_current_node(&session, settings.mode);
@@ -529,6 +533,9 @@ impl Core {
 
     pub fn set_app_settings(&self, settings: AppSettings) -> Result<()> {
         let settings = settings.validated()?;
+        self.engine
+            .monitor
+            .set_only_proxy(settings.only_proxy_traffic);
         self.store.update(|s| {
             s.app = settings;
             Ok(())
@@ -1140,6 +1147,18 @@ impl Core {
             ip,
             country: field("loc").filter(|loc| loc != "XX"),
         })
+    }
+
+    /// The newest native release above this build, through the engine's proxy while it runs and then directly.
+    pub fn check_update(&self) -> Result<Option<Release>> {
+        let check = |proxy: Option<&str>| update::check(&self.app_version, proxy);
+        match self.proxy_url() {
+            Some(proxy) => match check(Some(&proxy)) {
+                Err(CoreError::Network(_)) => check(None),
+                other => other,
+            },
+            None => check(None),
+        }
     }
 
     // Activity: what the engine is doing now and has done this run.
