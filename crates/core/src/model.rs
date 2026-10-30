@@ -64,6 +64,15 @@ pub struct Traffic {
     pub down: u64,
 }
 
+/// A native release newer than the running build.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Release {
+    pub version: String,
+    pub url: String,
+    pub notes: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExitIp {

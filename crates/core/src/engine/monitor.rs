@@ -1,8 +1,8 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
@@ -21,10 +21,12 @@ const KEPT: usize = 500;
 #[derive(Default)]
 pub struct Monitor {
     inactive: AtomicBool,
+    only_proxy: AtomicBool,
     log_level: Mutex<LogLevel>,
     traffic: Mutex<VecDeque<Traffic>>,
     memory: AtomicU64,
     connections: Mutex<Connections>,
+    proxied: Mutex<Proxied>,
     logs: Mutex<VecDeque<LogEntry>>,
     requests: Mutex<VecDeque<Connection>>,
 }
@@ -36,14 +38,12 @@ impl Monitor {
             stop,
             |_| Some("/traffic".into()),
             |monitor, value| {
-                let mut history = lock(&monitor.traffic);
-                if history.len() == TRAFFIC_HISTORY {
-                    history.pop_front();
+                if !monitor.only_proxy.load(Ordering::Relaxed) {
+                    monitor.record(Traffic {
+                        up: number(value, "up"),
+                        down: number(value, "down"),
+                    });
                 }
-                history.push_back(Traffic {
-                    up: number(value, "up"),
-                    down: number(value, "down"),
-                });
             },
         );
         self.follow(
@@ -74,7 +74,9 @@ impl Monitor {
         thread::spawn(move || {
             while !stop.load(Ordering::SeqCst) {
                 let _ = monitor.poll(&controller, &stop);
-                let pause = if monitor.inactive.load(Ordering::Relaxed) {
+                let pause = if monitor.inactive.load(Ordering::Relaxed)
+                    && !monitor.only_proxy.load(Ordering::Relaxed)
+                {
                     5
                 } else {
                     1
@@ -132,12 +134,42 @@ impl Monitor {
                 }
             }
         }
+        let (rate, proxied_totals) = {
+            let mut proxied = lock(&self.proxied);
+            (proxied.add(&items), (proxied.upload, proxied.download))
+        };
+        let (upload_total, download_total) = if self.only_proxy.load(Ordering::Relaxed) {
+            if let Some(rate) = rate {
+                self.record(rate);
+            }
+            proxied_totals
+        } else {
+            (
+                number(&value, "uploadTotal"),
+                number(&value, "downloadTotal"),
+            )
+        };
         *lock(&self.connections) = Connections {
-            upload_total: number(&value, "uploadTotal"),
-            download_total: number(&value, "downloadTotal"),
+            upload_total,
+            download_total,
             items,
         };
         Ok(())
+    }
+
+    fn record(&self, traffic: Traffic) {
+        let mut history = lock(&self.traffic);
+        if history.len() == TRAFFIC_HISTORY {
+            history.pop_front();
+        }
+        history.push_back(traffic);
+    }
+
+    /// The history restarts on a switch, so the chart never mixes all traffic with proxied traffic.
+    pub fn set_only_proxy(&self, only_proxy: bool) {
+        if self.only_proxy.swap(only_proxy, Ordering::Relaxed) != only_proxy {
+            lock(&self.traffic).clear();
+        }
     }
 
     pub fn set_log_level(&self, level: LogLevel) {
@@ -185,6 +217,44 @@ impl Monitor {
         lock(&self.traffic).clear();
         self.memory.store(0, Ordering::Relaxed);
         *lock(&self.connections) = Connections::default();
+        *lock(&self.proxied) = Proxied::default();
+    }
+}
+
+/// mihomo's `/traffic` and totals include direct traffic, so proxy-only figures add up how much each proxied
+/// connection grew between polls. What a connection moves after the last poll before it closes is missed.
+#[derive(Default)]
+struct Proxied {
+    seen: HashMap<String, (u64, u64)>,
+    polled_at: Option<Instant>,
+    upload: u64,
+    download: u64,
+}
+
+impl Proxied {
+    /// Adds what proxied connections moved since the last poll and returns it as a rate.
+    fn add(&mut self, items: &[Connection]) -> Option<Traffic> {
+        let (mut up, mut down) = (0, 0);
+        let mut seen = HashMap::with_capacity(items.len());
+        for item in items {
+            let (last_up, last_down) = self.seen.get(&item.id).copied().unwrap_or_default();
+            if item.chains.first().is_some_and(|node| node != "DIRECT") {
+                up += item.upload.saturating_sub(last_up);
+                down += item.download.saturating_sub(last_down);
+            }
+            seen.insert(item.id.clone(), (item.upload, item.download));
+        }
+        self.seen = seen;
+        self.upload += up;
+        self.download += down;
+        let now = Instant::now();
+        let seconds = now
+            .duration_since(self.polled_at.replace(now)?)
+            .as_secs_f64();
+        (seconds > 0.0).then(|| Traffic {
+            up: (up as f64 / seconds) as u64,
+            down: (down as f64 / seconds) as u64,
+        })
     }
 }
 
@@ -270,6 +340,34 @@ mod tests {
         assert_eq!(connection.process_path, None);
         assert_eq!(connection.chains, ["Tokyo 01", "Proxy"]);
         assert_eq!(connection.start, 1_709_251_200);
+    }
+
+    #[test]
+    fn counts_only_proxied_growth() {
+        let connection = |id: &str, chain: &str, upload, download| Connection {
+            id: id.into(),
+            chains: vec![chain.into(), "Proxy".into()],
+            upload,
+            download,
+            ..parse_connection(&json!({"id": id, "metadata": {}})).unwrap()
+        };
+        let mut proxied = Proxied::default();
+        assert_eq!(
+            proxied.add(&[
+                connection("a", "Tokyo", 100, 1000),
+                connection("b", "DIRECT", 7, 70)
+            ]),
+            None
+        );
+        proxied.add(&[
+            connection("a", "Tokyo", 150, 1600),
+            connection("b", "DIRECT", 9, 90),
+            connection("c", "Osaka", 5, 50),
+        ]);
+        assert_eq!((proxied.upload, proxied.download), (155, 1650));
+        proxied.add(&[connection("c", "Osaka", 5, 50)]);
+        assert_eq!((proxied.upload, proxied.download), (155, 1650));
+        assert_eq!(proxied.seen.len(), 1);
     }
 
     #[test]
