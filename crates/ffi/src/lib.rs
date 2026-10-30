@@ -178,6 +178,57 @@ mirror_record!(GeoFile {
 
 mirror_record!(Traffic { up: u64, down: u64 });
 
+mirror_enum!(IpType {
+    Residential,
+    Mobile,
+    Business,
+    Hosting
+});
+mirror_enum!(IpQualityLevel {
+    Good,
+    Normal,
+    Risky
+});
+mirror_enum!(IpQualitySource {
+    IdentMe,
+    IpApiCom,
+    IpQuery,
+    IpLocate,
+    ProxyCheck,
+    IpApiIs
+});
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct IpQuality {
+    pub ip: String,
+    pub source: IpQualitySource,
+    pub kind: IpType,
+    pub level: IpQualityLevel,
+    pub organization: Option<String>,
+    pub asn: Option<u32>,
+    pub is_proxy: bool,
+    pub is_vpn: bool,
+    pub is_tor: bool,
+    pub is_abuser: bool,
+}
+
+impl From<core::IpQuality> for IpQuality {
+    fn from(value: core::IpQuality) -> Self {
+        Self {
+            ip: value.ip,
+            source: value.source.into(),
+            kind: value.kind.into(),
+            level: value.level.into(),
+            organization: value.organization,
+            asn: value.asn,
+            is_proxy: value.is_proxy,
+            is_vpn: value.is_vpn,
+            is_tor: value.is_tor,
+            is_abuser: value.is_abuser,
+        }
+    }
+}
+
 mirror_record!(Release {
     version: String,
     url: String,
@@ -985,6 +1036,11 @@ impl Po0Core {
 
     pub fn update_geo(&self) -> Result<()> {
         Ok(self.inner.update_geo()?)
+    }
+
+    /// Answers are kept for the address; a failed lookup is repeated for five minutes unless `refresh` is set.
+    pub fn ip_quality(&self, ip: String, refresh: bool) -> Result<IpQuality> {
+        Ok(self.inner.ip_quality(&ip, refresh)?.into())
     }
 
     pub fn check_update(&self) -> Result<Option<Release>> {

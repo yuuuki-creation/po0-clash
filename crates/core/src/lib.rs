@@ -3,6 +3,7 @@ mod backup;
 mod config;
 mod engine;
 mod error;
+mod ip_quality;
 mod legacy;
 mod logfile;
 mod model;
@@ -28,6 +29,7 @@ use serde_json::{Value, json};
 
 pub use app_settings::*;
 pub use error::{CoreError, Result};
+pub use ip_quality::{IpQuality, IpQualityLevel, IpQualitySource, IpType};
 pub use model::*;
 pub use options::*;
 
@@ -115,6 +117,7 @@ pub struct Core {
     listener: RwLock<Option<Arc<dyn Listener>>>,
     updater: Updater,
     mihomo_log: Arc<LogFile>,
+    ip_qualities: ip_quality::Cache,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -179,6 +182,7 @@ impl Core {
                     signal: Condvar::new(),
                 },
                 mihomo_log: Arc::new(LogFile::new(data_dir.join("logs").join("mihomo.log"))),
+                ip_qualities: ip_quality::Cache::default(),
                 paths,
             }
         });
@@ -1147,6 +1151,12 @@ impl Core {
             ip,
             country: field("loc").filter(|loc| loc != "XX"),
         })
+    }
+
+    /// Who announces the exit address and whether it looks like a data centre, asked through the engine's proxy.
+    pub fn ip_quality(&self, ip: &str, refresh: bool) -> Result<IpQuality> {
+        self.ip_qualities
+            .lookup(ip, self.proxy_url().as_deref(), refresh)
     }
 
     /// The newest native release above this build, through the engine's proxy while it runs and then directly.
