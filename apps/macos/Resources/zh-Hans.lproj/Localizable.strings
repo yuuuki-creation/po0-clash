@@ -322,3 +322,7 @@
 "Profile Content" = "配置内容";
 "Config Preview" = "运行配置预览";
 "Copy" = "复制";
+"Bypass domain" = "排除域名";
+"Only takes effect when the system proxy is enabled; one per line" = "仅在系统代理启用时生效，每行一个";
+"Append system DNS" = "追加系统 DNS";
+"Force-append the system DNS to the configuration" = "强制为配置附加系统 DNS";

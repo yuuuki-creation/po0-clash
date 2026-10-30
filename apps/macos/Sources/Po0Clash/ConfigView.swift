@@ -61,6 +61,13 @@ struct BasicConfigView: View {
                 }
                 LinesEditor("Authentication", detail: "user:password, one per line", lines: $options.authentication)
             }
+            Section("System proxy") {
+                LinesEditor(
+                    "Bypass domain",
+                    detail: "Only takes effect when the system proxy is enabled; one per line",
+                    lines: $options.bypassDomains
+                )
+            }
             Section("Virtual network card") {
                 Picker("Stack mode", selection: $options.tunStack) {
                     Text("Default").tag(TunStack?.none)
@@ -79,6 +86,10 @@ struct BasicConfigView: View {
                 Toggle(isOn: $options.overrideDns) {
                     Text("Override DNS")
                     Text("When enabled, the DNS options in the profile are overridden")
+                }
+                Toggle(isOn: $options.appendSystemDns) {
+                    Text("Append system DNS")
+                    Text("Force-append the system DNS to the configuration")
                 }
                 if options.overrideDns {
                     Toggle("Enable", isOn: $options.dns.enable)
@@ -379,6 +390,7 @@ private extension EngineOptions {
         next.tunRouteAddress = next.tunRouteAddress.tidied
         next.tunDnsHijack = next.tunDnsHijack.tidied
         next.addedRules = next.addedRules.tidied
+        next.bypassDomains = next.bypassDomains.tidied
         next.dns.fakeIpFilter = next.dns.fakeIpFilter.tidied
         next.dns.defaultNameserver = next.dns.defaultNameserver.tidied
         next.dns.nameserver = next.dns.nameserver.tidied
