@@ -23,6 +23,14 @@ pub fn show_window(app: &AppHandle) {
     }
 }
 
+/// Windows 10 draws Acrylic untinted, which leaves the page titles on a raw blur of the desktop.
+fn acrylic_tint(window: &tauri::WebviewWindow) -> (u8, u8, u8, u8) {
+    match window.theme() {
+        Ok(tauri::Theme::Dark) => (32, 32, 32, 200),
+        _ => (243, 243, 243, 200),
+    }
+}
+
 struct Bridge(AppHandle);
 
 impl Listener for Bridge {
@@ -97,7 +105,10 @@ pub fn run() {
             let core = open_core(handle).unwrap_or_else(|e| fatal(&e));
             app.manage(Arc::clone(&core));
             let window = app.get_webview_window("main").expect("main window");
-            app.manage(Backdrop(window_vibrancy::apply_mica(&window, None).is_ok()));
+            let backdrop = window_vibrancy::apply_mica(&window, None)
+                .or_else(|_| window_vibrancy::apply_acrylic(&window, Some(acrylic_tint(&window))))
+                .is_ok();
+            app.manage(Backdrop(backdrop));
             tray::create(handle)?;
             core.set_listener(Arc::new(Bridge(handle.clone())));
             netwatch::spawn(Arc::clone(&core));

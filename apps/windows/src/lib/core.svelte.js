@@ -3,7 +3,9 @@ import { listen } from '@tauri-apps/api/event';
 
 export const app = $state({
   version: '',
+  page: 'dashboard',
   status: null,
+  connectedAt: null,
   profiles: [],
   groups: [],
   whitelist: { enabled: false, entries: [] },
@@ -34,10 +36,34 @@ export async function act(key, command, args) {
   }
 }
 
+// The groups the core reports after a test come back without delays, so the last results are kept here.
+const delays = new Map();
+
+const withDelays = (group) => ({
+  ...group,
+  nodes: group.nodes.map((node) => ({ ...node, delay: node.delay ?? delays.get(node.name) ?? null })),
+});
+
+export async function testDelay(name) {
+  const group = await act(`delay:${name}`, 'test_delay', { group: name });
+  if (!group) return;
+  for (const node of group.nodes) if (node.delay != null) delays.set(node.name, node.delay);
+  app.groups = app.groups.map((g) => (g.name === name ? withDelays(group) : withDelays(g)));
+}
+
+async function loadGroups() {
+  if (app.status?.engine.state !== 'running') {
+    delays.clear();
+    app.groups = [];
+    return;
+  }
+  app.groups = (await invoke('groups')).map(withDelays);
+}
+
 const loaders = {
   status: async () => (app.status = await invoke('status')),
   profiles: async () => (app.profiles = await invoke('profiles')),
-  groups: async () => (app.groups = app.status?.engine.state === 'running' ? await invoke('groups') : []),
+  groups: loadGroups,
   whitelist: async () => (app.whitelist = await invoke('whitelist')),
 };
 
@@ -76,6 +102,8 @@ async function refreshStatus() {
   const s = app.status;
   if (!s) return;
   const engine = s.engine.state;
+  if (engine !== 'running') app.connectedAt = null;
+  else app.connectedAt ??= Date.now();
   const key = [engine, s.currentNode, s.mode, s.profileId].join('|');
   if (key === routeKey) return;
   const engineChanged = routeKey.split('|')[0] !== engine;

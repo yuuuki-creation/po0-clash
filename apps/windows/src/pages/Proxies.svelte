@@ -1,16 +1,22 @@
-<script>
+<script module>
   import { SvelteSet } from 'svelte/reactivity';
-  import { act, app } from '../lib/core.svelte.js';
-  import { t } from '../lib/i18n.js';
-  import Icon from '../lib/Icon.svelte';
 
   const expanded = new SvelteSet();
   let touched = false;
+</script>
+
+<script>
+  import { act, app, testDelay } from '../lib/core.svelte.js';
+  import { delayTone, formatDelay, t } from '../lib/i18n.js';
+  import Icon from '../lib/Icon.svelte';
+  import Page from '../lib/Page.svelte';
+
+  const direct = $derived(app.status?.mode === 'direct');
+  const testing = $derived(Object.keys(app.busy).some((key) => key.startsWith('delay:')));
 
   $effect(() => {
-    if (touched || expanded.size) return;
     const first = app.groups.find((g) => g.selectable) ?? app.groups[0];
-    if (first) expanded.add(first.name);
+    if (!touched && !expanded.size && first) expanded.add(first.name);
   });
 
   function toggle(name) {
@@ -18,61 +24,73 @@
     if (expanded.has(name)) expanded.delete(name);
     else expanded.add(name);
   }
-
-  async function testDelay(name) {
-    const group = await act(`delay:${name}`, 'test_delay', { group: name });
-    if (group) app.groups = app.groups.map((g) => (g.name === name ? group : g));
-  }
-
-  function delayClass(delay) {
-    if (delay == null) return '';
-    if (delay === 0) return 'bad';
-    return delay < 300 ? 'good' : delay < 800 ? 'fair' : 'bad';
-  }
-
-  const delayText = (delay) => (delay == null ? '' : delay === 0 ? t('proxies.timeout') : `${delay} ms`);
 </script>
 
-{#if app.status?.engine.state !== 'running'}
-  <p class="empty">{t('proxies.notRunning')}</p>
-{:else if !app.groups.length}
-  <p class="empty">{t('proxies.empty')}</p>
-{:else}
-  {#each app.groups as group (group.name)}
-    <div class="section-title">
-      <span>{group.kind}</span>
-      <button
-        type="button"
-        class="text-button"
-        disabled={app.busy[`delay:${group.name}`]}
-        onclick={() => testDelay(group.name)}>{t('proxies.test')}</button
-      >
+<Page id="proxies">
+  {#snippet actions()}
+    <button
+      type="button"
+      disabled={direct || !app.groups.length || testing}
+      onclick={() => app.groups.forEach((g) => testDelay(g.name))}><Icon name="gauge" />{t('proxies.testAll')}</button
+    >
+  {/snippet}
+
+  {#if direct}
+    <div class="card empty">
+      <span class="strong">{t('proxies.direct')}</span>
+      <span class="sub">{t('proxies.directHint')}</span>
     </div>
-    <div class="group">
-      <button type="button" class="row" aria-expanded={expanded.has(group.name)} onclick={() => toggle(group.name)}>
-        <span class="grow">
-          <span class="title">{group.name}</span>
-          {#if group.now}<span class="sub title">{group.now}</span>{/if}
-        </span>
-        <span class="chevron" class:open={expanded.has(group.name)}><Icon name="chevron" /></span>
-      </button>
-      {#if expanded.has(group.name)}
-        {#each group.nodes as node (node.name)}
+  {:else if !app.groups.length}
+    <div class="card empty">
+      <span class="strong">{t('proxies.empty')}</span>
+      <span class="sub">{t('proxies.emptyHint')}</span>
+    </div>
+  {:else}
+    {#each app.groups as group (group.name)}
+      {@const open = expanded.has(group.name)}
+      <section class="card group-card">
+        <div class="group-head">
+          <button type="button" class="grow link-row" aria-expanded={open} onclick={() => toggle(group.name)}>
+            <span class="chevron" class:open><Icon name="chevron" /></span>
+            <span class="grow">
+              <span class="title"><span class="strong">{group.name}</span> <span class="sub">{group.kind}</span></span>
+              <span class="sub title">{group.now ?? '—'}</span>
+            </span>
+          </button>
+          <span class="sub mono">{group.nodes.length}</span>
           <button
             type="button"
-            class="row"
-            disabled={!group.selectable || app.busy[`select:${group.name}`]}
-            onclick={() => act(`select:${group.name}`, 'select_node', { group: group.name, node: node.name })}
+            class="icon-button"
+            title={t('proxies.test')}
+            aria-label={t('proxies.test')}
+            disabled={app.busy[`delay:${group.name}`]}
+            onclick={() => testDelay(group.name)}
           >
-            <span class="check">{#if node.name === group.now}<Icon name="check" />{/if}</span>
-            <span class="grow">
-              <span class="title">{node.name}</span>
-              <span class="sub">{node.kind}</span>
-            </span>
-            <span class="delay {delayClass(node.delay)}">{delayText(node.delay)}</span>
+            {#if app.busy[`delay:${group.name}`]}<span class="spinner"></span>{:else}<Icon name="gauge" />{/if}
           </button>
-        {/each}
-      {/if}
-    </div>
-  {/each}
-{/if}
+        </div>
+        {#if open}
+          <div class="nodes">
+            {#each group.nodes as node (node.name)}
+              <button
+                type="button"
+                class="node"
+                class:selected={node.name === group.now}
+                disabled={!group.selectable || app.busy[`select:${group.name}`]}
+                onclick={() =>
+                  node.name !== group.now &&
+                  act(`select:${group.name}`, 'select_node', { group: group.name, node: node.name })}
+              >
+                <span class="title">{node.name}</span>
+                <span class="node-meta">
+                  <span class="sub">{node.kind}</span>
+                  <span class="mono tone-{delayTone(node.delay)}">{formatDelay(node.delay)}</span>
+                </span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </section>
+    {/each}
+  {/if}
+</Page>

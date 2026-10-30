@@ -57,10 +57,16 @@ Ubuntu 上的 `native-core.yaml` 通过，macOS 的 CI 里内核测试和真实�
 
 ## Windows
 
-`native-windows`（3c978d8）尚未合入。构建已移到东京（`apps/windows/scripts/cross-build.sh`，约 5 分钟），东京的 Windows 11 测试虚拟机
+`native-windows` 尚未合入。构建已移到东京（`apps/windows/scripts/cross-build.sh`，约 5 分钟），东京的 Windows 11 测试虚拟机
 （Docker 容器 `po0-winvm`，从东京 `ssh -p 2222` 进入，测试脚本在 `/srv/build/po0-native-windows/vm`）里验证过：系统代理和虚拟网卡两种
 模式下流量都经过节点、断开后系统代理与网卡清理干净；从 Flutter 6.4.4 覆盖升级（静默卸载旧版，保留数据并导入）；开机自启后按
 `was_connected()` 重连；液态玻璃界面的中英文和深浅色截图。管理员权限下 WebView2 的调试端口只认 HKLM 策略。
+
+主界面（ADR 0019）：托盘加一个 FlClash 式的主窗口，左侧浮动玻璃侧边栏，页面为仪表盘（卡片网格与浮动启动按钮，按钮上显示
+已连接时长）、代理（可展开的策略组卡片与节点卡片网格）、订阅、加白、设置；窗口背景 Mica，退回 Acrylic。在测试虚拟机里装包后
+通过界面点击走通：系统代理下连接且流量经过本地测试节点、导入分享链接、切节点、单组测速与全部测速、切换规则 / 全局 / 直连、
+运行中切到虚拟网卡再切回系统代理、打开自动加白并立即检查、断开后系统代理清除；五个页面的中英文、浅色与深色截图已核对（截图在构建机 `/srv/build/po0-windows-main/vm/shots`）。
+内核在一次测速之后通知的策略组不带延迟，界面暂时保留最近一次测速结果。
 
 待处理：内核的 TUN 在 Windows 上要用 gvisor 栈（`mixed` 下 TCP 全部超时并弹防火墙提示，测试时在本地临时改过，未提交）；
 改完后用提交的版本在虚拟机里重跑冒烟测试；签名；托盘菜单截图。
