@@ -11,6 +11,7 @@
   import { act, app, testDelay, testNode } from '../lib/core.svelte.js';
   import { delayTone, formatDelay, t } from '../lib/i18n.js';
   import EmptyState from '../lib/EmptyState.svelte';
+  import GroupIcon from '../lib/GroupIcon.svelte';
   import Icon from '../lib/Icon.svelte';
   import Menu from '../lib/Menu.svelte';
   import Page from '../lib/Page.svelte';
@@ -83,6 +84,12 @@
       onchange: (proxiesDensity) => updateSettings({ proxiesDensity }),
     },
     {
+      title: t('view.icon'),
+      value: s.groupIconStyle,
+      options: ['standard', 'iconOnly', 'hidden'].map((value) => ({ value, label: t(`icon.${value}`) })),
+      onchange: (groupIconStyle) => updateSettings({ groupIconStyle }),
+    },
+    {
       title: t('view.tile'),
       value: s.proxyTileStyle,
       options: ['detailed', 'compact', 'minimal'].map((value) => ({ value, label: t(`tile.${value}`) })),
@@ -147,8 +154,12 @@
             role="tab"
             aria-selected={group.name === current?.name}
             class:on={group.name === current?.name}
-            onclick={() => (view.tab = group.name)}>{group.name}</button
+            title={group.name}
+            aria-label={group.name}
+            onclick={() => (view.tab = group.name)}
           >
+            <GroupIcon icon={group.icon} name={group.name} style={s.groupIconStyle} size={16} />
+          </button>
         {/each}
       </div>
     {/if}
@@ -158,7 +169,11 @@
       <section class="pgroup" aria-label={group.name} data-group={group.name}>
         <div class="pg-head">
           <div class="grow">
-            <span class="pg-name"><span>{group.name}</span><span class="tag">{group.kind}</span></span>
+            <span class="pg-name"
+              ><GroupIcon icon={group.icon} name={group.name} style={s.groupIconStyle} size={20} /><span class="tag"
+                >{group.kind}</span
+              ></span
+            >
             <span class="sub title"
               >{group.now ? `${group.now} · ` : ''}{t('proxies.nodes', { count: group.nodes.length })}</span
             >
