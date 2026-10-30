@@ -92,8 +92,8 @@ class Engine(private val app: Application) {
         restoreConnection()
     }
 
-    private fun restoreConnection() {
-        if (!core.wasConnected() || VpnService.prepare(app) != null) return
+    fun restoreConnection() {
+        if (vpnActive.value || !core.wasConnected() || VpnService.prepare(app) != null) return
         runCatching { Po0VpnService.start(app) }
     }
 

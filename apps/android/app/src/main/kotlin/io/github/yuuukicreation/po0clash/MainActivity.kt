@@ -62,7 +62,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startVpn() {
-        Po0VpnService.start(this)
+        Po0VpnService.start(this, fromApp = true)
         val permission = Manifest.permission.POST_NOTIFICATIONS
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED

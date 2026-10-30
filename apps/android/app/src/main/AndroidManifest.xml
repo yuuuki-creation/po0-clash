@@ -41,6 +41,10 @@
                 android:value="vpn" />
         </service>
 
+        <receiver
+            android:name=".vpn.RestoreReceiver"
+            android:exported="false" />
+
         <service
             android:name=".vpn.VpnTileService"
             android:exported="true"

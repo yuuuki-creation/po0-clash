@@ -17,7 +17,9 @@
     <string name="traffic">Speed</string>
     <string name="rate">↑ %1$s/s  ↓ %2$s/s</string>
     <string name="notification_channel">VPN status</string>
+    <string name="notification_channel_alerts">Connection problems</string>
     <string name="notification_running">Connected · %s</string>
+    <string name="notification_failed">po0-clash could not connect</string>
     <string name="error_vpn_permission">VPN permission was not granted</string>
 
     <string name="empty_title">No subscription yet</string>

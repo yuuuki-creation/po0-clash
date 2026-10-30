@@ -27,6 +27,10 @@ Ubuntu 上的 `native-core.yaml` 通过，macOS 的 CI 里内核测试和真实�
 `run/`；首次启动就写出 `settings.json`；新增 `was_connected()`，开机自启后据此恢复连接；加白的最近结果跨重启保留；网络变化和
 亮屏状态写日志；Android 诊断里的路由显示为 VPN。
 
+7.0.0-beta.1 之后待修（Windows 测试中发现，影响三端）：全局模式下 GLOBAL 组默认选 DIRECT，应在没有保存的选择时选第一个策略组；
+刚连上时策略组还没加载完（为空、当前节点显示 COMPATIBLE、出口 IP 查不到），应等 provider 就绪再刷新；导入节点没有类型，
+测速结果不保留。
+
 仍待处理：Windows 下的引擎路径（命名管道、Job Object、系统代理、名为 `po0-clash` 的 TUN 网卡）只靠应用在测试虚拟机里的
 冒烟测试覆盖，内核的集成测试目前只在 Unix 上跑。
 
@@ -61,26 +65,13 @@ Ubuntu 上的 `native-core.yaml` 通过，macOS 的 CI 里内核测试和真实�
 
 ## Windows
 
-已完成（构建机 + CI 验证）：
+`native-windows`（3c978d8）尚未合入。构建已移到东京（`apps/windows/scripts/cross-build.sh`，约 5 分钟），东京的 Windows 11 测试虚拟机
+（Docker 容器 `po0-winvm`，从东京 `ssh -p 2222` 进入，测试脚本在 `/srv/build/po0-native-windows/vm`）里验证过：系统代理和虚拟网卡两种
+模式下流量都经过节点、断开后系统代理与网卡清理干净；从 Flutter 6.4.4 覆盖升级（静默卸载旧版，保留数据并导入）；开机自启后按
+`was_connected()` 重连；液态玻璃界面的中英文和深浅色截图。管理员权限下 WebView2 的调试端口只认 HKLM 策略。
 
-- Tauri 2 + Svelte，五个页面覆盖全部功能，中英文跟随系统；托盘菜单与三种状态图标，关窗隐藏到托盘，单实例，
-  requireAdministrator。
-- 开机自启用 XML 创建的计划任务 `po0-clash`（登录时以最高权限运行）；每 5 秒检查到 po0 接口的路由，变化时通知内核。
-- `apps/windows/scripts/cross-build.sh` 在 Linux 上交叉编出 NSIS 安装包（带 clang-cl、托盘库占位和 `RestartManager.nsh`
-  的绕路）。
-- 在 windows-latest 上：内核测试通过，静默安装后应用以管理员身份运行 10 秒，内核建好了数据目录，界面接上真实内核并读到出口 IP。
-- 液态玻璃：Mica 窗口背景，玻璃只用在底部胶囊标签栏、连接按钮、分段控件和提示条上，内容是不透明的分组列表。
-
-已知问题：
-
-- 引擎冒烟测试（`scripts/smoke.mjs`）需要 WebView2 的调试端口，以管理员身份运行时端口没打开，最后两次 CI 都卡在这里。
-- 安装目录 `C:\Program Files\po0-clash`、程序名和开始菜单快捷方式与 Flutter 版（Inno Setup）相同，两者不能并存；替换方式待定
-  （安装钩子里先卸载 Inno 版本，或测试版换目录和名字）。
-- 改版后的玻璃效果还没在 Windows 上看过；没做 Acrylic 中间档（Win10 上拖动卡顿），Mica 不可用时用纯色。
-- 版本号是占位的 0.1.0；还没有自签名。
-
-下一步：在东京的 Windows 测试虚拟机里装包并跑冒烟测试（调试端口问题在虚拟机里直接排查）；看玻璃效果和深色模式；
-定下替换 Flutter 版的安装方式；加自签名。
+待处理：内核的 TUN 在 Windows 上要用 gvisor 栈（`mixed` 下 TCP 全部超时并弹防火墙提示，测试时在本地临时改过，未提交）；
+改完后用提交的版本在虚拟机里重跑冒烟测试；签名；托盘菜单截图。
 
 ## Android
 
