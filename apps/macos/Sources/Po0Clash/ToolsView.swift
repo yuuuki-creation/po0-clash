@@ -86,6 +86,15 @@ struct ToolsView: View {
                                 ToolsIcon(symbol: "doc.text.magnifyingglass")
                             }
                         }
+                        LabeledContent {
+                            Button("View…") { if !model.confirmDisclaimer() { NSApp.terminate(nil) } }
+                        } label: {
+                            Label {
+                                Text("Disclaimer")
+                            } icon: {
+                                ToolsIcon(symbol: "checkmark.shield")
+                            }
+                        }
                         if model.appSettings?.developerMode == true { entry(.developer) }
                         entry(.about)
                     }

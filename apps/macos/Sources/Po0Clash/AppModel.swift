@@ -67,6 +67,10 @@ final class AppModel: ObservableObject {
                 await refreshAll()
                 adoptLegacySettings()
                 AppLanguage.store(appSettings?.language)
+                if appSettings?.disclaimerAccepted == false, !Showcase.isScripted, !confirmDisclaimer() {
+                    NSApp.terminate(nil)
+                    return
+                }
                 if !atLogin, !Showcase.keepsWindowClosed, appSettings?.silentLaunch != true { MainWindow.shared.show() }
                 await adoptInstalledTunEngine()
                 network.start {
@@ -331,6 +335,21 @@ final class AppModel: ObservableObject {
                 notice = describe(error)
             }
         }
+    }
+
+    /// FlClash asks once before the first start and quits when declined; the tools page shows it again.
+    func confirmDisclaimer() -> Bool {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Disclaimer")
+        alert.informativeText = String(
+            localized: "This software is intended only for non-commercial uses such as learning and research. Using it for any commercial purpose is strictly prohibited; any commercial activity is unrelated to this software."
+        )
+        alert.addButton(withTitle: String(localized: "Agree"))
+        alert.addButton(withTitle: String(localized: "Quit"))
+        activateApp()
+        let agreed = alert.runModal() == .alertFirstButtonReturn
+        if agreed, appSettings?.disclaimerAccepted == false { updateAppSettings { $0.disclaimerAccepted = true } }
+        return agreed
     }
 
     // MARK: Updates

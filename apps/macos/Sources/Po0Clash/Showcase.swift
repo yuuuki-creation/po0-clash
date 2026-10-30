@@ -1,4 +1,5 @@
 import AppKit
+import Po0FFI
 
 /// Launch arguments that put the UI on screen without a click, for CI screenshots.
 @MainActor
@@ -38,9 +39,10 @@ enum Showcase {
         }
     }
 
-    /// CI starts the app with launch arguments, and an update alert would cover its screenshots.
+    /// CI starts the app with launch arguments or its `CI` variable, and a modal alert would block it.
     static var isScripted: Bool {
         !UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain).isEmpty
+            || ProcessInfo.processInfo.environment["CI"] != nil
     }
 
     static var forcesAppearance: Bool {
