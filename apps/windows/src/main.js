@@ -3,12 +3,12 @@ import { mount } from 'svelte';
 import App from './App.svelte';
 import './app.css';
 import { app, init } from './lib/core.svelte.js';
-import { setChinese } from './lib/i18n.js';
+import { setLanguage } from './lib/i18n.js';
 import { loadSettings } from './lib/settings.svelte.js';
 import { watchAppearance } from './lib/theme.svelte.js';
 
 const [info] = await Promise.all([invoke('app_info'), loadSettings()]);
-setChinese(info.zh);
+setLanguage(info.language);
 document.documentElement.classList.toggle('backdrop', info.backdrop);
 app.version = info.version;
 

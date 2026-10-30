@@ -18,6 +18,8 @@
   import Backup from './tools/Backup.svelte';
   import Basic from './tools/Basic.svelte';
   import Dns from './tools/Dns.svelte';
+  import Licenses from './tools/Licenses.svelte';
+  import Loopback from './tools/Loopback.svelte';
   import Network from './tools/Network.svelte';
   import Providers from './tools/Providers.svelte';
   import Resources from './tools/Resources.svelte';
@@ -85,11 +87,13 @@
   const s = $derived(settings.value);
   const set = (key) => (value) => updateSettings({ [key]: value });
   const languages = [
-    [null, 'lang.system'],
-    ['zh_CN', 'lang.zh'],
-    ['en', 'lang.en'],
+    [null, t('lang.system')],
+    ['zh_CN', '简体中文'],
+    ['en', 'English'],
+    ['ja', '日本語'],
+    ['ru', 'Русский'],
   ];
-  const languageLabel = $derived(t(languages.find(([value]) => value === s.language)?.[1] ?? 'lang.system'));
+  const languageLabel = $derived(languages.find(([value]) => value === s.language)?.[1] ?? t('lang.system'));
 
   async function setLanguage(language) {
     if (language === s.language) return;
@@ -177,9 +181,9 @@
 {:else if app.tool === 'language'}
   <Page title={t('tools.language')} subtitle={t('page.tools')} onback={back} form>
     <div class="list">
-      {#each languages as [value, key] (key)}
+      {#each languages as [value, name] (value)}
         <button type="button" class="row" onclick={() => setLanguage(value)}>
-          <span class="label">{t(key)}</span>
+          <span class="label">{name}</span>
           {#if s.language === value}<span class="row-icon"><Icon name="check" /></span>{/if}
         </button>
       {/each}
@@ -193,8 +197,16 @@
         <span class="label">{t('tools.version')}</span>
         <span class="trailing selectable">{app.version}</span>
       </div>
+      <button type="button" class="row" onclick={() => (app.tool = 'licenses')}>
+        <span class="label">{t('licenses.title')}</span>
+        <span class="chevron"><Icon name="chevron" /></span>
+      </button>
     </div>
   </Page>
+{:else if app.tool === 'licenses'}
+  <Licenses onback={() => (app.tool = 'about')} />
+{:else if app.tool === 'loopback'}
+  <Loopback onback={back} />
 {:else if app.tool === 'rules'}
   <Page title={t('tools.rules')} subtitle={t('page.tools')} onback={back} form>
     {#snippet actions()}

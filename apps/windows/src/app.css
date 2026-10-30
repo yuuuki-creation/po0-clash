@@ -390,6 +390,11 @@ main.wide .toolbar {
   font-weight: 600;
 }
 
+.tb-group > button.primary:not(:disabled) {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .search {
   display: flex;
   flex: none;
@@ -793,7 +798,7 @@ main.wide .toolbar {
 
 .seg {
   display: grid;
-  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-columns: minmax(max-content, 1fr);
   grid-auto-flow: column;
   gap: 2px;
   padding: 2px;
@@ -1075,6 +1080,26 @@ input[type='range'] {
 
 .group-title:first-child {
   margin-top: 0;
+}
+
+.group-title.split-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-right: 14px;
+}
+
+.plain-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+button.row.link-row {
+  color: var(--accent);
 }
 
 .list {

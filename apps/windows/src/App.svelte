@@ -63,5 +63,7 @@
 </main>
 
 {#if app.notice}
-  <Dialog title={app.notice} onclose={() => (app.notice = null)} />
+  <Dialog title={app.notice.title} onclose={() => (app.notice = null)}>
+    {#if app.notice.detail}<p class="sub selectable">{app.notice.detail}</p>{/if}
+  </Dialog>
 {/if}

@@ -1,21 +1,30 @@
 mod autostart;
 mod commands;
+mod loopback;
 mod netwatch;
 mod tray;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use po0_core as po0;
-use po0::{Change, Core, CoreOptions, Listener, Platform};
+use po0::{Change, Core, CoreOptions, LaunchRecovery, Listener, Platform};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 
-/// The language chosen in the app settings, or the system's when none is.
-pub fn is_zh(core: &Core) -> bool {
-    core.app_settings()
-        .language
-        .or_else(sys_locale::get_locale)
-        .is_some_and(|l| l.to_ascii_lowercase().starts_with("zh"))
+/// The language chosen in the app settings, or the system's when none is: `zh`, `en`, `ja` or `ru`.
+pub fn language(core: &Core) -> &'static str {
+    let tag = core.app_settings().language.or_else(sys_locale::get_locale).unwrap_or_default().to_ascii_lowercase();
+    ["zh", "ja", "ru"].into_iter().find(|code| tag.starts_with(code)).unwrap_or("en")
 }
+
+/// Why the app did not connect on its own this time, until the window has shown it once.
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LaunchNotice {
+    cleared: bool,
+    profile_name: Option<String>,
+}
+
+pub struct Launch(pub Mutex<Option<LaunchNotice>>);
 
 pub struct Backdrop(pub bool);
 
@@ -134,6 +143,20 @@ pub fn run() {
             commands::check_webdav,
             commands::backup_to_webdav,
             commands::restore_from_webdav,
+            commands::profile_override,
+            commands::set_profile_override,
+            commands::profile_groups_and_rules,
+            commands::scripts,
+            commands::save_script,
+            commands::remove_script,
+            commands::share_nodes,
+            commands::rename_share_node,
+            commands::remove_share_node,
+            commands::licenses,
+            commands::launch_notice,
+            commands::loopback_apps,
+            commands::set_loopback,
+            commands::open_url,
         ])
         .setup(move |app| {
             let handle = app.handle();
@@ -147,18 +170,27 @@ pub fn run() {
             tray::create(handle)?;
             core.set_listener(Arc::new(Bridge(handle.clone())));
             netwatch::spawn(Arc::clone(&core));
+            let check = core.launch_started(None);
+            let recovered = check.recovery != LaunchRecovery::Normal;
+            app.manage(Launch(Mutex::new(recovered.then(|| LaunchNotice {
+                cleared: check.recovery == LaunchRecovery::ClearProfile,
+                profile_name: check.profile_name,
+            }))));
             let settings = core.app_settings();
             if !autostarted && !settings.silent_launch {
                 show_window(handle);
             }
-            let connect = if autostarted { core.was_connected() } else { settings.auto_connect };
+            let connect = !recovered && if autostarted { core.was_connected() } else { settings.auto_connect };
             if connect {
                 let handle = handle.clone();
                 tauri::async_runtime::spawn_blocking(move || {
                     if let Err(e) = core.start(None) {
                         let _ = handle.emit("shell-error", e.to_string());
                     }
+                    core.launch_finished();
                 });
+            } else {
+                core.launch_finished();
             }
             Ok(())
         })
@@ -179,6 +211,7 @@ pub fn run() {
         if let RunEvent::Exit = event
             && let Some(core) = app.try_state::<Arc<Core>>()
         {
+            core.launch_finished();
             core.shutdown();
         }
     });

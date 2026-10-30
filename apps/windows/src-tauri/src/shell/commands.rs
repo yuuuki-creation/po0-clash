@@ -6,10 +6,10 @@ use tauri_plugin_dialog::DialogExt;
 
 use super::po0::{
     AppSettings, Connection, Connections, Core, CoreError, EngineOptions, ExitIp, GeoFile, ImportResult, IntranetIp, LogEntry, Mode, Profile,
-    ProfileEdit, Provider, ProviderKind, ProxyGroup, RestoreScope, RouteMode, Rule,
+    ProfileEdit, ProfileOverride, Provider, ProviderKind, ProxyGroup, RestoreScope, RouteMode, Rule, Script,
     Status, Traffic, WebDav, WhitelistState,
 };
-use super::{Backdrop, autostart, is_zh};
+use super::{Backdrop, Launch, LaunchNotice, autostart, language, loopback};
 
 type CoreState<'a> = State<'a, Arc<Core>>;
 type Reply<T> = Result<T, String>;
@@ -29,13 +29,13 @@ where
 #[derive(Serialize)]
 pub struct AppInfo {
     version: String,
-    zh: bool,
+    language: &'static str,
     backdrop: bool,
 }
 
 #[tauri::command]
 pub fn app_info(app: AppHandle, core: CoreState<'_>, backdrop: State<'_, Backdrop>) -> AppInfo {
-    AppInfo { version: app.package_info().version.to_string(), zh: is_zh(&core), backdrop: backdrop.0 }
+    AppInfo { version: app.package_info().version.to_string(), language: language(&core), backdrop: backdrop.0 }
 }
 
 #[tauri::command]
@@ -391,4 +391,115 @@ pub async fn export_diagnostics(app: AppHandle, core: CoreState<'_>) -> Reply<Op
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn profile_override(core: CoreState<'_>, id: String) -> Reply<ProfileOverride> {
+    blocking(&core, move |c| c.profile_override(id)).await
+}
+
+#[tauri::command]
+pub async fn set_profile_override(core: CoreState<'_>, id: String, overrides: ProfileOverride) -> Reply<()> {
+    blocking(&core, move |c| c.set_profile_override(id, overrides)).await
+}
+
+#[derive(Serialize)]
+pub struct GroupsAndRules {
+    groups: String,
+    rules: Vec<String>,
+}
+
+#[tauri::command]
+pub async fn profile_groups_and_rules(core: CoreState<'_>, id: String) -> Reply<GroupsAndRules> {
+    blocking(&core, move |c| c.profile_groups_and_rules(id).map(|(groups, rules)| GroupsAndRules { groups, rules })).await
+}
+
+#[tauri::command]
+pub async fn scripts(core: CoreState<'_>) -> Reply<Vec<Script>> {
+    blocking(&core, |c| Ok(c.scripts())).await
+}
+
+#[tauri::command]
+pub async fn save_script(core: CoreState<'_>, script: Script) -> Reply<Script> {
+    blocking(&core, move |c| c.save_script(script)).await
+}
+
+#[tauri::command]
+pub async fn remove_script(core: CoreState<'_>, id: String) -> Reply<()> {
+    blocking(&core, move |c| c.remove_script(id)).await
+}
+
+#[derive(Serialize)]
+pub struct ShareNode {
+    name: String,
+    kind: String,
+}
+
+#[tauri::command]
+pub async fn share_nodes(core: CoreState<'_>, id: String) -> Reply<Vec<ShareNode>> {
+    blocking(&core, move |c| {
+        Ok(c.share_nodes(id)?.into_iter().map(|n| ShareNode { name: n.name, kind: n.kind }).collect())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn rename_share_node(core: CoreState<'_>, id: String, name: String, new_name: String) -> Reply<()> {
+    blocking(&core, move |c| c.rename_share_node(id, name, new_name)).await
+}
+
+#[tauri::command]
+pub async fn remove_share_node(core: CoreState<'_>, id: String, name: String) -> Reply<()> {
+    blocking(&core, move |c| c.remove_share_node(id, name)).await
+}
+
+#[derive(Serialize)]
+pub struct License {
+    name: String,
+    version: String,
+    license: String,
+    url: String,
+}
+
+#[tauri::command]
+pub async fn licenses(core: CoreState<'_>) -> Reply<Vec<License>> {
+    blocking(&core, |c| {
+        Ok(c.licenses()
+            .into_iter()
+            .map(|l| License { name: l.name, version: l.version, license: l.license, url: l.url })
+            .collect())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn loopback_apps() -> Reply<Vec<loopback::AppContainer>> {
+    tauri::async_runtime::spawn_blocking(loopback::apps).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn set_loopback(sids: Vec<String>) -> Reply<()> {
+    tauri::async_runtime::spawn_blocking(move || loopback::set(&sids)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn launch_notice(launch: State<'_, Launch>) -> Option<LaunchNotice> {
+    launch.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take()
+}
+
+#[tauri::command]
+pub fn open_url(url: String) -> Reply<()> {
+    use windows_sys::Win32::UI::Shell::ShellExecuteW;
+    use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err(format!("not a web link: {url}"));
+    }
+    let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
+    let (verb, target) = (wide("open"), wide(&url));
+    // SAFETY: both strings are NUL-terminated and outlive the call.
+    let result = unsafe {
+        ShellExecuteW(std::ptr::null_mut(), verb.as_ptr(), target.as_ptr(), std::ptr::null(), std::ptr::null(), SW_SHOWNORMAL)
+    };
+    // ShellExecuteW reports success as a value above 32.
+    if result as usize > 32 { Ok(()) } else { Err(std::io::Error::last_os_error().to_string()) }
 }

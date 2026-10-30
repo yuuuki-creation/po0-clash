@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { t } from './i18n.js';
 
 export const app = $state({
   version: '',
@@ -23,8 +24,8 @@ export const app = $state({
   notice: null,
 });
 
-export function notify(text) {
-  app.notice = String(text);
+export function notify(title, detail = '') {
+  app.notice = { title: String(title), detail };
 }
 
 export async function act(key, command, args) {
@@ -145,6 +146,17 @@ async function poll() {
   }
 }
 
+function explainLaunch(notice) {
+  if (!notice) return;
+  if (notice.cleared && notice.profileName) {
+    const profile = app.profiles.find((p) => p.name === notice.profileName);
+    const name = profile?.kind === 'links' ? t('profiles.links') : notice.profileName;
+    notify(t('launch.crashed'), t('launch.cleared', { name }));
+  } else {
+    notify(t('launch.unfinished'), t('launch.skipped'));
+  }
+}
+
 export async function init() {
   await listen('core-change', ({ payload }) => {
     if (payload === 'status') return refreshStatus();
@@ -154,6 +166,7 @@ export async function init() {
   });
   await listen('shell-error', ({ payload }) => notify(payload));
   await Promise.all([refreshStatus(), refresh('profiles'), refresh('whitelist')]);
+  explainLaunch(await invoke('launch_notice'));
   poll();
   setInterval(poll, 1000);
 }

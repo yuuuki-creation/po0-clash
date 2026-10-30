@@ -6,7 +6,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{AppHandle, Emitter, Manager, Wry};
 
 use super::po0::{Core, EngineState, RouteMode};
-use super::{is_zh, show_window};
+use super::{language, show_window};
 
 const TRAY_ID: &str = "main";
 
@@ -21,8 +21,8 @@ struct Labels {
 }
 
 fn labels(app: &AppHandle) -> Labels {
-    if is_zh(&app.state::<Arc<Core>>()) {
-        Labels {
+    match language(&app.state::<Arc<Core>>()) {
+        "zh" => Labels {
             connect: "连接",
             open: "打开 po0-clash",
             quit: "退出",
@@ -30,9 +30,26 @@ fn labels(app: &AppHandle) -> Labels {
             starting: "正在连接",
             running: "已连接",
             failed: "连接失败",
-        }
-    } else {
-        Labels {
+        },
+        "ja" => Labels {
+            connect: "接続",
+            open: "po0-clashを開く",
+            quit: "終了",
+            stopped: "未接続",
+            starting: "接続中",
+            running: "接続済み",
+            failed: "接続に失敗しました",
+        },
+        "ru" => Labels {
+            connect: "Подключить",
+            open: "Открыть po0-clash",
+            quit: "Выйти",
+            stopped: "Не подключено",
+            starting: "Подключение",
+            running: "Подключено",
+            failed: "Не удалось подключиться",
+        },
+        _ => Labels {
             connect: "Connect",
             open: "Open po0-clash",
             quit: "Quit",
@@ -40,7 +57,7 @@ fn labels(app: &AppHandle) -> Labels {
             starting: "Connecting",
             running: "Connected",
             failed: "Connection failed",
-        }
+        },
     }
 }
 
