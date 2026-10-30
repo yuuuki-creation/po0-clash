@@ -813,6 +813,13 @@ mirror_record!(Script {
     content: String,
 });
 
+mirror_record!(License {
+    name: String,
+    version: String,
+    license: String,
+    url: String,
+});
+
 mirror_record!(ShareNode {
     name: String,
     kind: String,
@@ -1118,6 +1125,10 @@ impl Po0Core {
     pub fn profile_groups_and_rules(&self, id: String) -> Result<ProfileParts> {
         let (groups, rules) = self.inner.profile_groups_and_rules(id)?;
         Ok(ProfileParts { groups, rules })
+    }
+
+    pub fn licenses(&self) -> Vec<License> {
+        self.inner.licenses().into_iter().map(Into::into).collect()
     }
 
     pub fn share_nodes(&self, id: String) -> Result<Vec<ShareNode>> {
