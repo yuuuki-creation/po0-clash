@@ -59,6 +59,14 @@ impl Process {
             .id()
     }
 
+    pub fn kill(&self) {
+        let _ = self
+            .child
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .kill();
+    }
+
     pub fn exited(&self) -> Option<String> {
         let mut child = self.child.lock().unwrap_or_else(PoisonError::into_inner);
         match child.try_wait() {

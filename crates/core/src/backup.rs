@@ -1,5 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
 use std::io::{Cursor, Read, Write};
+use std::path::Path;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -9,7 +11,9 @@ use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
 use crate::app_settings::RestoreStrategy;
 use crate::error::{CoreError, Result};
+use crate::flutter_backup;
 use crate::model::{ProfileKind, RestoreScope};
+use crate::options::EngineOptions;
 use crate::profiles::Content;
 use crate::settings::Settings;
 use crate::util;
@@ -32,6 +36,8 @@ struct Manifest {
 pub struct Backup {
     pub settings: Settings,
     pub files: BTreeMap<String, Content>,
+    /// The Flutter app's settings do not map onto these, so only its profiles, scripts, rules and whitelist come back.
+    pub flutter: bool,
 }
 
 impl Backup {
@@ -72,8 +78,13 @@ impl Backup {
 
     /// Entries are only looked up by names built from ids that are safe as file names, so a crafted archive
     /// cannot write outside the profiles folder.
-    pub fn from_zip(bytes: &[u8]) -> Result<Self> {
+    pub fn from_zip(bytes: &[u8], scratch: &Path) -> Result<Self> {
         let mut zip = ZipArchive::new(Cursor::new(bytes)).map_err(|_| not_a_backup())?;
+        if zip.index_for_name(MANIFEST).is_none()
+            && let Some(config) = read_entry(&mut zip, flutter_backup::CONFIG)?
+        {
+            return Self::from_flutter(&mut zip, &config, scratch);
+        }
         let manifest: Manifest = parse(read_entry(&mut zip, MANIFEST)?)?;
         if manifest.version > VERSION {
             return Err(CoreError::Invalid(
@@ -101,7 +112,48 @@ impl Backup {
             files.contains_key(&profile.id)
                 || profile.kind == ProfileKind::Subscription && profile.url.is_some()
         });
-        Ok(Self { settings, files })
+        Ok(Self {
+            settings,
+            files,
+            flutter: false,
+        })
+    }
+
+    /// SQLite reads the drift database from a file, so it is unpacked into `scratch` for the moment.
+    fn from_flutter(
+        zip: &mut ZipArchive<Cursor<&[u8]>>,
+        config: &[u8],
+        scratch: &Path,
+    ) -> Result<Self> {
+        let config: serde_json::Value =
+            serde_json::from_slice(config).map_err(|_| not_a_backup())?;
+        let database = read_entry(zip, flutter_backup::DATABASE)?;
+        let path = scratch.join(format!("flutter-backup-{}.sqlite", util::random_id()));
+        if let Some(bytes) = &database {
+            fs::create_dir_all(scratch)?;
+            fs::write(&path, bytes)?;
+        }
+        let restored =
+            flutter_backup::read(&config, database.as_ref().map(|_| path.as_path()), |name| {
+                read_text(zip, name).ok().flatten()
+            });
+        let _ = fs::remove_file(&path);
+        let restored = restored.map_err(|_| not_a_backup())?;
+        Ok(Self {
+            settings: Settings {
+                profiles: restored.profiles,
+                scripts: restored.scripts,
+                current_profile: restored.current,
+                whitelist: restored.whitelist,
+                options: EngineOptions {
+                    added_rules: restored.global_rules,
+                    ..EngineOptions::default()
+                },
+                ..Settings::default()
+            },
+            files: restored.files,
+            flutter: true,
+        })
     }
 
     /// The settings after restoring into `current`, and the profiles whose files are no longer needed.
@@ -111,11 +163,13 @@ impl Backup {
         scope: RestoreScope,
         strategy: RestoreStrategy,
     ) -> (Settings, Vec<String>) {
+        let flutter = self.flutter;
         let saved = self.settings;
         let mut next = current.clone();
         let dropped = match strategy {
             RestoreStrategy::Override => {
                 next.profiles = saved.profiles.clone();
+                next.scripts = saved.scripts.clone();
                 current
                     .profiles
                     .iter()
@@ -130,10 +184,29 @@ impl Backup {
                         None => next.profiles.push(profile.clone()),
                     }
                 }
+                for script in &saved.scripts {
+                    match next
+                        .scripts
+                        .iter_mut()
+                        .find(|existing| existing.id == script.id)
+                    {
+                        Some(existing) => *existing = script.clone(),
+                        None => next.scripts.push(script.clone()),
+                    }
+                }
                 Vec::new()
             }
         };
-        if scope == RestoreScope::All {
+        if scope == RestoreScope::All && flutter {
+            next.whitelist = saved.whitelist;
+            next.options.added_rules = saved.options.added_rules;
+            if let Some(id) = saved
+                .current_profile
+                .filter(|id| next.profile(id).is_some())
+            {
+                next.current_profile = Some(id);
+            }
+        } else if scope == RestoreScope::All {
             next.mode = saved.mode;
             next.route_mode = saved.route_mode;
             next.options = saved.options;
@@ -228,6 +301,7 @@ mod tests {
                 ("a".into(), Content::Yaml("proxies: []\n".into())),
                 ("b".into(), Content::Links("vless://u@h:1#b".into())),
             ]),
+            flutter: false,
         }
     }
 
@@ -235,8 +309,11 @@ mod tests {
     fn a_backup_survives_the_zip() {
         let backup = backup();
         let bytes = backup.to_zip("test").unwrap();
-        assert_eq!(Backup::from_zip(&bytes).unwrap(), backup);
-        assert!(Backup::from_zip(b"not a zip").is_err());
+        assert_eq!(
+            Backup::from_zip(&bytes, &std::env::temp_dir()).unwrap(),
+            backup
+        );
+        assert!(Backup::from_zip(b"not a zip", &std::env::temp_dir()).is_err());
     }
 
     #[test]
@@ -250,7 +327,8 @@ mod tests {
             .settings
             .profiles
             .push(record("lost", ProfileKind::File));
-        let restored = Backup::from_zip(&backup.to_zip("test").unwrap()).unwrap();
+        let restored =
+            Backup::from_zip(&backup.to_zip("test").unwrap(), &std::env::temp_dir()).unwrap();
         let ids: Vec<_> = restored
             .settings
             .profiles
@@ -269,7 +347,7 @@ mod tests {
         zip.write_all(br#"{"version":2,"appVersion":"9","createdAt":0}"#)
             .unwrap();
         let newer = zip.finish().unwrap().into_inner();
-        let error = Backup::from_zip(&newer).unwrap_err();
+        let error = Backup::from_zip(&newer, &std::env::temp_dir()).unwrap_err();
         assert!(error.to_string().contains("newer"));
     }
 
@@ -323,5 +401,25 @@ mod tests {
             replaced.connected,
             "whether the engine runs is not part of a backup"
         );
+    }
+
+    #[test]
+    fn a_flutter_backup_brings_back_its_whitelist_but_not_its_settings() {
+        let mut zip = ZipWriter::new(Cursor::new(Vec::new()));
+        zip.start_file(flutter_backup::CONFIG, SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(br#"{"version":1,"po0FirewallProps":{"enable":true,"tokenEntries":[{"token":"pgnfw_a","name":""}]}}"#)
+            .unwrap();
+        let bytes = zip.finish().unwrap().into_inner();
+        let backup = Backup::from_zip(&bytes, &std::env::temp_dir()).unwrap();
+        assert!(backup.flutter && backup.settings.profiles.is_empty());
+        let current = Settings {
+            mode: Mode::Global,
+            ..Settings::default()
+        };
+        let (next, _) =
+            backup.restore_into(&current, RestoreScope::All, RestoreStrategy::Compatible);
+        assert_eq!(next.mode, Mode::Global);
+        assert_eq!(next.whitelist.entries.len(), 1);
     }
 }

@@ -56,6 +56,29 @@ fn imports_links_into_one_profile() {
 }
 
 #[test]
+fn developer_tools_prune_and_clear_data() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    let kept = core
+        .import_links("ss://YWVzLTEyOC1nY206cA@1.1.1.1:1#a".into())
+        .unwrap();
+    let profiles = dir.join("core").join("profiles");
+    fs::write(profiles.join("orphan.yaml"), "proxies: []").unwrap();
+    assert_eq!(core.prune_cache().unwrap(), 1);
+    assert_eq!(core.profiles().len(), 1);
+    core.clear_data().unwrap();
+    core.shutdown();
+    drop(core);
+
+    let core = Core::new(options(&dir)).unwrap();
+    assert!(core.profiles().is_empty());
+    assert!(!profiles.join(format!("{}.txt", kept.profile.id)).exists());
+    assert!(!dir.join("core").join(CLEAR_MARKER).exists());
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn profiles_can_be_switched_and_removed() {
     let dir = temp_dir();
     let core = Core::new(options(&dir)).unwrap();
@@ -87,6 +110,31 @@ fn serve_once(reply: &'static str) -> String {
         stream.write_all(reply.as_bytes()).unwrap();
     });
     format!("http://127.0.0.1:{port}/sub?token=secret")
+}
+
+#[test]
+fn launches_that_never_finish_skip_connecting_then_deselect_the_profile() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    let id = core
+        .import_links("vless://u@h:1#b".into())
+        .unwrap()
+        .profile
+        .id;
+    assert_eq!(core.launch_started(None).recovery, LaunchRecovery::Normal);
+    core.launch_finished();
+    assert_eq!(core.launch_started(None).recovery, LaunchRecovery::Normal);
+    let first = core.launch_started(None);
+    assert_eq!(first.recovery, LaunchRecovery::SkipAutoConnect);
+    assert_eq!(core.status().profile_id.as_deref(), Some(id.as_str()));
+    let second = core.launch_started(None);
+    assert_eq!(second.recovery, LaunchRecovery::ClearProfile);
+    assert_eq!(second.profile_name.as_deref(), Some("Share links"));
+    assert_eq!(core.status().profile_id, None);
+    core.launch_finished();
+    assert_eq!(core.launch_started(None).recovery, LaunchRecovery::Normal);
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]
@@ -239,6 +287,176 @@ fn starting_without_a_profile_fails_cleanly() {
     assert!(matches!(core.status().engine, EngineState::Failed(_)));
     assert!(core.groups().unwrap().is_empty());
     assert_eq!(core.traffic(), Traffic::default());
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn profile_text_can_be_edited() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    let yaml = "proxies:\n  - {name: a, type: ss, server: 1.2.3.4, port: 1, cipher: aes-128-gcm, password: p}\n";
+    let file = core.import_file("work.yaml".into(), yaml.into()).unwrap();
+    let edited = yaml.replace("name: a", "name: c");
+    core.save_profile_content(file.id.clone(), edited.clone())
+        .unwrap();
+    assert_eq!(core.profile_content(file.id.clone()).unwrap(), edited);
+    assert!(
+        core.save_profile_content(file.id.clone(), "hello".into())
+            .is_err()
+    );
+    assert_eq!(core.profile_content(file.id.clone()).unwrap(), edited);
+    let links = core
+        .import_links("ss://YWVzLTEyOC1nY206cA@1.2.3.4:1#b".into())
+        .unwrap()
+        .profile;
+    assert!(
+        core.save_profile_content(links.id.clone(), yaml.into())
+            .is_err()
+    );
+    assert!(
+        core.save_profile_content("missing".into(), yaml.into())
+            .is_err()
+    );
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn share_nodes_can_be_renamed_and_removed() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    let profile = core
+        .import_links("ss://YWVzLTEyOC1nY206cA@1.2.3.4:1#a\ntrojan://p@1.2.3.4:443#a\nhysteria2://p@5.6.7.8:443#b".into())
+        .unwrap()
+        .profile;
+    let names = |core: &Core| {
+        core.share_nodes(profile.id.clone())
+            .unwrap()
+            .into_iter()
+            .map(|node| node.name)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(names(&core), ["a", "a-01", "b"]);
+    assert_eq!(
+        core.share_nodes(profile.id.clone()).unwrap()[1].kind,
+        "trojan"
+    );
+    assert!(
+        core.rename_share_node(profile.id.clone(), "a-01".into(), "b".into())
+            .is_err()
+    );
+    assert!(
+        core.rename_share_node(profile.id.clone(), "missing".into(), "c".into())
+            .is_err()
+    );
+    core.rename_share_node(profile.id.clone(), "a-01".into(), " Tokyo ".into())
+        .unwrap();
+    assert_eq!(names(&core), ["a", "Tokyo", "b"]);
+    core.remove_share_node(profile.id.clone(), "a".into())
+        .unwrap();
+    assert_eq!(names(&core), ["Tokyo", "b"]);
+    assert!(
+        core.profile_content(profile.id.clone())
+            .unwrap()
+            .contains("#Tokyo")
+    );
+    core.remove_share_node(profile.id.clone(), "b".into())
+        .unwrap();
+    assert!(
+        core.remove_share_node(profile.id.clone(), "Tokyo".into())
+            .is_err()
+    );
+    let yaml = "proxies:\n  - {name: a, type: ss, server: 1.2.3.4, port: 1, cipher: aes-128-gcm, password: p}\n";
+    let file = core.import_file("work.yaml".into(), yaml.into()).unwrap();
+    assert!(core.share_nodes(file.id).is_err());
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn overrides_and_scripts_shape_the_running_config() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    let yaml = "proxies:\n  - {name: a, type: ss, server: 1.2.3.4, port: 1, cipher: aes-128-gcm, password: p}\nrules:\n  - MATCH,DIRECT\n";
+    let file = core.import_file("work.yaml".into(), yaml.into()).unwrap();
+    core.set_profile_override(
+        file.id.clone(),
+        ProfileOverride {
+            added_rules: vec![" DOMAIN,a.example,MATCH ".into(), String::new()],
+            ..ProfileOverride::default()
+        },
+    )
+    .unwrap();
+    let saved = core.profile_override(file.id.clone()).unwrap();
+    assert_eq!(saved.added_rules, ["DOMAIN,a.example,MATCH"]);
+    assert!(
+        core.preview_config(file.id.clone())
+            .unwrap()
+            .contains("DOMAIN,a.example,DIRECT")
+    );
+    assert!(
+        core.save_script(Script {
+            id: String::new(),
+            name: " ".into(),
+            content: "function main(c) { return c; }".into()
+        })
+        .is_err()
+    );
+    assert!(
+        core.save_script(Script {
+            id: String::new(),
+            name: "x".into(),
+            content: "const y = 1;".into()
+        })
+        .is_err()
+    );
+    let script = core
+        .save_script(Script {
+            id: String::new(),
+            name: " tag ".into(),
+            content: "function main(config) { config.rules.unshift('DOMAIN,s.example,DIRECT'); return config; }".into(),
+        })
+        .unwrap();
+    assert_eq!((script.name.as_str(), core.scripts().len()), ("tag", 1));
+    let scripted = ProfileOverride {
+        mode: OverrideMode::Script,
+        script_id: Some(script.id.clone()),
+        ..saved
+    };
+    core.set_profile_override(file.id.clone(), scripted.clone())
+        .unwrap();
+    let preview = core.preview_config(file.id.clone()).unwrap();
+    assert!(preview.contains("DOMAIN,s.example,DIRECT") && !preview.contains("a.example"));
+    let failing = Script {
+        content: "function main(config) { throw new Error('boom'); }".into(),
+        ..script.clone()
+    };
+    assert!(core.save_script(failing).is_err());
+    assert_eq!(core.scripts()[0], script);
+    let missing = ProfileOverride {
+        script_id: Some("missing".into()),
+        ..scripted
+    };
+    assert!(core.set_profile_override(file.id.clone(), missing).is_err());
+    let custom = ProfileOverride {
+        mode: OverrideMode::Custom,
+        custom_groups: "proxy-groups: [{name: G}]".into(),
+        ..ProfileOverride::default()
+    };
+    assert!(core.set_profile_override(file.id.clone(), custom).is_err());
+    assert_eq!(
+        core.profile_override(file.id.clone()).unwrap().mode,
+        OverrideMode::Script
+    );
+    let (groups, rules) = core.profile_groups_and_rules(file.id.clone()).unwrap();
+    assert!(groups.is_empty() && rules == ["MATCH,DIRECT"]);
+    core.remove_script(script.id).unwrap();
+    assert!(core.scripts().is_empty());
+    assert_eq!(
+        core.profile_override(file.id.clone()).unwrap().script_id,
+        None
+    );
     core.shutdown();
     fs::remove_dir_all(dir).unwrap();
 }

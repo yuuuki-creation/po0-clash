@@ -3,19 +3,27 @@ mod backup;
 mod config;
 mod engine;
 mod error;
+mod flutter_backup;
+mod ip_quality;
+mod launch;
 mod legacy;
+mod licenses;
+mod links;
 mod logfile;
 mod model;
 mod network;
 mod options;
 mod profiles;
 mod resources;
+mod script;
 mod settings;
+mod update;
 mod util;
 mod webdav;
 mod whitelist;
 
-use std::collections::BTreeMap;
+use std::cmp;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
@@ -27,11 +35,12 @@ use serde_json::{Value, json};
 
 pub use app_settings::*;
 pub use error::{CoreError, Result};
+pub use ip_quality::{IpQuality, IpQualityLevel, IpQualitySource, IpType};
 pub use model::*;
 pub use options::*;
 
 use backup::Backup;
-use engine::{Engine, Runtime, Session, sysproxy};
+use engine::{Engine, Runtime, Session, sysdns, sysproxy};
 use logfile::LogFile;
 use profiles::Content;
 use settings::{EntryRecord, ProfileRecord, Settings, Store};
@@ -64,6 +73,7 @@ struct Paths {
     profiles: PathBuf,
     home: PathBuf,
     run: PathBuf,
+    launch: PathBuf,
 }
 
 impl Paths {
@@ -72,6 +82,7 @@ impl Paths {
             profiles: data_dir.join("profiles"),
             home: data_dir.join("mihomo"),
             run: data_dir.join("run"),
+            launch: data_dir.join("launch.json"),
         }
     }
 
@@ -114,6 +125,7 @@ pub struct Core {
     listener: RwLock<Option<Arc<dyn Listener>>>,
     updater: Updater,
     mihomo_log: Arc<LogFile>,
+    ip_qualities: ip_quality::Cache,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -138,9 +150,12 @@ impl Core {
             options.app_version,
             options.platform
         ));
+        let cleared = clear_if_requested(&data_dir, &paths);
         let (store, existed) = Store::open(data_dir.join("settings.json"));
         if !existed {
-            import_legacy(&store, &paths, &options);
+            if !cleared {
+                import_legacy(&store, &paths, &options);
+            }
             store.save()?;
         }
         engine::recover(&paths.run);
@@ -178,6 +193,7 @@ impl Core {
                     signal: Condvar::new(),
                 },
                 mihomo_log: Arc::new(LogFile::new(data_dir.join("logs").join("mihomo.log"))),
+                ip_qualities: ip_quality::Cache::default(),
                 paths,
             }
         });
@@ -211,6 +227,62 @@ impl Core {
         if let Some(listener) = listener {
             for change in changes {
                 listener.on_change(*change);
+            }
+        }
+    }
+
+    /// Called once as the app starts, before it connects automatically; `launch_finished` ends
+    /// the launch once it has connected or chosen not to, and on a clean quit. Only Android
+    /// knows how the previous run ended.
+    pub fn launch_started(&self, last_exit: Option<LastExit>) -> LaunchCheck {
+        let record = launch::read(&self.paths.launch);
+        let outcome = launch::decide(&record, last_exit.as_ref());
+        if outcome.recovery != LaunchRecovery::Normal {
+            logfile::warn(format!(
+                "the previous launch ended while starting ({last_exit:?}): {outcome:?}"
+            ));
+        }
+        if outcome.recovery == LaunchRecovery::ClearProfile {
+            let cleared = self.store.update(|settings| {
+                settings.current_profile = None;
+                Ok(())
+            });
+            if let Err(error) = cleared {
+                logfile::warn(format!("could not deselect the profile: {error}"));
+            }
+        }
+        let settings = self.store.get();
+        let next = launch::Record {
+            starting: true,
+            profile_id: settings.current_profile.clone(),
+            started_at: launch::now_ms(),
+            failures: outcome.failures,
+            handled_exit_at: record
+                .handled_exit_at
+                .max(last_exit.map_or(0, |exit| exit.at_ms)),
+        };
+        if let Err(error) = launch::write(&self.paths.launch, &next) {
+            logfile::warn(format!("could not record the launch: {error}"));
+        }
+        LaunchCheck {
+            recovery: outcome.recovery,
+            failures: outcome.failures,
+            profile_name: outcome
+                .profile_id
+                .and_then(|id| settings.profile(&id).map(|profile| profile.name.clone())),
+        }
+    }
+
+    pub fn launch_finished(&self) {
+        let record = launch::read(&self.paths.launch);
+        if record.starting {
+            let finished = launch::Record {
+                starting: false,
+                failures: 0,
+                ..record
+            };
+            if let Err(error) = launch::write(&self.paths.launch, &finished) {
+                logfile::warn(format!("could not record the launch: {error}"));
             }
         }
     }
@@ -309,10 +381,14 @@ impl Core {
                 if self.platform != Platform::Android
                     && settings.route_mode == RouteMode::SystemProxy
                 {
-                    sysproxy::set(session.runtime.mixed_port).map_err(|error| {
-                        CoreError::Engine(format!("cannot set the system proxy: {error}"))
-                    })?;
+                    sysproxy::set(session.runtime.mixed_port, &settings.options.bypass_domains)
+                        .map_err(|error| {
+                            CoreError::Engine(format!("cannot set the system proxy: {error}"))
+                        })?;
                     session.system_proxy.store(true, Ordering::SeqCst);
+                }
+                if self.patches_system_dns(&settings) {
+                    *lock(&session.system_dns) = sysdns::apply();
                 }
                 Ok(())
             });
@@ -325,6 +401,9 @@ impl Core {
         self.engine
             .monitor
             .set_log_level(settings.options.log_level);
+        self.engine
+            .monitor
+            .set_only_proxy(settings.app.only_proxy_traffic);
         session.watch(&self.engine.monitor);
         self.engine.install(session.clone());
         self.refresh_current_node(&session, settings.mode);
@@ -482,13 +561,32 @@ impl Core {
         )))
     }
 
+    /// An override script runs on the profile's own config, before po0-clash's settings, as in FlClash.
+    fn overridden_base(
+        &self,
+        profile: &ProfileRecord,
+        settings: &Settings,
+    ) -> Result<(String, Option<(String, String)>)> {
+        let (base, links) = self.config_base(profile, settings)?;
+        let overrides = &profile.overrides;
+        let script = overrides
+            .script_id
+            .as_deref()
+            .and_then(|id| settings.script(id))
+            .filter(|_| overrides.mode == OverrideMode::Script);
+        match script {
+            Some(script) => Ok((config::run_script(&base, &script.content)?, links)),
+            None => Ok((base, links)),
+        }
+    }
+
     fn write_config(
         &self,
         profile: &ProfileRecord,
         settings: &Settings,
         runtime: &Runtime,
     ) -> Result<PathBuf> {
-        let (base, links) = self.config_base(profile, settings)?;
+        let (base, links) = self.overridden_base(profile, settings)?;
         if let Some((name, links)) = links {
             util::write_atomic(&runtime.home.join(name), links.as_bytes())?;
         }
@@ -504,6 +602,7 @@ impl Core {
                 secret: runtime.controller.secret(),
                 direct: &runtime.direct,
                 options: &settings.options,
+                overrides: &profile.overrides,
             },
         )?;
         let path = runtime.home.join("config.yaml");
@@ -528,6 +627,9 @@ impl Core {
 
     pub fn set_app_settings(&self, settings: AppSettings) -> Result<()> {
         let settings = settings.validated()?;
+        self.engine
+            .monitor
+            .set_only_proxy(settings.only_proxy_traffic);
         self.store.update(|s| {
             s.app = settings;
             Ok(())
@@ -541,12 +643,14 @@ impl Core {
     /// A new mixed port moves the system proxy, so desktops restart for it; everything else hot-reloads.
     pub fn set_engine_options(&self, options: EngineOptions) -> Result<()> {
         self.engine.monitor.set_log_level(options.log_level);
-        let port_changed = self.store.update(|s| {
-            let changed = s.options.mixed_port != options.mixed_port;
+        let proxy_changed = self.store.update(|s| {
+            let changed = s.options.mixed_port != options.mixed_port
+                || s.options.bypass_domains != options.bypass_domains
+                || s.options.auto_set_system_dns != options.auto_set_system_dns;
             s.options = options;
             Ok(changed)
         })?;
-        if port_changed && self.platform != Platform::Android {
+        if proxy_changed && self.platform != Platform::Android {
             self.restart()
         } else {
             self.reload()
@@ -636,6 +740,12 @@ impl Core {
         util::write_atomic(&keep, text.as_bytes())?;
         let _ = fs::remove_file(drop);
         Ok(())
+    }
+
+    fn patches_system_dns(&self, settings: &Settings) -> bool {
+        self.platform == Platform::MacOs
+            && settings.route_mode == RouteMode::Tun
+            && settings.options.auto_set_system_dns
     }
 
     fn reload_if_current(&self, id: &str) -> Result<()> {
@@ -800,6 +910,186 @@ impl Core {
         }
     }
 
+    /// FlClash's profile editor. While the profile runs mihomo checks the text too, and an edit it rejects is undone.
+    pub fn save_profile_content(&self, id: String, content: String) -> Result<Profile> {
+        let content = profiles::classify(&content)?;
+        let kind = self
+            .store
+            .read(|s| s.profile(&id).map(|profile| profile.kind))
+            .ok_or_else(|| CoreError::Invalid("no such profile".into()))?;
+        if kind == ProfileKind::Links && !matches!(content, Content::Links(_)) {
+            return Err(CoreError::Invalid(
+                "the share-link profile holds share links only".into(),
+            ));
+        }
+        let previous = self
+            .stored_content(&id)
+            .ok_or_else(|| CoreError::Invalid("no such profile".into()))?;
+        self.store_content(&id, &content)?;
+        if let Err(error) = self.reload_if_current(&id) {
+            self.store_content(&id, &previous)?;
+            let _ = self.reload_if_current(&id);
+            return Err(error);
+        }
+        logfile::info(format!("profile {id} edited"));
+        self.emit(&[Change::Profiles, Change::Status]);
+        self.profile(&id)
+    }
+
+    // Overrides.
+
+    pub fn profile_override(&self, id: String) -> Result<ProfileOverride> {
+        self.store
+            .read(|s| s.profile(&id).map(|profile| profile.overrides.clone()))
+            .ok_or_else(|| CoreError::Invalid("no such profile".into()))
+    }
+
+    /// Kept only if the profile still renders, and while it runs only if mihomo accepts it.
+    pub fn set_profile_override(&self, id: String, overrides: ProfileOverride) -> Result<()> {
+        let lines = |rules: Vec<String>| {
+            rules
+                .into_iter()
+                .map(|rule| rule.trim().to_owned())
+                .filter(|rule| !rule.is_empty())
+                .collect::<Vec<_>>()
+        };
+        let overrides = ProfileOverride {
+            added_rules: lines(overrides.added_rules),
+            disabled_global_rules: lines(overrides.disabled_global_rules),
+            custom_rules: lines(overrides.custom_rules),
+            match_target: overrides
+                .match_target
+                .map(|target| target.trim().to_owned())
+                .filter(|target| !target.is_empty()),
+            ..overrides
+        };
+        config::custom_groups(&overrides.custom_groups)?;
+        let previous = self.store.update(|s| {
+            if let Some(script) = &overrides.script_id
+                && s.script(script).is_none()
+            {
+                return Err(CoreError::Invalid("no such script".into()));
+            }
+            let profile = s
+                .profile_mut(&id)
+                .ok_or_else(|| CoreError::Invalid("no such profile".into()))?;
+            Ok(std::mem::replace(&mut profile.overrides, overrides))
+        })?;
+        if let Err(error) = self.check_profile(&id) {
+            self.store.update(|s| {
+                if let Some(profile) = s.profile_mut(&id) {
+                    profile.overrides = previous;
+                }
+                Ok(())
+            })?;
+            let _ = self.reload_if_current(&id);
+            return Err(error);
+        }
+        logfile::info(format!("profile {id} override saved"));
+        self.emit(&[Change::Profiles]);
+        Ok(())
+    }
+
+    /// Renders the profile as it would run, then reloads it if it is the current one.
+    fn check_profile(&self, id: &str) -> Result<()> {
+        self.preview_config(id.to_owned())?;
+        self.reload_if_current(id)
+    }
+
+    /// The profile's own proxy groups (as YAML) and rules, where a custom override starts.
+    pub fn profile_groups_and_rules(&self, id: String) -> Result<(String, Vec<String>)> {
+        let settings = self.store.get();
+        let profile = settings
+            .profile(&id)
+            .ok_or_else(|| CoreError::Invalid("no such profile".into()))?;
+        let (base, _) = self.config_base(profile, &settings)?;
+        config::custom_parts(&base)
+    }
+
+    pub fn scripts(&self) -> Vec<Script> {
+        self.store.read(|s| s.scripts.clone())
+    }
+
+    /// A script without an id is new. An edit to a script the current profile uses is undone if the profile then fails.
+    pub fn save_script(&self, script: Script) -> Result<Script> {
+        let name = script.name.trim().to_owned();
+        if name.is_empty() {
+            return Err(CoreError::Invalid("the script needs a name".into()));
+        }
+        script::check(&script.content)
+            .map_err(|error| CoreError::Invalid(format!("override script: {error}")))?;
+        let script = Script {
+            id: if script.id.is_empty() {
+                util::random_id()
+            } else {
+                script.id
+            },
+            name,
+            content: script.content,
+        };
+        let previous = self.store.update(|s| {
+            let index = s.scripts.iter().position(|saved| saved.id == script.id);
+            Ok(match index {
+                Some(index) => Some(std::mem::replace(&mut s.scripts[index], script.clone())),
+                None => {
+                    s.scripts.push(script.clone());
+                    None
+                }
+            })
+        })?;
+        if let Some(current) = self.current_using(&script.id)
+            && let Err(error) = self.check_profile(&current)
+        {
+            self.store.update(|s| {
+                match previous {
+                    Some(previous) => {
+                        if let Some(saved) =
+                            s.scripts.iter_mut().find(|saved| saved.id == previous.id)
+                        {
+                            *saved = previous;
+                        }
+                    }
+                    None => s.scripts.retain(|saved| saved.id != script.id),
+                }
+                Ok(())
+            })?;
+            let _ = self.reload_if_current(&current);
+            return Err(error);
+        }
+        logfile::info(format!("script {} saved", script.id));
+        self.emit(&[Change::Profiles]);
+        Ok(script)
+    }
+
+    /// Profiles that ran the script keep script mode without one, which leaves their config as it is.
+    pub fn remove_script(&self, id: String) -> Result<()> {
+        let current = self.current_using(&id);
+        self.store.update(|s| {
+            s.scripts.retain(|script| script.id != id);
+            for profile in &mut s.profiles {
+                if profile.overrides.script_id.as_deref() == Some(id.as_str()) {
+                    profile.overrides.script_id = None;
+                }
+            }
+            Ok(())
+        })?;
+        logfile::info(format!("script {id} removed"));
+        let reloaded = current.map_or(Ok(()), |current| self.reload_if_current(&current));
+        self.emit(&[Change::Profiles, Change::Status]);
+        reloaded
+    }
+
+    fn current_using(&self, script: &str) -> Option<String> {
+        self.store.read(|s| {
+            s.current()
+                .filter(|profile| {
+                    profile.overrides.mode == OverrideMode::Script
+                        && profile.overrides.script_id.as_deref() == Some(script)
+                })
+                .map(|profile| profile.id.clone())
+        })
+    }
+
     fn stored_content(&self, id: &str) -> Option<Content> {
         fs::read_to_string(self.paths.yaml(id))
             .map(Content::Yaml)
@@ -813,7 +1103,7 @@ impl Core {
         let profile = settings
             .profile(&id)
             .ok_or_else(|| CoreError::Invalid("no such profile".into()))?;
-        let (base, _) = self.config_base(profile, &settings)?;
+        let (base, _) = self.overridden_base(profile, &settings)?;
         let session = self.engine.session();
         let hidden = "<hidden>";
         let direct = config::DirectListener {
@@ -843,6 +1133,7 @@ impl Core {
                 secret: hidden,
                 direct: &direct,
                 options: &settings.options,
+                overrides: &profile.overrides,
             },
         )
     }
@@ -910,6 +1201,105 @@ impl Core {
             profile: self.profile(&id)?,
             added,
         })
+    }
+
+    pub fn licenses(&self) -> Vec<License> {
+        licenses::all()
+    }
+
+    // Share-link nodes.
+
+    /// The share-link profile's nodes, named as mihomo names them.
+    pub fn share_nodes(&self, id: String) -> Result<Vec<ShareNode>> {
+        let links = self.share_links(&id)?;
+        Ok(links::names(&links)
+            .into_iter()
+            .zip(&links)
+            .filter_map(|(name, link)| {
+                Some(ShareNode {
+                    name: name?,
+                    kind: links::scheme(link),
+                })
+            })
+            .collect())
+    }
+
+    pub fn rename_share_node(&self, id: String, name: String, new_name: String) -> Result<()> {
+        let new_name = new_name.trim().to_owned();
+        if new_name.is_empty() {
+            return Err(CoreError::Invalid("the node needs a name".into()));
+        }
+        let mut links = self.share_links(&id)?;
+        let names = links::names(&links);
+        if new_name != name && names.iter().flatten().any(|taken| *taken == new_name) {
+            return Err(CoreError::Invalid(
+                "another node already has this name".into(),
+            ));
+        }
+        let index = node_index(&names, &name)?;
+        links[index] = links::renamed(&links[index], &new_name)
+            .ok_or_else(|| CoreError::Invalid("this kind of link cannot be renamed".into()))?;
+        self.save_share_links(&id, &names, links, Some)
+    }
+
+    pub fn remove_share_node(&self, id: String, name: String) -> Result<()> {
+        let mut links = self.share_links(&id)?;
+        let names = links::names(&links);
+        let index = node_index(&names, &name)?;
+        if links.len() == 1 {
+            return Err(CoreError::Invalid(
+                "the last node goes with its profile".into(),
+            ));
+        }
+        links.remove(index);
+        self.save_share_links(&id, &names, links, |old| match old.cmp(&index) {
+            cmp::Ordering::Less => Some(old),
+            cmp::Ordering::Equal => None,
+            cmp::Ordering::Greater => Some(old - 1),
+        })
+    }
+
+    fn share_links(&self, id: &str) -> Result<Vec<String>> {
+        match self.stored_content(id) {
+            Some(Content::Links(text)) => Ok(profiles::extract_links(&text)),
+            _ => Err(CoreError::Invalid("not a share-link profile".into())),
+        }
+    }
+
+    /// Other nodes can change name too, since repeated names are numbered in order, so selections follow every link.
+    fn save_share_links(
+        &self,
+        id: &str,
+        before: &[Option<String>],
+        links: Vec<String>,
+        moved: impl Fn(usize) -> Option<usize>,
+    ) -> Result<()> {
+        let after = links::names(&links);
+        let renames: HashMap<String, Option<String>> = before
+            .iter()
+            .enumerate()
+            .filter_map(|(old, name)| {
+                Some((name.clone()?, moved(old).and_then(|new| after[new].clone())))
+            })
+            .collect();
+        self.store_content(id, &Content::Links(links.join("\n")))?;
+        self.store.update(|s| {
+            if let Some(profile) = s.profile_mut(id) {
+                profile.selections = std::mem::take(&mut profile.selections)
+                    .into_iter()
+                    .filter_map(|(group, node)| match renames.get(&node) {
+                        Some(renamed) => renamed.clone().map(|node| (group, node)),
+                        None => Some((group, node)),
+                    })
+                    .collect();
+                profile.updated_at = Some(util::now());
+            }
+            Ok(())
+        })?;
+        logfile::info(format!("share-link profile {id} edited"));
+        let reloaded = self.reload_if_current(id);
+        self.emit(&[Change::Profiles, Change::Groups]);
+        reloaded
     }
 
     // Proxy groups.
@@ -1140,6 +1530,65 @@ impl Core {
         })
     }
 
+    // Developer mode.
+
+    pub fn crash_engine(&self) -> Result<()> {
+        if self.live_session()?.runner.kill() {
+            Ok(())
+        } else {
+            Err(CoreError::Invalid(
+                "the engine runs inside the app on this platform".into(),
+            ))
+        }
+    }
+
+    pub fn add_test_logs(&self) {
+        self.engine.monitor.add_test_logs();
+    }
+
+    pub fn prune_cache(&self) -> Result<u32> {
+        let ids: Vec<String> = self.store.read(|s| {
+            s.profiles
+                .iter()
+                .map(|profile| profile.id.clone())
+                .collect()
+        });
+        let mut removed = 0;
+        for entry in fs::read_dir(&self.paths.profiles)? {
+            let path = entry?.path();
+            let id = path.file_stem().and_then(|stem| stem.to_str());
+            if path.is_file() && !id.is_some_and(|id| ids.iter().any(|known| known == id)) {
+                fs::remove_file(&path)?;
+                removed += 1;
+            }
+        }
+        Ok(removed)
+    }
+
+    pub fn clear_data(&self) -> Result<()> {
+        self.stop();
+        fs::write(self.paths.profiles.with_file_name(CLEAR_MARKER), b"")?;
+        Ok(())
+    }
+
+    /// Who announces the exit address and whether it looks like a data centre, asked through the engine's proxy.
+    pub fn ip_quality(&self, ip: &str, refresh: bool) -> Result<IpQuality> {
+        self.ip_qualities
+            .lookup(ip, self.proxy_url().as_deref(), refresh)
+    }
+
+    /// The newest native release above this build, through the engine's proxy while it runs and then directly.
+    pub fn check_update(&self) -> Result<Option<Release>> {
+        let check = |proxy: Option<&str>| update::check(&self.app_version, proxy);
+        match self.proxy_url() {
+            Some(proxy) => match check(Some(&proxy)) {
+                Err(CoreError::Network(_)) => check(None),
+                other => other,
+            },
+            None => check(None),
+        }
+    }
+
     // Activity: what the engine is doing now and has done this run.
 
     fn live_session(&self) -> Result<Arc<Session>> {
@@ -1350,6 +1799,14 @@ impl Core {
 
     pub fn network_changed(&self) {
         logfile::info("network changed");
+        if let Some(session) = self.engine.session()
+            && self.patches_system_dns(&self.store.get())
+        {
+            let mut saved = lock(&session.system_dns);
+            *saved = sysdns::refresh(saved.take());
+            drop(saved);
+            engine::save_record(&self.paths.run, &session);
+        }
         self.whitelist.network_changed();
         self.emit(&[Change::Status]);
     }
@@ -1369,13 +1826,18 @@ impl Core {
             .iter()
             .filter_map(|profile| Some((profile.id.clone(), self.stored_content(&profile.id)?)))
             .collect();
-        Backup { settings, files }.to_zip(&self.app_version)
+        Backup {
+            settings,
+            files,
+            flutter: false,
+        }
+        .to_zip(&self.app_version)
     }
 
     /// Merges or replaces the profiles as the restore strategy setting says, and the engine, if it runs,
     /// moves onto the result.
     pub fn restore(&self, data: Vec<u8>, scope: RestoreScope) -> Result<()> {
-        let backup = Backup::from_zip(&data)?;
+        let backup = Backup::from_zip(&data, &self.paths.run)?;
         let count = backup.files.len();
         for (id, content) in &backup.files {
             self.store_content(id, content)?;
@@ -1573,6 +2035,27 @@ fn run_updater(core: &Weak<Core>) {
     }
 }
 
+const CLEAR_MARKER: &str = "clear-on-launch";
+
+/// Clearing waits for the next start so nothing still in memory can write the old settings back, and a cleared
+/// start does not import the Flutter app's settings again.
+fn clear_if_requested(data_dir: &Path, paths: &Paths) -> bool {
+    let marker = data_dir.join(CLEAR_MARKER);
+    if !marker.exists() {
+        return false;
+    }
+    logfile::info("clearing data as requested");
+    for file in ["settings.json", "whitelist-results.json"] {
+        let _ = fs::remove_file(data_dir.join(file));
+    }
+    for dir in [&paths.profiles, &paths.home] {
+        let _ = fs::remove_dir_all(dir);
+        let _ = fs::create_dir_all(dir);
+    }
+    let _ = fs::remove_file(marker);
+    true
+}
+
 fn import_legacy(store: &Store, paths: &Paths, options: &CoreOptions) {
     if options.legacy_prefs.is_none() && options.legacy_database.is_none() {
         return;
@@ -1629,6 +2112,13 @@ fn import_legacy(store: &Store, paths: &Paths, options: &CoreOptions) {
         )),
         Err(error) => logfile::warn(format!("legacy import failed: {error}")),
     }
+}
+
+fn node_index(names: &[Option<String>], name: &str) -> Result<usize> {
+    names
+        .iter()
+        .position(|candidate| candidate.as_deref() == Some(name))
+        .ok_or_else(|| CoreError::Invalid("no such node".into()))
 }
 
 #[cfg(test)]

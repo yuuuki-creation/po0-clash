@@ -204,6 +204,12 @@ pub struct EngineOptions {
     pub override_dns: bool,
     pub dns: DnsOptions,
     pub added_rules: Vec<String>,
+    /// Hosts the system proxy leaves alone, in the platform's own syntax: Windows takes `<local>` and wildcards,
+    /// macOS also CIDR ranges.
+    pub bypass_domains: Vec<String>,
+    pub append_system_dns: bool,
+    /// macOS only: while TUN runs, the default network service also lists a public resolver.
+    pub auto_set_system_dns: bool,
 }
 
 impl Default for EngineOptions {
@@ -235,6 +241,9 @@ impl Default for EngineOptions {
             override_dns: false,
             dns: DnsOptions::default(),
             added_rules: Vec::new(),
+            bypass_domains: strings(DEFAULT_BYPASS),
+            append_system_dns: false,
+            auto_set_system_dns: true,
         }
     }
 }
@@ -247,6 +256,51 @@ impl EngineOptions {
             self.test_url.trim()
         }
     }
+}
+
+#[cfg(target_os = "macos")]
+const DEFAULT_BYPASS: &[&str] = &[
+    "127.0.0.1",
+    "192.168.0.0/16",
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "localhost",
+    "*.local",
+    "timestamp.apple.com",
+];
+#[cfg(windows)]
+const DEFAULT_BYPASS: &[&str] = &[
+    "localhost",
+    "127.*",
+    "192.168.*",
+    "10.*",
+    "172.16.*",
+    "172.17.*",
+    "172.18.*",
+    "172.19.*",
+    "172.2*",
+    "172.30.*",
+    "172.31.*",
+    "<local>",
+];
+#[cfg(not(any(target_os = "macos", windows)))]
+const DEFAULT_BYPASS: &[&str] = &[
+    "localhost",
+    "*.local",
+    "127.*",
+    "10.*",
+    "172.16.*",
+    "172.17.*",
+    "172.18.*",
+    "172.19.*",
+    "172.2*",
+    "172.30.*",
+    "172.31.*",
+    "192.168.*",
+];
+
+pub fn default_bypass() -> Vec<String> {
+    strings(DEFAULT_BYPASS)
 }
 
 fn strings(items: &[&str]) -> Vec<String> {

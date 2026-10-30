@@ -4,6 +4,7 @@ mod inproc;
 mod monitor;
 #[cfg(not(target_os = "android"))]
 mod process;
+pub mod sysdns;
 pub mod sysproxy;
 
 use std::fs;
@@ -129,6 +130,19 @@ impl Runner {
         }
     }
 
+    /// Ends the engine the way a crash would; an engine inside the app process cannot be killed alone.
+    pub fn kill(&self) -> bool {
+        match self {
+            #[cfg(not(target_os = "android"))]
+            Self::Process(process) => {
+                process.kill();
+                true
+            }
+            #[cfg(target_os = "android")]
+            Self::InProcess => false,
+        }
+    }
+
     fn pid(&self) -> Option<u32> {
         match self {
             #[cfg(not(target_os = "android"))]
@@ -201,6 +215,7 @@ pub struct Session {
     pub runner: Runner,
     stopped: Arc<AtomicBool>,
     pub system_proxy: AtomicBool,
+    pub system_dns: Mutex<Option<sysdns::Saved>>,
     pub current_node: Mutex<Option<String>>,
     pub generation: u64,
 }
@@ -212,6 +227,7 @@ impl Session {
             runner,
             stopped: Arc::default(),
             system_proxy: AtomicBool::new(false),
+            system_dns: Mutex::new(None),
             current_node: Mutex::new(None),
             generation,
         }
@@ -242,6 +258,9 @@ impl Session {
         self.stopped.store(true, Ordering::SeqCst);
         if self.system_proxy.swap(false, Ordering::SeqCst) {
             sysproxy::clear(self.runtime.mixed_port);
+        }
+        if let Some(saved) = lock(&self.system_dns).take() {
+            sysdns::restore(&saved);
         }
         clear_record(run_dir);
     }
@@ -290,6 +309,8 @@ struct Record {
     endpoint: String,
     mixed_port: u16,
     system_proxy: bool,
+    #[serde(default)]
+    system_dns: Option<sysdns::Saved>,
 }
 
 fn record_path(run_dir: &Path) -> PathBuf {
@@ -302,6 +323,7 @@ pub fn save_record(run_dir: &Path, session: &Session) {
         endpoint: session.runtime.controller.endpoint.describe(),
         mixed_port: session.runtime.mixed_port,
         system_proxy: session.system_proxy.load(Ordering::SeqCst),
+        system_dns: lock(&session.system_dns).clone(),
     };
     if let Ok(json) = serde_json::to_vec(&record) {
         let _ = util::write_atomic(&record_path(run_dir), &json);
@@ -321,6 +343,9 @@ pub fn recover(run_dir: &Path) {
     };
     if record.system_proxy && sysproxy::points_at(record.mixed_port) {
         sysproxy::clear(record.mixed_port);
+    }
+    if let Some(saved) = &record.system_dns {
+        sysdns::restore(saved);
     }
     #[cfg(not(target_os = "android"))]
     if let Some(pid) = record.pid {

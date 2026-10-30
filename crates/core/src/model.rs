@@ -64,6 +64,15 @@ pub struct Traffic {
     pub down: u64,
 }
 
+/// A native release newer than the running build.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Release {
+    pub version: String,
+    pub url: String,
+    pub notes: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExitIp {
@@ -281,4 +290,75 @@ pub struct GeoFile {
     pub name: String,
     pub size: Option<u64>,
     pub modified: Option<i64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum OverrideMode {
+    #[default]
+    Standard,
+    Script,
+    Custom,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ProfileOverride {
+    pub mode: OverrideMode,
+    /// A rule whose target is `MATCH` goes where `match_target`, or else the profile's final rule, sends traffic.
+    pub added_rules: Vec<String>,
+    pub disabled_global_rules: Vec<String>,
+    pub match_target: Option<String>,
+    pub script_id: Option<String>,
+    pub custom_groups: String,
+    pub custom_rules: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Script {
+    pub id: String,
+    pub name: String,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShareNode {
+    pub name: String,
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct License {
+    pub name: String,
+    pub version: String,
+    pub license: String,
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExitKind {
+    Crashed,
+    Stopped,
+    Other,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LastExit {
+    pub kind: ExitKind,
+    pub at_ms: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LaunchRecovery {
+    Normal,
+    SkipAutoConnect,
+    ClearProfile,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LaunchCheck {
+    pub recovery: LaunchRecovery,
+    pub failures: u32,
+    pub profile_name: Option<String>,
 }
