@@ -454,3 +454,17 @@ fn engine_runs_a_real_mihomo() {
     server.wait().unwrap();
     fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn groups_carry_their_icon() {
+    let proxies = json!({
+        "Proxy": {"type": "Selector", "now": "a", "all": ["a"], "icon": " https://example.com/hk.png "},
+        "Auto": {"type": "URLTest", "now": "a", "all": ["a"], "icon": ""},
+        "a": {"type": "Shadowsocks", "history": [{"delay": 42}]},
+    });
+    let proxies = proxies.as_object().unwrap();
+    let group = Core::build_group(proxies, "Proxy").unwrap();
+    assert_eq!(group.icon.as_deref(), Some("https://example.com/hk.png"));
+    assert_eq!(group.nodes[0].delay, Some(42));
+    assert_eq!(Core::build_group(proxies, "Auto").unwrap().icon, None);
+}

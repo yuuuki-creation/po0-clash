@@ -971,6 +971,12 @@ impl Core {
             name: name.to_owned(),
             selectable: kind == "Selector",
             now: group.get("now").and_then(Value::as_str).map(str::to_owned),
+            icon: group
+                .get("icon")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|icon| !icon.is_empty())
+                .map(str::to_owned),
             kind,
             nodes,
         })
