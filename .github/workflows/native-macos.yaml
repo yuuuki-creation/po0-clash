@@ -32,6 +32,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Every language has every string
+        working-directory: apps/macos/Resources
+        run: |
+          keys() { for file in "$@"; do plutil -convert json -o - "$file" | jq -r 'keys[]'; done | sort -u; }
+          base=$(keys zh-Hans.lproj/Localizable.strings)
+          for lang in ja ru; do
+            missing=$(comm -23 <(echo "$base") <(keys "$lang".lproj/Localizable.strings*))
+            [ -z "$missing" ] || { echo "::error::$lang.lproj lacks: $missing"; exit 1; }
+          done
+
       # Only the pinned engine; core/Clash.Meta belongs to the Flutter app.
       - name: Checkout mihomo
         run: git submodule update --init --depth 1 mihomo/upstream
