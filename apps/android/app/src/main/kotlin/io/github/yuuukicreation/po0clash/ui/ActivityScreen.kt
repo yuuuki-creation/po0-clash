@@ -214,7 +214,7 @@ private fun ConnectionRow(index: Int, count: Int, connection: Connection, onClic
             )
             val rule = if (connection.rulePayload.isBlank()) connection.rule else "${connection.rule}(${connection.rulePayload})"
             Text(
-                listOfNotNull(connection.network.uppercase(), connection.process, rule).joinToString(" · "),
+                listOfNotNull(connection.network.uppercase(), connection.process, rule).filter(String::isNotBlank).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.secondaryLabel,
                 maxLines = 1,
