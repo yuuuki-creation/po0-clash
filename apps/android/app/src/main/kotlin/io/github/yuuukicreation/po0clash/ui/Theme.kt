@@ -46,6 +46,7 @@ data class AppleColors(
     val track: Color,
     val cell: Color,
     val tabSelection: Color,
+    val pressed: Color,
     val dark: Boolean,
 )
 
@@ -73,6 +74,7 @@ private val Light = AppleColors(
     track = Color(0x1F767680),
     cell = Color(0xFFF2F2F7),
     tabSelection = Color(0x0F000000),
+    pressed = Color(0x1A000000),
     dark = false,
 )
 
@@ -100,6 +102,7 @@ private val Dark = AppleColors(
     track = Color(0x3D767680),
     cell = Color(0xFF2C2C2E),
     tabSelection = Color(0x1FFFFFFF),
+    pressed = Color(0x24FFFFFF),
     dark = true,
 )
 

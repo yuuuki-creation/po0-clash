@@ -1,14 +1,5 @@
 package io.github.yuuukicreation.po0clash.ui
 
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
-import io.github.yuuukicreation.po0clash.core.IntranetIp
-import androidx.compose.runtime.produceState
-import io.github.yuuukicreation.po0clash.core.DashboardCard
-import androidx.compose.material3.TextButton
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.layout.ColumnScope
 import android.text.format.Formatter
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -17,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,12 +20,16 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,13 +47,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.chrisbanes.haze.hazeSource
 import io.github.yuuukicreation.po0clash.R
 import io.github.yuuukicreation.po0clash.core.Connections
+import io.github.yuuukicreation.po0clash.core.DashboardCard
 import io.github.yuuukicreation.po0clash.core.EngineState
+import io.github.yuuukicreation.po0clash.core.IntranetIp
 import io.github.yuuukicreation.po0clash.core.Mode
 import io.github.yuuukicreation.po0clash.core.Traffic
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.withContext
 
 @Composable
 fun DashboardScreen(vm: AppViewModel, onConnect: () -> Unit, onOpen: (Page) -> Unit) {
@@ -92,7 +91,7 @@ fun DashboardScreen(vm: AppViewModel, onConnect: () -> Unit, onOpen: (Page) -> U
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columns),
                 state = grid,
-                modifier = Modifier.fillMaxSize().hazeSource(checkNotNull(LocalHaze.current)),
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = padding,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -100,18 +99,20 @@ fun DashboardScreen(vm: AppViewModel, onConnect: () -> Unit, onOpen: (Page) -> U
                 item(span = full) { PageTitle(stringResource(R.string.dashboard), subtitle) }
                 settings.dashboardCards.forEach { card ->
                     item(key = card.name, span = if (card in halfCards) null else wide) {
-                        when (card) {
-                            DashboardCard.SPEED -> SpeedCard(snapshot?.history)
-                            DashboardCard.MODE -> ModeCard(vm)
-                            DashboardCard.CURRENT_NODE -> NodeCard(vm, onClick = { onOpen(Page.PROXIES) })
-                            DashboardCard.TAKEOVER -> TakeoverCard(vm, onConnect)
-                            DashboardCard.WHITELIST -> WhitelistCard(vm, onClick = { onOpen(Page.WHITELIST) })
-                            DashboardCard.TRAFFIC -> TrafficCard(snapshot?.connections)
-                            DashboardCard.CONNECTIONS -> ConnectionsCard(snapshot?.connections)
-                            DashboardCard.MEMORY -> MemoryCard(snapshot?.memory)
-                            DashboardCard.INTRANET_IP -> IntranetIpCard(vm)
-                            DashboardCard.SUBSCRIPTION -> SubscriptionCard(vm, onAdd = { onOpen(Page.PROFILES) })
-                            DashboardCard.EXIT_IP -> ExitIpCard(vm)
+                        Box(itemMotion()) {
+                            when (card) {
+                                DashboardCard.SPEED -> SpeedCard(snapshot?.history)
+                                DashboardCard.MODE -> ModeCard(vm)
+                                DashboardCard.CURRENT_NODE -> NodeCard(vm, onClick = { onOpen(Page.PROXIES) })
+                                DashboardCard.TAKEOVER -> TakeoverCard(vm, onConnect)
+                                DashboardCard.WHITELIST -> WhitelistCard(vm, onClick = { onOpen(Page.WHITELIST) })
+                                DashboardCard.TRAFFIC -> TrafficCard(snapshot?.connections)
+                                DashboardCard.CONNECTIONS -> ConnectionsCard(snapshot?.connections)
+                                DashboardCard.MEMORY -> MemoryCard(snapshot?.memory)
+                                DashboardCard.INTRANET_IP -> IntranetIpCard(vm)
+                                DashboardCard.SUBSCRIPTION -> SubscriptionCard(vm, onAdd = { onOpen(Page.PROFILES) })
+                                DashboardCard.EXIT_IP -> ExitIpCard(vm)
+                            }
                         }
                     }
                 }

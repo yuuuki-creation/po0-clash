@@ -1,19 +1,8 @@
 package io.github.yuuukicreation.po0clash.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -28,15 +17,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.chrisbanes.haze.hazeSource
 import io.github.yuuukicreation.po0clash.R
 import io.github.yuuukicreation.po0clash.accessMode
-import io.github.yuuukicreation.po0clash.core.ThemeMode
 import io.github.yuuukicreation.po0clash.core.EngineState
-import kotlinx.coroutines.flow.flowOf
+import io.github.yuuukicreation.po0clash.core.ThemeMode
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.flow.flowOf
 
 /** Every FlClash tools entry. */
 enum class Tool(@param:StringRes val label: Int, val icon: ImageVector) {
@@ -63,12 +51,7 @@ private val application = listOf(Tool.APPEARANCE, Tool.LANGUAGE, Tool.APPLICATIO
 fun ToolsScreen(vm: AppViewModel) {
     var open by rememberSaveable { mutableStateOf<Tool?>(null) }
     val animate = vm.appSettings.collectAsStateWithLifecycle().value.pageAnimation
-    BackHandler(enabled = open != null) { open = null }
-    AnimatedContent(
-        targetState = open,
-        transitionSpec = { push(animate) },
-        label = "tools",
-    ) { tool ->
+    PushHost(open, animate, onBack = { open = null }, label = "tools") { tool ->
         val back = { open = null }
         when (tool) {
             null -> ToolList(vm, onOpen = { open = it })
@@ -88,13 +71,6 @@ fun ToolsScreen(vm: AppViewModel) {
             Tool.DEVELOPER -> DeveloperScreen(vm, back)
         }
     }
-}
-
-/** iOS's push: a page opening slides in from the right, closing slides it back out. */
-fun <T> AnimatedContentTransitionScope<T?>.push(animate: Boolean): ContentTransform = when {
-    !animate -> EnterTransition.None togetherWith ExitTransition.None
-    targetState != null -> (slideInHorizontally { it } + fadeIn()) togetherWith (slideOutHorizontally { -it / 3 } + fadeOut())
-    else -> (slideInHorizontally { -it / 3 } + fadeIn()) togetherWith (slideOutHorizontally { it } + fadeOut())
 }
 
 @Composable
@@ -129,7 +105,7 @@ private fun ToolList(vm: AppViewModel, onOpen: (Tool) -> Unit) {
     PageScaffold(stringResource(R.string.tools), list) { padding ->
         LazyColumn(
             state = list,
-            modifier = Modifier.fillMaxSize().hazeSource(checkNotNull(LocalHaze.current)),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = padding,
         ) {
             item { PageTitle(stringResource(R.string.tools)) }
@@ -182,7 +158,7 @@ fun ToolPage(
     PageScaffold(title, list, actions = actions, onBack = onBack) { padding ->
         LazyColumn(
             state = list,
-            modifier = Modifier.fillMaxSize().hazeSource(checkNotNull(LocalHaze.current)),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = padding,
         ) {
             item { PageTitle(title, subtitle) }

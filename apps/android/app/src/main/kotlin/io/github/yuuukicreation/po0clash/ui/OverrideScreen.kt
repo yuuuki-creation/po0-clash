@@ -304,7 +304,9 @@ fun ShareNodesScreen(vm: AppViewModel, profile: Profile, onBack: () -> Unit) {
         subtitle = pluralStringResource(R.plurals.node_count, nodes.size, nodes.size),
     ) {
         itemsIndexed(nodes, key = { _, node -> node.name }) { index, node ->
-            ShareNodeRow(index, nodes.size, node.name, node.kind, vm, profile.id)
+            Box(itemMotion()) {
+                ShareNodeRow(index, nodes.size, node.name, node.kind, vm, profile.id)
+            }
         }
         item { SectionFooter(stringResource(R.string.share_nodes_detail)) }
     }
