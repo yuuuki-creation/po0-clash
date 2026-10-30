@@ -762,6 +762,49 @@ mirror_record!(ProfileEdit {
     update_hours: u32,
 });
 
+mirror_enum!(ExitKind {
+    Crashed,
+    Stopped,
+    Other
+});
+mirror_enum!(LaunchRecovery {
+    Normal,
+    SkipAutoConnect,
+    ClearProfile
+});
+
+#[derive(Debug, Clone, Copy, uniffi::Record)]
+pub struct LastExit {
+    pub kind: ExitKind,
+    pub at_ms: i64,
+}
+
+impl From<LastExit> for core::LastExit {
+    fn from(value: LastExit) -> Self {
+        Self {
+            kind: value.kind.into(),
+            at_ms: value.at_ms,
+        }
+    }
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct LaunchCheck {
+    pub recovery: LaunchRecovery,
+    pub failures: u32,
+    pub profile_name: Option<String>,
+}
+
+impl From<core::LaunchCheck> for LaunchCheck {
+    fn from(value: core::LaunchCheck) -> Self {
+        Self {
+            recovery: value.recovery.into(),
+            failures: value.failures,
+            profile_name: value.profile_name,
+        }
+    }
+}
+
 mirror_enum!(OverrideMode {
     Standard,
     Script,
@@ -1125,6 +1168,14 @@ impl Po0Core {
     pub fn profile_groups_and_rules(&self, id: String) -> Result<ProfileParts> {
         let (groups, rules) = self.inner.profile_groups_and_rules(id)?;
         Ok(ProfileParts { groups, rules })
+    }
+
+    pub fn launch_started(&self, last_exit: Option<LastExit>) -> LaunchCheck {
+        self.inner.launch_started(last_exit.map(Into::into)).into()
+    }
+
+    pub fn launch_finished(&self) {
+        self.inner.launch_finished();
     }
 
     pub fn licenses(&self) -> Vec<License> {
