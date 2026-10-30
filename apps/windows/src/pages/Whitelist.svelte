@@ -2,6 +2,7 @@
   import { act, app, notify } from '../lib/core.svelte.js';
   import { formatTime, t } from '../lib/i18n.js';
   import Dialog from '../lib/Dialog.svelte';
+  import EmptyState from '../lib/EmptyState.svelte';
   import Icon from '../lib/Icon.svelte';
   import Page from '../lib/Page.svelte';
   import Switch from '../lib/Switch.svelte';
@@ -10,6 +11,9 @@
   let removing = $state(null);
   let text = $state('');
   let name = $state('');
+
+  const entries = $derived(app.whitelist.entries);
+  const applied = $derived(entries.filter((e) => e.result?.outcome === 'applied').length);
 
   async function add(event) {
     event.preventDefault();
@@ -28,71 +32,90 @@
   }
 </script>
 
-<Page id="whitelist">
+<Page
+  title={t('page.whitelist')}
+  subtitle={entries.length ? t('home.whitelisted', { applied, total: entries.length }) : ''}
+>
   {#snippet actions()}
-    <button
-      type="button"
-      disabled={!app.whitelist.entries.length || app.busy['wl:now']}
-      onclick={() => act('wl:now', 'whitelist_now')}><Icon name="refresh" />{t('whitelist.now')}</button
-    >
-    <button type="button" onclick={() => (adding = true)}><Icon name="plus" />{t('whitelist.addEllipsis')}</button>
+    <div class="group glass">
+      <button
+        type="button"
+        title={t('whitelist.now')}
+        aria-label={t('whitelist.now')}
+        disabled={!entries.length || app.busy['wl:now']}
+        onclick={() => act('wl:now', 'whitelist_now')}><Icon name="refresh" /></button
+      >
+    </div>
+    <div class="group glass">
+      <button
+        type="button"
+        title={t('whitelist.addEllipsis')}
+        aria-label={t('whitelist.addEllipsis')}
+        onclick={() => (adding = true)}><Icon name="plus" /></button
+      >
+    </div>
   {/snippet}
 
-  <section class="card row">
-    <div class="grow">
-      <span class="strong">{t('whitelist.enabled')}</span>
-      <span class="sub">{t('whitelist.hint')}</span>
+  <section class="form-section">
+    <div class="form-group">
+      <div class="form-row">
+        <div class="grow">
+          <span>{t('whitelist.enabled')}</span>
+          <span class="sub">{t('whitelist.hint')}</span>
+        </div>
+        <Switch
+          label={t('whitelist.enabled')}
+          checked={app.whitelist.enabled}
+          disabled={app.busy['wl:enabled']}
+          onchange={(enabled) => act('wl:enabled', 'set_whitelist_enabled', { enabled })}
+        />
+      </div>
     </div>
-    <Switch
-      label={t('whitelist.enabled')}
-      checked={app.whitelist.enabled}
-      disabled={app.busy['wl:enabled']}
-      onchange={(enabled) => act('wl:enabled', 'set_whitelist_enabled', { enabled })}
-    />
   </section>
 
-  <h2 class="section-title">{t('whitelist.entries')}</h2>
-  {#if !app.whitelist.entries.length}
-    <div class="card empty">
-      <span class="strong">{t('whitelist.empty')}</span>
-      <span class="sub">{t('whitelist.emptyHint')}</span>
-    </div>
-  {:else}
-    <section class="card list">
-      {#each app.whitelist.entries as entry (entry.id)}
-        <div class="row">
-          <span class="tag mono">{entry.kind}</span>
-          <div class="grow">
-            <span class="title">
-              {#if entry.name}<span class="strong">{entry.name}</span>{/if}
-              <span class="sub mono">{entry.label}</span>
-            </span>
-            <span class="result {entry.result?.outcome ?? ''}">
-              <span class="dot"></span>
-              {#if entry.result}
-                <span class="title"
-                  >{t(`outcome.${entry.result.outcome}`)}{entry.result.ip ? ` · ${entry.result.ip}` : ''} · {formatTime(
-                    entry.result.at,
-                  )}</span
-                >
-              {:else}
-                <span>{t('whitelist.pending')}</span>
-              {/if}
-            </span>
-            {#if entry.result?.message}<span class="sub selectable">{entry.result.message}</span>{/if}
+  <section class="form-section">
+    <h2 class="section-title">{t('whitelist.entries')}</h2>
+    {#if !entries.length}
+      <div class="form-group">
+        <EmptyState icon="shield" title={t('whitelist.empty')} detail={t('whitelist.emptyHint')} />
+      </div>
+    {:else}
+      <div class="form-group">
+        {#each entries as entry (entry.id)}
+          <div class="form-row top">
+            <span class="tag mono">{entry.kind}</span>
+            <div class="grow">
+              <span class="title">
+                {#if entry.name}<span class="strong">{entry.name}</span>{/if}
+                <span class="sub mono">{entry.label}</span>
+              </span>
+              <span class="result {entry.result?.outcome ?? ''}">
+                <span class="dot"></span>
+                {#if entry.result}
+                  <span class="title"
+                    >{t(`outcome.${entry.result.outcome}`)}{entry.result.ip ? ` · ${entry.result.ip}` : ''} · {formatTime(
+                      entry.result.at,
+                    )}</span
+                  >
+                {:else}
+                  <span>{t('whitelist.pending')}</span>
+                {/if}
+              </span>
+              {#if entry.result?.message}<span class="sub selectable">{entry.result.message}</span>{/if}
+            </div>
+            <button
+              type="button"
+              class="icon-button"
+              title={t('whitelist.remove')}
+              aria-label={t('whitelist.remove')}
+              disabled={app.busy[`wl:remove:${entry.id}`]}
+              onclick={() => (removing = entry)}><Icon name="trash" /></button
+            >
           </div>
-          <button
-            type="button"
-            class="icon-button"
-            title={t('whitelist.remove')}
-            aria-label={t('whitelist.remove')}
-            disabled={app.busy[`wl:remove:${entry.id}`]}
-            onclick={() => (removing = entry)}><Icon name="trash" /></button
-          >
-        </div>
-      {/each}
-    </section>
-  {/if}
+        {/each}
+      </div>
+    {/if}
+  </section>
 </Page>
 
 {#if adding}

@@ -1,5 +1,5 @@
 <script>
-  import { act, app, refreshExitIp } from '../lib/core.svelte.js';
+  import { act, app, refreshAll, refreshExitIp } from '../lib/core.svelte.js';
   import { delayTone, formatDelay, formatElapsed, formatRate, t } from '../lib/i18n.js';
   import Card from '../lib/Card.svelte';
   import Icon from '../lib/Icon.svelte';
@@ -18,7 +18,11 @@
   );
   const entries = $derived(app.whitelist.entries);
   const applied = $derived(entries.filter((e) => e.result?.outcome === 'applied').length);
+  const subtitle = $derived(
+    running ? t('status.running', { route: t(`route.${app.status.routeMode}`) }) : t(`status.${engine}`),
+  );
 
+  let refreshing = $state(false);
   let now = $state(Date.now());
   $effect(() => {
     if (!app.connectedAt) return;
@@ -27,18 +31,32 @@
     return () => clearInterval(timer);
   });
 
+  async function refresh() {
+    refreshing = true;
+    await refreshAll();
+    refreshing = false;
+  }
+
   const profileTitle = (p) => (p.kind === 'links' ? t('profiles.links') : p.name);
 </script>
 
-<Page id="dashboard">
+<Page title={t('page.dashboard')} {subtitle}>
+  {#snippet actions()}
+    <div class="group glass">
+      <button type="button" title={t('home.refresh')} aria-label={t('home.refresh')} disabled={refreshing} onclick={refresh}
+        ><Icon name="refresh" /></button
+      >
+    </div>
+  {/snippet}
+
   {#if engine === 'failed'}
     <div class="card failure">
       <span class="tone-bad"><Icon name="warning" /></span>
       <div class="grow">
-        <span class="title strong">{t('home.failed')}</span>
+        <span class="strong">{t('status.failed')}</span>
         <span class="sub selectable">{app.status.engine.message}</span>
       </div>
-      <button type="button" class="pill filled" disabled={app.busy.power} onclick={() => act('power', 'start')}
+      <button type="button" class="pill plain" disabled={app.busy.power} onclick={() => act('power', 'start')}
         >{t('home.reconnect')}</button
       >
     </div>
@@ -99,7 +117,7 @@
       />
     </Card>
 
-    <Card title={t('home.profile')} icon="tray">
+    <Card title={t('home.profile')} icon="stack">
       {#if !app.profiles.length}
         <button type="button" class="text-button" onclick={() => (app.page = 'profiles')}>{t('home.addProfile')}</button>
       {:else}

@@ -4,6 +4,8 @@ import { listen } from '@tauri-apps/api/event';
 export const app = $state({
   version: '',
   page: 'dashboard',
+  tool: null,
+  sidebar: true,
   status: null,
   connectedAt: null,
   profiles: [],
@@ -16,12 +18,8 @@ export const app = $state({
   notice: null,
 });
 
-let noticeTimer;
-
-export function notify(text, error = false) {
-  app.notice = { text: String(text), error };
-  clearTimeout(noticeTimer);
-  noticeTimer = setTimeout(() => (app.notice = null), error ? 8000 : 3000);
+export function notify(text) {
+  app.notice = String(text);
 }
 
 export async function act(key, command, args) {
@@ -29,7 +27,7 @@ export async function act(key, command, args) {
   try {
     return await invoke(command, args);
   } catch (e) {
-    notify(e, true);
+    notify(e);
     return undefined;
   } finally {
     delete app.busy[key];
@@ -71,7 +69,7 @@ async function refresh(kind) {
   try {
     await loaders[kind]();
   } catch (e) {
-    notify(e, true);
+    notify(e);
   }
 }
 
@@ -112,6 +110,10 @@ async function refreshStatus() {
   if (engine === 'running' || engine === 'stopped') refreshExitIp();
 }
 
+export async function refreshAll() {
+  await Promise.all([refreshStatus(), refresh('profiles'), refresh('whitelist'), refresh('groups'), refreshExitIp()]);
+}
+
 async function pollTraffic() {
   if (document.hidden || app.status?.engine.state !== 'running') {
     if (app.traffic.up || app.traffic.down) app.traffic = { up: 0, down: 0 };
@@ -131,7 +133,7 @@ export async function init() {
     if (payload === 'groups') refreshStatus();
     if (payload === 'profiles') refresh('groups');
   });
-  await listen('shell-error', ({ payload }) => notify(payload, true));
+  await listen('shell-error', ({ payload }) => notify(payload));
   await Promise.all([refreshStatus(), refresh('profiles'), refresh('whitelist')]);
   setInterval(pollTraffic, 1000);
 }

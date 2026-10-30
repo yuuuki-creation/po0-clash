@@ -11,8 +11,13 @@
     <h2>{title}</h2>
     {@render children?.()}
     <div class="actions">
-      <button type="button" class="pill plain" onclick={onclose}>{t('common.cancel')}</button>
-      {@render actions()}
+      {#if actions}
+        <button type="button" class="pill plain" onclick={onclose}>{t('common.cancel')}</button>
+        {@render actions()}
+      {:else}
+        <!-- svelte-ignore a11y_autofocus -->
+        <button type="button" class="pill filled" onclick={onclose} autofocus>{t('common.ok')}</button>
+      {/if}
     </div>
   </div>
 </div>

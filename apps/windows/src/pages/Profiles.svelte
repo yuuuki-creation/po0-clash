@@ -2,6 +2,7 @@
   import { act, app, notify } from '../lib/core.svelte.js';
   import { formatTime, t } from '../lib/i18n.js';
   import Dialog from '../lib/Dialog.svelte';
+  import EmptyState from '../lib/EmptyState.svelte';
   import Icon from '../lib/Icon.svelte';
   import Page from '../lib/Page.svelte';
   import UsageBar from '../lib/UsageBar.svelte';
@@ -37,60 +38,75 @@
   }
 </script>
 
-<Page id="profiles">
+<Page title={t('page.profiles')} fill={!app.profiles.length}>
   {#snippet actions()}
-    <button type="button" onclick={() => (dialog = 'links')}><Icon name="link" />{t('profiles.importEllipsis')}</button>
-    <button type="button" onclick={() => (dialog = 'url')}><Icon name="plus" />{t('profiles.addEllipsis')}</button>
+    <div class="group glass">
+      <button
+        type="button"
+        title={t('profiles.importEllipsis')}
+        aria-label={t('profiles.importEllipsis')}
+        onclick={() => (dialog = 'links')}><Icon name="link" /></button
+      >
+      <button
+        type="button"
+        title={t('profiles.addEllipsis')}
+        aria-label={t('profiles.addEllipsis')}
+        onclick={() => (dialog = 'url')}><Icon name="plus" /></button
+      >
+    </div>
   {/snippet}
 
   {#if !app.profiles.length}
-    <div class="card empty">
-      <span class="strong">{t('profiles.empty')}</span>
-      <span class="sub">{t('profiles.emptyHint')}</span>
-    </div>
-  {/if}
-  {#each app.profiles as profile (profile.id)}
-    <section class="card profile" class:selected={profile.selected}>
-      <button
-        type="button"
-        class="radio"
-        class:on={profile.selected}
-        title={t('profiles.use')}
-        aria-label={t('profiles.use')}
-        aria-pressed={profile.selected}
-        disabled={app.busy[`select:${profile.id}`]}
-        onclick={() => !profile.selected && act(`select:${profile.id}`, 'select_profile', { id: profile.id })}
-        >{#if profile.selected}<Icon name="check" />{/if}</button
-      >
-      <div class="grow">
-        <span class="title strong">{title(profile)}</span>
-        {#if profile.usage}<UsageBar usage={profile.usage} />{/if}
-        {#if profile.updatedAt}
-          <span class="sub">{t('profiles.updated', { time: formatTime(profile.updatedAt) })}</span>
-        {/if}
+    <EmptyState icon="stack" title={t('profiles.empty')} detail={t('profiles.emptyHint')} />
+  {:else}
+    <section class="form-section">
+      <h2 class="section-title">{t('profiles.section')}</h2>
+      <div class="form-group">
+        {#each app.profiles as profile (profile.id)}
+          <div class="form-row top">
+            <button
+              type="button"
+              class="radio"
+              class:on={profile.selected}
+              title={t('profiles.use')}
+              aria-label={t('profiles.use')}
+              aria-pressed={profile.selected}
+              disabled={app.busy[`select:${profile.id}`]}
+              onclick={() => !profile.selected && act(`select:${profile.id}`, 'select_profile', { id: profile.id })}
+              >{#if profile.selected}<Icon name="check" />{/if}</button
+            >
+            <div class="grow stacked">
+              <span class="title strong">{title(profile)}</span>
+              {#if profile.usage}<UsageBar usage={profile.usage} />{/if}
+              {#if profile.updatedAt}
+                <span class="sub">{t('profiles.updated', { time: formatTime(profile.updatedAt) })}</span>
+              {/if}
+            </div>
+            {#if profile.kind === 'subscription'}
+              <button
+                type="button"
+                class="icon-button"
+                title={t('profiles.update')}
+                aria-label={t('profiles.update')}
+                disabled={app.busy[`update:${profile.id}`]}
+                onclick={() => act(`update:${profile.id}`, 'update_profile', { id: profile.id })}
+              >
+                {#if app.busy[`update:${profile.id}`]}<span class="spinner"></span>{:else}<Icon name="refresh" />{/if}
+              </button>
+            {/if}
+            <button
+              type="button"
+              class="icon-button"
+              title={t('profiles.delete')}
+              aria-label={t('profiles.delete')}
+              disabled={app.busy[`remove:${profile.id}`]}
+              onclick={() => (removing = profile)}><Icon name="trash" /></button
+            >
+          </div>
+        {/each}
       </div>
-      {#if profile.kind === 'subscription'}
-        <button
-          type="button"
-          class="icon-button"
-          title={t('profiles.update')}
-          aria-label={t('profiles.update')}
-          disabled={app.busy[`update:${profile.id}`]}
-          onclick={() => act(`update:${profile.id}`, 'update_profile', { id: profile.id })}
-        >
-          {#if app.busy[`update:${profile.id}`]}<span class="spinner"></span>{:else}<Icon name="refresh" />{/if}
-        </button>
-      {/if}
-      <button
-        type="button"
-        class="icon-button"
-        title={t('profiles.delete')}
-        aria-label={t('profiles.delete')}
-        disabled={app.busy[`remove:${profile.id}`]}
-        onclick={() => (removing = profile)}><Icon name="trash" /></button
-      >
     </section>
-  {/each}
+  {/if}
 </Page>
 
 {#if dialog === 'url'}

@@ -8,11 +8,13 @@
 <script>
   import { act, app, testDelay } from '../lib/core.svelte.js';
   import { delayTone, formatDelay, t } from '../lib/i18n.js';
+  import EmptyState from '../lib/EmptyState.svelte';
   import Icon from '../lib/Icon.svelte';
   import Page from '../lib/Page.svelte';
 
   const direct = $derived(app.status?.mode === 'direct');
   const testing = $derived(Object.keys(app.busy).some((key) => key.startsWith('delay:')));
+  const showGroups = $derived(!direct && app.groups.length > 0);
 
   $effect(() => {
     const first = app.groups.find((g) => g.selectable) ?? app.groups[0];
@@ -26,29 +28,33 @@
   }
 </script>
 
-<Page id="proxies">
+<Page
+  title={t('page.proxies')}
+  subtitle={app.status?.engine.state === 'running' ? (app.status.currentNode ?? '') : ''}
+  fill={!showGroups}
+>
   {#snippet actions()}
-    <button
-      type="button"
-      disabled={direct || !app.groups.length || testing}
-      onclick={() => app.groups.forEach((g) => testDelay(g.name))}><Icon name="gauge" />{t('proxies.testAll')}</button
-    >
+    <div class="group glass">
+      <button
+        type="button"
+        title={t('proxies.testAll')}
+        aria-label={t('proxies.testAll')}
+        disabled={!showGroups || testing}
+        onclick={() => app.groups.forEach((g) => testDelay(g.name))}
+      >
+        {#if testing}<span class="spinner"></span>{:else}<Icon name="gauge" />{/if}
+      </button>
+    </div>
   {/snippet}
 
   {#if direct}
-    <div class="card empty">
-      <span class="strong">{t('proxies.direct')}</span>
-      <span class="sub">{t('proxies.directHint')}</span>
-    </div>
+    <EmptyState icon="route" title={t('proxies.direct')} detail={t('proxies.directHint')} />
   {:else if !app.groups.length}
-    <div class="card empty">
-      <span class="strong">{t('proxies.empty')}</span>
-      <span class="sub">{t('proxies.emptyHint')}</span>
-    </div>
+    <EmptyState icon="globe" title={t('proxies.empty')} detail={t('proxies.emptyHint')} />
   {:else}
     {#each app.groups as group (group.name)}
       {@const open = expanded.has(group.name)}
-      <section class="card group-card">
+      <section class="proxy-group">
         <div class="group-head">
           <button type="button" class="grow link-row" aria-expanded={open} onclick={() => toggle(group.name)}>
             <span class="chevron" class:open><Icon name="chevron" /></span>
