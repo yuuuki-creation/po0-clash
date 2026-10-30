@@ -1038,6 +1038,22 @@ impl Po0Core {
         Ok(self.inner.update_geo()?)
     }
 
+    pub fn crash_engine(&self) -> Result<()> {
+        Ok(self.inner.crash_engine()?)
+    }
+
+    pub fn add_test_logs(&self) {
+        self.inner.add_test_logs();
+    }
+
+    pub fn prune_cache(&self) -> Result<u32> {
+        Ok(self.inner.prune_cache()?)
+    }
+
+    pub fn clear_data(&self) -> Result<()> {
+        Ok(self.inner.clear_data()?)
+    }
+
     /// Answers are kept for the address; a failed lookup is repeated for five minutes unless `refresh` is set.
     pub fn ip_quality(&self, ip: String, refresh: bool) -> Result<IpQuality> {
         Ok(self.inner.ip_quality(&ip, refresh)?.into())

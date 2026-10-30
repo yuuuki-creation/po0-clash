@@ -56,6 +56,29 @@ fn imports_links_into_one_profile() {
 }
 
 #[test]
+fn developer_tools_prune_and_clear_data() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    let kept = core
+        .import_links("ss://YWVzLTEyOC1nY206cA@1.1.1.1:1#a".into())
+        .unwrap();
+    let profiles = dir.join("core").join("profiles");
+    fs::write(profiles.join("orphan.yaml"), "proxies: []").unwrap();
+    assert_eq!(core.prune_cache().unwrap(), 1);
+    assert_eq!(core.profiles().len(), 1);
+    core.clear_data().unwrap();
+    core.shutdown();
+    drop(core);
+
+    let core = Core::new(options(&dir)).unwrap();
+    assert!(core.profiles().is_empty());
+    assert!(!profiles.join(format!("{}.txt", kept.profile.id)).exists());
+    assert!(!dir.join("core").join(CLEAR_MARKER).exists());
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn profiles_can_be_switched_and_removed() {
     let dir = temp_dir();
     let core = Core::new(options(&dir)).unwrap();

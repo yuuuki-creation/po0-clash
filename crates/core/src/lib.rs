@@ -142,9 +142,12 @@ impl Core {
             options.app_version,
             options.platform
         ));
+        let cleared = clear_if_requested(&data_dir, &paths);
         let (store, existed) = Store::open(data_dir.join("settings.json"));
         if !existed {
-            import_legacy(&store, &paths, &options);
+            if !cleared {
+                import_legacy(&store, &paths, &options);
+            }
             store.save()?;
         }
         engine::recover(&paths.run);
@@ -1153,6 +1156,47 @@ impl Core {
         })
     }
 
+    // Developer mode.
+
+    pub fn crash_engine(&self) -> Result<()> {
+        if self.live_session()?.runner.kill() {
+            Ok(())
+        } else {
+            Err(CoreError::Invalid(
+                "the engine runs inside the app on this platform".into(),
+            ))
+        }
+    }
+
+    pub fn add_test_logs(&self) {
+        self.engine.monitor.add_test_logs();
+    }
+
+    pub fn prune_cache(&self) -> Result<u32> {
+        let ids: Vec<String> = self.store.read(|s| {
+            s.profiles
+                .iter()
+                .map(|profile| profile.id.clone())
+                .collect()
+        });
+        let mut removed = 0;
+        for entry in fs::read_dir(&self.paths.profiles)? {
+            let path = entry?.path();
+            let id = path.file_stem().and_then(|stem| stem.to_str());
+            if path.is_file() && !id.is_some_and(|id| ids.iter().any(|known| known == id)) {
+                fs::remove_file(&path)?;
+                removed += 1;
+            }
+        }
+        Ok(removed)
+    }
+
+    pub fn clear_data(&self) -> Result<()> {
+        self.stop();
+        fs::write(self.paths.profiles.with_file_name(CLEAR_MARKER), b"")?;
+        Ok(())
+    }
+
     /// Who announces the exit address and whether it looks like a data centre, asked through the engine's proxy.
     pub fn ip_quality(&self, ip: &str, refresh: bool) -> Result<IpQuality> {
         self.ip_qualities
@@ -1602,6 +1646,27 @@ fn run_updater(core: &Weak<Core>) {
             strong.auto_update();
         }
     }
+}
+
+const CLEAR_MARKER: &str = "clear-on-launch";
+
+/// Clearing waits for the next start so nothing still in memory can write the old settings back, and a cleared
+/// start does not import the Flutter app's settings again.
+fn clear_if_requested(data_dir: &Path, paths: &Paths) -> bool {
+    let marker = data_dir.join(CLEAR_MARKER);
+    if !marker.exists() {
+        return false;
+    }
+    logfile::info("clearing data as requested");
+    for file in ["settings.json", "whitelist-results.json"] {
+        let _ = fs::remove_file(data_dir.join(file));
+    }
+    for dir in [&paths.profiles, &paths.home] {
+        let _ = fs::remove_dir_all(dir);
+        let _ = fs::create_dir_all(dir);
+    }
+    let _ = fs::remove_file(marker);
+    true
 }
 
 fn import_legacy(store: &Store, paths: &Paths, options: &CoreOptions) {
