@@ -77,6 +77,8 @@ pub enum ProfileKind {
     Subscription,
     /// Share links pasted by the user, handed to mihomo as a file proxy-provider.
     Links,
+    /// A config or link list imported from a file, never updated.
+    File,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -99,6 +101,18 @@ pub struct Profile {
     pub updated_at: Option<i64>,
     pub usage: Option<Usage>,
     pub selected: bool,
+    pub auto_update: bool,
+    pub update_hours: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileEdit {
+    pub name: String,
+    /// Ignored for anything but a subscription.
+    pub url: Option<String>,
+    pub auto_update: bool,
+    pub update_hours: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
