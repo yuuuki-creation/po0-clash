@@ -593,6 +593,10 @@ fn engine_runs_a_real_mihomo() {
     assert_eq!(core.status().current_node.as_deref(), Some("local-ss"));
     let tested = core.test_delay("PROXY".into()).unwrap();
     assert!(tested.nodes[0].delay.unwrap_or(0) > 0, "{tested:?}");
+    let kept = core.groups().unwrap();
+    let node = &kept.iter().find(|g| g.name == "PROXY").unwrap().nodes[0];
+    assert_eq!(node.kind, "Shadowsocks", "{kept:?}");
+    assert!(node.delay.unwrap_or(0) > 0, "{kept:?}");
 
     let exit = core.exit_ip().unwrap();
     assert!(!exit.ip.is_empty());
@@ -633,7 +637,10 @@ fn engine_runs_a_real_mihomo() {
     assert_eq!(core.geo_files().len(), 4);
 
     core.set_mode(Mode::Global).unwrap();
-    assert_eq!(core.groups().unwrap()[0].name, "GLOBAL");
+    let global = core.groups().unwrap().remove(0);
+    assert_eq!(global.name, "GLOBAL");
+    assert_eq!(global.now.as_deref(), Some("PROXY"), "{global:?}");
+    assert_eq!(core.status().current_node.as_deref(), Some("local-ss"));
     core.set_mode(Mode::Rule).unwrap();
     core.import_links(format!("ss://{userinfo}@127.0.0.1:{port}#second"))
         .unwrap();
@@ -670,6 +677,44 @@ fn engine_runs_a_real_mihomo() {
     reopened.shutdown();
     server.kill().unwrap();
     server.wait().unwrap();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+/// A provider that takes a while to download must be loaded by the time `start` returns.
+#[cfg(unix)]
+#[test]
+#[ignore = "needs MIHOMO_BIN"]
+fn engine_waits_for_providers() {
+    let dir = temp_dir();
+    let server = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = server.local_addr().unwrap().port();
+    thread::spawn(move || {
+        for mut stream in server.incoming().flatten() {
+            let _ = stream.read(&mut [0; 4096]);
+            thread::sleep(Duration::from_secs(3));
+            let body = "proxies:\n  - {name: slow, type: ss, server: 127.0.0.1, port: 1, cipher: aes-128-gcm, password: p}\n";
+            let _ = write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+        }
+    });
+    let core = Core::new(options(&dir)).unwrap();
+    core.import_file(
+        "slow.yaml".into(),
+        format!(
+            "proxy-providers:\n  slow: {{type: http, url: 'http://127.0.0.1:{port}/'}}\nproxy-groups:\n  - {{name: PROXY, type: select, use: [slow]}}\nrules:\n  - IP-CIDR,127.0.0.0/8,DIRECT,no-resolve\n  - MATCH,PROXY\n"
+        ),
+    )
+    .unwrap();
+    core.start(None).unwrap();
+    let groups = core.groups().unwrap();
+    let names: Vec<&str> = groups[0].nodes.iter().map(|n| n.name.as_str()).collect();
+    assert_eq!(names, ["slow"], "{groups:?}");
+    assert_eq!(groups[0].nodes[0].kind, "Shadowsocks");
+    assert_eq!(core.status().current_node.as_deref(), Some("slow"));
+    core.shutdown();
     fs::remove_dir_all(dir).unwrap();
 }
 

@@ -29,6 +29,7 @@ use crate::options::DEFAULT_MIXED_PORT;
 use crate::util::{self, random_id, random_secret};
 
 const READY_TIMEOUT: Duration = Duration::from_secs(45);
+const LOAD_TIMEOUT: Duration = Duration::from_secs(180);
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
@@ -102,6 +103,10 @@ impl Runtime {
     pub fn proxy_url(&self) -> String {
         format!("http://127.0.0.1:{}", self.mixed_port)
     }
+
+    pub fn config(&self) -> PathBuf {
+        self.home.join("config.yaml")
+    }
 }
 
 pub enum Runner {
@@ -153,26 +158,37 @@ impl Runner {
     }
 }
 
+/// mihomo serves its controller before the providers load, so a process gets the config later by a blocking PUT.
 pub fn launch(
     binary: Option<&Path>,
-    home: &Path,
-    config: &Path,
+    runtime: &Runtime,
+    rendered: &str,
     log: &Arc<LogFile>,
 ) -> Result<Runner> {
+    let config = runtime.config();
     #[cfg(target_os = "android")]
     {
         let _ = binary;
-        inproc::start(home, config, log.path()).map_err(CoreError::Engine)?;
+        util::write_atomic(&config, rendered.as_bytes())?;
+        inproc::start(&runtime.home, &config, log.path()).map_err(CoreError::Engine)?;
         Ok(Runner::InProcess)
     }
     #[cfg(not(target_os = "android"))]
     {
         let binary =
             binary.ok_or_else(|| CoreError::Engine("the mihomo binary is not set".into()))?;
-        process::Process::spawn(binary, home, config, log)
+        util::write_atomic(&config, crate::config::bootstrap(rendered)?.as_bytes())?;
+        process::Process::spawn(binary, &runtime.home, &config, log)
             .map(Runner::Process)
             .map_err(|error| CoreError::Engine(format!("cannot start mihomo: {error}")))
     }
+}
+
+pub fn load(controller: &Controller, config: &Path, rendered: &str) -> Result<()> {
+    util::write_atomic(config, rendered.as_bytes())?;
+    let body = serde_json::json!({ "path": config.to_string_lossy() });
+    controller.json_within("PUT", "/configs?force=true", Some(&body), LOAD_TIMEOUT)?;
+    Ok(())
 }
 
 pub fn last_lines(log: &LogFile, count: usize) -> String {
@@ -188,17 +204,17 @@ pub fn last_lines(log: &LogFile, count: usize) -> String {
         .join(" | ")
 }
 
-pub fn wait_ready(controller: &Controller, runner: &Runner, log: &LogFile) -> Result<()> {
+pub fn wait_ready(session: &Session, rendered: &str, log: &LogFile) -> Result<()> {
+    let exited = |status: String| {
+        CoreError::Engine(format!("mihomo exited ({status}): {}", last_lines(log, 3)))
+    };
     let deadline = Instant::now() + READY_TIMEOUT;
     loop {
-        if let Some(status) = runner.exited() {
-            return Err(CoreError::Engine(format!(
-                "mihomo exited ({status}): {}",
-                last_lines(log, 3)
-            )));
+        if let Some(status) = session.runner.exited() {
+            return Err(exited(status));
         }
-        if controller.json("GET", "/version", None).is_ok() {
-            return Ok(());
+        if session.controller().json("GET", "/version", None).is_ok() {
+            break;
         }
         if Instant::now() > deadline {
             return Err(CoreError::Engine(format!(
@@ -208,6 +224,11 @@ pub fn wait_ready(controller: &Controller, runner: &Runner, log: &LogFile) -> Re
         }
         thread::sleep(Duration::from_millis(100));
     }
+    if cfg!(target_os = "android") {
+        return Ok(());
+    }
+    load(session.controller(), &session.runtime.config(), rendered)
+        .map_err(|error| session.runner.exited().map_or(error, exited))
 }
 
 pub struct Session {

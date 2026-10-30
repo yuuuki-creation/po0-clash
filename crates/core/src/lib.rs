@@ -372,26 +372,23 @@ impl Core {
             self.download(&profile.id)?;
             self.emit(&[Change::Profiles]);
         }
-        let config = self.write_config(&profile, &settings, &runtime)?;
-        let runner = engine::launch(binary.as_deref(), &runtime.home, &config, &self.mihomo_log)?;
+        let rendered = self.render_config(&profile, &settings, &runtime)?;
+        let runner = engine::launch(binary.as_deref(), &runtime, &rendered, &self.mihomo_log)?;
         let session = Arc::new(Session::new(runtime, runner, self.engine.next_generation()));
-        let ready = engine::wait_ready(session.controller(), &session.runner, &self.mihomo_log)
-            .and_then(|()| {
-                self.apply_selections(&session, &profile.selections);
-                if self.platform != Platform::Android
-                    && settings.route_mode == RouteMode::SystemProxy
-                {
-                    sysproxy::set(session.runtime.mixed_port, &settings.options.bypass_domains)
-                        .map_err(|error| {
-                            CoreError::Engine(format!("cannot set the system proxy: {error}"))
-                        })?;
-                    session.system_proxy.store(true, Ordering::SeqCst);
-                }
-                if self.patches_system_dns(&settings) {
-                    *lock(&session.system_dns) = sysdns::apply();
-                }
-                Ok(())
-            });
+        let ready = engine::wait_ready(&session, &rendered, &self.mihomo_log).and_then(|()| {
+            self.apply_selections(&session, &profile.selections);
+            if self.platform != Platform::Android && settings.route_mode == RouteMode::SystemProxy {
+                sysproxy::set(session.runtime.mixed_port, &settings.options.bypass_domains)
+                    .map_err(|error| {
+                        CoreError::Engine(format!("cannot set the system proxy: {error}"))
+                    })?;
+                session.system_proxy.store(true, Ordering::SeqCst);
+            }
+            if self.patches_system_dns(&settings) {
+                *lock(&session.system_dns) = sysdns::apply();
+            }
+            Ok(())
+        });
         if let Err(error) = ready {
             session.release(&self.paths.run);
             session.runner.stop();
@@ -525,15 +522,13 @@ impl Core {
                     Ok(())
                 }
                 Some(profile) => {
-                    let config = self.write_config(&profile, &settings, &session.runtime)?;
-                    let body = json!({ "path": config.to_string_lossy() });
-                    session
-                        .controller()
-                        .json("PUT", "/configs?force=true", Some(&body))
-                        .map(|_| {
+                    let rendered = self.render_config(&profile, &settings, &session.runtime)?;
+                    engine::load(session.controller(), &session.runtime.config(), &rendered).map(
+                        |()| {
                             self.apply_selections(&session, &profile.selections);
                             self.refresh_current_node(&session, settings.mode);
-                        })
+                        },
+                    )
                 }
             }
         };
@@ -580,17 +575,17 @@ impl Core {
         }
     }
 
-    fn write_config(
+    fn render_config(
         &self,
         profile: &ProfileRecord,
         settings: &Settings,
         runtime: &Runtime,
-    ) -> Result<PathBuf> {
+    ) -> Result<String> {
         let (base, links) = self.overridden_base(profile, settings)?;
         if let Some((name, links)) = links {
             util::write_atomic(&runtime.home.join(name), links.as_bytes())?;
         }
-        let rendered = config::render(
+        config::render(
             &base,
             &config::Params {
                 platform: self.platform,
@@ -604,18 +599,29 @@ impl Core {
                 options: &settings.options,
                 overrides: &profile.overrides,
             },
-        )?;
-        let path = runtime.home.join("config.yaml");
-        util::write_atomic(&path, rendered.as_bytes())?;
-        Ok(path)
+        )
     }
 
+    /// mihomo lists DIRECT first in GLOBAL, so until the user picks something there it gets the profile's first group.
     fn apply_selections(&self, session: &Session, selections: &BTreeMap<String, String>) {
-        for (group, node) in selections {
+        let select = |group: &str, node: &str| {
             let path = format!("/proxies/{}", util::encode_component(group));
-            let _ = session
+            session
                 .controller()
-                .json("PUT", &path, Some(&json!({ "name": node })));
+                .json("PUT", &path, Some(&json!({ "name": node })))
+                .is_ok()
+        };
+        let mut global = false;
+        for (group, node) in selections {
+            let selected = select(group, node);
+            global |= group == "GLOBAL" && selected;
+        }
+        let first = (!global)
+            .then(|| self.proxies(session).ok())
+            .flatten()
+            .and_then(|proxies| Self::group_names(&proxies, Mode::Rule).into_iter().next());
+        if let Some(first) = first {
+            select("GLOBAL", &first);
         }
     }
 
@@ -1304,12 +1310,31 @@ impl Core {
 
     // Proxy groups.
 
+    /// mihomo's `/proxies` leaves out the nodes that come from proxy providers, share links included.
     fn proxies(&self, session: &Session) -> Result<serde_json::Map<String, Value>> {
-        let value = session.controller().json("GET", "/proxies", None)?;
-        match value.get("proxies") {
-            Some(Value::Object(map)) => Ok(map.clone()),
-            _ => Err(engine_error("unexpected /proxies answer")),
+        let controller = session.controller();
+        let mut value = controller.json("GET", "/proxies", None)?;
+        let Some(Value::Object(mut proxies)) = value.get_mut("proxies").map(Value::take) else {
+            return Err(engine_error("unexpected /proxies answer"));
+        };
+        let providers = controller.json(
+            "GET",
+            &resources::provider_path(ProviderKind::Proxy, None),
+            None,
+        )?;
+        let nodes = providers
+            .get("providers")
+            .and_then(Value::as_object)
+            .into_iter()
+            .flat_map(|providers| providers.values())
+            .filter_map(|provider| provider.get("proxies")?.as_array())
+            .flatten();
+        for node in nodes {
+            if let Some(name) = node.get("name").and_then(Value::as_str) {
+                proxies.entry(name).or_insert_with(|| node.clone());
+            }
         }
+        Ok(proxies)
     }
 
     fn group_names(proxies: &serde_json::Map<String, Value>, mode: Mode) -> Vec<String> {

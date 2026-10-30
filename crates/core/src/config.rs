@@ -138,6 +138,24 @@ pub fn run_script(base: &str, script: &str) -> Result<String> {
     serde_yaml::to_string(&result).map_err(invalid)
 }
 
+/// Just the controller and log settings of a rendered config, for a process that gets the rest by PUT.
+#[cfg_attr(target_os = "android", allow(dead_code))]
+pub fn bootstrap(rendered: &str) -> Result<String> {
+    let invalid = |error: serde_yaml::Error| CoreError::Invalid(format!("config: {error}"));
+    let Value::Mapping(root) = serde_yaml::from_str(rendered).map_err(invalid)? else {
+        return Err(CoreError::Invalid("config: not a mapping".into()));
+    };
+    let kept: Mapping = root
+        .into_iter()
+        .filter(|(name, _)| {
+            name.as_str().is_some_and(|name| {
+                name == "secret" || name == "log-level" || name.starts_with("external-")
+            })
+        })
+        .collect();
+    serde_yaml::to_string(&kept).map_err(invalid)
+}
+
 pub fn render(base: &str, params: &Params) -> Result<String> {
     let invalid = |error: serde_yaml::Error| CoreError::Invalid(format!("config: {error}"));
     let mut value: Value = serde_yaml::from_str(base).map_err(invalid)?;
@@ -627,6 +645,45 @@ dns: {enable: false, nameserver: [1.1.1.1]}
 rules:
   - MATCH,DIRECT
 ";
+
+    #[test]
+    fn bootstrap_keeps_only_the_controller() {
+        let rendered = render(
+            SUBSCRIPTION,
+            &Params {
+                platform: Platform::Windows,
+                mode: Mode::Rule,
+                route_mode: RouteMode::Tun,
+                tun_fd: None,
+                mixed_port: 7894,
+                controller: ("external-controller-pipe", r"\\.\pipe\po0".into()),
+                secret: "s",
+                direct: &direct(),
+                options: &EngineOptions::default(),
+                overrides: &ProfileOverride::default(),
+            },
+        )
+        .unwrap();
+        let config: Value = serde_yaml::from_str(&bootstrap(&rendered).unwrap()).unwrap();
+        let Value::Mapping(config) = config else {
+            panic!("{config:?}")
+        };
+        let mut names: Vec<_> = config.keys().filter_map(Value::as_str).collect();
+        names.sort_unstable();
+        assert_eq!(
+            names,
+            [
+                "external-controller",
+                "external-controller-pipe",
+                "log-level",
+                "secret"
+            ]
+        );
+        assert_eq!(
+            config[&key("external-controller-pipe")],
+            key(r"\\.\pipe\po0")
+        );
+    }
 
     #[test]
     fn overrides_ports_controller_and_mode() {

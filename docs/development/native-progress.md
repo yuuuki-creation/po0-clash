@@ -27,9 +27,10 @@ Ubuntu 上的 `native-core.yaml` 通过，macOS 的 CI 里内核测试和真实�
 `run/`；首次启动就写出 `settings.json`；新增 `was_connected()`，开机自启后据此恢复连接；加白的最近结果跨重启保留；网络变化和
 亮屏状态写日志；Android 诊断里的路由显示为 VPN。
 
-7.0.0-beta.1 之后待修（Windows 测试中发现，影响三端）：全局模式下 GLOBAL 组默认选 DIRECT，应在没有保存的选择时选第一个策略组；
-刚连上时策略组还没加载完（为空、当前节点显示 COMPATIBLE、出口 IP 查不到），应等 provider 就绪再刷新；导入节点没有类型，
-测速结果不保留。
+7.0.0-beta.1 之后修复（Windows 测试中发现）：GLOBAL 没有保存的选择时选第一个策略组（mihomo 默认 DIRECT）；mihomo 自己启动时
+控制接口先于 provider 可用，加载完之前策略组缺节点（显示 COMPATIBLE）、连接全被丢弃，所以桌面端的进程先只带控制接口启动，
+再用 PUT 载入配置，PUT 等 provider 加载完才返回（Android 的进程内引擎本来就是同步载入）；mihomo 的 `/proxies` 不含
+provider 里的节点，策略组改为合并 `/providers/proxies`，分享链接节点因此有了类型和测速结果。
 
 仍待处理：Windows 下的引擎路径（命名管道、Job Object、系统代理、名为 `po0-clash` 的 TUN 网卡）只靠应用在测试虚拟机里的
 冒烟测试覆盖，内核的集成测试目前只在 Unix 上跑。
