@@ -2,11 +2,13 @@ package io.github.yuuukicreation.po0clash.ui
 
 import android.app.Application
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.yuuukicreation.po0clash.R
 import io.github.yuuukicreation.po0clash.core.Change
 import io.github.yuuukicreation.po0clash.core.Mode
+import io.github.yuuukicreation.po0clash.core.ProfileEdit
 import io.github.yuuukicreation.po0clash.engine
 import io.github.yuuukicreation.po0clash.userMessage
 import io.github.yuuukicreation.po0clash.vpn.Po0VpnService
@@ -98,6 +100,41 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
         val result = core.importLinks(text)
         refresh(Change.PROFILES)
         app.resources.getQuantityString(R.plurals.imported_links, result.added.toInt(), result.added.toInt())
+    }
+
+    fun importFile(uri: Uri) = launch(BUSY_PROFILES) {
+        val resolver = app.contentResolver
+        val name = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { if (it.moveToFirst()) it.getString(0) else null }
+            .orEmpty()
+        val content = checkNotNull(resolver.openInputStream(uri)).use { it.readBytes().decodeToString() }
+        val profile = core.importFile(name, content)
+        refresh(Change.PROFILES, Change.STATUS, Change.GROUPS)
+        app.getString(R.string.imported_file, profile.name)
+    }
+
+    fun editProfile(id: String, edit: ProfileEdit) = launch(busyProfile(id)) {
+        core.editProfile(id, edit)
+        refresh(Change.PROFILES)
+        null
+    }
+
+    fun exportProfile(id: String, uri: Uri) = launch(busyProfile(id)) {
+        val content = core.profileContent(id)
+        checkNotNull(app.contentResolver.openOutputStream(uri)).use { it.write(content.encodeToByteArray()) }
+        app.getString(R.string.profile_exported)
+    }
+
+    fun moveProfile(id: String, by: Int) = launch(BUSY_PROFILES) {
+        val ids = engine.profiles.value.map { it.id }.toMutableList()
+        val from = ids.indexOf(id)
+        val to = from + by
+        if (from >= 0 && to in ids.indices) {
+            ids.add(to, ids.removeAt(from))
+            core.reorderProfiles(ids)
+            refresh(Change.PROFILES)
+        }
+        null
     }
 
     fun updateProfile(id: String) = launch(busyProfile(id)) {

@@ -119,6 +119,22 @@
     <string name="memory">内存</string>
     <string name="traffic_total">流量</string>
     <string name="peak">峰值 %s/s</string>
+    <string name="import_file">从文件导入</string>
+    <string name="imported_file">已导入「%s」</string>
+    <string name="profile_exported">已导出配置</string>
+    <string name="edit">编辑</string>
+    <string name="edit_profile">编辑配置</string>
+    <string name="preview_config">预览配置</string>
+    <string name="export">导出</string>
+    <string name="copy_link">复制链接</string>
+    <string name="move_up">上移</string>
+    <string name="move_down">下移</string>
+    <string name="file_profile">本地文件</string>
+    <string name="auto_update">自动更新</string>
+    <string name="update_interval">间隔（小时）</string>
+    <string name="auto_update_every">每 %d 小时自动更新</string>
+    <string name="save">保存</string>
+    <string name="copy">复制</string>
     <plurals name="whitelist_summary">
         <item quantity="other">%1$d / %2$d 已加白</item>
     </plurals>

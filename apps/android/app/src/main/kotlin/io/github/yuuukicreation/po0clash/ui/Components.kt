@@ -148,7 +148,13 @@ fun relativeTime(epochSeconds: Long): String {
 fun date(epochSeconds: Long): String = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(epochSeconds * 1000))
 
 @Composable
-private fun SheetField(value: String, onValueChange: (String) -> Unit, placeholder: String, multiline: Boolean) {
+fun SheetField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    multiline: Boolean,
+    keyboardType: KeyboardType = if (multiline) KeyboardType.Text else KeyboardType.Uri,
+) {
     val colors = apple
     TextField(
         value = value,
@@ -157,7 +163,7 @@ private fun SheetField(value: String, onValueChange: (String) -> Unit, placehold
         singleLine = !multiline,
         minLines = if (multiline) 4 else 1,
         maxLines = if (multiline) 8 else 1,
-        keyboardOptions = KeyboardOptions(keyboardType = if (multiline) KeyboardType.Text else KeyboardType.Uri),
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         shape = RoundedCornerShape(12.dp),
         colors = TextFieldDefaults.colors(
             focusedContainerColor = colors.card,
