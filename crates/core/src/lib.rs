@@ -34,7 +34,7 @@ pub use model::*;
 pub use options::*;
 
 use backup::Backup;
-use engine::{Engine, Runtime, Session, sysproxy};
+use engine::{Engine, Runtime, Session, sysdns, sysproxy};
 use logfile::LogFile;
 use profiles::Content;
 use settings::{EntryRecord, ProfileRecord, Settings, Store};
@@ -323,6 +323,9 @@ impl Core {
                         })?;
                     session.system_proxy.store(true, Ordering::SeqCst);
                 }
+                if self.patches_system_dns(&settings) {
+                    *lock(&session.system_dns) = sysdns::apply();
+                }
                 Ok(())
             });
         if let Err(error) = ready {
@@ -558,7 +561,8 @@ impl Core {
         self.engine.monitor.set_log_level(options.log_level);
         let proxy_changed = self.store.update(|s| {
             let changed = s.options.mixed_port != options.mixed_port
-                || s.options.bypass_domains != options.bypass_domains;
+                || s.options.bypass_domains != options.bypass_domains
+                || s.options.auto_set_system_dns != options.auto_set_system_dns;
             s.options = options;
             Ok(changed)
         })?;
@@ -652,6 +656,12 @@ impl Core {
         util::write_atomic(&keep, text.as_bytes())?;
         let _ = fs::remove_file(drop);
         Ok(())
+    }
+
+    fn patches_system_dns(&self, settings: &Settings) -> bool {
+        self.platform == Platform::MacOs
+            && settings.route_mode == RouteMode::Tun
+            && settings.options.auto_set_system_dns
     }
 
     fn reload_if_current(&self, id: &str) -> Result<()> {
@@ -1451,6 +1461,14 @@ impl Core {
 
     pub fn network_changed(&self) {
         logfile::info("network changed");
+        if let Some(session) = self.engine.session()
+            && self.patches_system_dns(&self.store.get())
+        {
+            let mut saved = lock(&session.system_dns);
+            *saved = sysdns::refresh(saved.take());
+            drop(saved);
+            engine::save_record(&self.paths.run, &session);
+        }
         self.whitelist.network_changed();
         self.emit(&[Change::Status]);
     }

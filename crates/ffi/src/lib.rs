@@ -311,6 +311,7 @@ pub struct EngineOptions {
     pub added_rules: Vec<String>,
     pub bypass_domains: Vec<String>,
     pub append_system_dns: bool,
+    pub auto_set_system_dns: bool,
 }
 
 impl From<core::DnsOptions> for DnsOptions {
@@ -390,6 +391,7 @@ impl From<core::EngineOptions> for EngineOptions {
             added_rules: v.added_rules,
             bypass_domains: v.bypass_domains,
             append_system_dns: v.append_system_dns,
+            auto_set_system_dns: v.auto_set_system_dns,
         }
     }
 }
@@ -425,6 +427,7 @@ impl From<EngineOptions> for core::EngineOptions {
             added_rules: v.added_rules,
             bypass_domains: v.bypass_domains,
             append_system_dns: v.append_system_dns,
+            auto_set_system_dns: v.auto_set_system_dns,
         }
     }
 }
