@@ -139,8 +139,22 @@ jobs:
             cat "$settings" || true
             pgrep -lf po0-clash || true
             ls -la "$support" "$support/core" || true
-            find ~/Library/Logs/DiagnosticReports -name 'po0-clash*' -exec head -80 {} \; 2>/dev/null || true
-            log show --last 3m --style compact --predicate 'process == "po0-clash"' 2>/dev/null | tail -80 || true
+            # Crash reports are written some seconds after the process dies.
+            sleep 30
+            for f in $(find ~/Library/Logs/DiagnosticReports /Library/Logs/DiagnosticReports -name 'po0-clash*' 2>/dev/null); do
+              python3 -c 'if True:
+                import json, sys
+                body = json.loads(open(sys.argv[1]).read().partition("\n")[2])
+                print({key: body.get(key) for key in ("exception", "termination", "asi")})
+                images = body.get("usedImages", [])
+                for frame in body["threads"][body.get("faultingThread", 0)]["frames"][:40]:
+                    image = images[frame["imageIndex"]].get("name", "?") if "imageIndex" in frame else "?"
+                    print(" ", image, frame.get("symbol", hex(frame.get("imageOffset", 0))))
+              ' "$f" || head -c 4000 "$f"
+            done
+            log show --last 4m --style compact \
+              --predicate 'process != "po0-clash" AND eventMessage CONTAINS[c] "po0-clash"' 2>/dev/null | tail -60 || true
+            log show --last 4m --style compact --predicate 'process == "po0-clash"' 2>/dev/null | tail -40 || true
             echo "::error::subscriptions were not imported"
             exit 1
           fi
