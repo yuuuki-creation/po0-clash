@@ -1,9 +1,11 @@
+mod app_settings;
 mod config;
 mod engine;
 mod error;
 mod legacy;
 mod logfile;
 mod model;
+mod network;
 mod options;
 mod profiles;
 mod resources;
@@ -21,6 +23,7 @@ use std::time::Duration;
 
 use serde_json::{Value, json};
 
+pub use app_settings::*;
 pub use error::{CoreError, Result};
 pub use model::*;
 pub use options::*;
@@ -516,6 +519,18 @@ impl Core {
 
     // Mode and routing.
 
+    pub fn app_settings(&self) -> AppSettings {
+        self.store.read(|s| s.app.clone())
+    }
+
+    pub fn set_app_settings(&self, settings: AppSettings) -> Result<()> {
+        let settings = settings.validated()?;
+        self.store.update(|s| {
+            s.app = settings;
+            Ok(())
+        })
+    }
+
     pub fn engine_options(&self) -> EngineOptions {
         self.store.read(|s| s.options.clone())
     }
@@ -595,11 +610,16 @@ impl Core {
 
     fn fetch(&self, url: &str) -> Result<profiles::Fetched> {
         let proxy = self.proxy_url();
-        let agent = self.store.read(|s| s.options.user_agent.trim().to_owned());
+        let (agent, verify) = self.store.read(|s| {
+            (
+                s.options.user_agent.trim().to_owned(),
+                s.app.check_certificate,
+            )
+        });
         let agent = (!agent.is_empty()).then_some(agent.as_str());
-        match profiles::fetch(url, proxy.as_deref(), &self.app_version, agent) {
+        match profiles::fetch(url, proxy.as_deref(), &self.app_version, agent, verify) {
             Err(CoreError::Network(_)) if proxy.is_some() => {
-                profiles::fetch(url, None, &self.app_version, agent)
+                profiles::fetch(url, None, &self.app_version, agent, verify)
             }
             other => other,
         }
@@ -1002,6 +1022,9 @@ impl Core {
             session
                 .controller()
                 .json("PUT", &path, Some(&json!({ "name": node })))?;
+            if self.store.read(|s| s.app.close_connections_on_switch) {
+                let _ = session.controller().json("DELETE", "/connections", None);
+            }
             self.refresh_current_node(&session, self.store.read(|s| s.mode));
         }
         self.store.update(|s| {
@@ -1214,6 +1237,10 @@ impl Core {
             || self.paths.home_for(lock(&self.mihomo_path).as_deref()),
             |session| session.runtime.home.clone(),
         )
+    }
+
+    pub fn intranet_ip(&self) -> Option<IntranetIp> {
+        network::intranet_ip()
     }
 
     pub fn geo_files(&self) -> Vec<GeoFile> {
