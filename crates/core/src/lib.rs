@@ -456,24 +456,36 @@ impl Core {
         result
     }
 
+    /// The profile's config before po0's changes, and the share-link file it points at, if any.
+    fn config_base(
+        &self,
+        profile: &ProfileRecord,
+        settings: &Settings,
+    ) -> Result<(String, Option<(String, String)>)> {
+        if let Ok(yaml) = fs::read_to_string(self.paths.yaml(&profile.id)) {
+            return Ok((yaml, None));
+        }
+        if let Ok(links) = fs::read_to_string(self.paths.links(&profile.id)) {
+            let name = format!("po0-links-{}.txt", profile.id);
+            let base = config::links_base(&format!("./{name}"), settings.options.delay_url());
+            return Ok((base, Some((name, links))));
+        }
+        Err(CoreError::Invalid(format!(
+            "{} has not been downloaded yet",
+            profile.name
+        )))
+    }
+
     fn write_config(
         &self,
         profile: &ProfileRecord,
         settings: &Settings,
         runtime: &Runtime,
     ) -> Result<PathBuf> {
-        let base = if let Ok(yaml) = fs::read_to_string(self.paths.yaml(&profile.id)) {
-            yaml
-        } else if let Ok(links) = fs::read_to_string(self.paths.links(&profile.id)) {
-            let name = format!("po0-links-{}.txt", profile.id);
-            util::write_atomic(&runtime.home.join(&name), links.as_bytes())?;
-            config::links_base(&format!("./{name}"), settings.options.delay_url())
-        } else {
-            return Err(CoreError::Invalid(format!(
-                "{} has not been downloaded yet",
-                profile.name
-            )));
-        };
+        let (base, links) = self.config_base(profile, settings)?;
+        if let Some((name, links)) = links {
+            util::write_atomic(&runtime.home.join(name), links.as_bytes())?;
+        }
         let rendered = config::render(
             &base,
             &config::Params {
@@ -567,6 +579,8 @@ impl Core {
                     updated_at: record.updated_at,
                     usage: record.usage.clone(),
                     selected: s.current_profile.as_deref() == Some(record.id.as_str()),
+                    auto_update: !record.manual_update,
+                    update_hours: record.update_hours.unwrap_or(DEFAULT_UPDATE_HOURS),
                 })
                 .collect()
         })
@@ -618,14 +632,14 @@ impl Core {
         self.store_content(&id, &fetched.content)?;
         self.store.update(|s| {
             s.profiles.push(ProfileRecord {
-                id: id.clone(),
-                name: fetched.name.clone().unwrap_or_else(|| url.clone()),
-                kind: ProfileKind::Subscription,
                 url: Some(url.clone()),
-                updated_at: Some(util::now()),
                 usage: fetched.usage.clone(),
                 update_hours: fetched.update_hours,
-                selections: BTreeMap::new(),
+                ..ProfileRecord::new(
+                    id.clone(),
+                    fetched.name.clone().unwrap_or_else(|| url.clone()),
+                    ProfileKind::Subscription,
+                )
             });
             if s.current().is_none() {
                 s.current_profile = Some(id.clone());
@@ -704,6 +718,120 @@ impl Core {
         reloaded
     }
 
+    /// A config or a list of share links read from a file the user picked.
+    pub fn import_file(&self, name: String, content: String) -> Result<Profile> {
+        let content = profiles::classify(&content)?;
+        let name = Path::new(name.trim())
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .filter(|stem| !stem.is_empty())
+            .unwrap_or("Imported")
+            .to_owned();
+        let id = util::random_id();
+        self.store_content(&id, &content)?;
+        self.store.update(|s| {
+            s.profiles
+                .push(ProfileRecord::new(id.clone(), name, ProfileKind::File));
+            if s.current().is_none() {
+                s.current_profile = Some(id.clone());
+            }
+            Ok(())
+        })?;
+        logfile::info(format!("profile {id} imported from a file"));
+        let reloaded = self.reload_if_current(&id);
+        self.emit(&[Change::Profiles, Change::Status]);
+        reloaded?;
+        self.profile(&id)
+    }
+
+    pub fn edit_profile(&self, id: String, edit: ProfileEdit) -> Result<Profile> {
+        let name = edit.name.trim().to_owned();
+        if name.is_empty() {
+            return Err(CoreError::Invalid("a profile needs a name".into()));
+        }
+        let url = edit.url.map(|url| url.trim().to_owned());
+        self.store.update(|s| {
+            let profile = s
+                .profile_mut(&id)
+                .ok_or_else(|| CoreError::Invalid("no such profile".into()))?;
+            if profile.kind == ProfileKind::Subscription {
+                let url = url
+                    .filter(|url| url.starts_with("http://") || url.starts_with("https://"))
+                    .ok_or_else(|| CoreError::Invalid("not an http(s) link".into()))?;
+                profile.url = Some(url);
+            }
+            profile.name = name;
+            profile.manual_update = !edit.auto_update;
+            profile.update_hours = Some(edit.update_hours.max(1));
+            Ok(())
+        })?;
+        self.emit(&[Change::Profiles]);
+        self.profile(&id)
+    }
+
+    /// The profile's text as downloaded or imported, for export.
+    pub fn profile_content(&self, id: String) -> Result<String> {
+        fs::read_to_string(self.paths.yaml(&id))
+            .or_else(|_| fs::read_to_string(self.paths.links(&id)))
+            .map_err(|_| CoreError::Invalid("no such profile".into()))
+    }
+
+    /// The config mihomo would run for this profile, with the controller secret and po0's direct login hidden.
+    pub fn preview_config(&self, id: String) -> Result<String> {
+        let settings = self.store.get();
+        let profile = settings
+            .profile(&id)
+            .ok_or_else(|| CoreError::Invalid("no such profile".into()))?;
+        let (base, _) = self.config_base(profile, &settings)?;
+        let session = self.engine.session();
+        let hidden = "<hidden>";
+        let direct = config::DirectListener {
+            port: session
+                .as_ref()
+                .map_or(0, |session| session.runtime.direct.port),
+            username: hidden.into(),
+            password: hidden.into(),
+        };
+        let controller = session.as_ref().map_or_else(
+            || (engine::Endpoint::Unix(PathBuf::from(hidden))).config_entry(),
+            |session| session.runtime.controller.endpoint.config_entry(),
+        );
+        config::render(
+            &base,
+            &config::Params {
+                platform: self.platform,
+                mode: settings.mode,
+                route_mode: settings.route_mode,
+                tun_fd: session.as_ref().and_then(|session| session.runtime.tun_fd),
+                mixed_port: session
+                    .as_ref()
+                    .map_or(settings.options.mixed_port, |session| {
+                        session.runtime.mixed_port
+                    }),
+                controller,
+                secret: hidden,
+                direct: &direct,
+                options: &settings.options,
+            },
+        )
+    }
+
+    pub fn reorder_profiles(&self, ids: Vec<String>) -> Result<()> {
+        self.store.update(|s| {
+            let mut ordered = Vec::with_capacity(s.profiles.len());
+            for id in &ids {
+                if let Some(index) = s.profile_index(id) {
+                    ordered.push(s.profiles.remove(index));
+                }
+            }
+            ordered.append(&mut s.profiles);
+            s.profiles = ordered;
+            Ok(())
+        })?;
+        self.emit(&[Change::Profiles]);
+        Ok(())
+    }
+
     pub fn import_links(&self, text: String) -> Result<ImportResult> {
         let links = profiles::extract_links(&text);
         if links.is_empty() {
@@ -729,16 +857,11 @@ impl Core {
         self.store.update(|s| {
             match s.profile_mut(&id) {
                 Some(profile) => profile.updated_at = Some(util::now()),
-                None => s.profiles.push(ProfileRecord {
-                    id: id.clone(),
-                    name: LINKS_PROFILE_NAME.into(),
-                    kind: ProfileKind::Links,
-                    url: None,
-                    updated_at: Some(util::now()),
-                    usage: None,
-                    update_hours: None,
-                    selections: BTreeMap::new(),
-                }),
+                None => s.profiles.push(ProfileRecord::new(
+                    id.clone(),
+                    LINKS_PROFILE_NAME.into(),
+                    ProfileKind::Links,
+                )),
             }
             if s.current().is_none() {
                 s.current_profile = Some(id.clone());
@@ -1278,7 +1401,9 @@ impl Core {
             s.profiles
                 .iter()
                 .filter(|profile| {
-                    profile.kind == ProfileKind::Subscription && profile.url.is_some()
+                    profile.kind == ProfileKind::Subscription
+                        && profile.url.is_some()
+                        && !profile.manual_update
                 })
                 .filter(|profile| {
                     let hours =
@@ -1343,14 +1468,9 @@ fn import_legacy(store: &Store, paths: &Paths, options: &CoreOptions) {
             current = Some(id.clone());
         }
         records.push(ProfileRecord {
-            id,
-            name: profile.name.clone(),
-            kind: ProfileKind::Subscription,
             url: Some(profile.url.clone()),
             updated_at: None,
-            usage: None,
-            update_hours: None,
-            selections: BTreeMap::new(),
+            ..ProfileRecord::new(id, profile.name.clone(), ProfileKind::Subscription)
         });
     }
     let mut entries: Vec<EntryRecord> = Vec::new();

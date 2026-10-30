@@ -37,7 +37,25 @@ pub struct ProfileRecord {
     #[serde(default)]
     pub update_hours: Option<u32>,
     #[serde(default)]
+    pub manual_update: bool,
+    #[serde(default)]
     pub selections: BTreeMap<String, String>,
+}
+
+impl ProfileRecord {
+    pub fn new(id: String, name: String, kind: ProfileKind) -> Self {
+        Self {
+            id,
+            name,
+            kind,
+            url: None,
+            updated_at: Some(util::now()),
+            usage: None,
+            update_hours: None,
+            manual_update: false,
+            selections: BTreeMap::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -62,6 +80,10 @@ impl Settings {
 
     pub fn profile_mut(&mut self, id: &str) -> Option<&mut ProfileRecord> {
         self.profiles.iter_mut().find(|profile| profile.id == id)
+    }
+
+    pub fn profile_index(&self, id: &str) -> Option<usize> {
+        self.profiles.iter().position(|profile| profile.id == id)
     }
 
     pub fn current(&self) -> Option<&ProfileRecord> {
