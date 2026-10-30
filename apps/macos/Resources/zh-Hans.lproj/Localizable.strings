@@ -84,3 +84,4 @@
 "Traffic goes out directly, so no proxy is used." = "流量直接出站，不使用代理。";
 "No proxy groups" = "没有策略组";
 "Connect with a subscription to load its proxy groups." = "选好订阅并连接后，这里会显示它的策略组。";
+"OK" = "好";

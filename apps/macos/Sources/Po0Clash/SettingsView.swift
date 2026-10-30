@@ -7,43 +7,34 @@ struct SettingsView: View {
 
     var body: some View {
         PageScaffold("Settings") {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("Launch at login")
-                    Spacer()
+            Form {
+                Section {
                     Toggle("Launch at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
                         .toggleStyle(.switch)
-                        .labelsHidden()
-                }
-                if needsApproval {
-                    HStack {
-                        Text("Allow po0-clash in Login Items to finish turning this on.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Button("Open Login Items") { LaunchAtLogin.openSystemSettings() }
+                    if needsApproval {
+                        LabeledContent {
+                            Button("Open Login Items") { LaunchAtLogin.openSystemSettings() }
+                        } label: {
+                            Text("Allow po0-clash in Login Items to finish turning this on.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
-            }
-            .groupedSection()
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Diagnostic log")
-                    Text("Saves the app, core and engine logs to a text file for troubleshooting.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+                Section {
+                    LabeledContent {
+                        Button("Export…") { model.exportDiagnostics() }
+                            .disabled(model.launchError != nil)
+                    } label: {
+                        Text("Diagnostic log")
+                        Text("Saves the app, core and engine logs to a text file for troubleshooting.")
+                    }
                 }
-                Spacer()
-                Button("Export…") { model.exportDiagnostics() }
-                    .disabled(model.launchError != nil)
+                Section {
+                    LabeledContent("Version", value: AppPaths.version)
+                }
             }
-            .groupedSection()
-            HStack {
-                Text("Version")
-                Spacer()
-                Text(AppPaths.version).foregroundStyle(.secondary).textSelection(.enabled)
-            }
-            .groupedSection()
+            .formStyle(.grouped)
         }
         .onAppear(perform: reloadLaunchAtLogin)
     }

@@ -7,22 +7,38 @@ struct DashboardView: View {
     private let columns = [GridItem(.adaptive(minimum: 230), spacing: 12, alignment: .top)]
 
     var body: some View {
-        PageScaffold("Dashboard") {
-            if case .failed(let message)? = model.status?.engine {
-                FailureCard(message: message)
+        PageScaffold("Dashboard", subtitle: model.stateTitle) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let error = model.launchError {
+                        Label {
+                            Text(error).textSelection(.enabled)
+                        } icon: {
+                            Image(systemName: "exclamationmark.triangle").foregroundStyle(.red)
+                        }
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    if case .failed(let message)? = model.status?.engine {
+                        FailureCard(message: message)
+                    }
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
+                        SpeedCard().frame(minHeight: 108)
+                        ExitIpCard().frame(minHeight: 108)
+                        CurrentNodeCard().frame(minHeight: 108)
+                        ModeCard().frame(minHeight: 108)
+                        RouteCard().frame(minHeight: 108)
+                        SubscriptionCard().frame(minHeight: 108)
+                        WhitelistCard().frame(minHeight: 108)
+                    }
+                }
+                .padding(20)
+                .padding(.bottom, 64)
             }
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
-                SpeedCard().frame(minHeight: 108)
-                ExitIpCard().frame(minHeight: 108)
-                CurrentNodeCard().frame(minHeight: 108)
-                ModeCard().frame(minHeight: 108)
-                RouteCard().frame(minHeight: 108)
-                SubscriptionCard().frame(minHeight: 108)
-                WhitelistCard().frame(minHeight: 108)
+            .overlay(alignment: .bottomTrailing) {
+                ConnectButton().padding(20)
             }
-        }
-        .overlay(alignment: .bottomTrailing) {
-            ConnectButton().padding(24)
         }
         .background(WindowVisibility { model.setVisible(.dashboard, $0) })
         .onDisappear { model.setVisible(.dashboard, false) }
@@ -45,7 +61,8 @@ private struct FailureCard: View {
                 .glassButton(prominent: true)
                 .disabled(model.busy)
         }
-        .groupedSection()
+        .padding(14)
+        .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

@@ -18,20 +18,29 @@ struct SubscriptionsView: View {
             } label: {
                 Label("Import Share Links…", systemImage: "link")
             }
+            .help("Import Share Links…")
             Button {
                 sheet = .subscription
             } label: {
                 Label("Add Subscription…", systemImage: "plus")
             }
+            .help("Add Subscription…")
         } content: {
             if model.profiles.isEmpty {
-                EmptyRow(title: "No subscriptions", detail: "Add a subscription URL or import share links.").groupedSection()
+                EmptyState(
+                    title: "No subscriptions",
+                    symbol: "tray",
+                    detail: "Add a subscription URL or import share links."
+                )
             } else {
-                VStack(spacing: 12) {
-                    ForEach(model.profiles, id: \.id) { profile in
-                        ProfileRow(profile: profile) { pendingRemoval = profile }
+                Form {
+                    Section {
+                        ForEach(model.profiles, id: \.id) { profile in
+                            ProfileRow(profile: profile) { pendingRemoval = profile }
+                        }
                     }
                 }
+                .formStyle(.grouped)
             }
         }
         .sheet(item: $sheet) { sheet in
@@ -105,11 +114,7 @@ private struct ProfileRow: View {
             .buttonStyle(.borderless)
             .help("Delete")
         }
-        .groupedSection()
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(profile.selected ? Color.accentColor : Color.clear, lineWidth: 1.5)
-        )
+        .padding(.vertical, 4)
     }
 }
 

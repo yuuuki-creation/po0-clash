@@ -56,16 +56,17 @@ final class MainWindow: NSObject, NSWindowDelegate {
         let root = MainView()
             .environmentObject(AppModel.shared)
             .environmentObject(navigation)
-        let host = NSHostingController(rootView: root)
-        let window = NSWindow(contentViewController: host)
+        let window = NSWindow(contentViewController: NSHostingController(rootView: root))
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-        window.title = "po0-clash"
+        window.toolbarStyle = .unified
+        if #unavailable(macOS 14) {
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+        }
         window.tabbingMode = .disallowed
         window.isReleasedWhenClosed = false
         window.contentMinSize = NSSize(width: 760, height: 520)
-        window.setContentSize(NSSize(width: 940, height: 640))
+        window.setContentSize(NSSize(width: 960, height: 640))
         window.center()
         window.setFrameAutosaveName("main")
         window.delegate = self
@@ -85,8 +86,7 @@ struct MainView: View {
             )) { page in
                 Label(page.title, systemImage: page.symbol).tag(page)
             }
-            .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 240)
+            .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
         } detail: {
             switch navigation.page {
             case .dashboard: DashboardView()
@@ -96,63 +96,76 @@ struct MainView: View {
             case .settings: SettingsView()
             }
         }
-        // The window has no toolbar to bring a collapsed sidebar back, so it never stays collapsed.
+        // macOS 13 gets no toolbar, so nothing could bring a collapsed sidebar back.
         .onChange(of: columns) { visibility in
-            if visibility != .all { columns = .all }
+            if #unavailable(macOS 14) {
+                if visibility != .all { columns = .all }
+            }
         }
     }
 }
 
-/// One page of the main window: a large title with its floating actions, then opaque grouped content.
+/// macOS 13's hosting controller cannot bridge a toolbar into the window, so it gets the toolbar items as a header row.
 struct PageScaffold<Actions: View, Content: View>: View {
     @EnvironmentObject private var model: AppModel
     let title: LocalizedStringKey
+    var subtitle: String?
     private let actions: Actions
     private let content: Content
 
-    init(_ title: LocalizedStringKey, @ViewBuilder actions: () -> Actions, @ViewBuilder content: () -> Content) {
+    init(
+        _ title: LocalizedStringKey,
+        subtitle: String? = nil,
+        @ViewBuilder actions: () -> Actions,
+        @ViewBuilder content: () -> Content
+    ) {
         self.title = title
+        self.subtitle = subtitle
         self.actions = actions()
         self.content = content()
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .center) {
-                    Text(title).font(.largeTitle.weight(.bold))
+        page
+            .alert(
+                model.notice ?? "",
+                isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })
+            ) {
+                Button("OK") { model.notice = nil }
+            }
+    }
+
+    @ViewBuilder
+    private var page: some View {
+        if #available(macOS 14, *) {
+            content
+                .navigationTitle(title)
+                .navigationSubtitle(subtitle ?? "")
+                .toolbar {
+                    ToolbarItemGroup(placement: .primaryAction) { actions }
+                }
+        } else {
+            VStack(spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(title).font(.title2.weight(.semibold))
+                    if let subtitle { Text(subtitle).foregroundStyle(.secondary) }
                     Spacer()
                     ControlBar { actions }
                 }
-                if let error = model.launchError {
-                    Label {
-                        Text(error).textSelection(.enabled)
-                    } icon: {
-                        Image(systemName: "exclamationmark.triangle").foregroundStyle(.red)
-                    }
-                    .groupedSection()
-                }
-                if let notice = model.notice {
-                    NoticeBanner(text: notice) { model.notice = nil }.groupedSection()
-                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
                 content
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 8)
-            .padding(.bottom, 88)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Color.page)
     }
 }
 
 extension PageScaffold where Actions == EmptyView {
-    init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
-        self.init(title, actions: { EmptyView() }, content: content)
+    init(_ title: LocalizedStringKey, subtitle: String? = nil, @ViewBuilder content: () -> Content) {
+        self.init(title, subtitle: subtitle, actions: { EmptyView() }, content: content)
     }
 }
 
-/// A dashboard card in the FlClash layout: a monochrome symbol and caption, then the value.
 struct Card<Content: View>: View {
     let title: LocalizedStringKey
     let symbol: String
@@ -173,6 +186,29 @@ struct Card<Content: View>: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(14)
-        .background(Color.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+struct EmptyState: View {
+    let title: LocalizedStringKey
+    let symbol: String
+    let detail: LocalizedStringKey
+
+    var body: some View {
+        if #available(macOS 14, *) {
+            ContentUnavailableView {
+                Label(title, systemImage: symbol)
+            } description: {
+                Text(detail)
+            }
+        } else {
+            VStack(spacing: 6) {
+                Image(systemName: symbol).font(.largeTitle).foregroundStyle(.secondary)
+                Text(title).font(.headline)
+                Text(detail).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 }

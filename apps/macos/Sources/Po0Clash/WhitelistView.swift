@@ -8,42 +8,37 @@ struct WhitelistView: View {
     private var entries: [WhitelistEntry] { model.whitelist?.entries ?? [] }
 
     var body: some View {
-        PageScaffold("Whitelist") {
+        PageScaffold("Whitelist", subtitle: model.whitelistSummary) {
             Button {
                 adding = true
             } label: {
                 Label("Add…", systemImage: "plus")
             }
+            .help("Add to Whitelist")
         } content: {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Auto whitelist").fontWeight(.semibold)
-                    Text("Keeps this Mac's real exit IP on the po0 and ggy whitelists while po0-clash is open, connected or not.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+            Form {
+                Section {
+                    Toggle(isOn: Binding(
+                        get: { model.whitelist?.enabled ?? false },
+                        set: { model.setWhitelistEnabled($0) }
+                    )) {
+                        Text("Auto whitelist")
+                        Text("Keeps this Mac's real exit IP on the po0 and ggy whitelists while po0-clash is open, connected or not.")
+                    }
+                    .toggleStyle(.switch)
+                    .disabled(model.whitelist == nil)
                 }
-                Spacer()
-                Toggle("Auto whitelist", isOn: Binding(
-                    get: { model.whitelist?.enabled ?? false },
-                    set: { model.setWhitelistEnabled($0) }
-                ))
-                .toggleStyle(.switch)
-                .labelsHidden()
-                .disabled(model.whitelist == nil)
-            }
-            .groupedSection()
-            Text("Tokens and links").font(.headline).padding(.top, 4)
-            if entries.isEmpty {
-                EmptyRow(title: "No tokens or links", detail: "Add a po0 token or a ggy whitelist link.").groupedSection()
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(entries, id: \.id) { entry in
-                        EntryRow(entry: entry)
-                        if entry.id != entries.last?.id { Divider() }
+                Section("Tokens and links") {
+                    if entries.isEmpty {
+                        EmptyRow(title: "No tokens or links", detail: "Add a po0 token or a ggy whitelist link.")
+                    } else {
+                        ForEach(entries, id: \.id) { entry in
+                            EntryRow(entry: entry)
+                        }
                     }
                 }
-                .groupedSection()
             }
+            .formStyle(.grouped)
         }
         .sheet(isPresented: $adding) {
             AddEntriesSheet().environmentObject(model)
@@ -91,7 +86,7 @@ private struct EntryRow: View {
             .buttonStyle(.borderless)
             .help("Remove")
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
     }
 }
 
