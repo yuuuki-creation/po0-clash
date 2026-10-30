@@ -441,6 +441,7 @@ mirror_enum!(RestoreStrategy {
     Compatible,
     Override
 });
+mirror_enum!(RestoreScope { All, Profiles });
 mirror_enum!(AccessControlMode {
     RejectSelected,
     AcceptSelected
@@ -715,6 +716,7 @@ pub struct ProxyGroup {
     pub selectable: bool,
     pub now: Option<String>,
     pub nodes: Vec<Node>,
+    pub icon: Option<String>,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -775,6 +777,7 @@ impl From<core::ProxyGroup> for ProxyGroup {
             kind: value.kind,
             selectable: value.selectable,
             now: value.now,
+            icon: value.icon,
             nodes: value
                 .nodes
                 .into_iter()
@@ -1091,6 +1094,26 @@ impl Po0Core {
 
     pub fn export_diagnostics(&self, path: String) -> Result<()> {
         Ok(self.inner.export_diagnostics(PathBuf::from(path))?)
+    }
+
+    pub fn backup(&self) -> Result<Vec<u8>> {
+        Ok(self.inner.backup()?)
+    }
+
+    pub fn restore(&self, data: Vec<u8>, scope: RestoreScope) -> Result<()> {
+        Ok(self.inner.restore(data, scope.into())?)
+    }
+
+    pub fn check_webdav(&self, dav: WebDav) -> Result<()> {
+        Ok(self.inner.check_webdav(dav.into())?)
+    }
+
+    pub fn backup_to_webdav(&self) -> Result<()> {
+        Ok(self.inner.backup_to_webdav()?)
+    }
+
+    pub fn restore_from_webdav(&self, scope: RestoreScope) -> Result<()> {
+        Ok(self.inner.restore_from_webdav(scope.into())?)
     }
 
     pub fn shutdown(&self) {
