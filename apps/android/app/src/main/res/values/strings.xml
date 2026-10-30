@@ -2,20 +2,16 @@
 <resources>
     <string name="app_name" translatable="false">po0-clash</string>
     <string name="settings">Settings</string>
-    <string name="back">Back</string>
     <string name="startup_failed">po0-clash could not start: %s</string>
 
-    <string name="state_stopped">Disconnected</string>
     <string name="state_starting">Connecting…</string>
     <string name="state_running">Connected</string>
     <string name="state_failed">Connection failed</string>
     <string name="reconnect">Reconnect</string>
     <string name="disconnect">Disconnect</string>
     <string name="no_profile">No subscription selected</string>
-    <string name="node">Node</string>
     <string name="exit_ip">Exit IP</string>
     <string name="traffic">Speed</string>
-    <string name="rate">↑ %1$s/s  ↓ %2$s/s</string>
     <string name="notification_channel">VPN status</string>
     <string name="notification_channel_alerts">Connection problems</string>
     <string name="notification_running">Connected · %s</string>
@@ -24,20 +20,16 @@
 
     <string name="empty_title">No subscription yet</string>
     <string name="empty_body">Add a subscription or import share links to connect.</string>
-    <string name="empty_action">Open settings</string>
 
     <string name="mode">Mode</string>
     <string name="mode_rule">Rule</string>
     <string name="mode_global">Global</string>
     <string name="mode_direct">Direct</string>
-    <string name="groups">Proxy groups</string>
-    <string name="groups_unavailable">Connect to choose nodes.</string>
     <string name="test_delay">Test</string>
     <string name="delay_ms">%d ms</string>
     <string name="delay_timeout">Timeout</string>
 
     <string name="subscriptions">Subscriptions</string>
-    <string name="no_subscriptions">No subscriptions</string>
     <string name="add_subscription">Add subscription</string>
     <string name="subscription_url">Subscription URL</string>
     <string name="import_links">Import share links</string>
@@ -78,4 +70,26 @@
     <string name="export_done">Diagnostic log exported</string>
     <string name="about">About</string>
     <string name="version">Version</string>
+
+    <string name="dashboard">Dashboard</string>
+    <string name="proxies">Proxies</string>
+    <string name="connect">Connect</string>
+    <string name="per_second">%s/s</string>
+    <string name="current_node">Current node</string>
+    <string name="subscription">Subscription</string>
+    <string name="switch_subscription">Switch subscription</string>
+    <string name="selected">Selected</string>
+    <string name="refresh">Refresh</string>
+    <string name="test_all">Test all</string>
+    <string name="direct_mode_title">Direct mode</string>
+    <string name="direct_mode_body">Traffic goes out directly, so no proxy is used.</string>
+    <string name="no_groups_title">No proxy groups</string>
+    <string name="no_groups_body">Connect with a subscription to load its proxy groups.</string>
+    <string name="whitelist_entries">Tokens and links</string>
+    <string name="whitelist_none">No tokens or links yet</string>
+    <string name="whitelist_empty_body">Add po0 tokens or ggy links to keep this device\'s exit IP whitelisted.</string>
+    <plurals name="whitelist_summary">
+        <item quantity="one">%1$d of %2$d whitelisted</item>
+        <item quantity="other">%1$d of %2$d whitelisted</item>
+    </plurals>
 </resources>

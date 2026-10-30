@@ -5,7 +5,6 @@ import android.text.format.Formatter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -44,14 +42,18 @@ import io.github.yuuukicreation.po0clash.R
 import java.text.DateFormat
 import java.util.Date
 
-private val cardRadius = 16.dp
+val cardRadius = 26.dp
 
-/** One row of an inset-grouped card; rows are separate lazy items so long node lists stay lazy. */
+/**
+ * One row of an inset grouped list; rows are separate lazy items so long lists stay lazy. The separator starts where
+ * the row's text does, so pass [inset] when the row leads with an icon.
+ */
 @Composable
 fun GroupRow(
     index: Int,
     count: Int,
     onClick: (() -> Unit)? = null,
+    inset: Dp = 16.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
     val top = if (index == 0) cardRadius else 0.dp
@@ -62,9 +64,9 @@ fun GroupRow(
             .background(apple.card)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
     ) {
-        if (index > 0) HorizontalDivider(Modifier.padding(start = 16.dp), Dp.Hairline, apple.separator)
+        if (index > 0) Hairline(Modifier.padding(start = inset))
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 16.dp, vertical = 10.dp),
+            Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 16.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             content = content,
@@ -100,7 +102,7 @@ fun ValueRow(index: Int, count: Int, label: String, value: String) {
 
 @Composable
 fun ActionRow(index: Int, count: Int, label: String, icon: ImageVector? = null, busy: Boolean = false, onClick: () -> Unit) {
-    GroupRow(index, count, onClick = if (busy) null else onClick) {
+    GroupRow(index, count, onClick = if (busy) null else onClick, inset = if (icon != null) 50.dp else 16.dp) {
         if (icon != null) Icon(icon, contentDescription = null, tint = apple.accent, modifier = Modifier.size(22.dp))
         Text(label, style = MaterialTheme.typography.bodyLarge, color = apple.accent, modifier = Modifier.weight(1f))
         if (busy) SmallProgress()
@@ -111,9 +113,10 @@ fun ActionRow(index: Int, count: Int, label: String, icon: ImageVector? = null, 
 fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
-        style = MaterialTheme.typography.labelMedium,
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.SemiBold,
         color = apple.secondaryLabel,
-        modifier = modifier.padding(start = 16.dp, top = 24.dp, bottom = 6.dp),
+        modifier = modifier.padding(start = 16.dp, top = 22.dp, bottom = 8.dp),
     )
 }
 
@@ -185,52 +188,5 @@ fun TextSheet(
     SheetButtons(confirm, enabled = text.isNotBlank(), onCancel = sheets::dismiss) {
         sheets.dismiss()
         onConfirm(text, name)
-    }
-}
-
-data class SheetAction(val label: String, val destructive: Boolean = false, val onClick: () -> Unit)
-
-@Composable
-fun ActionSheet(title: String?, actions: List<SheetAction>) {
-    val sheets = LocalSheets.current
-    val colors = apple
-    if (title != null) {
-        Text(
-            title,
-            style = MaterialTheme.typography.labelMedium,
-            color = colors.secondaryLabel,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-    Column(Modifier.clip(RoundedCornerShape(cardRadius)).background(colors.card)) {
-        actions.forEachIndexed { index, action ->
-            if (index > 0) HorizontalDivider(thickness = Dp.Hairline, color = colors.separator)
-            Box(
-                Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable {
-                    sheets.dismiss()
-                    action.onClick()
-                },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    action.label,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (action.destructive) colors.red else colors.accent,
-                )
-            }
-        }
-    }
-    Box(
-        Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(cardRadius)).background(colors.card)
-            .clickable(onClick = sheets::dismiss),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            stringResource(R.string.cancel),
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = colors.accent,
-        )
     }
 }

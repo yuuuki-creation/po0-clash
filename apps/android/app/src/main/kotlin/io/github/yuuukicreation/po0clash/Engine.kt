@@ -12,6 +12,7 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.VpnService
 import android.os.PowerManager
+import android.os.SystemClock
 import android.service.quicksettings.TileService
 import androidx.core.content.ContextCompat
 import io.github.yuuukicreation.po0clash.core.Change
@@ -69,6 +70,10 @@ class Engine(private val app: Application) {
     val whitelist = _whitelist.asStateFlow()
     private val _exitIp = MutableStateFlow<ExitIp?>(null)
     val exitIp = _exitIp.asStateFlow()
+    private val _connectedAt = MutableStateFlow<Long?>(null)
+
+    /** [SystemClock.elapsedRealtime] when the engine last reached Running, or null while it is not running. */
+    val connectedAt = _connectedAt.asStateFlow()
 
     val vpnActive = MutableStateFlow(false)
     val vpnError = MutableStateFlow<String?>(null)
@@ -103,6 +108,11 @@ class Engine(private val app: Application) {
                 val old = _status.value
                 val new = core.status()
                 _status.value = new
+                if (new.engine != EngineState.Running) {
+                    _connectedAt.value = null
+                } else if (_connectedAt.value == null) {
+                    _connectedAt.value = SystemClock.elapsedRealtime()
+                }
                 if (old.engine != new.engine || old.currentNode != new.currentNode || old.mode != new.mode) {
                     scheduleExitIp()
                     updateTile()
@@ -125,6 +135,8 @@ class Engine(private val app: Application) {
     fun updateTile() {
         runCatching { TileService.requestListeningState(app, ComponentName(app, VpnTileService::class.java)) }
     }
+
+    fun refreshExitIp() = scheduleExitIp(0)
 
     private fun scheduleExitIp(delayMillis: Long = 1000) {
         exitJob?.cancel()

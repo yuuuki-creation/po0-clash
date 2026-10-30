@@ -1,20 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="settings">设置</string>
-    <string name="back">返回</string>
     <string name="startup_failed">po0-clash 无法启动：%s</string>
 
-    <string name="state_stopped">未连接</string>
     <string name="state_starting">正在连接…</string>
     <string name="state_running">已连接</string>
     <string name="state_failed">连接失败</string>
     <string name="reconnect">重新连接</string>
     <string name="disconnect">断开</string>
     <string name="no_profile">未选择订阅</string>
-    <string name="node">节点</string>
     <string name="exit_ip">出口 IP</string>
     <string name="traffic">速率</string>
-    <string name="rate">↑ %1$s/s  ↓ %2$s/s</string>
     <string name="notification_channel">VPN 状态</string>
     <string name="notification_channel_alerts">连接问题</string>
     <string name="notification_running">已连接 · %s</string>
@@ -23,20 +19,16 @@
 
     <string name="empty_title">还没有订阅</string>
     <string name="empty_body">添加订阅或导入分享链接后即可连接。</string>
-    <string name="empty_action">打开设置</string>
 
     <string name="mode">模式</string>
     <string name="mode_rule">规则</string>
     <string name="mode_global">全局</string>
     <string name="mode_direct">直连</string>
-    <string name="groups">策略组</string>
-    <string name="groups_unavailable">连接后可选择节点。</string>
     <string name="test_delay">测速</string>
     <string name="delay_ms">%d ms</string>
     <string name="delay_timeout">超时</string>
 
     <string name="subscriptions">订阅</string>
-    <string name="no_subscriptions">暂无订阅</string>
     <string name="add_subscription">添加订阅</string>
     <string name="subscription_url">订阅链接</string>
     <string name="import_links">导入分享链接</string>
@@ -76,4 +68,25 @@
     <string name="export_done">已导出诊断日志</string>
     <string name="about">关于</string>
     <string name="version">版本</string>
+
+    <string name="dashboard">仪表盘</string>
+    <string name="proxies">代理</string>
+    <string name="connect">连接</string>
+    <string name="per_second">%s/s</string>
+    <string name="current_node">当前节点</string>
+    <string name="subscription">订阅</string>
+    <string name="switch_subscription">切换订阅</string>
+    <string name="selected">已选中</string>
+    <string name="refresh">刷新</string>
+    <string name="test_all">全部测速</string>
+    <string name="direct_mode_title">直连模式</string>
+    <string name="direct_mode_body">流量直接发出，不经过代理。</string>
+    <string name="no_groups_title">没有策略组</string>
+    <string name="no_groups_body">选好订阅并连接后显示策略组。</string>
+    <string name="whitelist_entries">Token 与链接</string>
+    <string name="whitelist_none">还没有 token 或链接</string>
+    <string name="whitelist_empty_body">添加 po0 token 或 ggy 链接后，自动加白会让本机出口 IP 留在白名单中。</string>
+    <plurals name="whitelist_summary">
+        <item quantity="other">%1$d / %2$d 已加白</item>
+    </plurals>
 </resources>

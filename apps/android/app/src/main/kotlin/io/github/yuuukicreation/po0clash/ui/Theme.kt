@@ -32,6 +32,8 @@ data class AppleColors(
     val glassBorder: Color,
     val selection: Color,
     val track: Color,
+    val cell: Color,
+    val tabSelection: Color,
     val dark: Boolean,
 )
 
@@ -51,6 +53,8 @@ private val Light = AppleColors(
     glassBorder = Color.White.copy(alpha = 0.8f),
     selection = Color.White,
     track = Color(0x1F767680),
+    cell = Color(0xFFF2F2F7),
+    tabSelection = Color.Black.copy(alpha = 0.07f),
     dark = false,
 )
 
@@ -69,7 +73,9 @@ private val Dark = AppleColors(
     glassFallback = Color(0xFF282828).copy(alpha = 0.94f),
     glassBorder = Color.White.copy(alpha = 0.14f),
     selection = Color(0xFF636366),
-    track = Color.Transparent,
+    track = Color(0x3D767680),
+    cell = Color(0xFF2C2C2E),
+    tabSelection = Color.White.copy(alpha = 0.14f),
     dark = true,
 )
 
@@ -79,13 +85,19 @@ val apple: AppleColors
     @Composable get() = LocalAppleColors.current
 
 private val typography = Typography(
+    headlineLarge = TextStyle(fontSize = 34.sp, fontWeight = FontWeight.Bold, lineHeight = 41.sp),
+    titleLarge = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.SemiBold, lineHeight = 28.sp),
     titleMedium = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold, lineHeight = 22.sp),
     bodyLarge = TextStyle(fontSize = 17.sp, lineHeight = 22.sp),
     bodyMedium = TextStyle(fontSize = 15.sp, lineHeight = 20.sp),
     bodySmall = TextStyle(fontSize = 13.sp, lineHeight = 18.sp),
     labelLarge = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, lineHeight = 20.sp),
     labelMedium = TextStyle(fontSize = 13.sp, lineHeight = 18.sp),
+    labelSmall = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium, lineHeight = 13.sp),
 )
+
+/** Fixed-width digits, so rates, timers and delays do not jitter as they change. */
+fun TextStyle.tabular() = copy(fontFeatureSettings = "tnum")
 
 @Composable
 fun Po0Theme(content: @Composable () -> Unit) {
