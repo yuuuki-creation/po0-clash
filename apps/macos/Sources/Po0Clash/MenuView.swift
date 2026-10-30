@@ -185,7 +185,7 @@ private struct ControlsGrid: View {
             GridRow {
                 Text("Subscription").foregroundStyle(.secondary)
                 if model.profiles.isEmpty {
-                    Button("Add Subscription…") { MainWindow.shared.show(.subscriptions) }
+                    Button("Add Subscription…") { MainWindow.shared.show(.profiles) }
                         .buttonStyle(.link)
                 } else {
                     Picker("Subscription", selection: Binding<String?>(

@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 enum Page: String, CaseIterable, Identifiable {
-    case dashboard, proxies, subscriptions, whitelist, settings
+    case dashboard, proxies, profiles, whitelist, activity, tools
 
     var id: Self { self }
 
@@ -10,9 +10,10 @@ enum Page: String, CaseIterable, Identifiable {
         switch self {
         case .dashboard: return "Dashboard"
         case .proxies: return "Proxies"
-        case .subscriptions: return "Subscriptions"
+        case .profiles: return "Profiles"
         case .whitelist: return "Whitelist"
-        case .settings: return "Settings"
+        case .activity: return "Activity"
+        case .tools: return "Tools"
         }
     }
 
@@ -20,9 +21,10 @@ enum Page: String, CaseIterable, Identifiable {
         switch self {
         case .dashboard: return "square.grid.2x2"
         case .proxies: return "globe"
-        case .subscriptions: return "tray.full"
+        case .profiles: return "square.stack.3d.up"
         case .whitelist: return "checkmark.shield"
-        case .settings: return "gearshape"
+        case .activity: return "chart.xyaxis.line"
+        case .tools: return "wrench.and.screwdriver"
         }
     }
 }
@@ -87,14 +89,17 @@ struct MainView: View {
                 Label(page.title, systemImage: page.symbol).tag(page)
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
+            // The window title bridges from the sidebar column; the detail's own title alone left it "Untitled".
+            .navigationTitle(navigation.page.title)
         } detail: {
             Group {
                 switch navigation.page {
                 case .dashboard: DashboardView()
                 case .proxies: ProxiesView()
-                case .subscriptions: SubscriptionsView()
+                case .profiles: SubscriptionsView()
                 case .whitelist: WhitelistView()
-                case .settings: SettingsView()
+                case .activity: ActivityView()
+                case .tools: ToolsView()
                 }
             }
             .navigationTitle(navigation.page.title)
@@ -142,6 +147,7 @@ struct PageScaffold<Actions: View, Content: View>: View {
     private var page: some View {
         if #available(macOS 14, *) {
             content
+                .navigationTitle(title)
                 .navigationSubtitle(subtitle ?? "")
                 .toolbar {
                     ToolbarItemGroup(placement: .primaryAction) { actions }

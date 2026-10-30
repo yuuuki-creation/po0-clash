@@ -239,7 +239,7 @@ private struct SubscriptionCard: View {
     var body: some View {
         Card("Subscription", symbol: "tray.full") {
             if model.profiles.isEmpty {
-                Button("Add Subscription…") { navigation.page = .subscriptions }
+                Button("Add Subscription…") { navigation.page = .profiles }
                     .buttonStyle(.link)
             } else {
                 VStack(alignment: .leading, spacing: 6) {

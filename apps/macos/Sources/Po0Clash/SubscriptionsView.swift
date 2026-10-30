@@ -12,7 +12,7 @@ struct SubscriptionsView: View {
     }
 
     var body: some View {
-        PageScaffold("Subscriptions") {
+        PageScaffold("Profiles") {
             Button {
                 sheet = .links
             } label: {

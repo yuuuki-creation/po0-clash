@@ -6,8 +6,8 @@ SwiftUI 应用（主窗口加菜单栏），代码在 `apps/macos`，方案见 [
 
 - SwiftPM 包（`apps/macos/Package.swift`），最低 macOS 13，`LSUIElement`；主窗口打开时切成普通应用（显示程序坞图标），
   关闭后回到只在菜单栏。正常打开应用、再次打开或点程序坞图标时显示主窗口，开机自启时不显示。
-- 主窗口（`MainWindow.swift`，ADR 0019）照访达布局：AppKit 管理的窗口里放 `NavigationSplitView`，侧边栏依次为仪表盘、代理、
-  订阅、加白、设置。从 macOS 14 起 `NSHostingController` 把 SwiftUI 的 `.toolbar`、`.navigationTitle` 和
+- 主窗口（`MainWindow.swift`，ADR 0019）照访达布局：AppKit 管理的窗口里放 `NavigationSplitView`，侧边栏与 Flutter 版一致，依次为仪表盘、
+  代理、配置、加白、活动、工具；内核还没支持的工具项和活动页先显示「即将推出」（ADR 0020）。从 macOS 14 起 `NSHostingController` 把 SwiftUI 的 `.toolbar`、`.navigationTitle` 和
   `.navigationSubtitle` 桥接到窗口的统一工具栏，页面操作是纯图标按钮，macOS 26 上由系统放进共用的玻璃胶囊；macOS 13
   不能桥接，改为内容顶部的标题行，侧边栏也不允许收起。仪表盘是 FlClash 式的卡片网格（速率、出口 IP、当前节点、模式、
   接管方式、订阅用量、加白，填充与分组表单相同）和右下角的浮动启动按钮（已连接时显示时长）；代理页是策略组标题加节点
@@ -65,5 +65,5 @@ Flutter 版先发正常退出的 Apple 事件，再退回 SIGTERM，并结束它
 3. 普通启动 10 秒，确认没有自动连接、SIGTERM 后正常关闭；
 4. `-showMenu YES -reopenMenu YES` 打开、关闭、再打开菜单窗口，在系统日志里确认刷新了至少两次；
 5. 仅 macos-26：截图。`-launchedAtLogin YES` 模拟开机自启（必须自动重连）、`-testDelays YES` 先测延迟、`-showMenu YES` /
-   `-showWindow <dashboard|proxies|subscriptions|whitelist|settings>` 打开界面，`-appearance dark` 强制深色（runner 的系统外观改不了），`-AppleLanguages '(zh-Hans)'`
+   `-showWindow <dashboard|proxies|profiles|whitelist|activity|tools>` 打开界面，`-appearance dark` 强制深色（runner 的系统外观改不了），`-AppleLanguages '(zh-Hans)'`
    切中文。
