@@ -8,7 +8,10 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 pub const ARG: &str = "--autostart";
 
 fn schtasks(args: &[&str]) -> std::io::Result<Output> {
-    Command::new("schtasks").args(args).creation_flags(CREATE_NO_WINDOW).output()
+    Command::new("schtasks")
+        .args(args)
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
 }
 
 fn check(output: std::io::Result<Output>) -> Result<(), String> {
@@ -18,7 +21,11 @@ fn check(output: std::io::Result<Output>) -> Result<(), String> {
     }
     let stderr = String::from_utf8_lossy(&output.stderr);
     let message = stderr.trim();
-    Err(if message.is_empty() { format!("schtasks exited with {}", output.status) } else { message.to_string() })
+    Err(if message.is_empty() {
+        format!("schtasks exited with {}", output.status)
+    } else {
+        message.to_string()
+    })
 }
 
 pub fn enabled() -> bool {
@@ -37,17 +44,30 @@ pub fn set(enabled: bool) -> Result<(), String> {
     };
     let file = std::env::temp_dir().join("po0-clash-autostart.xml");
     std::fs::write(&file, utf16_with_bom(&task_xml(&exe, &user))).map_err(|e| e.to_string())?;
-    let result = check(schtasks(&["/Create", "/TN", TASK_NAME, "/XML", &file.to_string_lossy(), "/F"]));
+    let result = check(schtasks(&[
+        "/Create",
+        "/TN",
+        TASK_NAME,
+        "/XML",
+        &file.to_string_lossy(),
+        "/F",
+    ]));
     let _ = std::fs::remove_file(&file);
     result
 }
 
 fn utf16_with_bom(text: &str) -> Vec<u8> {
-    std::iter::once(0xFEFF).chain(text.encode_utf16()).flat_map(u16::to_le_bytes).collect()
+    std::iter::once(0xFEFF)
+        .chain(text.encode_utf16())
+        .flat_map(u16::to_le_bytes)
+        .collect()
 }
 
 fn escape(text: &str) -> String {
-    text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
 }
 
 // Written as XML because schtasks /SC ONLOGON would keep its defaults: a 72-hour run limit that kills the app, no start

@@ -31,8 +31,9 @@ jobs:
           go-version: stable
           cache-dependency-path: mihomo/upstream/go.sum
       - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace
+      # The Windows shell in the workspace builds only for Windows (native-windows.yaml).
+      - run: cargo clippy -p po0-core -p po0-ffi --all-targets -- -D warnings
+      - run: cargo test -p po0-core -p po0-ffi
       - run: python3 tool/native_licenses.py --check
       - name: Build mihomo
         working-directory: mihomo/upstream

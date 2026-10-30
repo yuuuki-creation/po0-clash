@@ -6,14 +6,22 @@ mod tray;
 
 use std::sync::{Arc, Mutex};
 
-use po0_core as po0;
 use po0::{Change, Core, CoreOptions, LaunchRecovery, Listener, Platform};
+use po0_core as po0;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 
 /// The language chosen in the app settings, or the system's when none is: `zh`, `en`, `ja` or `ru`.
 pub fn language(core: &Core) -> &'static str {
-    let tag = core.app_settings().language.or_else(sys_locale::get_locale).unwrap_or_default().to_ascii_lowercase();
-    ["zh", "ja", "ru"].into_iter().find(|code| tag.starts_with(code)).unwrap_or("en")
+    let tag = core
+        .app_settings()
+        .language
+        .or_else(sys_locale::get_locale)
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    ["zh", "ja", "ru"]
+        .into_iter()
+        .find(|code| tag.starts_with(code))
+        .unwrap_or("en")
 }
 
 /// Why the app did not connect on its own this time, until the window has shown it once.
@@ -57,9 +65,16 @@ impl Listener for Bridge {
 
 fn open_core(app: &AppHandle) -> Result<Arc<Core>, String> {
     let paths = app.path();
-    let data_dir = paths.app_data_dir().map_err(|e| e.to_string())?.join("core");
+    let data_dir = paths
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("core");
     // path_provider puts the Flutter app's support dir at %APPDATA%\<CompanyName>\<ProductName> from Runner.rc.
-    let legacy = paths.data_dir().map_err(|e| e.to_string())?.join("io.github.yuuukicreation").join("po0-clash");
+    let legacy = paths
+        .data_dir()
+        .map_err(|e| e.to_string())?
+        .join("io.github.yuuukicreation")
+        .join("po0-clash");
     let existing = |name: &str| Some(legacy.join(name)).filter(|p| p.is_file());
     Core::new(CoreOptions {
         data_dir,
@@ -77,14 +92,23 @@ fn fatal(message: &str) -> ! {
     let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
     let (text, caption) = (wide(message), wide("po0-clash"));
     // SAFETY: both strings are NUL-terminated and outlive the call.
-    unsafe { MessageBoxW(std::ptr::null_mut(), text.as_ptr(), caption.as_ptr(), MB_OK | MB_ICONERROR) };
+    unsafe {
+        MessageBoxW(
+            std::ptr::null_mut(),
+            text.as_ptr(),
+            caption.as_ptr(),
+            MB_OK | MB_ICONERROR,
+        )
+    };
     std::process::exit(1)
 }
 
 pub fn run() {
     let autostarted = std::env::args().any(|a| a == autostart::ARG);
     let app = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_window(app)))
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            show_window(app)
+        }))
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
@@ -180,7 +204,12 @@ pub fn run() {
             if !autostarted && !settings.silent_launch {
                 show_window(handle);
             }
-            let connect = !recovered && if autostarted { core.was_connected() } else { settings.auto_connect };
+            let connect = !recovered
+                && if autostarted {
+                    core.was_connected()
+                } else {
+                    settings.auto_connect
+                };
             if connect {
                 let handle = handle.clone();
                 tauri::async_runtime::spawn_blocking(move || {

@@ -6,8 +6,9 @@ use std::ptr::{null, null_mut};
 use serde::Serialize;
 use windows_sys::Win32::Foundation::LocalFree;
 use windows_sys::Win32::NetworkManagement::WindowsFirewall::{
-    INET_FIREWALL_APP_CONTAINER, NetworkIsolationEnumAppContainers, NetworkIsolationFreeAppContainers,
-    NetworkIsolationGetAppContainerConfig, NetworkIsolationSetAppContainerConfig,
+    INET_FIREWALL_APP_CONTAINER, NetworkIsolationEnumAppContainers,
+    NetworkIsolationFreeAppContainers, NetworkIsolationGetAppContainerConfig,
+    NetworkIsolationSetAppContainerConfig,
 };
 use windows_sys::Win32::Security::Authorization::{ConvertSidToStringSidW, ConvertStringSidToSidW};
 use windows_sys::Win32::Security::{PSID, SID_AND_ATTRIBUTES};
@@ -46,8 +47,13 @@ fn display_name(text: PWSTR) -> String {
         return raw;
     }
     let mut buf = [0u16; 512];
-    let resolved = unsafe { SHLoadIndirectString(text, buf.as_mut_ptr(), buf.len() as u32, null()) };
-    if resolved >= 0 { unsafe { wide(buf.as_ptr()) } } else { String::new() }
+    let resolved =
+        unsafe { SHLoadIndirectString(text, buf.as_mut_ptr(), buf.len() as u32, null()) };
+    if resolved >= 0 {
+        unsafe { wide(buf.as_ptr()) }
+    } else {
+        String::new()
+    }
 }
 
 fn sid_string(sid: PSID) -> Option<String> {
@@ -66,12 +72,18 @@ fn exempt_sids() -> Result<HashSet<String>, String> {
     let (mut count, mut entries) = (0u32, null_mut::<SID_AND_ATTRIBUTES>());
     // SAFETY: on success the caller owns the array and every SID in it, each freed with LocalFree.
     unsafe {
-        check(NetworkIsolationGetAppContainerConfig(&mut count, &mut entries))?;
+        check(NetworkIsolationGetAppContainerConfig(
+            &mut count,
+            &mut entries,
+        ))?;
         if entries.is_null() {
             return Ok(HashSet::new());
         }
         let list = std::slice::from_raw_parts(entries, count as usize);
-        let sids = list.iter().filter_map(|entry| sid_string(entry.Sid)).collect();
+        let sids = list
+            .iter()
+            .filter_map(|entry| sid_string(entry.Sid))
+            .collect();
         for entry in list {
             LocalFree(entry.Sid);
         }
@@ -94,15 +106,25 @@ pub fn apps() -> Result<Vec<AppContainer>, String> {
             .filter_map(|c| {
                 let sid = sid_string(c.appContainerSid.cast())?;
                 let name = wide(c.appContainerName);
-                let display_name = Some(display_name(c.displayName)).filter(|d| !d.is_empty()).unwrap_or_else(|| name.clone());
-                Some(AppContainer { exempt: exempt.contains(&sid), sid, name, display_name })
+                let display_name = Some(display_name(c.displayName))
+                    .filter(|d| !d.is_empty())
+                    .unwrap_or_else(|| name.clone());
+                Some(AppContainer {
+                    exempt: exempt.contains(&sid),
+                    sid,
+                    name,
+                    display_name,
+                })
             })
             .collect();
         NetworkIsolationFreeAppContainers(list);
         containers
     };
     let mut seen = HashSet::new();
-    let mut apps: Vec<_> = containers.into_iter().filter(|app| seen.insert(app.sid.clone())).collect();
+    let mut apps: Vec<_> = containers
+        .into_iter()
+        .filter(|app| seen.insert(app.sid.clone()))
+        .collect();
     apps.sort_by_cached_key(|app| app.display_name.to_lowercase());
     Ok(apps)
 }
@@ -110,7 +132,11 @@ pub fn apps() -> Result<Vec<AppContainer>, String> {
 /// Replaces the whole exemption list, as the API only takes it whole.
 pub fn set(sids: &[String]) -> Result<(), String> {
     let mut owned: Vec<PSID> = Vec::with_capacity(sids.len());
-    let free = |owned: &[PSID]| owned.iter().for_each(|&sid| unsafe { LocalFree(sid); });
+    let free = |owned: &[PSID]| {
+        owned.iter().for_each(|&sid| unsafe {
+            LocalFree(sid);
+        })
+    };
     for text in sids {
         let text16: Vec<u16> = text.encode_utf16().chain(Some(0)).collect();
         let mut sid: PSID = null_mut();
@@ -120,8 +146,15 @@ pub fn set(sids: &[String]) -> Result<(), String> {
         }
         owned.push(sid);
     }
-    let entries: Vec<_> = owned.iter().map(|&sid| SID_AND_ATTRIBUTES { Sid: sid, Attributes: 0 }).collect();
-    let code = unsafe { NetworkIsolationSetAppContainerConfig(entries.len() as u32, entries.as_ptr()) };
+    let entries: Vec<_> = owned
+        .iter()
+        .map(|&sid| SID_AND_ATTRIBUTES {
+            Sid: sid,
+            Attributes: 0,
+        })
+        .collect();
+    let code =
+        unsafe { NetworkIsolationSetAppContainerConfig(entries.len() as u32, entries.as_ptr()) };
     free(&owned);
     check(code)
 }

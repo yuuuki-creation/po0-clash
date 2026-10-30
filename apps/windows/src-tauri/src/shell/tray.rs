@@ -64,7 +64,9 @@ fn labels(app: &AppHandle) -> Labels {
 fn icon(engine: &EngineState, route_mode: RouteMode) -> Image<'static> {
     let bytes: &'static [u8] = match (engine, route_mode) {
         (EngineState::Running, RouteMode::Tun) => include_bytes!("../../icons/tray/tun.ico"),
-        (EngineState::Running, RouteMode::SystemProxy) => include_bytes!("../../icons/tray/proxy.ico"),
+        (EngineState::Running, RouteMode::SystemProxy) => {
+            include_bytes!("../../icons/tray/proxy.ico")
+        }
         _ => include_bytes!("../../icons/tray/stopped.ico"),
     };
     Image::from_bytes(bytes).expect("bundled tray icon")
@@ -77,7 +79,8 @@ struct Tray {
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let labels = labels(app);
-    let connect = CheckMenuItem::with_id(app, "connect", labels.connect, true, false, None::<&str>)?;
+    let connect =
+        CheckMenuItem::with_id(app, "connect", labels.connect, true, false, None::<&str>)?;
     let open = MenuItem::with_id(app, "open", labels.open, true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", labels.quit, true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
@@ -94,12 +97,20 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
                 show_window(tray.app_handle());
             }
         })
         .build(app)?;
-    app.manage(Tray { connect, refreshing: Mutex::new(()) });
+    app.manage(Tray {
+        connect,
+        refreshing: Mutex::new(()),
+    });
     refresh(app);
     Ok(())
 }

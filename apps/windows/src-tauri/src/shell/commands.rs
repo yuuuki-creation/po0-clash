@@ -5,9 +5,10 @@ use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 use super::po0::{
-    AppSettings, Connection, Connections, Core, CoreError, EngineOptions, ExitIp, GeoFile, ImportResult, IntranetIp, LogEntry, Mode, Profile,
-    ProfileEdit, ProfileOverride, Provider, ProviderKind, ProxyGroup, RestoreScope, RouteMode, Rule, Script,
-    Status, Traffic, WebDav, WhitelistState,
+    AppSettings, Connection, Connections, Core, CoreError, EngineOptions, ExitIp, GeoFile,
+    ImportResult, IntranetIp, LogEntry, Mode, Profile, ProfileEdit, ProfileOverride, Provider,
+    ProviderKind, ProxyGroup, RestoreScope, RouteMode, Rule, Script, Status, Traffic, WebDav,
+    WhitelistState,
 };
 use super::{Backdrop, Launch, LaunchNotice, autostart, language, loopback};
 
@@ -35,7 +36,11 @@ pub struct AppInfo {
 
 #[tauri::command]
 pub fn app_info(app: AppHandle, core: CoreState<'_>, backdrop: State<'_, Backdrop>) -> AppInfo {
-    AppInfo { version: app.package_info().version.to_string(), language: language(&core), backdrop: backdrop.0 }
+    AppInfo {
+        version: app.package_info().version.to_string(),
+        language: language(&core),
+        backdrop: backdrop.0,
+    }
 }
 
 #[tauri::command]
@@ -176,11 +181,21 @@ pub async fn reorder_profiles(core: CoreState<'_>, ids: Vec<String>) -> Reply<()
 }
 
 #[tauri::command]
-pub async fn export_profile(app: AppHandle, core: CoreState<'_>, id: String, name: String) -> Reply<Option<String>> {
+pub async fn export_profile(
+    app: AppHandle,
+    core: CoreState<'_>,
+    id: String,
+    name: String,
+) -> Reply<Option<String>> {
     let core = Arc::clone(&core);
     tauri::async_runtime::spawn_blocking(move || {
         let content = core.profile_content(id).map_err(|e| e.to_string())?;
-        let Some(path) = save_dialog(&app, &format!("{name}.yaml"), "YAML", &["yaml", "yml", "txt"]) else {
+        let Some(path) = save_dialog(
+            &app,
+            &format!("{name}.yaml"),
+            "YAML",
+            &["yaml", "yml", "txt"],
+        ) else {
             return Ok(None);
         };
         std::fs::write(&path, content).map_err(|e| e.to_string())?;
@@ -226,8 +241,16 @@ pub async fn set_whitelist_enabled(core: CoreState<'_>, enabled: bool) -> Reply<
 }
 
 #[tauri::command]
-pub async fn add_whitelist_entries(core: CoreState<'_>, text: String, name: String) -> Reply<usize> {
-    blocking(&core, move |c| c.add_whitelist_entries(text, name.trim().to_string()).map(|added| added.len())).await
+pub async fn add_whitelist_entries(
+    core: CoreState<'_>,
+    text: String,
+    name: String,
+) -> Reply<usize> {
+    blocking(&core, move |c| {
+        c.add_whitelist_entries(text, name.trim().to_string())
+            .map(|added| added.len())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -271,7 +294,11 @@ pub async fn providers(core: CoreState<'_>) -> Reply<Vec<Provider>> {
 
 #[tauri::command]
 pub async fn update_provider(core: CoreState<'_>, kind: String, name: String) -> Reply<()> {
-    let kind = if kind == "rule" { ProviderKind::Rule } else { ProviderKind::Proxy };
+    let kind = if kind == "rule" {
+        ProviderKind::Rule
+    } else {
+        ProviderKind::Proxy
+    };
     blocking(&core, move |c| c.update_provider(kind, name)).await
 }
 
@@ -302,16 +329,29 @@ pub async fn intranet_ip(core: CoreState<'_>) -> Reply<Option<IntranetIp>> {
 
 #[tauri::command]
 pub async fn autostart_enabled() -> Reply<bool> {
-    tauri::async_runtime::spawn_blocking(autostart::enabled).await.map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(autostart::enabled)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn set_autostart(enabled: bool) -> Reply<()> {
-    tauri::async_runtime::spawn_blocking(move || autostart::set(enabled)).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || autostart::set(enabled))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
-fn save_dialog(app: &AppHandle, file_name: &str, filter: &str, extensions: &[&str]) -> Option<std::path::PathBuf> {
-    let mut dialog = app.dialog().file().set_file_name(file_name).add_filter(filter, extensions);
+fn save_dialog(
+    app: &AppHandle,
+    file_name: &str,
+    filter: &str,
+    extensions: &[&str],
+) -> Option<std::path::PathBuf> {
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_file_name(file_name)
+        .add_filter(filter, extensions);
     if let Some(window) = app.get_webview_window("main") {
         dialog = dialog.set_parent(&window);
     }
@@ -323,7 +363,11 @@ fn save_dialog(app: &AppHandle, file_name: &str, filter: &str, extensions: &[&st
 }
 
 fn scope(name: &str) -> RestoreScope {
-    if name == "profiles" { RestoreScope::Profiles } else { RestoreScope::All }
+    if name == "profiles" {
+        RestoreScope::Profiles
+    } else {
+        RestoreScope::All
+    }
 }
 
 #[tauri::command]
@@ -343,7 +387,11 @@ pub async fn backup_to_file(app: AppHandle, core: CoreState<'_>) -> Reply<Option
 
 /// Returns false when the person cancels the file picker.
 #[tauri::command]
-pub async fn restore_from_file(app: AppHandle, core: CoreState<'_>, scope_name: String) -> Reply<bool> {
+pub async fn restore_from_file(
+    app: AppHandle,
+    core: CoreState<'_>,
+    scope_name: String,
+) -> Reply<bool> {
     let core = Arc::clone(&core);
     tauri::async_runtime::spawn_blocking(move || {
         let mut dialog = app.dialog().file().add_filter("Zip", &["zip"]);
@@ -353,11 +401,15 @@ pub async fn restore_from_file(app: AppHandle, core: CoreState<'_>, scope_name: 
         if let Ok(desktop) = app.path().desktop_dir() {
             dialog = dialog.set_directory(desktop);
         }
-        let Some(path) = dialog.blocking_pick_file().and_then(|picked| picked.into_path().ok()) else {
+        let Some(path) = dialog
+            .blocking_pick_file()
+            .and_then(|picked| picked.into_path().ok())
+        else {
             return Ok(false);
         };
         let data = std::fs::read(&path).map_err(|e| e.to_string())?;
-        core.restore(data, scope(&scope_name)).map_err(|e| e.to_string())?;
+        core.restore(data, scope(&scope_name))
+            .map_err(|e| e.to_string())?;
         Ok(true)
     })
     .await
@@ -386,7 +438,8 @@ pub async fn export_diagnostics(app: AppHandle, core: CoreState<'_>) -> Reply<Op
         let Some(path) = save_dialog(&app, "po0-clash-diagnostics.txt", "Text", &["txt"]) else {
             return Ok(None);
         };
-        core.export_diagnostics(path.clone()).map_err(|e| e.to_string())?;
+        core.export_diagnostics(path.clone())
+            .map_err(|e| e.to_string())?;
         Ok(Some(path.display().to_string()))
     })
     .await
@@ -399,7 +452,11 @@ pub async fn profile_override(core: CoreState<'_>, id: String) -> Reply<ProfileO
 }
 
 #[tauri::command]
-pub async fn set_profile_override(core: CoreState<'_>, id: String, overrides: ProfileOverride) -> Reply<()> {
+pub async fn set_profile_override(
+    core: CoreState<'_>,
+    id: String,
+    overrides: ProfileOverride,
+) -> Reply<()> {
     blocking(&core, move |c| c.set_profile_override(id, overrides)).await
 }
 
@@ -411,7 +468,11 @@ pub struct GroupsAndRules {
 
 #[tauri::command]
 pub async fn profile_groups_and_rules(core: CoreState<'_>, id: String) -> Reply<GroupsAndRules> {
-    blocking(&core, move |c| c.profile_groups_and_rules(id).map(|(groups, rules)| GroupsAndRules { groups, rules })).await
+    blocking(&core, move |c| {
+        c.profile_groups_and_rules(id)
+            .map(|(groups, rules)| GroupsAndRules { groups, rules })
+    })
+    .await
 }
 
 #[tauri::command]
@@ -438,13 +499,24 @@ pub struct ShareNode {
 #[tauri::command]
 pub async fn share_nodes(core: CoreState<'_>, id: String) -> Reply<Vec<ShareNode>> {
     blocking(&core, move |c| {
-        Ok(c.share_nodes(id)?.into_iter().map(|n| ShareNode { name: n.name, kind: n.kind }).collect())
+        Ok(c.share_nodes(id)?
+            .into_iter()
+            .map(|n| ShareNode {
+                name: n.name,
+                kind: n.kind,
+            })
+            .collect())
     })
     .await
 }
 
 #[tauri::command]
-pub async fn rename_share_node(core: CoreState<'_>, id: String, name: String, new_name: String) -> Reply<()> {
+pub async fn rename_share_node(
+    core: CoreState<'_>,
+    id: String,
+    name: String,
+    new_name: String,
+) -> Reply<()> {
     blocking(&core, move |c| c.rename_share_node(id, name, new_name)).await
 }
 
@@ -466,7 +538,12 @@ pub async fn licenses(core: CoreState<'_>) -> Reply<Vec<License>> {
     blocking(&core, |c| {
         Ok(c.licenses()
             .into_iter()
-            .map(|l| License { name: l.name, version: l.version, license: l.license, url: l.url })
+            .map(|l| License {
+                name: l.name,
+                version: l.version,
+                license: l.license,
+                url: l.url,
+            })
             .collect())
     })
     .await
@@ -474,17 +551,25 @@ pub async fn licenses(core: CoreState<'_>) -> Reply<Vec<License>> {
 
 #[tauri::command]
 pub async fn loopback_apps() -> Reply<Vec<loopback::AppContainer>> {
-    tauri::async_runtime::spawn_blocking(loopback::apps).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(loopback::apps)
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
 pub async fn set_loopback(sids: Vec<String>) -> Reply<()> {
-    tauri::async_runtime::spawn_blocking(move || loopback::set(&sids)).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || loopback::set(&sids))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
 pub fn launch_notice(launch: State<'_, Launch>) -> Option<LaunchNotice> {
-    launch.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take()
+    launch
+        .0
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .take()
 }
 
 #[tauri::command]
@@ -498,8 +583,19 @@ pub fn open_url(url: String) -> Reply<()> {
     let (verb, target) = (wide("open"), wide(&url));
     // SAFETY: both strings are NUL-terminated and outlive the call.
     let result = unsafe {
-        ShellExecuteW(std::ptr::null_mut(), verb.as_ptr(), target.as_ptr(), std::ptr::null(), std::ptr::null(), SW_SHOWNORMAL)
+        ShellExecuteW(
+            std::ptr::null_mut(),
+            verb.as_ptr(),
+            target.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            SW_SHOWNORMAL,
+        )
     };
     // ShellExecuteW reports success as a value above 32.
-    if result as usize > 32 { Ok(()) } else { Err(std::io::Error::last_os_error().to_string()) }
+    if result as usize > 32 {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error().to_string())
+    }
 }
