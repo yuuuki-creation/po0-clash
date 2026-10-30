@@ -18,11 +18,12 @@ struct ProxiesView: View {
     @State private var query = ""
     @State private var searching = false
     @State private var locateRequest = 0
+    @Namespace private var tabPill
 
     var body: some View {
         PageScaffold("Proxies", subtitle: model.status?.currentNode) {
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) { searching.toggle() }
+                withAnimation(Motion.spring) { searching.toggle() }
                 if !searching { query = "" }
             } label: {
                 Label("Search", systemImage: "magnifyingglass")
@@ -40,7 +41,7 @@ struct ProxiesView: View {
             Button {
                 for group in model.groups { model.testDelay(group.name) }
             } label: {
-                Label("Test all", systemImage: "bolt")
+                Label("Test all", systemImage: "bolt").pulsing(!model.testing.isEmpty)
             }
             .help("Test all")
             .disabled(model.groups.isEmpty || !model.testing.isEmpty)
@@ -69,12 +70,14 @@ struct ProxiesView: View {
                                 VStack(spacing: 0) {
                                     if searching {
                                         SearchField(text: $query, prompt: "Search nodes")
+                                            .liquidGlass(in: Capsule())
                                             .padding(.horizontal, 20)
                                             .padding(.vertical, 6)
+                                            .transition(.move(edge: .top).combined(with: .opacity))
                                     }
                                     if arrangement == .tabs { tabBar }
                                 }
-                                .background(Color.pageBackground)
+                                .pinnedHeaderBackground()
                             }
                         }
                     }
@@ -100,7 +103,7 @@ struct ProxiesView: View {
                     density: density,
                     tileStyle: tileStyle
                 ) {
-                    withAnimation(.easeInOut(duration: 0.2)) { toggle(group.name) }
+                    withAnimation(Motion.spring) { toggle(group.name) }
                 }
                 .id(group.name)
             }
@@ -162,12 +165,22 @@ struct ProxiesView: View {
                             .lineLimit(1)
                             .padding(.horizontal, 12)
                             .frame(height: 28)
-                            .background(selected ? Color.accentColor.opacity(0.12) : Color.controlFill, in: Capsule())
+                            .background {
+                                if selected {
+                                    Capsule()
+                                        .fill(Color.accentColor.opacity(0.14))
+                                        .matchedGeometryEffect(id: "pill", in: tabPill)
+                                }
+                            }
+                            .hoverHighlight(Capsule())
                             .contentShape(Capsule())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 }
             }
+            .padding(3)
+            .floatingGlass(in: Capsule())
+            .motion(value: currentTab?.name)
             .padding(.horizontal, 20)
             .padding(.vertical, 6)
         }
@@ -265,6 +278,7 @@ private struct GroupCard: View {
                         .id(NodeAnchor(group: group.name, node: node.name))
                     }
                 }
+                .transition(.opacity)
             }
         }
         .padding(.horizontal, 16)
@@ -340,16 +354,20 @@ private struct NodeTile: View {
     private let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
 
     var body: some View {
-        content
-            .font(.system(size: 13, weight: .medium))
-            .padding(.horizontal, 10)
-            .padding(.vertical, style == .detailed ? 9 : 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(selected ? Color.accentColor.opacity(0.08) : Color.tileBackground, in: shape)
-            .overlay(shape.strokeBorder(selected ? Color.accentColor : Color.cardEdge, lineWidth: selected ? 1.5 : 0.5))
-            .contentShape(shape)
-            .onTapGesture(perform: select)
-            .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+        Button(action: select) {
+            content
+                .font(.system(size: 13, weight: .medium))
+                .padding(.horizontal, 10)
+                .padding(.vertical, style == .detailed ? 9 : 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(selected ? Color.accentColor.opacity(0.08) : Color.tileBackground, in: shape)
+                .overlay(shape.strokeBorder(selected ? Color.accentColor : Color.cardEdge, lineWidth: selected ? 1.5 : 0.5))
+                .hoverHighlight(shape)
+                .contentShape(shape)
+                .motion(value: selected)
+        }
+        .buttonStyle(.pressable)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     @ViewBuilder
@@ -392,7 +410,10 @@ private struct NodeTile: View {
     @ViewBuilder
     private var check: some View {
         if selected {
-            Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Color.accentColor)
+            Image(systemName: "checkmark")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(Color.accentColor)
+                .transition(.scale(scale: 0.4).combined(with: .opacity))
         }
     }
 }
@@ -408,19 +429,28 @@ private struct DelayButton: View {
         } label: {
             Group {
                 if model.testing.contains(node.name) {
-                    ProgressView().controlSize(.mini)
+                    ProgressView().controlSize(.mini).transition(.opacity)
                 } else if let delay = Format.delay(node) {
-                    Text(verbatim: delay).foregroundStyle(Format.delayTint(node.delay))
+                    Text(verbatim: delay)
+                        .foregroundStyle(Format.delayTint(node.delay))
+                        .rollingDigits()
+                        .transition(.opacity)
                 } else {
-                    Image(systemName: "bolt").foregroundStyle(.secondary)
+                    Image(systemName: "bolt").foregroundStyle(.secondary).transition(.opacity)
                 }
             }
             .font(.system(size: 11, weight: .semibold))
             .monospacedDigit()
             .frame(minWidth: 16, minHeight: 16)
             .contentShape(Rectangle())
+            .motion(Motion.quick, value: DelayPhase(testing: model.testing.contains(node.name), delay: node.delay))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .help("Test delay")
     }
+}
+
+private struct DelayPhase: Equatable {
+    let testing: Bool
+    let delay: UInt32?
 }

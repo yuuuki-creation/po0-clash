@@ -362,9 +362,10 @@ private struct CurrentNodeCard: View {
                     .padding(.horizontal, 9)
                     .frame(height: 22)
                     .background(Color.controlFill, in: Capsule())
+                    .hoverHighlight(Capsule())
                     .contentShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
         } content: {
             HStack(alignment: .bottom, spacing: 12) {
@@ -373,18 +374,21 @@ private struct CurrentNodeCard: View {
                         .font(.system(size: 22, weight: .semibold))
                         .lineLimit(1)
                         .truncationMode(.middle)
+                        .contentTransition(.opacity)
                     Caption(text: meta)
                 }
+                .motion(value: currentNode?.name)
                 Spacer(minLength: 0)
                 if let node = currentNode {
                     if let delay = Format.delay(node) {
                         HStack(spacing: 5) {
                             StatusDot(color: Format.delayTint(node.delay))
-                            Text(verbatim: delay)
+                            Text(verbatim: delay).rollingDigits()
                         }
                         .font(.system(size: 15, weight: .semibold))
                         .monospacedDigit()
                         .foregroundStyle(Format.delayTint(node.delay))
+                        .motion(Motion.quick, value: node.delay)
                     }
                     CircleButton(symbol: "bolt", help: "Test delay", size: 30, busy: model.testing.contains(node.name)) {
                         model.testNodeDelay(node.name)
@@ -420,10 +424,11 @@ private struct CurrentNodeCard: View {
                     .padding(.horizontal, 10)
                     .frame(height: 26)
                     .background(Color.controlFill, in: Capsule())
+                    .hoverHighlight(Capsule())
                     .contentShape(Capsule())
                     .fixedSize()
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .disabled(!group.selectable || model.busy)
             }
         }
@@ -551,6 +556,8 @@ private struct ModeCard: View {
             Text((model.status?.mode ?? .rule).detail)
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
+                .contentTransition(.opacity)
+                .motion(value: model.status?.mode)
         }
     }
 }
@@ -572,11 +579,12 @@ private struct RouteCard: View {
             .disabled(model.busy || model.status == nil)
             HStack(spacing: 6) {
                 StatusDot(color: model.isRunning ? .green : Color(nsColor: .tertiaryLabelColor))
-                Text(state)
+                Text(state).contentTransition(.opacity)
             }
             .font(.system(size: 12))
             .foregroundStyle(.secondary)
             .lineLimit(1)
+            .motion(value: RoutePhase(running: model.isRunning, route: model.status?.routeMode))
         }
     }
 
@@ -584,6 +592,11 @@ private struct RouteCard: View {
         guard model.isRunning else { return "Not connected" }
         return model.status?.routeMode == .tun ? "Taking over all traffic" : "Set as the system proxy"
     }
+}
+
+private struct RoutePhase: Equatable {
+    let running: Bool
+    let route: RouteMode?
 }
 
 private struct WhitelistCard: View {
@@ -828,6 +841,7 @@ struct UsageBar: View {
                             .fill(Color.accentColor)
                             .frame(width: usage.fraction > 0 ? max(proxy.size.width * usage.fraction, 6) : 0)
                     }
+                    .motion(value: usage.fraction)
                 }
             HStack {
                 Text("\(Format.bytes(used)) of \(Format.bytes(usage.total)) used")

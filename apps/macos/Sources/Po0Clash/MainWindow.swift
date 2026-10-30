@@ -131,7 +131,7 @@ struct MainView: View {
                 case .tools: ToolsView()
                 }
             }
-            .modifier(FadeIn(enabled: model.appSettings?.pageAnimation ?? true))
+            .modifier(PageEntrance(enabled: model.appSettings?.pageAnimation ?? true))
             .id(navigation.page)
             .navigationTitle(navigation.page.title)
         }
@@ -148,18 +148,6 @@ struct MainView: View {
                 if visibility != .all { columns = .all }
             }
         }
-    }
-}
-
-/// FlClash's page animation. Only the incoming page fades, so two pages never share the toolbar mid-transition.
-private struct FadeIn: ViewModifier {
-    let enabled: Bool
-    @State private var shown = false
-
-    func body(content: Content) -> some View {
-        content
-            .opacity(shown || !enabled ? 1 : 0)
-            .onAppear { withAnimation(.easeOut(duration: 0.18)) { shown = true } }
     }
 }
 
@@ -271,19 +259,28 @@ struct ConnectButton: View {
             HStack(spacing: 6) {
                 if model.busy || (model.isOn && !model.isRunning) {
                     ProgressView().controlSize(.small)
+                        .transition(.scale(scale: 0.6).combined(with: .opacity))
                 } else {
                     Image(systemName: model.isOn ? "stop.fill" : "play.fill")
+                        .replacingSymbol()
+                        .transition(.scale(scale: 0.6).combined(with: .opacity))
                 }
                 if let since = model.connectedAt {
                     TimelineView(.periodic(from: since, by: 1)) { context in
-                        Text(Format.elapsed(since, now: context.date)).monospacedDigit()
+                        Text(Format.elapsed(since, now: context.date))
+                            .monospacedDigit()
+                            .rollingDigits()
+                            .motion(Motion.quick, value: context.date)
                     }
+                    .transition(.opacity)
                 } else {
                     Text(model.isOn ? LocalizedStringKey("Connecting…") : LocalizedStringKey("Connect"))
+                        .transition(.opacity)
                 }
             }
             .font(.system(size: 13, weight: .semibold))
             .padding(.horizontal, 4)
+            .motion(value: ConnectPhase(model))
         }
         .glassButton(prominent: true)
         .buttonBorderShapeCapsule()
@@ -294,6 +291,19 @@ struct ConnectButton: View {
             Button("Restart Engine") { model.reconnect() }
                 .disabled(!model.isOn || model.busy)
         }
+    }
+}
+
+/// What the connect button shows; its glass capsule reshapes with a spring whenever this changes.
+private struct ConnectPhase: Equatable {
+    let busy: Bool
+    let on: Bool
+    let connected: Bool
+
+    @MainActor init(_ model: AppModel) {
+        busy = model.busy || (model.isOn && !model.isRunning)
+        on = model.isOn
+        connected = model.connectedAt != nil
     }
 }
 

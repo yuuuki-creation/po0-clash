@@ -245,11 +245,13 @@ struct Metric: View {
             Text(value)
                 .font(.system(size: size, weight: .semibold, design: .rounded))
                 .monospacedDigit()
+                .rollingDigits()
             if !unit.isEmpty {
                 Text(unit).font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
             }
         }
         .lineLimit(1)
+        .motion(Motion.quick, value: value)
     }
 }
 
@@ -264,16 +266,21 @@ struct CircleButton: View {
         Button(action: action) {
             Group {
                 if busy {
-                    ProgressView().controlSize(.mini)
+                    ProgressView().controlSize(.mini).transition(.opacity)
                 } else {
-                    Image(systemName: symbol).font(.system(size: size * 0.46, weight: .semibold))
+                    Image(systemName: symbol)
+                        .font(.system(size: size * 0.46, weight: .semibold))
+                        .replacingSymbol()
+                        .transition(.opacity)
                 }
             }
             .frame(width: size, height: size)
             .background(Color.controlFill, in: Circle())
+            .hoverHighlight(Circle())
             .contentShape(Circle())
+            .motion(Motion.quick, value: busy)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .help(help)
         .accessibilityLabel(Text(help))
     }
@@ -302,6 +309,8 @@ struct SearchField: View {
         .padding(.horizontal, 10)
         .frame(height: 30)
         .background(Color.controlFill, in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.accentColor.opacity(focused ? 0.5 : 0), lineWidth: 1.5))
+        .motion(Motion.quick, value: focused)
         .onAppear { focused = true }
         .onExitCommand { text = "" }
     }
@@ -311,7 +320,7 @@ struct StatusDot: View {
     let color: Color
 
     var body: some View {
-        Circle().fill(color).frame(width: 7, height: 7)
+        Circle().fill(color).frame(width: 7, height: 7).motion(value: color)
     }
 }
 
