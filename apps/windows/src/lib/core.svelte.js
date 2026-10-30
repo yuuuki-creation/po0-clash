@@ -12,6 +12,8 @@ export const app = $state({
   groups: [],
   whitelist: { enabled: false, entries: [] },
   traffic: { up: 0, down: 0 },
+  history: [],
+  memory: 0,
   exitIp: null,
   exitIpLoading: false,
   busy: {},
@@ -39,7 +41,7 @@ const delays = new Map();
 
 const withDelays = (group) => ({
   ...group,
-  nodes: group.nodes.map((node) => ({ ...node, delay: node.delay ?? delays.get(node.name) ?? null })),
+  nodes: group.nodes.map((node) => ({ ...node, delay: delays.get(node.name) ?? node.delay ?? null })),
 });
 
 export async function testDelay(name) {
@@ -47,6 +49,13 @@ export async function testDelay(name) {
   if (!group) return;
   for (const node of group.nodes) if (node.delay != null) delays.set(node.name, node.delay);
   app.groups = app.groups.map((g) => (g.name === name ? withDelays(group) : withDelays(g)));
+}
+
+export async function testNode(name) {
+  const delay = await act(`node:${name}`, 'test_node_delay', { node: name });
+  if (delay === undefined) return;
+  delays.set(name, delay);
+  app.groups = app.groups.map(withDelays);
 }
 
 async function loadGroups() {
@@ -116,13 +125,14 @@ export async function refreshAll() {
 
 async function pollTraffic() {
   if (document.hidden || app.status?.engine.state !== 'running') {
-    if (app.traffic.up || app.traffic.down) app.traffic = { up: 0, down: 0 };
+    if (app.history.length) Object.assign(app, { traffic: { up: 0, down: 0 }, history: [], memory: 0 });
     return;
   }
   try {
-    app.traffic = await invoke('traffic');
+    const [history, memory] = await Promise.all([invoke('traffic_history'), invoke('memory')]);
+    Object.assign(app, { history, memory, traffic: history.at(-1) ?? { up: 0, down: 0 } });
   } catch {
-    app.traffic = { up: 0, down: 0 };
+    Object.assign(app, { traffic: { up: 0, down: 0 }, history: [], memory: 0 });
   }
 }
 

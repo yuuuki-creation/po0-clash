@@ -6,7 +6,7 @@
 </script>
 
 <script>
-  import { act, app, testDelay } from '../lib/core.svelte.js';
+  import { act, app, testDelay, testNode } from '../lib/core.svelte.js';
   import { delayTone, formatDelay, t } from '../lib/i18n.js';
   import EmptyState from '../lib/EmptyState.svelte';
   import Icon from '../lib/Icon.svelte';
@@ -78,21 +78,31 @@
         {#if open}
           <div class="nodes">
             {#each group.nodes as node (node.name)}
-              <button
-                type="button"
-                class="node"
-                class:selected={node.name === group.now}
-                disabled={!group.selectable || app.busy[`select:${group.name}`]}
-                onclick={() =>
-                  node.name !== group.now &&
-                  act(`select:${group.name}`, 'select_node', { group: group.name, node: node.name })}
-              >
-                <span class="title">{node.name}</span>
-                <span class="node-meta">
-                  <span class="sub">{node.kind}</span>
-                  <span class="mono tone-{delayTone(node.delay)}">{formatDelay(node.delay)}</span>
-                </span>
-              </button>
+              <div class="node" class:selected={node.name === group.now}>
+                <button
+                  type="button"
+                  class="node-select"
+                  disabled={!group.selectable || app.busy[`select:${group.name}`]}
+                  onclick={() =>
+                    node.name !== group.now &&
+                    act(`select:${group.name}`, 'select_node', { group: group.name, node: node.name })}
+                >
+                  <span class="title">{node.name}</span>
+                  <span class="sub">{node.kind || ' '}</span>
+                </button>
+                <button
+                  type="button"
+                  class="node-delay mono tone-{delayTone(node.delay)}"
+                  title={t('proxies.testNode')}
+                  aria-label={t('proxies.testNode')}
+                  disabled={app.busy[`node:${node.name}`]}
+                  onclick={() => testNode(node.name)}
+                >
+                  {#if app.busy[`node:${node.name}`]}<span class="spinner"></span>{:else if node.delay != null}{formatDelay(
+                      node.delay,
+                    )}{:else}<Icon name="gauge" />{/if}
+                </button>
+              </div>
             {/each}
           </div>
         {/if}

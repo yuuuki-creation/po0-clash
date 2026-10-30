@@ -1,10 +1,12 @@
 <script>
   import { act, app, refreshAll, refreshExitIp } from '../lib/core.svelte.js';
-  import { delayTone, formatDelay, formatElapsed, formatRate, t } from '../lib/i18n.js';
+  import { invoke } from '@tauri-apps/api/core';
+  import { delayTone, formatBytes, formatDelay, formatElapsed, formatRate, t } from '../lib/i18n.js';
   import Card from '../lib/Card.svelte';
   import Icon from '../lib/Icon.svelte';
   import Page from '../lib/Page.svelte';
   import Segmented from '../lib/Segmented.svelte';
+  import Sparkline from '../lib/Sparkline.svelte';
   import Switch from '../lib/Switch.svelte';
   import UsageBar from '../lib/UsageBar.svelte';
 
@@ -28,6 +30,18 @@
     if (!app.connectedAt) return;
     now = Date.now();
     const timer = setInterval(() => (now = Date.now()), 1000);
+    return () => clearInterval(timer);
+  });
+
+  let totals = $state(null);
+  $effect(() => {
+    if (!running) {
+      totals = null;
+      return;
+    }
+    const load = () => !document.hidden && invoke('connections').then((c) => (totals = c), () => {});
+    load();
+    const timer = setInterval(load, 2000);
     return () => clearInterval(timer);
   });
 
@@ -63,10 +77,13 @@
   {/if}
 
   <div class="dashboard">
-    <Card title={t('home.speed')} icon="gauge">
-      <div class="rates">
-        <span><Icon name="up" />{running ? formatRate(app.traffic.up) : '—'}</span>
-        <span><Icon name="down" />{running ? formatRate(app.traffic.down) : '—'}</span>
+    <Card title={t('home.speed')} icon="gauge" wide>
+      <div class="speed">
+        <div class="rates">
+          <span><Icon name="up" />{running ? formatRate(app.traffic.up) : '—'}</span>
+          <span class="tone-accent"><Icon name="down" />{running ? formatRate(app.traffic.down) : '—'}</span>
+        </div>
+        <Sparkline history={app.history} />
       </div>
     </Card>
 
@@ -133,6 +150,17 @@
         </select>
         {#if profile?.usage}<UsageBar usage={profile.usage} />{/if}
       {/if}
+    </Card>
+
+    <Card title={t('home.total')} icon="updown">
+      <div class="rates">
+        <span><Icon name="up" />{totals ? formatBytes(totals.uploadTotal) : '—'}</span>
+        <span><Icon name="down" />{totals ? formatBytes(totals.downloadTotal) : '—'}</span>
+      </div>
+    </Card>
+
+    <Card title={t('home.memory')} icon="chip">
+      <span class="big mono">{running && app.memory ? formatBytes(app.memory) : '—'}</span>
     </Card>
 
     <Card title={t('home.whitelist')} icon="shield">

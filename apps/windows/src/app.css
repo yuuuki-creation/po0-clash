@@ -373,6 +373,42 @@ main.wide .content {
   gap: 12px;
 }
 
+.dashboard .card.wide {
+  grid-column: span 2;
+}
+
+.speed {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.sparkline {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  overflow: visible;
+}
+
+.sparkline polyline {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.sparkline .down {
+  stroke: var(--accent);
+}
+
+.sparkline .up {
+  stroke: var(--secondary);
+}
+
+.tone-accent .icon {
+  color: var(--accent);
+}
+
 .dashboard .card {
   display: flex;
   flex-direction: column;
@@ -806,23 +842,15 @@ select option {
 }
 
 .node {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  position: relative;
   min-width: 0;
-  padding: 10px 12px;
   border: 1.5px solid transparent;
   border-radius: 10px;
   background: var(--section);
-  text-align: left;
 }
 
-.node:hover:not(:disabled) {
+.node:hover {
   background: var(--fill);
-}
-
-.node:disabled {
-  opacity: 1;
 }
 
 .node.selected {
@@ -830,11 +858,57 @@ select option {
   background: var(--accent-fill);
 }
 
-.node-meta {
+.node-select {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+
+.node-select:disabled {
+  opacity: 1;
+}
+
+.node-delay {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 22px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--secondary);
   font-size: 12px;
+}
+
+.node-delay.tone-good {
+  color: var(--green);
+}
+
+.node-delay.tone-fair {
+  color: var(--orange);
+}
+
+.node-delay.tone-bad {
+  color: var(--red);
+}
+
+.node-delay:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.node-delay .icon,
+.node-delay .spinner {
+  width: 14px;
+  height: 14px;
 }
 
 .radio {
@@ -864,6 +938,27 @@ select option {
   width: 13px;
   height: 13px;
   stroke-width: 2.4;
+}
+
+.traffic {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.log .grow {
+  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-size: 12px;
+}
+
+.level.warning {
+  color: var(--orange);
+}
+
+.level.error {
+  color: var(--red);
 }
 
 .tag {

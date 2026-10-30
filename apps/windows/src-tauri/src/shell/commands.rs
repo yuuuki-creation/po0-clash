@@ -5,7 +5,8 @@ use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 use super::po0::{
-    Core, CoreError, ExitIp, ImportResult, Mode, Profile, ProxyGroup, RouteMode, Status, Traffic, WhitelistState,
+    Connection, Connections, Core, CoreError, ExitIp, ImportResult, LogEntry, Mode, Profile, ProxyGroup, RouteMode,
+    Status, Traffic, WhitelistState,
 };
 use super::{Backdrop, autostart, locale_is_zh};
 
@@ -58,6 +59,59 @@ pub async fn stop(core: CoreState<'_>) -> Reply<()> {
 #[tauri::command]
 pub async fn traffic(core: CoreState<'_>) -> Reply<Traffic> {
     blocking(&core, |c| Ok(c.traffic())).await
+}
+
+#[tauri::command]
+pub async fn traffic_history(core: CoreState<'_>) -> Reply<Vec<Traffic>> {
+    blocking(&core, |c| Ok(c.traffic_history())).await
+}
+
+#[tauri::command]
+pub async fn memory(core: CoreState<'_>) -> Reply<u64> {
+    blocking(&core, |c| Ok(c.memory())).await
+}
+
+#[tauri::command]
+pub async fn connections(core: CoreState<'_>) -> Reply<Connections> {
+    blocking(&core, |c| Ok(c.connections())).await
+}
+
+#[tauri::command]
+pub async fn close_connection(core: CoreState<'_>, id: String) -> Reply<()> {
+    blocking(&core, move |c| c.close_connection(id)).await
+}
+
+#[tauri::command]
+pub async fn close_all_connections(core: CoreState<'_>) -> Reply<()> {
+    blocking(&core, |c| c.close_all_connections()).await
+}
+
+#[tauri::command]
+pub async fn requests(core: CoreState<'_>) -> Reply<Vec<Connection>> {
+    blocking(&core, |c| Ok(c.requests())).await
+}
+
+#[tauri::command]
+pub async fn clear_requests(core: CoreState<'_>) -> Reply<()> {
+    blocking(&core, |c| {
+        c.clear_requests();
+        Ok(())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn logs(core: CoreState<'_>) -> Reply<Vec<LogEntry>> {
+    blocking(&core, |c| Ok(c.logs())).await
+}
+
+#[tauri::command]
+pub async fn clear_logs(core: CoreState<'_>) -> Reply<()> {
+    blocking(&core, |c| {
+        c.clear_logs();
+        Ok(())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -118,6 +172,11 @@ pub async fn select_node(core: CoreState<'_>, group: String, node: String) -> Re
 #[tauri::command]
 pub async fn test_delay(core: CoreState<'_>, group: String) -> Reply<ProxyGroup> {
     blocking(&core, move |c| c.test_delay(group)).await
+}
+
+#[tauri::command]
+pub async fn test_node_delay(core: CoreState<'_>, node: String) -> Reply<u32> {
+    blocking(&core, move |c| c.test_node_delay(node)).await
 }
 
 #[tauri::command]
