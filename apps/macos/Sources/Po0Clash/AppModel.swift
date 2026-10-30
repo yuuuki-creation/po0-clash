@@ -18,6 +18,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var appSettings: AppSettings? {
         didSet { Theme.apply(appSettings) }
     }
+    @Published private(set) var engineOptions: EngineOptions?
     @Published private(set) var profiles: [Profile] = []
     @Published private(set) var groups: [ProxyGroup] = []
     @Published private(set) var whitelist: WhitelistState?
@@ -270,6 +271,49 @@ final class AppModel: ObservableObject {
     private func refreshAppSettings() async {
         guard let client, let next = try? await client.appSettings() else { return }
         appSettings = next
+        engineOptions = try? await client.engineOptions()
+    }
+
+    /// Every apply reloads the engine, so pages send the options in one go rather than per keystroke.
+    func applyEngineOptions(_ options: EngineOptions) async -> Bool {
+        guard let client else { return false }
+        do {
+            try await client.setEngineOptions(options)
+            engineOptions = try? await client.engineOptions()
+            return true
+        } catch {
+            notice = describe(error)
+            return false
+        }
+    }
+
+    func geoFiles() async -> [GeoFile] {
+        (try? await client?.geoFiles()) ?? []
+    }
+
+    func updateGeo() async {
+        do {
+            try await client?.updateGeo()
+        } catch {
+            notice = describe(error)
+        }
+    }
+
+    func providers() async -> Result<[Provider], MessageError> {
+        guard let client else { return .failure(MessageError(launchError ?? "")) }
+        do {
+            return .success(try await client.providers())
+        } catch {
+            return .failure(MessageError(describe(error)))
+        }
+    }
+
+    func updateProvider(_ provider: Provider) async {
+        do {
+            try await client?.updateProvider(provider)
+        } catch {
+            notice = describe(error)
+        }
     }
 
     // MARK: Whitelist

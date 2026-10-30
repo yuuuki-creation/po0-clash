@@ -41,6 +41,9 @@ enum ToolsPage: String, Hashable {
         switch self {
         case .appearance: AppearanceView()
         case .application: ApplicationView()
+        case .basic: BasicConfigView()
+        case .advanced: AdvancedConfigView()
+        case .resources: ResourcesView()
         case .backup: BackupView()
         case .about: AboutView()
         default: ComingSoon(title: title)

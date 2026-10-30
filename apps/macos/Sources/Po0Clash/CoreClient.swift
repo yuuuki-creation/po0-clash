@@ -98,6 +98,16 @@ final class CoreClient: @unchecked Sendable {
     func networkChanged() async throws { try await work { $0.networkChanged() } }
     func exportDiagnostics(to path: String) async throws { try await work { try $0.exportDiagnostics(path: path) } }
     func backup() async throws -> Data { try await work { try $0.backup() } }
+    func engineOptions() async throws -> EngineOptions { try await work { $0.engineOptions() } }
+    func setEngineOptions(_ options: EngineOptions) async throws {
+        try await control { try $0.setEngineOptions(options: options) }
+    }
+    func geoFiles() async throws -> [GeoFile] { try await work { $0.geoFiles() } }
+    func updateGeo() async throws { try await work { try $0.updateGeo() } }
+    func providers() async throws -> [Provider] { try await work { try $0.providers() } }
+    func updateProvider(_ provider: Provider) async throws {
+        try await work { try $0.updateProvider(kind: provider.kind, name: provider.name) }
+    }
     func checkWebDav(_ dav: WebDav) async throws { try await work { try $0.checkWebdav(dav: dav) } }
     func backupToWebDav() async throws { try await work { try $0.backupToWebdav() } }
     func restore(_ data: Data, scope: RestoreScope) async throws {
