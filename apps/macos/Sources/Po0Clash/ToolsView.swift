@@ -302,7 +302,7 @@ private struct AppearanceView: View {
                     Text("Light").tag(ThemeMode.light)
                     Text("Dark").tag(ThemeMode.dark)
                 }
-                .pickerStyle(.segmented)
+                .themedSegments()
                 Toggle(isOn: model.setting(\.pureBlack, or: false)) {
                     Text("Pure black")
                     Text("Uses black instead of dark grey behind the content in dark mode.")

@@ -25,7 +25,7 @@ struct ProfileOverrideSheet: View {
                         Text(mode.title).tag(mode)
                     }
                 }
-                .pickerStyle(.segmented)
+                .themedSegments()
                 .labelsHidden()
                 Text(overrides.wrappedValue.mode.detail).font(.caption).foregroundStyle(.secondary)
                 switch overrides.wrappedValue.mode {

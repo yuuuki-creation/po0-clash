@@ -53,7 +53,7 @@ struct ActivityView: View {
             Picker("Activity", selection: Binding(get: { tab }, set: { storedTab = $0 })) {
                 ForEach(tabs, id: \.self) { Text($0.title).tag($0) }
             }
-            .pickerStyle(.segmented)
+            .themedSegments()
             .labelsHidden()
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) { searching.toggle() }

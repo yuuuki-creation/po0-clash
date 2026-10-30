@@ -153,7 +153,7 @@ private struct ControlsGrid: View {
                     Text("Global").tag(Mode.global)
                     Text("Direct").tag(Mode.direct)
                 }
-                .pickerStyle(.segmented)
+                .themedSegments()
                 .labelsHidden()
             }
             GridRow {
@@ -165,7 +165,7 @@ private struct ControlsGrid: View {
                     Text("System proxy").tag(RouteMode.systemProxy)
                     Text("TUN").tag(RouteMode.tun)
                 }
-                .pickerStyle(.segmented)
+                .themedSegments()
                 .labelsHidden()
             }
             GridRow {

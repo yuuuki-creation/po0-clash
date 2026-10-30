@@ -545,7 +545,7 @@ private struct ModeCard: View {
                 Text("Global").tag(Mode.global)
                 Text("Direct").tag(Mode.direct)
             }
-            .pickerStyle(.segmented)
+            .themedSegments()
             .labelsHidden()
             .disabled(model.busy || model.status == nil)
             Text((model.status?.mode ?? .rule).detail)
@@ -567,7 +567,7 @@ private struct RouteCard: View {
                 Text("TUN").tag(RouteMode.tun)
                 Text("System proxy").tag(RouteMode.systemProxy)
             }
-            .pickerStyle(.segmented)
+            .themedSegments()
             .labelsHidden()
             .disabled(model.busy || model.status == nil)
             HStack(spacing: 6) {

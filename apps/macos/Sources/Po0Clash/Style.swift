@@ -121,19 +121,29 @@ enum Theme {
         }
     }
 
-    /// The presets are Apple's system colours, so they keep their dark-mode variants.
     static func accent(_ argb: UInt32) -> Color {
+        Color(nsColor: nsAccent(argb))
+    }
+
+    /// The presets are Apple's system colours, so they keep their dark-mode variants.
+    static func nsAccent(_ argb: UInt32) -> NSColor {
         switch argb {
-        case 0xFF00_7AFF: return Color(nsColor: .systemBlue)
-        case 0xFF58_56D6: return Color(nsColor: .systemIndigo)
-        case 0xFFAF_52DE: return Color(nsColor: .systemPurple)
-        case 0xFFFF_2D55: return Color(nsColor: .systemPink)
-        case 0xFFFF_9500: return Color(nsColor: .systemOrange)
-        case 0xFF34_C759: return Color(nsColor: .systemGreen)
-        case 0xFF30_B0C7: return Color(nsColor: .systemTeal)
-        case 0xFF8E_8E93: return Color(nsColor: .systemGray)
-        default: return Color(argb: argb)
+        case 0xFF00_7AFF: return .systemBlue
+        case 0xFF58_56D6: return .systemIndigo
+        case 0xFFAF_52DE: return .systemPurple
+        case 0xFFFF_2D55: return .systemPink
+        case 0xFFFF_9500: return .systemOrange
+        case 0xFF34_C759: return .systemGreen
+        case 0xFF30_B0C7: return .systemTeal
+        case 0xFF8E_8E93: return .systemGray
+        default: return NSColor(argb: argb)
         }
+    }
+}
+
+extension AppModel {
+    var themeColor: UInt32 {
+        Showcase.themeColor ?? appSettings?.themeColor ?? Theme.defaultColor
     }
 }
 
@@ -141,21 +151,42 @@ struct AppTheme: ViewModifier {
     @EnvironmentObject private var model: AppModel
 
     func body(content: Content) -> some View {
-        let accent = Theme.accent(Showcase.themeColor ?? model.appSettings?.themeColor ?? Theme.defaultColor)
+        let accent = Theme.accent(model.themeColor)
         content
             .accentColor(accent)
+            .environment(\.themeAccent, accent)
             .toggleStyle(.themedSwitch)
             .id(model.appSettings?.pureBlack ?? false)
     }
 }
 
-/// A tint on the whole window would also color every push button and segmented control, which macOS draws
-/// neutral, so the theme color reaches switches through their style instead.
+private struct ThemeAccentKey: EnvironmentKey {
+    static let defaultValue = Color.accentColor
+}
+
+extension EnvironmentValues {
+    /// The theme colour itself: `Color.accentColor` reaches switches and segmented pickers as the system accent.
+    var themeAccent: Color {
+        get { self[ThemeAccentKey.self] }
+        set { self[ThemeAccentKey.self] = newValue }
+    }
+}
+
+/// A window-wide tint would colour push buttons too, so the theme reaches switches through their style.
 struct ThemedSwitch: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
+        ThemedSwitchBody(configuration: configuration)
+    }
+}
+
+private struct ThemedSwitchBody: View {
+    let configuration: ToggleStyleConfiguration
+    @Environment(\.themeAccent) private var accent
+
+    var body: some View {
         Toggle(configuration)
             .toggleStyle(.switch)
-            .tint(Color.accentColor)
+            .tint(accent)
     }
 }
 
@@ -163,17 +194,34 @@ extension ToggleStyle where Self == ThemedSwitch {
     static var themedSwitch: ThemedSwitch { ThemedSwitch() }
 }
 
-extension Color {
-    init(argb: UInt32) {
+extension View {
+    func themedSegments() -> some View {
+        modifier(ThemedSegments())
+    }
+}
+
+private struct ThemedSegments: ViewModifier {
+    @Environment(\.themeAccent) private var accent
+
+    func body(content: Content) -> some View {
+        content
+            .pickerStyle(.segmented)
+            .tint(accent)
+    }
+}
+
+extension NSColor {
+    convenience init(argb: UInt32) {
         self.init(
-            .sRGB,
-            red: Double(argb >> 16 & 0xFF) / 255,
-            green: Double(argb >> 8 & 0xFF) / 255,
-            blue: Double(argb & 0xFF) / 255,
-            opacity: Double(argb >> 24 & 0xFF) / 255
+            srgbRed: CGFloat(argb >> 16 & 0xFF) / 255,
+            green: CGFloat(argb >> 8 & 0xFF) / 255,
+            blue: CGFloat(argb & 0xFF) / 255,
+            alpha: CGFloat(argb >> 24 & 0xFF) / 255
         )
     }
+}
 
+extension Color {
     var argb: UInt32? {
         guard let color = NSColor(self).usingColorSpace(.sRGB) else { return nil }
         let channel = { (value: CGFloat) in UInt32((min(max(value, 0), 1) * 255).rounded()) }
