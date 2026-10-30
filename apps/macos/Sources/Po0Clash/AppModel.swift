@@ -190,6 +190,78 @@ final class AppModel: ObservableObject {
         attempt { try await $0.removeProfile(id) }
     }
 
+    func updateAllProfiles() {
+        for profile in profiles where profile.kind == .subscription && !updating.contains(profile.id) {
+            updateProfile(profile.id)
+        }
+    }
+
+    /// Returns an error message to show in the sheet, or nil on success.
+    func editProfile(_ id: String, _ edit: ProfileEdit) async -> String? {
+        guard let client else { return launchError }
+        do {
+            _ = try await client.editProfile(id, edit)
+            await refreshProfiles()
+            return nil
+        } catch {
+            return describe(error)
+        }
+    }
+
+    func moveProfile(_ id: String, by offset: Int) {
+        var ids = profiles.map(\.id)
+        guard let index = ids.firstIndex(of: id), ids.indices.contains(index + offset) else { return }
+        ids.swapAt(index, index + offset)
+        attempt { [ids] client in
+            try await client.reorderProfiles(ids)
+            await self.refreshProfiles()
+        }
+    }
+
+    func importProfileFile() {
+        guard let client else { return }
+        let panel = NSOpenPanel()
+        activateApp()
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task {
+            do {
+                let content = try String(contentsOf: url, encoding: .utf8)
+                _ = try await client.importFile(name: url.lastPathComponent, content: content)
+                await refreshProfiles()
+            } catch {
+                notice = describe(error)
+            }
+        }
+    }
+
+    func exportProfile(_ profile: Profile) {
+        guard let client else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = profile.title + (profile.kind == .links ? ".txt" : ".yaml")
+        activateApp()
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task {
+            do {
+                try await client.profileContent(profile.id).write(to: url, atomically: true, encoding: .utf8)
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            } catch {
+                notice = describe(error)
+            }
+        }
+    }
+
+    func profileText(_ id: String, _ text: ProfileText) async -> Result<String, MessageError> {
+        guard let client else { return .failure(MessageError(launchError ?? "")) }
+        do {
+            switch text {
+            case .content: return .success(try await client.profileContent(id))
+            case .preview: return .success(try await client.previewConfig(id))
+            }
+        } catch {
+            return .failure(MessageError(describe(error)))
+        }
+    }
+
     /// Returns an error message to show in the sheet, or nil on success.
     func addSubscription(_ url: String) async -> String? {
         guard let client else { return launchError }

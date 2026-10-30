@@ -3,30 +3,23 @@ import Po0FFI
 import SwiftUI
 
 enum Format {
-    private static let byteCount: ByteCountFormatter = {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        formatter.allowsNonnumericFormatting = false
-        return formatter
-    }()
-
+    /// FlClash's 1024 steps and short units, so a few hundred bytes read "441 B" rather than "441 bytes".
     static func bytes(_ value: UInt64) -> String {
-        byteCount.string(fromByteCount: Int64(clamping: value))
+        let (size, unit) = scaled(value)
+        return String(format: unit == "B" || size >= 100 ? "%.0f %@" : "%.1f %@", size, unit)
     }
 
     static func rate(_ value: UInt64) -> String {
-        let units = ["B", "KB", "MB", "GB", "TB"]
-        var size = Double(value)
-        var unit = 0
-        while size >= 1024, unit < units.count - 1 {
-            size /= 1024
-            unit += 1
-        }
-        return String(format: unit == 0 || size >= 100 ? "%.0f %@/s" : "%.1f %@/s", size, units[unit])
+        bytes(value) + "/s"
     }
 
-    /// Whole numbers in 1024 steps, as the Flutter app's menu bar showed them.
+    /// Whole numbers, as the Flutter app's menu bar showed them.
     static func shortRate(_ value: UInt64) -> String {
+        let (size, unit) = scaled(value)
+        return String(format: "%.0f %@/s", size, unit)
+    }
+
+    private static func scaled(_ value: UInt64) -> (size: Double, unit: String) {
         let units = ["B", "KB", "MB", "GB", "TB"]
         var size = Double(value)
         var unit = 0
@@ -34,7 +27,7 @@ enum Format {
             size /= 1024
             unit += 1
         }
-        return String(format: "%.0f %@/s", size, units[unit])
+        return (size, units[unit])
     }
 
     static func date(_ unixSeconds: Int64) -> Date {

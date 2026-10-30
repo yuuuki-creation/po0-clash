@@ -70,6 +70,15 @@ final class CoreClient: @unchecked Sendable {
     func removeProfile(_ id: String) async throws { try await control { try $0.removeProfile(id: id) } }
     func selectProfile(_ id: String) async throws { try await control { try $0.selectProfile(id: id) } }
     func importLinks(_ text: String) async throws -> ImportResult { try await work { try $0.importLinks(text: text) } }
+    func importFile(name: String, content: String) async throws -> Profile {
+        try await control { try $0.importFile(name: name, content: content) }
+    }
+    func editProfile(_ id: String, _ edit: ProfileEdit) async throws -> Profile {
+        try await work { try $0.editProfile(id: id, edit: edit) }
+    }
+    func profileContent(_ id: String) async throws -> String { try await work { try $0.profileContent(id: id) } }
+    func previewConfig(_ id: String) async throws -> String { try await work { try $0.previewConfig(id: id) } }
+    func reorderProfiles(_ ids: [String]) async throws { try await work { try $0.reorderProfiles(ids: ids) } }
 
     func groups() async throws -> [ProxyGroup] { try await work { try $0.groups() } }
     func selectNode(group: String, node: String) async throws {

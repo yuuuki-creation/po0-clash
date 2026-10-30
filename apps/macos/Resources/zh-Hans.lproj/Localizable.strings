@@ -301,3 +301,24 @@
 "The engine reloads when you apply." = "应用后内核会重新加载。";
 "Revert" = "还原";
 "Apply" = "应用";
+
+/* Profiles */
+"Update All" = "全部更新";
+"Import File…" = "导入文件…";
+"No profiles" = "没有配置";
+"Add a subscription URL, import share links or a config file." = "添加订阅链接，或导入分享链接、配置文件。";
+"Use this profile" = "使用此配置";
+"More" = "更多";
+"Updates every %lld h" = "每 %lld 小时自动更新";
+"Updates manually" = "手动更新";
+"Use" = "使用";
+"View Content…" = "查看内容…";
+"Preview Config…" = "预览运行配置…";
+"Copy Link" = "复制链接";
+"Move Up" = "上移";
+"Move Down" = "下移";
+"Delete…" = "删除…";
+"Edit Profile" = "编辑配置";
+"Profile Content" = "配置内容";
+"Config Preview" = "运行配置预览";
+"Copy" = "复制";

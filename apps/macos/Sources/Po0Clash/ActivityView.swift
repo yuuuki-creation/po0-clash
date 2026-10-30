@@ -202,7 +202,7 @@ private struct ConnectionTable: View {
             TableColumn("Time") { row in
                 Text(Format.date(row.start), format: .dateTime.hour().minute().second()).monospacedDigit()
             }
-            .width(min: 64, ideal: 72, max: 90)
+            .width(min: 86, ideal: 92, max: 110)
             TableColumn("Host") { row in
                 Text(row.host).lineLimit(1).truncationMode(.middle).help(row.host)
             }

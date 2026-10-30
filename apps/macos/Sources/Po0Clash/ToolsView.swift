@@ -58,14 +58,6 @@ struct ToolsView: View {
     var body: some View {
         NavigationStack(path: $navigation.tools) {
             PageScaffold("Tools") {
-                Button {
-                    model.exportDiagnostics()
-                } label: {
-                    Label("Export…", systemImage: "square.and.arrow.up")
-                }
-                .help("Diagnostic log")
-                .disabled(model.launchError != nil)
-            } content: {
                 Form {
                     Section("Settings") {
                         entry(.language)
@@ -88,7 +80,7 @@ struct ToolsView: View {
                                 Text("Diagnostic log")
                                 Text("Saves the app, core and engine logs to a text file for troubleshooting.")
                             } icon: {
-                                Image(systemName: "doc.text.magnifyingglass")
+                                ToolsIcon(symbol: "doc.text.magnifyingglass")
                             }
                         }
                         entry(.developer)
@@ -107,8 +99,21 @@ struct ToolsView: View {
 
     private func entry(_ page: ToolsPage) -> some View {
         NavigationLink(value: page) {
-            Label(page.title, systemImage: page.symbol)
+            Label {
+                Text(page.title)
+            } icon: {
+                ToolsIcon(symbol: page.symbol)
+            }
         }
+    }
+}
+
+/// SF Symbols differ in width, so each gets the same slot and the titles line up.
+private struct ToolsIcon: View {
+    let symbol: String
+
+    var body: some View {
+        Image(systemName: symbol).frame(width: 20)
     }
 }
 
