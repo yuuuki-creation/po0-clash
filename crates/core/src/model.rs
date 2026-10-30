@@ -259,6 +259,13 @@ pub struct Rule {
     pub proxy: String,
 }
 
+/// The address other devices on the LAN reach this one at, and the interface it is on when the OS names it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct IntranetIp {
+    pub ip: String,
+    pub interface: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GeoFile {
