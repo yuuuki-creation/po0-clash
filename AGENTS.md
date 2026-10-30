@@ -34,6 +34,9 @@ Read these only when the task touches their area:
 
 ## Highest Priority Rules
 
+- New documents and other added prose, and every reply to the maintainer, follow Grice's maxims: give as much as the
+  reader needs and no more (quantity), only what you know to be true and can back up (quality), only what bears on the
+  matter at hand (relation), and say it plainly, briefly and in order, without ambiguity (manner).
 - When the user explicitly requests a scoped, low-risk change, inspect the relevant context and implement it directly.
   Do not require brainstorming, design documents, implementation plans, multiple-option proposals, or repeated confirmation.
   Ask only when material ambiguity, destructive impact, additional authority, or scope expansion could change the result.
