@@ -7,6 +7,12 @@ enum Showcase {
         let defaults = UserDefaults.standard
         if defaults.string(forKey: "appearance") == "dark" { NSApp.appearance = NSAppearance(named: .darkAqua) }
         Task {
+            if let names = defaults.string(forKey: "dashboardCards")?.split(separator: ",").map(String.init) {
+                await wait(seconds: 10) { AppModel.shared.appSettings != nil }
+                AppModel.shared.updateAppSettings { settings in
+                    settings.dashboardCards = DashboardCard.all.filter { names.contains(String(describing: $0)) }
+                }
+            }
             if let name = defaults.string(forKey: "showWindow") {
                 MainWindow.shared.show(Page(rawValue: name) ?? .dashboard)
             }
@@ -30,6 +36,11 @@ enum Showcase {
                 }
             }
         }
+    }
+
+    /// CI starts the app with launch arguments, and an update alert would cover its screenshots.
+    static var isScripted: Bool {
+        !UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain).isEmpty
     }
 
     static var forcesAppearance: Bool {

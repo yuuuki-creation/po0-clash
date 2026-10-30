@@ -321,8 +321,10 @@ jobs:
               echo "$name: CRASHED"
             fi
           }
-          probe menu -showMenu YES
-          for page in profiles whitelist tools activity proxies dashboard; do probe "$page" -showWindow "$page"; done
+          probe dashboard-without-cards -showWindow dashboard -dashboardCards none
+          for card in currentNode speed mode takeover whitelist traffic connections memory intranetIp subscription exitIp; do
+            probe "card-$card" -showWindow dashboard -dashboardCards "$card"
+          done
 
       - name: Upload screenshots
         if: always()

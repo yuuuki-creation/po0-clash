@@ -348,10 +348,25 @@
 "Rejects untrusted certificates. Turning this off exposes subscriptions and backups to man-in-the-middle attacks." = "拒绝不受信任的证书。关闭后订阅和备份将暴露于中间人攻击。";
 "Capture logs" = "日志捕获";
 "Shows the engine log in Activity. Turning this off hides the Logs tab." = "在「活动」中显示内核日志；关闭后隐藏「日志」标签。";
-"Check for updates" = "自动检查更新";
+"Check for updates automatically" = "自动检查更新";
 "Looks for a new version when po0-clash opens." = "打开 po0-clash 时检查新版本。";
 "Follow system" = "跟随系统";
 "The new language applies after po0-clash restarts." = "新语言在 po0-clash 重启后生效。";
 "Restart po0-clash now to use the new language?" = "现在重启 po0-clash 以使用新语言吗？";
 "Restart Now" = "立即重启";
 "Later" = "稍后";
+
+/* About and updates */
+"po0-clash is a cross-platform ClashMeta client with automatic po0 and ggy whitelisting, share-link node import, and subscription management." = "po0-clash 是基于 ClashMeta 的多平台代理客户端，支持 po0 / ggy 自动加白、分享链接节点导入与订阅管理。";
+"Check for updates" = "检查更新";
+"Check Now" = "立即检查";
+"Project" = "项目";
+"Open-source credits" = "开源致谢";
+"Upstream client" = "上游客户端";
+"Upstream contributors" = "上游贡献者";
+"Developer mode is enabled." = "开发者模式已启用。";
+"po0-clash is up to date." = "当前应用已经是最新版了。";
+"po0-clash %@ is available" = "发现新版本：po0-clash %@";
+"Open Download Page" = "前往下载";
+"Don't Remind Me" = "不再提示";
+"Core" = "内核";

@@ -85,7 +85,7 @@ struct ToolsView: View {
                                 ToolsIcon(symbol: "doc.text.magnifyingglass")
                             }
                         }
-                        entry(.developer)
+                        if model.appSettings?.developerMode == true { entry(.developer) }
                         entry(.about)
                     }
                 }
@@ -178,7 +178,10 @@ private struct ApplicationView: View {
             }
             Section("Other") {
                 toggle(\.captureLogs, or: false, "Capture logs", "Shows the engine log in Activity. Turning this off hides the Logs tab.")
-                toggle(\.autoCheckUpdate, or: true, "Check for updates", "Looks for a new version when po0-clash opens.")
+                toggle(
+                    \.autoCheckUpdate, or: true, "Check for updates automatically",
+                    "Looks for a new version when po0-clash opens."
+                )
             }
         }
         .formStyle(.grouped)
@@ -361,12 +364,61 @@ private struct AppearanceView: View {
 }
 
 private struct AboutView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var versionClicks = 0
+
     var body: some View {
         Form {
             Section {
-                LabeledContent("Version", value: AppPaths.version)
+                HStack(spacing: 14) {
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
+                        .frame(width: 64, height: 64)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: "po0-clash").font(.title2.weight(.semibold))
+                        Text(verbatim: AppPaths.version)
+                            .foregroundStyle(.secondary)
+                            .onTapGesture(perform: countVersionClick)
+                    }
+                }
+                .padding(.vertical, 4)
+                Text("po0-clash is a cross-platform ClashMeta client with automatic po0 and ggy whitelisting, share-link node import, and subscription management.")
+                    .foregroundStyle(.secondary)
+            }
+            Section("More") {
+                LabeledContent("Check for updates") {
+                    Button("Check Now") { model.checkForUpdates(userInitiated: true) }
+                        .disabled(model.core == nil)
+                }
+                link("Project", detail: "yuuuki-creation/po0-clash", to: "https://github.com/yuuuki-creation/po0-clash")
+            }
+            Section("Open-source credits") {
+                link("Upstream client", detail: "chen08209/FlClash", to: "https://github.com/chen08209/FlClash")
+                link("Core", detail: "mihomo", to: "https://github.com/MetaCubeX/mihomo")
+                LabeledContent("Upstream contributors") { Text(verbatim: "June2 · Arue") }
             }
         }
         .formStyle(.grouped)
+    }
+
+    private func link(_ title: LocalizedStringKey, detail: String, to address: String) -> some View {
+        LabeledContent(title) {
+            Link(destination: URL(string: address)!) {
+                Label {
+                    Text(verbatim: detail)
+                } icon: {
+                    Image(systemName: "arrow.up.right.square")
+                }
+                .labelStyle(.titleAndIcon)
+            }
+        }
+    }
+
+    /// FlClash turns developer mode on after a few clicks on the version.
+    private func countVersionClick() {
+        versionClicks += 1
+        guard versionClicks == 5, model.appSettings?.developerMode == false else { return }
+        model.updateAppSettings { $0.developerMode = true }
+        model.notice = String(localized: "Developer mode is enabled.")
     }
 }

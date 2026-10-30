@@ -76,6 +76,7 @@ final class AppModel: ObservableObject {
                 }
                 let resume = atLogin ? (try? await client.wasConnected()) == true : false
                 if resume || appSettings?.autoConnect == true { connect() }
+                if appSettings?.autoCheckUpdate == true, !Showcase.isScripted { checkForUpdates(userInitiated: false) }
             } catch {
                 launchError = describe(error)
                 logger.error("core failed to start: \(self.launchError ?? "", privacy: .public)")
@@ -328,6 +329,42 @@ final class AppModel: ObservableObject {
             } catch {
                 notice = describe(error)
             }
+        }
+    }
+
+    // MARK: Updates
+
+    func checkForUpdates(userInitiated: Bool) {
+        guard let client else { return }
+        Task {
+            do {
+                if let release = try await client.checkUpdate() {
+                    offer(release, userInitiated: userInitiated)
+                } else if userInitiated {
+                    notice = String(localized: "po0-clash is up to date.")
+                }
+            } catch {
+                if userInitiated { notice = describe(error) }
+            }
+        }
+    }
+
+    private func offer(_ release: Release, userInitiated: Bool) {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "po0-clash \(release.version) is available")
+        let notes = release.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        alert.informativeText = notes.count > 800 ? String(notes.prefix(800)) + "…" : notes
+        alert.addButton(withTitle: String(localized: "Open Download Page"))
+        alert.addButton(withTitle: String(localized: "Later"))
+        if !userInitiated { alert.addButton(withTitle: String(localized: "Don't Remind Me")) }
+        activateApp()
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            if let url = URL(string: release.url) { NSWorkspace.shared.open(url) }
+        case .alertThirdButtonReturn:
+            updateAppSettings { $0.autoCheckUpdate = false }
+        default:
+            break
         }
     }
 
