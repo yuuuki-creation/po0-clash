@@ -762,6 +762,63 @@ mirror_record!(ProfileEdit {
     update_hours: u32,
 });
 
+mirror_enum!(OverrideMode {
+    Standard,
+    Script,
+    Custom
+});
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ProfileOverride {
+    pub mode: OverrideMode,
+    pub added_rules: Vec<String>,
+    pub disabled_global_rules: Vec<String>,
+    pub match_target: Option<String>,
+    pub script_id: Option<String>,
+    pub custom_groups: String,
+    pub custom_rules: Vec<String>,
+}
+
+impl From<core::ProfileOverride> for ProfileOverride {
+    fn from(value: core::ProfileOverride) -> Self {
+        Self {
+            mode: value.mode.into(),
+            added_rules: value.added_rules,
+            disabled_global_rules: value.disabled_global_rules,
+            match_target: value.match_target,
+            script_id: value.script_id,
+            custom_groups: value.custom_groups,
+            custom_rules: value.custom_rules,
+        }
+    }
+}
+
+impl From<ProfileOverride> for core::ProfileOverride {
+    fn from(value: ProfileOverride) -> Self {
+        Self {
+            mode: value.mode.into(),
+            added_rules: value.added_rules,
+            disabled_global_rules: value.disabled_global_rules,
+            match_target: value.match_target,
+            script_id: value.script_id,
+            custom_groups: value.custom_groups,
+            custom_rules: value.custom_rules,
+        }
+    }
+}
+
+mirror_record!(Script {
+    id: String,
+    name: String,
+    content: String,
+});
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ProfileParts {
+    pub groups: String,
+    pub rules: Vec<String>,
+}
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct ImportResult {
     pub profile: Profile,
@@ -1043,6 +1100,31 @@ impl Po0Core {
 
     pub fn save_profile_content(&self, id: String, content: String) -> Result<Profile> {
         Ok(self.inner.save_profile_content(id, content)?.into())
+    }
+
+    pub fn profile_override(&self, id: String) -> Result<ProfileOverride> {
+        Ok(self.inner.profile_override(id)?.into())
+    }
+
+    pub fn set_profile_override(&self, id: String, overrides: ProfileOverride) -> Result<()> {
+        Ok(self.inner.set_profile_override(id, overrides.into())?)
+    }
+
+    pub fn profile_groups_and_rules(&self, id: String) -> Result<ProfileParts> {
+        let (groups, rules) = self.inner.profile_groups_and_rules(id)?;
+        Ok(ProfileParts { groups, rules })
+    }
+
+    pub fn scripts(&self) -> Vec<Script> {
+        self.inner.scripts().into_iter().map(Into::into).collect()
+    }
+
+    pub fn save_script(&self, script: Script) -> Result<Script> {
+        Ok(self.inner.save_script(script.into())?.into())
+    }
+
+    pub fn remove_script(&self, id: String) -> Result<()> {
+        Ok(self.inner.remove_script(id)?)
     }
 
     pub fn crash_engine(&self) -> Result<()> {

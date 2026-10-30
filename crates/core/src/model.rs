@@ -291,3 +291,33 @@ pub struct GeoFile {
     pub size: Option<u64>,
     pub modified: Option<i64>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum OverrideMode {
+    #[default]
+    Standard,
+    Script,
+    Custom,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ProfileOverride {
+    pub mode: OverrideMode,
+    /// A rule whose target is `MATCH` goes where `match_target`, or else the profile's final rule, sends traffic.
+    pub added_rules: Vec<String>,
+    pub disabled_global_rules: Vec<String>,
+    pub match_target: Option<String>,
+    pub script_id: Option<String>,
+    pub custom_groups: String,
+    pub custom_rules: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Script {
+    pub id: String,
+    pub name: String,
+    pub content: String,
+}

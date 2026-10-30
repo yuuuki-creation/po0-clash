@@ -298,6 +298,93 @@ fn profile_text_can_be_edited() {
 }
 
 #[test]
+fn overrides_and_scripts_shape_the_running_config() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    let yaml = "proxies:\n  - {name: a, type: ss, server: 1.2.3.4, port: 1, cipher: aes-128-gcm, password: p}\nrules:\n  - MATCH,DIRECT\n";
+    let file = core.import_file("work.yaml".into(), yaml.into()).unwrap();
+    core.set_profile_override(
+        file.id.clone(),
+        ProfileOverride {
+            added_rules: vec![" DOMAIN,a.example,MATCH ".into(), String::new()],
+            ..ProfileOverride::default()
+        },
+    )
+    .unwrap();
+    let saved = core.profile_override(file.id.clone()).unwrap();
+    assert_eq!(saved.added_rules, ["DOMAIN,a.example,MATCH"]);
+    assert!(
+        core.preview_config(file.id.clone())
+            .unwrap()
+            .contains("DOMAIN,a.example,DIRECT")
+    );
+    assert!(
+        core.save_script(Script {
+            id: String::new(),
+            name: " ".into(),
+            content: "function main(c) { return c; }".into()
+        })
+        .is_err()
+    );
+    assert!(
+        core.save_script(Script {
+            id: String::new(),
+            name: "x".into(),
+            content: "const y = 1;".into()
+        })
+        .is_err()
+    );
+    let script = core
+        .save_script(Script {
+            id: String::new(),
+            name: " tag ".into(),
+            content: "function main(config) { config.rules.unshift('DOMAIN,s.example,DIRECT'); return config; }".into(),
+        })
+        .unwrap();
+    assert_eq!((script.name.as_str(), core.scripts().len()), ("tag", 1));
+    let scripted = ProfileOverride {
+        mode: OverrideMode::Script,
+        script_id: Some(script.id.clone()),
+        ..saved
+    };
+    core.set_profile_override(file.id.clone(), scripted.clone())
+        .unwrap();
+    let preview = core.preview_config(file.id.clone()).unwrap();
+    assert!(preview.contains("DOMAIN,s.example,DIRECT") && !preview.contains("a.example"));
+    let failing = Script {
+        content: "function main(config) { throw new Error('boom'); }".into(),
+        ..script.clone()
+    };
+    assert!(core.save_script(failing).is_err());
+    assert_eq!(core.scripts()[0], script);
+    let missing = ProfileOverride {
+        script_id: Some("missing".into()),
+        ..scripted
+    };
+    assert!(core.set_profile_override(file.id.clone(), missing).is_err());
+    let custom = ProfileOverride {
+        mode: OverrideMode::Custom,
+        custom_groups: "proxy-groups: [{name: G}]".into(),
+        ..ProfileOverride::default()
+    };
+    assert!(core.set_profile_override(file.id.clone(), custom).is_err());
+    assert_eq!(
+        core.profile_override(file.id.clone()).unwrap().mode,
+        OverrideMode::Script
+    );
+    let (groups, rules) = core.profile_groups_and_rules(file.id.clone()).unwrap();
+    assert!(groups.is_empty() && rules == ["MATCH,DIRECT"]);
+    core.remove_script(script.id).unwrap();
+    assert!(core.scripts().is_empty());
+    assert_eq!(
+        core.profile_override(file.id.clone()).unwrap().script_id,
+        None
+    );
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn file_profiles_can_be_edited_exported_previewed_and_ordered() {
     let dir = temp_dir();
     let core = Core::new(options(&dir)).unwrap();

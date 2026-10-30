@@ -1,7 +1,7 @@
 use serde_yaml::{Mapping, Value};
 
 use crate::error::{CoreError, Result};
-use crate::model::{Mode, Platform, RouteMode};
+use crate::model::{Mode, OverrideMode, Platform, ProfileOverride, RouteMode};
 use crate::options::{
     DnsMode, DnsOptions, EngineOptions, FindProcessMode, GeodataLoader, TunStack,
 };
@@ -81,6 +81,7 @@ pub struct Params<'a> {
     pub secret: &'a str,
     pub direct: &'a DirectListener,
     pub options: &'a EngineOptions,
+    pub overrides: &'a ProfileOverride,
 }
 
 fn key(name: &str) -> Value {
@@ -112,6 +113,29 @@ rules:
   - MATCH,PROXY
 "
     )
+}
+
+/// Override scripts see the profile's own config, before po0-clash's settings are applied, as in FlClash.
+pub fn run_script(base: &str, script: &str) -> Result<String> {
+    let invalid = |error: serde_yaml::Error| CoreError::Invalid(format!("config: {error}"));
+    let mut value: Value = serde_yaml::from_str(base).map_err(invalid)?;
+    value.apply_merge().map_err(invalid)?;
+    let mut config = serde_json::to_value(&value)
+        .map_err(|error| CoreError::Invalid(format!("config: {error}")))?;
+    if let Some(root) = config.as_object_mut() {
+        root.entry("proxy-providers")
+            .or_insert_with(|| serde_json::json!({}));
+    }
+    let output = crate::script::evaluate(script, &config.to_string())
+        .map_err(|error| CoreError::Invalid(format!("override script: {error}")))?;
+    let result: serde_json::Value = serde_json::from_str(&output)
+        .map_err(|error| CoreError::Invalid(format!("override script: {error}")))?;
+    if !result.is_object() {
+        return Err(CoreError::Invalid(
+            "override script: main() did not return a config".into(),
+        ));
+    }
+    serde_yaml::to_string(&result).map_err(invalid)
 }
 
 pub fn render(base: &str, params: &Params) -> Result<String> {
@@ -281,21 +305,145 @@ pub fn render(base: &str, params: &Params) -> Result<String> {
     listeners.push(Value::Mapping(direct));
     set(&mut root, "listeners", Value::Sequence(listeners));
 
-    let mut rules = vec![key(&format!("IP-CIDR,{PO0_CIDR},DIRECT,no-resolve"))];
-    rules.extend(
-        options
-            .added_rules
-            .iter()
-            .map(|rule| rule.trim())
-            .filter(|rule| !rule.is_empty())
-            .map(key),
-    );
-    if let Some(Value::Sequence(theirs)) = root.remove("rules") {
-        rules.extend(theirs);
+    let overrides = params.overrides;
+    if overrides.mode == OverrideMode::Custom {
+        let groups = custom_groups(&overrides.custom_groups)?;
+        if !groups.is_empty() {
+            set(&mut root, "proxy-groups", Value::Sequence(groups));
+        }
     }
+    let theirs = match root.remove("rules") {
+        Some(Value::Sequence(theirs)) => theirs,
+        _ => Vec::new(),
+    };
+    let mut rules = vec![key(&format!("IP-CIDR,{PO0_CIDR},DIRECT,no-resolve"))];
+    rules.extend(profile_rules(overrides, &options.added_rules, theirs));
     set(&mut root, "rules", Value::Sequence(rules));
 
     serde_yaml::to_string(&Value::Mapping(root)).map_err(invalid)
+}
+
+/// As in FlClash, global added rules apply only to profiles in standard mode.
+fn profile_rules(overrides: &ProfileOverride, global: &[String], theirs: Vec<Value>) -> Vec<Value> {
+    let lines = |rules: &'_ [String]| {
+        rules
+            .iter()
+            .map(|rule| rule.trim().to_owned())
+            .filter(|rule| !rule.is_empty())
+            .collect::<Vec<_>>()
+    };
+    match overrides.mode {
+        OverrideMode::Script => theirs,
+        OverrideMode::Custom if lines(&overrides.custom_rules).is_empty() => theirs,
+        OverrideMode::Custom => lines(&overrides.custom_rules)
+            .iter()
+            .map(|rule| key(rule))
+            .collect(),
+        OverrideMode::Standard => {
+            let target = overrides
+                .match_target
+                .as_deref()
+                .map(str::trim)
+                .filter(|target| !target.is_empty())
+                .map(str::to_owned)
+                .or_else(|| final_target(&theirs));
+            let disabled = lines(&overrides.disabled_global_rules);
+            let global = lines(global)
+                .into_iter()
+                .filter(|rule| !disabled.contains(rule));
+            lines(&overrides.added_rules)
+                .into_iter()
+                .chain(global)
+                .map(|rule| key(&with_match_target(&rule, target.as_deref())))
+                .chain(theirs)
+                .collect()
+        }
+    }
+}
+
+/// Logic and regex rules may hold commas in their payload, so their target is the last field.
+fn target_index(fields: &[&str]) -> Option<usize> {
+    let index = match fields.first()?.to_ascii_uppercase().as_str() {
+        "MATCH" => 1,
+        "SUB-RULE" => return None,
+        "AND" | "OR" | "NOT" | "DOMAIN-REGEX" | "PROCESS-NAME-REGEX" | "PROCESS-PATH-REGEX" => {
+            fields.len() - 1
+        }
+        _ => 2,
+    };
+    (index > 0 && index < fields.len()).then_some(index)
+}
+
+fn with_match_target(rule: &str, target: Option<&str>) -> String {
+    let mut fields: Vec<&str> = rule.split(',').map(str::trim).collect();
+    match (target, target_index(&fields)) {
+        (Some(target), Some(index)) if fields[index].eq_ignore_ascii_case("MATCH") => {
+            fields[index] = target;
+            fields.join(",")
+        }
+        _ => rule.to_owned(),
+    }
+}
+
+fn final_target(rules: &[Value]) -> Option<String> {
+    rules
+        .iter()
+        .rev()
+        .filter_map(Value::as_str)
+        .find_map(|rule| {
+            let mut fields = rule.split(',').map(str::trim);
+            let kind = fields.next()?;
+            let target = fields.next()?;
+            (kind.eq_ignore_ascii_case("MATCH") && !target.is_empty()).then(|| target.to_owned())
+        })
+}
+
+pub fn custom_groups(text: &str) -> Result<Vec<Value>> {
+    if text.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    let invalid = |reason: String| CoreError::Invalid(format!("custom proxy groups: {reason}"));
+    let groups = match serde_yaml::from_str(text).map_err(|error| invalid(error.to_string()))? {
+        Value::Sequence(groups) => groups,
+        Value::Mapping(mut root) => match root.remove("proxy-groups") {
+            Some(Value::Sequence(groups)) => groups,
+            _ => return Err(invalid("not a list".into())),
+        },
+        _ => return Err(invalid("not a list".into())),
+    };
+    for group in &groups {
+        if group.get("name").and_then(Value::as_str).is_none()
+            || group.get("type").and_then(Value::as_str).is_none()
+        {
+            return Err(invalid("every group needs a name and a type".into()));
+        }
+    }
+    Ok(groups)
+}
+
+/// The profile's own proxy groups, as YAML, and rules: where a custom override starts from.
+pub fn custom_parts(base: &str) -> Result<(String, Vec<String>)> {
+    let invalid = |error: serde_yaml::Error| CoreError::Invalid(format!("config: {error}"));
+    let mut value: Value = serde_yaml::from_str(base).map_err(invalid)?;
+    value.apply_merge().map_err(invalid)?;
+    let groups = match value.get("proxy-groups") {
+        Some(Value::Sequence(groups)) if !groups.is_empty() => {
+            serde_yaml::to_string(groups).map_err(invalid)?
+        }
+        _ => String::new(),
+    };
+    let rules = value
+        .get("rules")
+        .and_then(Value::as_sequence)
+        .map(|rules| {
+            rules
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok((groups, rules))
 }
 
 fn dns(options: &DnsOptions) -> Value {
@@ -455,6 +603,7 @@ mod tests {
                 secret: "s",
                 direct: &direct,
                 options,
+                overrides: &ProfileOverride::default(),
             },
         )
         .unwrap();
@@ -569,6 +718,7 @@ rules:
                 secret: "",
                 direct: &direct,
                 options: &EngineOptions::default(),
+                overrides: &ProfileOverride::default(),
             },
         );
         assert!(result.is_err());
@@ -665,5 +815,99 @@ rules:
     #[test]
     fn the_direct_route_names_the_listener() {
         assert_eq!(direct().route(), "PROXY u:p@127.0.0.1:4000");
+    }
+
+    fn render_overridden(
+        base: &str,
+        options: &EngineOptions,
+        overrides: &ProfileOverride,
+    ) -> Value {
+        let direct = direct();
+        let text = render(
+            base,
+            &Params {
+                platform: Platform::MacOs,
+                mode: Mode::Rule,
+                route_mode: RouteMode::SystemProxy,
+                tun_fd: None,
+                mixed_port: 1,
+                controller: ("external-controller-unix", String::new()),
+                secret: "",
+                direct: &direct,
+                options,
+                overrides,
+            },
+        )
+        .unwrap();
+        serde_yaml::from_str(&text).unwrap()
+    }
+
+    fn global_rules() -> EngineOptions {
+        EngineOptions {
+            added_rules: vec![
+                "DOMAIN,global.example,DIRECT".into(),
+                "DOMAIN,off.example,DIRECT".into(),
+            ],
+            ..EngineOptions::default()
+        }
+    }
+
+    #[test]
+    fn standard_overrides_add_rules_ahead_of_global_ones() {
+        let overrides = ProfileOverride {
+            added_rules: vec![
+                "DOMAIN,profile.example,MATCH".into(),
+                "AND,((NETWORK,UDP),(DST-PORT,443)),REJECT".into(),
+            ],
+            disabled_global_rules: vec!["DOMAIN,off.example,DIRECT".into()],
+            ..ProfileOverride::default()
+        };
+        let config = render_overridden(SUBSCRIPTION, &global_rules(), &overrides);
+        let rules = config["rules"].as_sequence().unwrap();
+        assert_eq!(rules[1], key("DOMAIN,profile.example,DIRECT"));
+        assert_eq!(rules[2], key("AND,((NETWORK,UDP),(DST-PORT,443)),REJECT"));
+        assert_eq!(rules[3], key("DOMAIN,global.example,DIRECT"));
+        assert_eq!(rules[4], key("MATCH,DIRECT"));
+        let pinned = ProfileOverride {
+            match_target: Some("PROXY".into()),
+            ..overrides
+        };
+        let config = render_overridden(SUBSCRIPTION, &global_rules(), &pinned);
+        assert_eq!(config["rules"][1], key("DOMAIN,profile.example,PROXY"));
+    }
+
+    #[test]
+    fn custom_overrides_replace_groups_and_rules() {
+        let overrides = ProfileOverride {
+            mode: OverrideMode::Custom,
+            custom_groups: "- {name: PROXY, type: select, proxies: [a]}\n".into(),
+            custom_rules: vec!["MATCH,PROXY".into()],
+            ..ProfileOverride::default()
+        };
+        let config = render_overridden(SUBSCRIPTION, &global_rules(), &overrides);
+        assert_eq!(config["proxy-groups"][0]["name"], key("PROXY"));
+        assert_eq!(config["rules"].as_sequence().unwrap().len(), 2);
+        assert_eq!(config["rules"][1], key("MATCH,PROXY"));
+        assert!(custom_groups("- {name: x}").is_err());
+        let (groups, rules) = custom_parts(
+            "proxy-groups: [{name: G, type: select, proxies: [DIRECT]}]\nrules: ['MATCH,G']\n",
+        )
+        .unwrap();
+        assert_eq!(custom_groups(&groups).unwrap()[0]["name"], key("G"));
+        assert_eq!(rules, ["MATCH,G"]);
+    }
+
+    #[test]
+    fn override_scripts_see_the_profile_and_skip_global_rules() {
+        let script = "function main(config) { config.rules.unshift('DOMAIN,script.example,DIRECT'); return config; }";
+        let base = run_script(SUBSCRIPTION, script).unwrap();
+        let overrides = ProfileOverride {
+            mode: OverrideMode::Script,
+            ..ProfileOverride::default()
+        };
+        let config = render_overridden(&base, &global_rules(), &overrides);
+        assert_eq!(config["rules"][1], key("DOMAIN,script.example,DIRECT"));
+        assert_eq!(config["rules"][2], key("MATCH,DIRECT"));
+        assert!(run_script(SUBSCRIPTION, "function main(config) { return 1; }").is_err());
     }
 }
