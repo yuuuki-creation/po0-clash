@@ -114,6 +114,7 @@ build_app() {
   plutil -replace CFBundleShortVersionString -string "$version" "$app/Contents/Info.plist"
   plutil -replace CFBundleVersion -string "$build_number" "$app/Contents/Info.plist"
   cp -R "$app_dir/Resources/en.lproj" "$app_dir/Resources/zh-Hans.lproj" "$app/Contents/Resources/"
+  cp "$app_dir"/Resources/MenuBarIcon*.png "$app/Contents/Resources/"
   make_icon "$app/Contents/Resources/AppIcon.icns"
 
   codesign --force --sign - "$app/Contents/MacOS/mihomo"

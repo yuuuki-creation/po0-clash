@@ -1,4 +1,5 @@
 import AppKit
+import Po0FFI
 import SwiftUI
 
 @main
@@ -11,8 +12,7 @@ struct Po0ClashApp: App {
             MenuView()
                 .environmentObject(model)
         } label: {
-            Image(systemName: model.menuBarSymbol)
-                .accessibilityLabel("po0-clash")
+            MenuBarLabel().environmentObject(model)
         }
         .menuBarExtraStyle(.window)
     }
@@ -58,12 +58,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-extension AppModel {
-    var menuBarSymbol: String {
-        switch status?.engine {
-        case .running?: return "bolt.horizontal.circle.fill"
-        case .failed?: return "exclamationmark.triangle"
-        default: return launchError == nil ? "bolt.horizontal.circle" : "exclamationmark.triangle"
+/// The Flutter app's menu bar look: the po0 template mark, with the current speed beside it while connected.
+private struct MenuBarLabel: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        Image(nsImage: MenuBarIcon.image(speed: model.showsMenuBarSpeed && model.isRunning ? model.traffic : nil))
+            .accessibilityLabel("po0-clash")
+    }
+}
+
+@MainActor
+enum MenuBarIcon {
+    private static let mark: NSImage = {
+        let image = Bundle.main.image(forResource: "MenuBarIcon") ?? NSImage(systemSymbolName: "p.circle", accessibilityDescription: nil)!
+        image.isTemplate = true
+        return image
+    }()
+
+    static func image(speed: Traffic?) -> NSImage {
+        guard let speed else { return mark }
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let label = HStack(spacing: 3) {
+            Image(nsImage: mark)
+            VStack(alignment: .trailing, spacing: -1) {
+                Text(Format.shortRate(speed.up))
+                Text(Format.shortRate(speed.down))
+            }
+            .font(.system(size: 9, weight: .medium).monospacedDigit())
+            .frame(minWidth: 46, alignment: .trailing)
         }
+        .frame(height: 22)
+        let renderer = ImageRenderer(content: label)
+        renderer.scale = scale
+        guard let rendered = renderer.cgImage else { return mark }
+        let image = NSImage(
+            cgImage: rendered,
+            size: NSSize(width: CGFloat(rendered.width) / scale, height: CGFloat(rendered.height) / scale)
+        )
+        image.isTemplate = true
+        return image
     }
 }

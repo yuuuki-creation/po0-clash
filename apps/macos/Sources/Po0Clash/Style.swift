@@ -18,6 +18,18 @@ enum Format {
         bytes(value) + "/s"
     }
 
+    /// Whole numbers in 1024 steps, as the Flutter app's menu bar showed them.
+    static func shortRate(_ value: UInt64) -> String {
+        let units = ["B", "KB", "MB", "GB", "TB"]
+        var size = Double(value)
+        var unit = 0
+        while size >= 1024, unit < units.count - 1 {
+            size /= 1024
+            unit += 1
+        }
+        return String(format: "%.0f %@/s", size, units[unit])
+    }
+
     static func date(_ unixSeconds: Int64) -> Date {
         Date(timeIntervalSince1970: TimeInterval(unixSeconds))
     }

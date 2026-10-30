@@ -85,6 +85,8 @@ private struct ApplicationView: View {
             Section {
                 Toggle("Launch at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
                     .toggleStyle(.switch)
+                Toggle("Show speed in the menu bar", isOn: $model.showsMenuBarSpeed)
+                    .toggleStyle(.switch)
                 if needsApproval {
                     LabeledContent {
                         Button("Open Login Items") { LaunchAtLogin.openSystemSettings() }

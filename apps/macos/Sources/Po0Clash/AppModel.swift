@@ -23,6 +23,12 @@ final class AppModel: ObservableObject {
     @Published private(set) var connectedAt: Date?
     @Published private(set) var launchError: String?
     @Published var notice: String?
+    @Published var showsMenuBarSpeed = UserDefaults.standard.object(forKey: "showsMenuBarSpeed") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(showsMenuBarSpeed, forKey: "showsMenuBarSpeed")
+            updateTrafficTimer()
+        }
+    }
 
     private var client: CoreClient?
     private let network = NetworkWatcher()
@@ -362,7 +368,7 @@ final class AppModel: ObservableObject {
     }
 
     private func updateTrafficTimer() {
-        let wanted = !visibleSurfaces.isDisjoint(with: [.menu, .dashboard]) && isRunning
+        let wanted = isRunning && (showsMenuBarSpeed || !visibleSurfaces.isDisjoint(with: [.menu, .dashboard]))
         if wanted == (trafficTimer != nil) { return }
         trafficTimer?.invalidate()
         trafficTimer = nil
