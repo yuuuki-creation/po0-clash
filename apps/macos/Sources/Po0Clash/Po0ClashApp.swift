@@ -27,7 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // A plain `kill` must still go through shutdown so the system proxy is not left pointing at a dead port.
         signal(SIGTERM, SIG_IGN)
         let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
-        source.setEventHandler { onMainRunLoop { NSApp.terminate(nil) } }
+        source.setEventHandler { onMainRunLoop { quitApp() } }
         source.resume()
         terminationSignal = source
 
@@ -56,9 +56,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        closeSheets()
         guard AppModel.shared.hasCore else { return .terminateNow }
         AppModel.shared.shutdown { sender.reply(toApplicationShouldTerminate: true) }
         return .terminateLater
+    }
+}
+
+/// A quit sent while the override sheet was open never finished in CI, so quitting closes sheets first.
+@MainActor
+func quitApp() {
+    closeSheets()
+    NSApp.terminate(nil)
+}
+
+@MainActor
+private func closeSheets() {
+    for window in NSApp.windows {
+        if let sheet = window.attachedSheet { window.endSheet(sheet) }
     }
 }
 

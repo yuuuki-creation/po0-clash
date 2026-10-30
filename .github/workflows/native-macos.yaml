@@ -271,8 +271,21 @@ jobs:
             fi
             scutil --proxy > "$RUNNER_TEMP/$name-proxy.txt"
             screencapture -x "shots/$name.png" || true
+            quit "$pid" "$name"
+          }
+          # A shot that cannot quit leaves its stack and log beside the pictures instead of holding up the job.
+          quit() {
+            local pid=$1 name=$2
             kill -TERM "$pid" 2>/dev/null || true
-            wait "$pid" || true
+            for _ in $(seq 30); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
+            if kill -0 "$pid" 2>/dev/null; then
+              echo "::warning::$name: po0-clash did not quit within 15 s of SIGTERM"
+              { sample "$pid" 2 2>/dev/null | head -n 150
+                log show --last 2m --style compact --predicate 'subsystem == "io.github.yuuukicreation.po0clash"'
+              } > "shots/$name-stuck.txt" 2>&1 || true
+              kill -KILL "$pid" 2>/dev/null || true
+            fi
+            wait "$pid" 2>/dev/null || true
           }
           login=(-launchedAtLogin YES -testDelays YES -showMenu YES)
           shoot menu 15 "${login[@]}"

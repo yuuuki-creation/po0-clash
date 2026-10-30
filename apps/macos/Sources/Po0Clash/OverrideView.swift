@@ -114,6 +114,7 @@ private struct StandardOverride: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
     }
 
     private func enabled(_ rule: String) -> Binding<Bool> {
@@ -155,6 +156,7 @@ private struct ScriptOverride: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
     }
 }
 
@@ -190,6 +192,7 @@ private struct CustomOverride: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
         .alert("Replace with the profile's own groups and rules?", isPresented: $confirming) {
             Button("Replace", role: .destructive, action: fill)
             Button("Cancel", role: .cancel) {}

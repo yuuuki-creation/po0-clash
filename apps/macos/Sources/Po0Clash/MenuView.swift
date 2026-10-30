@@ -314,7 +314,7 @@ private struct MenuActions: View {
             MenuRow(copied ? "Copied" : "Copy Terminal Proxy Command", action: copyProxyCommand)
                 .disabled(model.proxyCommand == nil)
             Divider().padding(.vertical, 4)
-            MenuRow("Quit po0-clash", shortcut: "⌘Q") { NSApp.terminate(nil) }
+            MenuRow("Quit po0-clash", shortcut: "⌘Q") { quitApp() }
                 .keyboardShortcut("q")
         }
         .onAppear { launchAtLogin = LaunchAtLogin.isEnabled }
