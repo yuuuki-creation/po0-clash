@@ -113,6 +113,31 @@ fn serve_once(reply: &'static str) -> String {
 }
 
 #[test]
+fn launches_that_never_finish_skip_connecting_then_deselect_the_profile() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    let id = core
+        .import_links("vless://u@h:1#b".into())
+        .unwrap()
+        .profile
+        .id;
+    assert_eq!(core.launch_started(None).recovery, LaunchRecovery::Normal);
+    core.launch_finished();
+    assert_eq!(core.launch_started(None).recovery, LaunchRecovery::Normal);
+    let first = core.launch_started(None);
+    assert_eq!(first.recovery, LaunchRecovery::SkipAutoConnect);
+    assert_eq!(core.status().profile_id.as_deref(), Some(id.as_str()));
+    let second = core.launch_started(None);
+    assert_eq!(second.recovery, LaunchRecovery::ClearProfile);
+    assert_eq!(second.profile_name.as_deref(), Some("Share links"));
+    assert_eq!(core.status().profile_id, None);
+    core.launch_finished();
+    assert_eq!(core.launch_started(None).recovery, LaunchRecovery::Normal);
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn whitelist_entries_persist() {
     let dir = temp_dir();
     let core = Core::new(options(&dir)).unwrap();

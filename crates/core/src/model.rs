@@ -335,3 +335,30 @@ pub struct License {
     pub license: String,
     pub url: String,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExitKind {
+    Crashed,
+    Stopped,
+    Other,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LastExit {
+    pub kind: ExitKind,
+    pub at_ms: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LaunchRecovery {
+    Normal,
+    SkipAutoConnect,
+    ClearProfile,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LaunchCheck {
+    pub recovery: LaunchRecovery,
+    pub failures: u32,
+    pub profile_name: Option<String>,
+}

@@ -5,6 +5,7 @@ mod engine;
 mod error;
 mod flutter_backup;
 mod ip_quality;
+mod launch;
 mod legacy;
 mod licenses;
 mod links;
@@ -72,6 +73,7 @@ struct Paths {
     profiles: PathBuf,
     home: PathBuf,
     run: PathBuf,
+    launch: PathBuf,
 }
 
 impl Paths {
@@ -80,6 +82,7 @@ impl Paths {
             profiles: data_dir.join("profiles"),
             home: data_dir.join("mihomo"),
             run: data_dir.join("run"),
+            launch: data_dir.join("launch.json"),
         }
     }
 
@@ -224,6 +227,62 @@ impl Core {
         if let Some(listener) = listener {
             for change in changes {
                 listener.on_change(*change);
+            }
+        }
+    }
+
+    /// Called once as the app starts, before it connects automatically; `launch_finished` ends
+    /// the launch once it has connected or chosen not to, and on a clean quit. Only Android
+    /// knows how the previous run ended.
+    pub fn launch_started(&self, last_exit: Option<LastExit>) -> LaunchCheck {
+        let record = launch::read(&self.paths.launch);
+        let outcome = launch::decide(&record, last_exit.as_ref());
+        if outcome.recovery != LaunchRecovery::Normal {
+            logfile::warn(format!(
+                "the previous launch ended while starting ({last_exit:?}): {outcome:?}"
+            ));
+        }
+        if outcome.recovery == LaunchRecovery::ClearProfile {
+            let cleared = self.store.update(|settings| {
+                settings.current_profile = None;
+                Ok(())
+            });
+            if let Err(error) = cleared {
+                logfile::warn(format!("could not deselect the profile: {error}"));
+            }
+        }
+        let settings = self.store.get();
+        let next = launch::Record {
+            starting: true,
+            profile_id: settings.current_profile.clone(),
+            started_at: launch::now_ms(),
+            failures: outcome.failures,
+            handled_exit_at: record
+                .handled_exit_at
+                .max(last_exit.map_or(0, |exit| exit.at_ms)),
+        };
+        if let Err(error) = launch::write(&self.paths.launch, &next) {
+            logfile::warn(format!("could not record the launch: {error}"));
+        }
+        LaunchCheck {
+            recovery: outcome.recovery,
+            failures: outcome.failures,
+            profile_name: outcome
+                .profile_id
+                .and_then(|id| settings.profile(&id).map(|profile| profile.name.clone())),
+        }
+    }
+
+    pub fn launch_finished(&self) {
+        let record = launch::read(&self.paths.launch);
+        if record.starting {
+            let finished = launch::Record {
+                starting: false,
+                failures: 0,
+                ..record
+            };
+            if let Err(error) = launch::write(&self.paths.launch, &finished) {
+                logfile::warn(format!("could not record the launch: {error}"));
             }
         }
     }
