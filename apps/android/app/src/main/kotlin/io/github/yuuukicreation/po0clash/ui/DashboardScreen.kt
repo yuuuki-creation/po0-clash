@@ -1,6 +1,7 @@
 package io.github.yuuukicreation.po0clash.ui
 
 import android.os.SystemClock
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,11 +28,14 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material.icons.outlined.Cable
 import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.CircularProgressIndicator
@@ -48,7 +52,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -57,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.chrisbanes.haze.hazeSource
 import io.github.yuuukicreation.po0clash.R
+import io.github.yuuukicreation.po0clash.core.Connections
 import io.github.yuuukicreation.po0clash.core.EngineState
 import io.github.yuuukicreation.po0clash.core.Mode
 import io.github.yuuukicreation.po0clash.core.Traffic
@@ -71,6 +81,10 @@ fun DashboardScreen(vm: AppViewModel, onConnect: () -> Unit, onOpen: (Page) -> U
     val status by engine.status.collectAsStateWithLifecycle()
     val vpnError by engine.vpnError.collectAsStateWithLifecycle()
     val failure = (status.engine as? EngineState.Failed)?.message ?: vpnError
+    val running = status.engine == EngineState.Running
+    val snapshot by remember(running) {
+        if (running) engine.poll { Snapshot(trafficHistory(), memory(), connections()) } else flowOf(null)
+    }.collectAsStateWithLifecycle(null)
 
     val grid = rememberLazyGridState()
     PageScaffold(stringResource(R.string.dashboard), grid, extraBottom = connectButtonHeight + 12.dp) { padding ->
@@ -88,8 +102,11 @@ fun DashboardScreen(vm: AppViewModel, onConnect: () -> Unit, onOpen: (Page) -> U
             ) {
                 item(span = full) { PageTitle(stringResource(R.string.dashboard)) }
                 if (failure != null) item(span = full) { FailureCard(failure, onConnect) }
-                item { SpeedCard(vm) }
+                item(span = wide) { SpeedCard(snapshot?.history) }
+                item { TrafficCard(snapshot?.connections) }
+                item { ConnectionsCard(snapshot?.connections) }
                 item { ExitIpCard(vm) }
+                item { MemoryCard(snapshot?.memory) }
                 item(span = wide) { NodeCard(vm, onClick = { onOpen(Page.PROXIES) }) }
                 item(span = wide) { ModeCard(vm) }
                 item(span = wide) { SubscriptionCard(vm, onAdd = { onOpen(Page.PROFILES) }) }
@@ -173,19 +190,81 @@ private fun elapsed(since: Long): String {
     return "%02d:%02d:%02d".format(seconds / 3600, seconds / 60 % 60, seconds % 60)
 }
 
+private class Snapshot(val history: List<Traffic>, val memory: ULong, val connections: Connections)
+
 @Composable
-private fun SpeedCard(vm: AppViewModel) {
-    val engine = vm.engine
-    val status by engine.status.collectAsStateWithLifecycle()
-    val running = status.engine == EngineState.Running
-    val traffic by remember(running) { if (running) engine.traffic else flowOf(null) }
-        .collectAsStateWithLifecycle(null as Traffic?)
-    InfoCard(stringResource(R.string.traffic), Icons.Outlined.Speed, Modifier.heightIn(min = 112.dp)) {
+private fun SpeedCard(history: List<Traffic>?) {
+    val now = history?.lastOrNull()
+    val peak = history?.maxOfOrNull { maxOf(it.up, it.down) }
+    InfoCard(
+        stringResource(R.string.traffic),
+        Icons.Outlined.Speed,
+        trailing = {
+            peak?.let {
+                Text(stringResource(R.string.peak, bytes(it)), style = MaterialTheme.typography.labelMedium.tabular(), color = apple.secondaryLabel)
+            }
+        },
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            RateLine(Icons.Filled.ArrowUpward, now?.up?.let { stringResource(R.string.per_second, bytes(it)) })
+            RateLine(Icons.Filled.ArrowDownward, now?.down?.let { stringResource(R.string.per_second, bytes(it)) })
+        }
+        SpeedChart(history.orEmpty())
+    }
+}
+
+/** The last minute of rates: download as the solid line, upload as the faint one, scaled to the busier of the two. */
+@Composable
+private fun SpeedChart(history: List<Traffic>) {
+    val colors = apple
+    Canvas(Modifier.fillMaxWidth().height(56.dp)) {
+        drawLine(colors.separator, Offset(0f, size.height), Offset(size.width, size.height), strokeWidth = 1f)
+        if (history.size < 2) return@Canvas
+        val top = maxOf(history.maxOf { maxOf(it.up, it.down) }.toFloat(), 1024f)
+        val step = size.width / (HISTORY - 1)
+        val start = size.width - step * (history.size - 1)
+        fun line(value: (Traffic) -> ULong) = Path().apply {
+            history.forEachIndexed { index, traffic ->
+                val x = start + step * index
+                val y = size.height * (1 - value(traffic).toFloat() / top)
+                if (index == 0) moveTo(x, y) else lineTo(x, y)
+            }
+        }
+        val stroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        drawPath(line { it.up }, colors.accent.copy(alpha = 0.4f), style = stroke)
+        drawPath(line { it.down }, colors.accent, style = stroke)
+    }
+}
+
+private const val HISTORY = 60
+
+@Composable
+private fun TrafficCard(connections: Connections?) {
+    InfoCard(stringResource(R.string.traffic_total), Icons.Outlined.SwapVert, Modifier.heightIn(min = 112.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            RateLine(Icons.Filled.ArrowUpward, traffic?.up?.let { stringResource(R.string.per_second, bytes(it)) })
-            RateLine(Icons.Filled.ArrowDownward, traffic?.down?.let { stringResource(R.string.per_second, bytes(it)) })
+            RateLine(Icons.Filled.ArrowUpward, connections?.uploadTotal?.let { bytes(it) })
+            RateLine(Icons.Filled.ArrowDownward, connections?.downloadTotal?.let { bytes(it) })
         }
     }
+}
+
+@Composable
+private fun ConnectionsCard(connections: Connections?) {
+    InfoCard(stringResource(R.string.connections), Icons.Outlined.Cable, Modifier.heightIn(min = 112.dp)) {
+        BigValue(connections?.items?.size?.toString())
+    }
+}
+
+@Composable
+private fun MemoryCard(memory: ULong?) {
+    InfoCard(stringResource(R.string.memory), Icons.Outlined.Memory, Modifier.heightIn(min = 112.dp)) {
+        BigValue(memory?.takeIf { it > 0u }?.let { bytes(it) })
+    }
+}
+
+@Composable
+private fun BigValue(value: String?) {
+    Text(value ?: "—", style = MaterialTheme.typography.titleLarge.tabular(), maxLines = 1)
 }
 
 @Composable

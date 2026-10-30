@@ -63,6 +63,31 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
         null
     }
 
+    fun testNodeDelay(node: String) = launch(busyNodeDelay(node)) {
+        core.testNodeDelay(node)
+        null
+    }
+
+    fun closeConnection(id: String) = launch("connection:$id") {
+        core.closeConnection(id)
+        null
+    }
+
+    fun closeAllConnections() = launch(BUSY_CONNECTIONS) {
+        core.closeAllConnections()
+        null
+    }
+
+    fun clearRequests() = launch("clear-requests") {
+        core.clearRequests()
+        null
+    }
+
+    fun clearLogs() = launch("clear-logs") {
+        core.clearLogs()
+        null
+    }
+
     fun addSubscription(url: String) = launch(BUSY_PROFILES) {
         core.addSubscription(url.trim())
         refresh(Change.PROFILES)
@@ -134,7 +159,9 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
         const val BUSY_WHITELIST = "whitelist"
         const val BUSY_WHITELIST_NOW = "whitelist-now"
         const val BUSY_DIAGNOSTICS = "diagnostics"
+        const val BUSY_CONNECTIONS = "connections"
         fun busyDelay(group: String) = "delay:$group"
+        fun busyNodeDelay(node: String) = "node-delay:$node"
         fun busyProfile(id: String) = "profile:$id"
     }
 }

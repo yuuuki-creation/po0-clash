@@ -23,7 +23,6 @@ import io.github.yuuukicreation.po0clash.core.ExitIp
 import io.github.yuuukicreation.po0clash.core.Platform
 import io.github.yuuukicreation.po0clash.core.Po0Core
 import io.github.yuuukicreation.po0clash.core.ProxyGroup
-import io.github.yuuukicreation.po0clash.core.Traffic
 import io.github.yuuukicreation.po0clash.vpn.Po0VpnService
 import io.github.yuuukicreation.po0clash.vpn.VpnTileService
 import kotlinx.coroutines.CoroutineScope
@@ -78,9 +77,10 @@ class Engine(private val app: Application) {
     val vpnActive = MutableStateFlow(false)
     val vpnError = MutableStateFlow<String?>(null)
 
-    val traffic: Flow<Traffic> = flow {
+    /** Reads [read] once a second while collected; the engine's monitor refreshes at that pace while the screen is on. */
+    fun <T> poll(read: Po0Core.() -> T): Flow<T> = flow {
         while (true) {
-            emit(core.traffic())
+            emit(core.read())
             delay(1000)
         }
     }.flowOn(Dispatchers.IO)

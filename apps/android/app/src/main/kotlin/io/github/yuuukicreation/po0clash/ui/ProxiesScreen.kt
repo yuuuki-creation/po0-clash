@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,16 +13,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -93,6 +97,8 @@ fun ProxiesScreen(vm: AppViewModel) {
                             onToggle = { expanded = if (group.name in open) open - group.name else open + group.name },
                             onTest = { vm.testDelay(group.name) },
                             onSelect = { vm.selectNode(group.name, it) },
+                            nodeTesting = { AppViewModel.busyNodeDelay(it) in busy },
+                            onTestNode = vm::testNodeDelay,
                         )
                     }
                 }
@@ -110,6 +116,8 @@ private fun LazyListScope.groupItems(
     onToggle: () -> Unit,
     onTest: () -> Unit,
     onSelect: (String) -> Unit,
+    nodeTesting: (String) -> Boolean,
+    onTestNode: (String) -> Unit,
 ) {
     val rows = if (expanded) group.nodes.chunked(columns) else emptyList()
     item(key = "group:${group.name}") {
@@ -129,6 +137,8 @@ private fun LazyListScope.groupItems(
                         node,
                         selected = node.name == group.now,
                         enabled = group.selectable,
+                        testing = nodeTesting(node.name),
+                        onTest = { onTestNode(node.name) },
                         modifier = Modifier.weight(1f),
                     ) { onSelect(node.name) }
                 }
@@ -206,7 +216,15 @@ private fun GroupHeader(group: ProxyGroup, expanded: Boolean, testing: Boolean, 
 }
 
 @Composable
-private fun NodeCell(node: Node, selected: Boolean, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun NodeCell(
+    node: Node,
+    selected: Boolean,
+    enabled: Boolean,
+    testing: Boolean,
+    onTest: () -> Unit,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
     val colors = apple
     Column(
         modifier.clip(nodeShape)
@@ -226,7 +244,21 @@ private fun NodeCell(node: Node, selected: Boolean, enabled: Boolean, modifier: 
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            DelayText(node.delay, MaterialTheme.typography.labelMedium)
+            Box(
+                Modifier.heightIn(min = 20.dp).clip(CircleShape).clickable(enabled = !testing, onClick = onTest).padding(horizontal = 4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                when {
+                    testing -> CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 1.5.dp, color = colors.secondaryLabel)
+                    node.delay == null -> Icon(
+                        Icons.Outlined.Speed,
+                        contentDescription = stringResource(R.string.test_delay),
+                        tint = colors.secondaryLabel,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    else -> DelayText(node.delay, MaterialTheme.typography.labelMedium)
+                }
+            }
         }
     }
 }

@@ -106,6 +106,20 @@
     <string name="logs">日志</string>
     <string name="coming_soon">即将推出</string>
     <string name="coming_soon_body">原生版还没有这项功能，之后会补上。</string>
+    <string name="clear">清空</string>
+    <string name="close">断开</string>
+    <string name="close_all">断开全部连接</string>
+    <string name="search">搜索</string>
+    <string name="no_requests">还没有请求</string>
+    <string name="no_requests_body">应用发起的新连接会显示在这里。</string>
+    <string name="no_connections">没有打开的连接</string>
+    <string name="no_connections_body">当前打开的连接会显示在这里。</string>
+    <string name="connect_first">连接后显示当前打开的连接。</string>
+    <string name="no_logs">没有日志</string>
+    <string name="no_logs_body">当前日志级别下还没有记录；默认只保留警告和错误。</string>
+    <string name="memory">内存</string>
+    <string name="traffic_total">流量</string>
+    <string name="peak">峰值 %s/s</string>
     <plurals name="whitelist_summary">
         <item quantity="other">%1$d / %2$d 已加白</item>
     </plurals>

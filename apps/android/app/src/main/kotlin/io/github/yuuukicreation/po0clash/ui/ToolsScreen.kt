@@ -103,7 +103,11 @@ fun ToolsScreen(vm: AppViewModel) {
         },
         label = "tools",
     ) { tool ->
-        if (tool == null) ToolList(vm, onOpen = { open = it }) else ToolPage(tool, onBack = { open = null })
+        when (tool) {
+            null -> ToolList(vm, onOpen = { open = it })
+            Tool.ACTIVITY -> ActivityScreen(vm, onBack = { open = null })
+            else -> ToolPage(tool, onBack = { open = null })
+        }
     }
 }
 
@@ -163,7 +167,6 @@ private fun ToolRow(index: Int, count: Int, tool: Tool, onOpen: (Tool) -> Unit) 
 private fun ToolPage(tool: Tool, onBack: () -> Unit) {
     val title = stringResource(tool.label)
     val list = rememberLazyListState()
-    var activity by rememberSaveable { mutableStateOf(R.string.requests) }
     PageScaffold(title, list, onBack = onBack) { padding ->
         LazyColumn(
             state = list,
@@ -175,13 +178,6 @@ private fun ToolPage(tool: Tool, onBack: () -> Unit) {
                 Tool.ABOUT -> item {
                     Column(Modifier.padding(top = 8.dp)) {
                         ValueRow(0, 1, stringResource(R.string.version), "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
-                    }
-                }
-                Tool.ACTIVITY -> item {
-                    Column(Modifier.padding(top = 8.dp)) {
-                        val tabs = listOf(R.string.requests, R.string.connections, R.string.logs)
-                        SegmentedPicker(tabs.map { it to stringResource(it) }, activity, enabled = true) { activity = it }
-                        ComingSoon()
                     }
                 }
                 else -> item { ComingSoon() }
