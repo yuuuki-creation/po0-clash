@@ -214,9 +214,15 @@ private struct ConnectionTable: View {
             }
             .width(min: 140, ideal: 200)
             TableColumn("Process") { row in
-                Text(row.process ?? "—").lineLimit(1).foregroundStyle(row.process == nil ? .secondary : .primary)
+                HStack(spacing: 6) {
+                    if let icon = ProcessIcon.image(row.processPath) {
+                        Image(nsImage: icon).resizable().frame(width: 16, height: 16)
+                    }
+                    Text(row.process ?? "—").lineLimit(1).foregroundStyle(row.process == nil ? .secondary : .primary)
+                }
+                .help(row.processPath ?? "")
             }
-            .width(min: 60, ideal: 80)
+            .width(min: 80, ideal: 120)
             TableColumn("Rule") { row in
                 Text(row.rulePayload.isEmpty ? row.rule : "\(row.rule) · \(row.rulePayload)").lineLimit(1)
             }
@@ -294,5 +300,21 @@ extension LogLevel {
         case .error: return 3
         case .silent: return 4
         }
+    }
+}
+
+/// The outermost app bundle around the executable gives the icon, so a browser's helper processes show the browser.
+enum ProcessIcon {
+    private static var cache: [String: NSImage] = [:]
+
+    static func image(_ path: String?) -> NSImage? {
+        guard let path, !path.isEmpty else { return nil }
+        if let icon = cache[path] { return icon }
+        let components = (path as NSString).pathComponents
+        let bundle = components.firstIndex { $0.hasSuffix(".app") }
+            .map { NSString.path(withComponents: Array(components[...$0])) }
+        let icon = NSWorkspace.shared.icon(forFile: bundle ?? path)
+        cache[path] = icon
+        return icon
     }
 }
