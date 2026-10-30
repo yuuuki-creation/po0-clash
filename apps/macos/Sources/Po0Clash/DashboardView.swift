@@ -1,3 +1,4 @@
+import Charts
 import Po0FFI
 import SwiftUI
 
@@ -31,13 +32,19 @@ struct DashboardView: View {
                         FailureCard(message: message)
                     }
                     LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
-                        SpeedCard().frame(minHeight: 108)
-                        ExitIpCard().frame(minHeight: 108)
-                        CurrentNodeCard().frame(minHeight: 108)
-                        ModeCard().frame(minHeight: 108)
-                        RouteCard().frame(minHeight: 108)
-                        SubscriptionCard().frame(minHeight: 108)
-                        WhitelistCard().frame(minHeight: 108)
+                        Group {
+                            SpeedCard()
+                            TrafficCard()
+                            ExitIpCard()
+                            CurrentNodeCard()
+                            ModeCard()
+                            RouteCard()
+                            SubscriptionCard()
+                            ConnectionsCard()
+                            MemoryCard()
+                            WhitelistCard()
+                        }
+                        .frame(minHeight: 124)
                     }
                 }
                 .padding(20)
@@ -113,9 +120,12 @@ private struct SpeedCard: View {
 
     var body: some View {
         Card("Speed", symbol: "speedometer") {
-            VStack(alignment: .leading, spacing: 4) {
-                rate(model.traffic?.up, symbol: "arrow.up")
-                rate(model.traffic?.down, symbol: "arrow.down")
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 16) {
+                    rate(model.traffic?.up, symbol: "arrow.up")
+                    rate(model.traffic?.down, symbol: "arrow.down")
+                }
+                SpeedChart(history: model.trafficHistory)
             }
         }
     }
@@ -126,7 +136,87 @@ private struct SpeedCard: View {
         } icon: {
             Image(systemName: symbol).foregroundStyle(.secondary)
         }
+        .font(.headline)
+    }
+}
+
+/// The last minute of download (accent) and upload (secondary), newest on the right.
+private struct SpeedChart: View {
+    let history: [Traffic]
+
+    var body: some View {
+        let offset = SpeedChart.span - history.count
+        Chart {
+            ForEach(Array(history.enumerated()), id: \.offset) { index, sample in
+                LineMark(x: .value("Time", offset + index), y: .value("Speed", Double(sample.down)), series: .value("Direction", "down"))
+                    .foregroundStyle(Color.accentColor)
+                    .interpolationMethod(.monotone)
+                LineMark(x: .value("Time", offset + index), y: .value("Speed", Double(sample.up)), series: .value("Direction", "up"))
+                    .foregroundStyle(.secondary)
+                    .interpolationMethod(.monotone)
+            }
+        }
+        .chartXScale(domain: 0...SpeedChart.span)
+        .chartXAxis(.hidden)
+        .chartYAxis(.hidden)
+        .frame(height: 40)
+    }
+
+    private static let span = 60
+}
+
+private struct TrafficCard: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        Card("Traffic", symbol: "arrow.up.arrow.down") {
+            VStack(alignment: .leading, spacing: 4) {
+                total(model.connectionSummary.upload, symbol: "arrow.up")
+                total(model.connectionSummary.download, symbol: "arrow.down")
+            }
+        }
+    }
+
+    private func total(_ value: UInt64, symbol: String) -> some View {
+        Label {
+            Text(model.isRunning ? Format.bytes(value) : "—").monospacedDigit()
+        } icon: {
+            Image(systemName: symbol).foregroundStyle(.secondary)
+        }
         .font(.title3.weight(.medium))
+    }
+}
+
+private struct ConnectionsCard: View {
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var navigation: Navigation
+
+    var body: some View {
+        Card("Connections", symbol: "point.3.connected.trianglepath.dotted") {
+            Button {
+                navigation.page = .activity
+            } label: {
+                HStack {
+                    Text(model.isRunning ? "\(model.connectionSummary.count)" : "—")
+                        .font(.title3.weight(.medium).monospacedDigit())
+                    Spacer()
+                    Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+}
+
+private struct MemoryCard: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        Card("Memory", symbol: "memorychip") {
+            Text(model.isRunning && model.memory > 0 ? Format.bytes(model.memory) : "—")
+                .font(.title3.weight(.medium).monospacedDigit())
+        }
     }
 }
 

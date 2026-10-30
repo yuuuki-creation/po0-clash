@@ -10,6 +10,9 @@ final class AppModel: ObservableObject {
 
     @Published private(set) var status: Status?
     @Published private(set) var traffic: Traffic?
+    @Published private(set) var trafficHistory: [Traffic] = []
+    @Published private(set) var memory: UInt64 = 0
+    @Published private(set) var connectionSummary = ConnectionSummary()
     @Published private(set) var exitIp: ExitIp?
     @Published private(set) var profiles: [Profile] = []
     @Published private(set) var groups: [ProxyGroup] = []
@@ -79,6 +82,9 @@ final class AppModel: ObservableObject {
     }
 
     var hasCore: Bool { client != nil }
+
+    /// For pages that poll the core themselves, such as Activity.
+    var core: CoreClient? { client }
 
     // MARK: Connection
 
@@ -320,7 +326,12 @@ final class AppModel: ObservableObject {
             refreshExitIp()
             await refreshGroups()
         }
-        if !isRunning { traffic = nil }
+        if !isRunning {
+            traffic = nil
+            trafficHistory = []
+            memory = 0
+            connectionSummary = ConnectionSummary()
+        }
         updateTrafficTimer()
     }
 
@@ -364,6 +375,16 @@ final class AppModel: ObservableObject {
     private func pollTraffic() async {
         guard let client else { return }
         traffic = try? await client.traffic()
+        guard visibleSurfaces.contains(.dashboard) else { return }
+        trafficHistory = (try? await client.trafficHistory()) ?? []
+        memory = (try? await client.memory()) ?? 0
+        if let connections = try? await client.connections() {
+            connectionSummary = ConnectionSummary(
+                count: connections.items.count,
+                upload: connections.uploadTotal,
+                download: connections.downloadTotal
+            )
+        }
     }
 
     private static func engineKey(_ state: EngineState) -> Int {
@@ -396,6 +417,12 @@ final class AppModel: ObservableObject {
             do { try await body(client) } catch { notice = describe(error) }
         }
     }
+}
+
+struct ConnectionSummary: Equatable {
+    var count = 0
+    var upload: UInt64 = 0
+    var download: UInt64 = 0
 }
 
 struct MessageError: Error {

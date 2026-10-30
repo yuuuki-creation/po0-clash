@@ -125,29 +125,3 @@ private struct AboutView: View {
         .formStyle(.grouped)
     }
 }
-
-struct ActivityView: View {
-    private enum Tab: Hashable {
-        case requests, connections, logs
-    }
-
-    @State private var tab = Tab.requests
-
-    var body: some View {
-        PageScaffold("Activity") {
-            Picker("Activity", selection: $tab) {
-                Text("Requests").tag(Tab.requests)
-                Text("Connections").tag(Tab.connections)
-                Text("Logs").tag(Tab.logs)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-        } content: {
-            switch tab {
-            case .requests: ComingSoon(title: "Requests")
-            case .connections: ComingSoon(title: "Connections")
-            case .logs: ComingSoon(title: "Logs")
-            }
-        }
-    }
-}

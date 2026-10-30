@@ -71,6 +71,17 @@ final class CoreClient: @unchecked Sendable {
         try await control { try $0.selectNode(group: group, node: node) }
     }
     func testDelay(_ group: String) async throws -> ProxyGroup { try await work { try $0.testDelay(group: group) } }
+    func testNodeDelay(_ node: String) async throws -> UInt32 { try await work { try $0.testNodeDelay(node: node) } }
+
+    func trafficHistory() async throws -> [Traffic] { try await work { $0.trafficHistory() } }
+    func memory() async throws -> UInt64 { try await work { $0.memory() } }
+    func connections() async throws -> Connections { try await work { $0.connections() } }
+    func closeConnection(_ id: String) async throws { try await work { try $0.closeConnection(id: id) } }
+    func closeAllConnections() async throws { try await work { try $0.closeAllConnections() } }
+    func requests() async throws -> [Connection] { try await work { $0.requests() } }
+    func clearRequests() async throws { try await work { $0.clearRequests() } }
+    func logs() async throws -> [LogEntry] { try await work { $0.logs() } }
+    func clearLogs() async throws { try await work { $0.clearLogs() } }
 
     func whitelist() async throws -> WhitelistState { try await work { $0.whitelist() } }
     func setWhitelistEnabled(_ enabled: Bool) async throws { try await control { try $0.setWhitelistEnabled(enabled: enabled) } }

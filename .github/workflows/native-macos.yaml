@@ -256,7 +256,10 @@ jobs:
           shoot menu-zh 15 "${login[@]}" -AppleLanguages '(zh-Hans)'
           connected=(-launchedAtLogin YES -testDelays YES)
           for page in dashboard proxies; do shoot "window-$page" 15 "${connected[@]}" -showWindow "$page"; done
-          for page in profiles whitelist activity tools; do shoot "window-$page" 6 -showWindow "$page"; done
+          for page in profiles whitelist tools; do shoot "window-$page" 6 -showWindow "$page"; done
+          for tab in requests connections logs; do
+            shoot "window-activity-$tab" 15 "${connected[@]}" -showWindow activity -activityTab "$tab"
+          done
           shoot window-dashboard-zh 15 "${connected[@]}" -showWindow dashboard -AppleLanguages '(zh-Hans)'
           shoot window-proxies-zh 15 "${connected[@]}" -showWindow proxies -AppleLanguages '(zh-Hans)'
           shoot window-tools-zh 6 -showWindow tools -AppleLanguages '(zh-Hans)'
