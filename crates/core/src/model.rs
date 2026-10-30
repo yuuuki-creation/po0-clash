@@ -321,3 +321,9 @@ pub struct Script {
     pub name: String,
     pub content: String,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShareNode {
+    pub name: String,
+    pub kind: String,
+}

@@ -813,6 +813,11 @@ mirror_record!(Script {
     content: String,
 });
 
+mirror_record!(ShareNode {
+    name: String,
+    kind: String,
+});
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct ProfileParts {
     pub groups: String,
@@ -1113,6 +1118,23 @@ impl Po0Core {
     pub fn profile_groups_and_rules(&self, id: String) -> Result<ProfileParts> {
         let (groups, rules) = self.inner.profile_groups_and_rules(id)?;
         Ok(ProfileParts { groups, rules })
+    }
+
+    pub fn share_nodes(&self, id: String) -> Result<Vec<ShareNode>> {
+        Ok(self
+            .inner
+            .share_nodes(id)?
+            .into_iter()
+            .map(Into::into)
+            .collect())
+    }
+
+    pub fn rename_share_node(&self, id: String, name: String, new_name: String) -> Result<()> {
+        Ok(self.inner.rename_share_node(id, name, new_name)?)
+    }
+
+    pub fn remove_share_node(&self, id: String, name: String) -> Result<()> {
+        Ok(self.inner.remove_share_node(id, name)?)
     }
 
     pub fn scripts(&self) -> Vec<Script> {

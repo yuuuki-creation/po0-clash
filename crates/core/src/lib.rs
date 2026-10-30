@@ -5,6 +5,7 @@ mod engine;
 mod error;
 mod ip_quality;
 mod legacy;
+mod links;
 mod logfile;
 mod model;
 mod network;
@@ -18,7 +19,8 @@ mod util;
 mod webdav;
 mod whitelist;
 
-use std::collections::BTreeMap;
+use std::cmp;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
@@ -1140,6 +1142,101 @@ impl Core {
         })
     }
 
+    // Share-link nodes.
+
+    /// The share-link profile's nodes, named as mihomo names them.
+    pub fn share_nodes(&self, id: String) -> Result<Vec<ShareNode>> {
+        let links = self.share_links(&id)?;
+        Ok(links::names(&links)
+            .into_iter()
+            .zip(&links)
+            .filter_map(|(name, link)| {
+                Some(ShareNode {
+                    name: name?,
+                    kind: links::scheme(link),
+                })
+            })
+            .collect())
+    }
+
+    pub fn rename_share_node(&self, id: String, name: String, new_name: String) -> Result<()> {
+        let new_name = new_name.trim().to_owned();
+        if new_name.is_empty() {
+            return Err(CoreError::Invalid("the node needs a name".into()));
+        }
+        let mut links = self.share_links(&id)?;
+        let names = links::names(&links);
+        if new_name != name && names.iter().flatten().any(|taken| *taken == new_name) {
+            return Err(CoreError::Invalid(
+                "another node already has this name".into(),
+            ));
+        }
+        let index = node_index(&names, &name)?;
+        links[index] = links::renamed(&links[index], &new_name)
+            .ok_or_else(|| CoreError::Invalid("this kind of link cannot be renamed".into()))?;
+        self.save_share_links(&id, &names, links, Some)
+    }
+
+    pub fn remove_share_node(&self, id: String, name: String) -> Result<()> {
+        let mut links = self.share_links(&id)?;
+        let names = links::names(&links);
+        let index = node_index(&names, &name)?;
+        if links.len() == 1 {
+            return Err(CoreError::Invalid(
+                "the last node goes with its profile".into(),
+            ));
+        }
+        links.remove(index);
+        self.save_share_links(&id, &names, links, |old| match old.cmp(&index) {
+            cmp::Ordering::Less => Some(old),
+            cmp::Ordering::Equal => None,
+            cmp::Ordering::Greater => Some(old - 1),
+        })
+    }
+
+    fn share_links(&self, id: &str) -> Result<Vec<String>> {
+        match self.stored_content(id) {
+            Some(Content::Links(text)) => Ok(profiles::extract_links(&text)),
+            _ => Err(CoreError::Invalid("not a share-link profile".into())),
+        }
+    }
+
+    /// Other nodes can change name too, since repeated names are numbered in order, so selections follow every link.
+    fn save_share_links(
+        &self,
+        id: &str,
+        before: &[Option<String>],
+        links: Vec<String>,
+        moved: impl Fn(usize) -> Option<usize>,
+    ) -> Result<()> {
+        let after = links::names(&links);
+        let renames: HashMap<String, Option<String>> = before
+            .iter()
+            .enumerate()
+            .filter_map(|(old, name)| {
+                Some((name.clone()?, moved(old).and_then(|new| after[new].clone())))
+            })
+            .collect();
+        self.store_content(id, &Content::Links(links.join("\n")))?;
+        self.store.update(|s| {
+            if let Some(profile) = s.profile_mut(id) {
+                profile.selections = std::mem::take(&mut profile.selections)
+                    .into_iter()
+                    .filter_map(|(group, node)| match renames.get(&node) {
+                        Some(renamed) => renamed.clone().map(|node| (group, node)),
+                        None => Some((group, node)),
+                    })
+                    .collect();
+                profile.updated_at = Some(util::now());
+            }
+            Ok(())
+        })?;
+        logfile::info(format!("share-link profile {id} edited"));
+        let reloaded = self.reload_if_current(id);
+        self.emit(&[Change::Profiles, Change::Groups]);
+        reloaded
+    }
+
     // Proxy groups.
 
     fn proxies(&self, session: &Session) -> Result<serde_json::Map<String, Value>> {
@@ -1945,6 +2042,13 @@ fn import_legacy(store: &Store, paths: &Paths, options: &CoreOptions) {
         )),
         Err(error) => logfile::warn(format!("legacy import failed: {error}")),
     }
+}
+
+fn node_index(names: &[Option<String>], name: &str) -> Result<usize> {
+    names
+        .iter()
+        .position(|candidate| candidate.as_deref() == Some(name))
+        .ok_or_else(|| CoreError::Invalid("no such node".into()))
 }
 
 #[cfg(test)]
