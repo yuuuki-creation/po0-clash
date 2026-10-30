@@ -11,6 +11,7 @@ mod network;
 mod options;
 mod profiles;
 mod resources;
+mod script;
 mod settings;
 mod update;
 mod util;
@@ -497,13 +498,32 @@ impl Core {
         )))
     }
 
+    /// An override script runs on the profile's own config, before po0-clash's settings, as in FlClash.
+    fn overridden_base(
+        &self,
+        profile: &ProfileRecord,
+        settings: &Settings,
+    ) -> Result<(String, Option<(String, String)>)> {
+        let (base, links) = self.config_base(profile, settings)?;
+        let overrides = &profile.overrides;
+        let script = overrides
+            .script_id
+            .as_deref()
+            .and_then(|id| settings.script(id))
+            .filter(|_| overrides.mode == OverrideMode::Script);
+        match script {
+            Some(script) => Ok((config::run_script(&base, &script.content)?, links)),
+            None => Ok((base, links)),
+        }
+    }
+
     fn write_config(
         &self,
         profile: &ProfileRecord,
         settings: &Settings,
         runtime: &Runtime,
     ) -> Result<PathBuf> {
-        let (base, links) = self.config_base(profile, settings)?;
+        let (base, links) = self.overridden_base(profile, settings)?;
         if let Some((name, links)) = links {
             util::write_atomic(&runtime.home.join(name), links.as_bytes())?;
         }
@@ -519,6 +539,7 @@ impl Core {
                 secret: runtime.controller.secret(),
                 direct: &runtime.direct,
                 options: &settings.options,
+                overrides: &profile.overrides,
             },
         )?;
         let path = runtime.home.join("config.yaml");
@@ -852,6 +873,160 @@ impl Core {
         self.profile(&id)
     }
 
+    // Overrides.
+
+    pub fn profile_override(&self, id: String) -> Result<ProfileOverride> {
+        self.store
+            .read(|s| s.profile(&id).map(|profile| profile.overrides.clone()))
+            .ok_or_else(|| CoreError::Invalid("no such profile".into()))
+    }
+
+    /// Kept only if the profile still renders, and while it runs only if mihomo accepts it.
+    pub fn set_profile_override(&self, id: String, overrides: ProfileOverride) -> Result<()> {
+        let lines = |rules: Vec<String>| {
+            rules
+                .into_iter()
+                .map(|rule| rule.trim().to_owned())
+                .filter(|rule| !rule.is_empty())
+                .collect::<Vec<_>>()
+        };
+        let overrides = ProfileOverride {
+            added_rules: lines(overrides.added_rules),
+            disabled_global_rules: lines(overrides.disabled_global_rules),
+            custom_rules: lines(overrides.custom_rules),
+            match_target: overrides
+                .match_target
+                .map(|target| target.trim().to_owned())
+                .filter(|target| !target.is_empty()),
+            ..overrides
+        };
+        config::custom_groups(&overrides.custom_groups)?;
+        let previous = self.store.update(|s| {
+            if let Some(script) = &overrides.script_id
+                && s.script(script).is_none()
+            {
+                return Err(CoreError::Invalid("no such script".into()));
+            }
+            let profile = s
+                .profile_mut(&id)
+                .ok_or_else(|| CoreError::Invalid("no such profile".into()))?;
+            Ok(std::mem::replace(&mut profile.overrides, overrides))
+        })?;
+        if let Err(error) = self.check_profile(&id) {
+            self.store.update(|s| {
+                if let Some(profile) = s.profile_mut(&id) {
+                    profile.overrides = previous;
+                }
+                Ok(())
+            })?;
+            let _ = self.reload_if_current(&id);
+            return Err(error);
+        }
+        logfile::info(format!("profile {id} override saved"));
+        self.emit(&[Change::Profiles]);
+        Ok(())
+    }
+
+    /// Renders the profile as it would run, then reloads it if it is the current one.
+    fn check_profile(&self, id: &str) -> Result<()> {
+        self.preview_config(id.to_owned())?;
+        self.reload_if_current(id)
+    }
+
+    /// The profile's own proxy groups (as YAML) and rules, where a custom override starts.
+    pub fn profile_groups_and_rules(&self, id: String) -> Result<(String, Vec<String>)> {
+        let settings = self.store.get();
+        let profile = settings
+            .profile(&id)
+            .ok_or_else(|| CoreError::Invalid("no such profile".into()))?;
+        let (base, _) = self.config_base(profile, &settings)?;
+        config::custom_parts(&base)
+    }
+
+    pub fn scripts(&self) -> Vec<Script> {
+        self.store.read(|s| s.scripts.clone())
+    }
+
+    /// A script without an id is new. An edit to a script the current profile uses is undone if the profile then fails.
+    pub fn save_script(&self, script: Script) -> Result<Script> {
+        let name = script.name.trim().to_owned();
+        if name.is_empty() {
+            return Err(CoreError::Invalid("the script needs a name".into()));
+        }
+        script::check(&script.content)
+            .map_err(|error| CoreError::Invalid(format!("override script: {error}")))?;
+        let script = Script {
+            id: if script.id.is_empty() {
+                util::random_id()
+            } else {
+                script.id
+            },
+            name,
+            content: script.content,
+        };
+        let previous = self.store.update(|s| {
+            let index = s.scripts.iter().position(|saved| saved.id == script.id);
+            Ok(match index {
+                Some(index) => Some(std::mem::replace(&mut s.scripts[index], script.clone())),
+                None => {
+                    s.scripts.push(script.clone());
+                    None
+                }
+            })
+        })?;
+        if let Some(current) = self.current_using(&script.id)
+            && let Err(error) = self.check_profile(&current)
+        {
+            self.store.update(|s| {
+                match previous {
+                    Some(previous) => {
+                        if let Some(saved) =
+                            s.scripts.iter_mut().find(|saved| saved.id == previous.id)
+                        {
+                            *saved = previous;
+                        }
+                    }
+                    None => s.scripts.retain(|saved| saved.id != script.id),
+                }
+                Ok(())
+            })?;
+            let _ = self.reload_if_current(&current);
+            return Err(error);
+        }
+        logfile::info(format!("script {} saved", script.id));
+        self.emit(&[Change::Profiles]);
+        Ok(script)
+    }
+
+    /// Profiles that ran the script keep script mode without one, which leaves their config as it is.
+    pub fn remove_script(&self, id: String) -> Result<()> {
+        let current = self.current_using(&id);
+        self.store.update(|s| {
+            s.scripts.retain(|script| script.id != id);
+            for profile in &mut s.profiles {
+                if profile.overrides.script_id.as_deref() == Some(id.as_str()) {
+                    profile.overrides.script_id = None;
+                }
+            }
+            Ok(())
+        })?;
+        logfile::info(format!("script {id} removed"));
+        let reloaded = current.map_or(Ok(()), |current| self.reload_if_current(&current));
+        self.emit(&[Change::Profiles, Change::Status]);
+        reloaded
+    }
+
+    fn current_using(&self, script: &str) -> Option<String> {
+        self.store.read(|s| {
+            s.current()
+                .filter(|profile| {
+                    profile.overrides.mode == OverrideMode::Script
+                        && profile.overrides.script_id.as_deref() == Some(script)
+                })
+                .map(|profile| profile.id.clone())
+        })
+    }
+
     fn stored_content(&self, id: &str) -> Option<Content> {
         fs::read_to_string(self.paths.yaml(id))
             .map(Content::Yaml)
@@ -865,7 +1040,7 @@ impl Core {
         let profile = settings
             .profile(&id)
             .ok_or_else(|| CoreError::Invalid("no such profile".into()))?;
-        let (base, _) = self.config_base(profile, &settings)?;
+        let (base, _) = self.overridden_base(profile, &settings)?;
         let session = self.engine.session();
         let hidden = "<hidden>";
         let direct = config::DirectListener {
@@ -895,6 +1070,7 @@ impl Core {
                 secret: hidden,
                 direct: &direct,
                 options: &settings.options,
+                overrides: &profile.overrides,
             },
         )
     }

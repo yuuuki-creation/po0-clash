@@ -116,6 +116,7 @@ impl Backup {
         let dropped = match strategy {
             RestoreStrategy::Override => {
                 next.profiles = saved.profiles.clone();
+                next.scripts = saved.scripts.clone();
                 current
                     .profiles
                     .iter()
@@ -128,6 +129,16 @@ impl Backup {
                     match next.profile_mut(&profile.id) {
                         Some(existing) => *existing = profile.clone(),
                         None => next.profiles.push(profile.clone()),
+                    }
+                }
+                for script in &saved.scripts {
+                    match next
+                        .scripts
+                        .iter_mut()
+                        .find(|existing| existing.id == script.id)
+                    {
+                        Some(existing) => *existing = script.clone(),
+                        None => next.scripts.push(script.clone()),
                     }
                 }
                 Vec::new()
