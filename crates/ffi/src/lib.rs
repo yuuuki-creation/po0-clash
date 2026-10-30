@@ -165,6 +165,11 @@ mirror_record!(Rule {
     proxy: String,
 });
 
+mirror_record!(IntranetIp {
+    ip: String,
+    interface: Option<String>,
+});
+
 mirror_record!(GeoFile {
     name: String,
     size: Option<u64>,
@@ -705,6 +710,10 @@ impl Po0Core {
 
     pub fn rules(&self) -> Result<Vec<Rule>> {
         Ok(convert(self.inner.rules()?))
+    }
+
+    pub fn intranet_ip(&self) -> Option<IntranetIp> {
+        self.inner.intranet_ip().map(Into::into)
     }
 
     pub fn geo_files(&self) -> Vec<GeoFile> {

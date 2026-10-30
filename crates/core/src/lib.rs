@@ -4,6 +4,7 @@ mod error;
 mod legacy;
 mod logfile;
 mod model;
+mod network;
 mod options;
 mod profiles;
 mod resources;
@@ -1214,6 +1215,10 @@ impl Core {
             || self.paths.home_for(lock(&self.mihomo_path).as_deref()),
             |session| session.runtime.home.clone(),
         )
+    }
+
+    pub fn intranet_ip(&self) -> Option<IntranetIp> {
+        network::intranet_ip()
     }
 
     pub fn geo_files(&self) -> Vec<GeoFile> {
