@@ -5,11 +5,11 @@ use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 use super::po0::{
-    Connection, Connections, Core, CoreError, EngineOptions, ExitIp, GeoFile, ImportResult, LogEntry, Mode, Profile,
+    Connection, Connections, Core, CoreError, EngineOptions, ExitIp, GeoFile, ImportResult, IntranetIp, LogEntry, Mode, Profile,
     ProfileEdit, Provider, ProviderKind, ProxyGroup, RouteMode, Rule,
     Status, Traffic, WhitelistState,
 };
-use super::{Backdrop, autostart, locale_is_zh, netwatch};
+use super::{Backdrop, autostart, locale_is_zh};
 
 type CoreState<'a> = State<'a, Arc<Core>>;
 type Reply<T> = Result<T, String>;
@@ -285,19 +285,9 @@ pub async fn flush_dns_cache(core: CoreState<'_>) -> Reply<()> {
     blocking(&core, |c| c.flush_dns_cache()).await
 }
 
-#[derive(Serialize)]
-pub struct LocalAddress {
-    address: String,
-    interface: String,
-}
-
 #[tauri::command]
-pub async fn local_address() -> Reply<Option<LocalAddress>> {
-    tauri::async_runtime::spawn_blocking(|| {
-        netwatch::local_address().map(|(address, interface)| LocalAddress { address, interface })
-    })
-    .await
-    .map_err(|e| e.to_string())
+pub async fn intranet_ip(core: CoreState<'_>) -> Reply<Option<IntranetIp>> {
+    blocking(&core, |c| Ok(c.intranet_ip())).await
 }
 
 #[tauri::command]

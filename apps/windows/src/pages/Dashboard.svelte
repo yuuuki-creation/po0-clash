@@ -224,7 +224,7 @@
     </Card>
 
     <Card title={t('home.lan')} icon="monitor">
-      <Value text={app.lan?.address ?? '—'} size="small" />
+      <Value text={app.lan?.ip ?? '—'} size="small" />
       <span class="caption title">{app.lan?.interface ?? ''}</span>
     </Card>
 

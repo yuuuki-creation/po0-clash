@@ -119,7 +119,7 @@ pub fn run() {
             commands::geo_files,
             commands::update_geo,
             commands::flush_dns_cache,
-            commands::local_address,
+            commands::intranet_ip,
             commands::autostart_enabled,
             commands::set_autostart,
             commands::export_diagnostics,

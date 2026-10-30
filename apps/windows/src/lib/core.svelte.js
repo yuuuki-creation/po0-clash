@@ -126,7 +126,7 @@ let ticks = 0;
 
 async function poll() {
   const tick = ticks++;
-  if (tick % 10 === 0) invoke('local_address').then((lan) => (app.lan = lan), () => (app.lan = null));
+  if (tick % 10 === 0) invoke('intranet_ip').then((lan) => (app.lan = lan), () => (app.lan = null));
   if (document.hidden || app.status?.engine.state !== 'running') {
     if (app.history.length || app.totals) {
       Object.assign(app, { traffic: { up: 0, down: 0 }, history: [], memory: 0, totals: null, requestCount: 0 });

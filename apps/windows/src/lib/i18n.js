@@ -702,7 +702,7 @@ export function formatElapsed(ms) {
 
 export const formatDelay = (delay) => (delay == null ? '' : delay === 0 ? t('proxies.timeout') : `${delay} ms`);
 
-export const delayTone = (delay) => (delay == null ? '' : delay === 0 ? 'bad' : delay < 120 ? 'good' : 'fair');
+export const delayTone = (delay) => (delay == null ? '' : delay === 0 ? 'bad' : delay < 600 ? 'good' : 'fair');
 
 export function formatAgo(unix) {
   const seconds = Math.max(0, Math.round(Date.now() / 1000 - unix));
