@@ -13,6 +13,7 @@ import io.github.yuuukicreation.po0clash.core.EngineOptions
 import io.github.yuuukicreation.po0clash.core.Mode
 import io.github.yuuukicreation.po0clash.core.ProfileEdit
 import io.github.yuuukicreation.po0clash.core.ProviderKind
+import io.github.yuuukicreation.po0clash.core.RestoreScope
 import io.github.yuuukicreation.po0clash.engine
 import io.github.yuuukicreation.po0clash.userMessage
 import io.github.yuuukicreation.po0clash.vpn.Po0VpnService
@@ -105,6 +106,40 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     fun exportText(uri: Uri, text: String) = launch("export-text") {
         checkNotNull(app.contentResolver.openOutputStream(uri)).use { it.write(text.encodeToByteArray()) }
         app.getString(R.string.export_done_short)
+    }
+
+    fun backupToFile(uri: Uri) = launch(BUSY_BACKUP) {
+        val data = core.backup()
+        checkNotNull(app.contentResolver.openOutputStream(uri)).use { it.write(data) }
+        app.getString(R.string.backup_done)
+    }
+
+    fun restoreFromFile(uri: Uri, scope: RestoreScope) = launch(BUSY_BACKUP) {
+        val data = checkNotNull(app.contentResolver.openInputStream(uri)).use { it.readBytes() }
+        core.restore(data, scope)
+        afterRestore()
+    }
+
+    fun checkWebdav() = launch(BUSY_WEBDAV) {
+        core.checkWebdav(checkNotNull(engine.appSettings.value.webdav) { app.getString(R.string.webdav_missing) })
+        app.getString(R.string.webdav_ok)
+    }
+
+    fun backupToWebdav() = launch(BUSY_BACKUP) {
+        core.backupToWebdav()
+        app.getString(R.string.backup_done)
+    }
+
+    fun restoreFromWebdav(scope: RestoreScope) = launch(BUSY_BACKUP) {
+        core.restoreFromWebdav(scope)
+        afterRestore()
+    }
+
+    private fun afterRestore(): String {
+        engine.reloadAppSettings()
+        _options.value = core.engineOptions()
+        refresh(Change.PROFILES, Change.STATUS, Change.GROUPS, Change.WHITELIST)
+        return app.getString(R.string.restore_done)
     }
 
     fun updateGeo() = launch(BUSY_GEO) {
@@ -245,6 +280,8 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
         const val BUSY_DIAGNOSTICS = "diagnostics"
         const val BUSY_CONNECTIONS = "connections"
         const val BUSY_GEO = "geo"
+        const val BUSY_BACKUP = "backup"
+        const val BUSY_WEBDAV = "webdav"
         fun busyProvider(name: String) = "provider:$name"
         fun busyDelay(group: String) = "delay:$group"
         fun busyNodeDelay(node: String) = "node-delay:$node"

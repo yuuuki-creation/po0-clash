@@ -83,11 +83,12 @@ fun EditRow(
     placeholder: String = stringResource(R.string.not_set),
     keyboard: KeyboardType = KeyboardType.Text,
     validate: (String) -> Boolean = { true },
+    initial: String = value,
     onSave: (String) -> Unit,
 ) {
     val sheets = LocalSheets.current
     NavRow(index, count, null, label, value.ifEmpty { placeholder }) {
-        sheets.show { ValueSheet(label, value, multiline = false, keyboard = keyboard, validate = validate, onSave = onSave) }
+        sheets.show { ValueSheet(label, initial, multiline = false, keyboard = keyboard, validate = validate, onSave = onSave) }
     }
 }
 

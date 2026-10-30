@@ -8,6 +8,7 @@ coreKtx = "1.19.1"
 coroutines = "1.11.0"
 jna = "5.19.1"
 haze = "2.0.1"
+androidsvg = "1.4"
 junit = "4.13.2"
 
 [libraries]
@@ -19,6 +20,7 @@ compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeB
 compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-material-icons = { module = "androidx.compose.material:material-icons-extended" }
 haze = { module = "dev.chrisbanes.haze:haze-blur", version.ref = "haze" }
+androidsvg = { module = "com.caverock:androidsvg-aar", version.ref = "androidsvg" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 junit = { module = "junit:junit", version.ref = "junit" }

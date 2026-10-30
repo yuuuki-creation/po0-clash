@@ -171,6 +171,10 @@ class Engine(private val app: Application) {
         }
     }
 
+    fun reloadAppSettings() {
+        _appSettings.value = core.appSettings()
+    }
+
     fun setNodeDelay(node: String, delay: UInt) {
         _groups.update { groups ->
             groups.map { group -> group.copy(nodes = group.nodes.map { if (it.name == node) it.copy(delay = delay) else it }) }

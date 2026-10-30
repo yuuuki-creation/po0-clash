@@ -1,12 +1,13 @@
 package io.github.yuuukicreation.po0clash.ui
 
+import io.github.yuuukicreation.po0clash.core.GroupIconStyle
+import androidx.compose.foundation.Image
 import io.github.yuuukicreation.po0clash.core.ProxyTileStyle
 import io.github.yuuukicreation.po0clash.core.ProxiesSort
 import io.github.yuuukicreation.po0clash.core.ProxiesLayout
 import io.github.yuuukicreation.po0clash.core.ProxiesDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -147,6 +148,7 @@ fun ProxiesScreen(vm: AppViewModel) {
                         testing = AppViewModel.busyDelay(group.name) in busy,
                         columns = columns,
                         style = settings.proxyTileStyle,
+                        showIcon = settings.groupIconStyle != GroupIconStyle.HIDDEN,
                         onToggle = onToggle,
                         onTest = { vm.testDelay(group.name) },
                         onSelect = { vm.selectNode(group.name, it) },
@@ -162,7 +164,7 @@ fun ProxiesScreen(vm: AppViewModel) {
                         EmptyCard(stringResource(R.string.no_groups_title), stringResource(R.string.no_groups_body))
                     }
                     tabs -> {
-                        item(key = "tabs") { GroupTabs(groups, selected.name) { tab = it } }
+                        item(key = "tabs") { GroupTabs(groups, selected.name, settings.groupIconStyle) { tab = it } }
                         groupItems(selected, true, null)
                     }
                     else -> groups.forEachIndexed { index, group ->
@@ -179,7 +181,7 @@ fun ProxiesScreen(vm: AppViewModel) {
 
 /** FlClash's tabbed layout: one capsule per group, the chosen one lifted like a segmented control's thumb. */
 @Composable
-private fun GroupTabs(groups: List<ProxyGroup>, selected: String, onSelect: (String) -> Unit) {
+private fun GroupTabs(groups: List<ProxyGroup>, selected: String, iconStyle: GroupIconStyle, onSelect: (String) -> Unit) {
     val colors = apple
     LazyRow(
         Modifier.fillMaxWidth().padding(bottom = 12.dp),
@@ -187,18 +189,26 @@ private fun GroupTabs(groups: List<ProxyGroup>, selected: String, onSelect: (Str
     ) {
         items(groups, key = { it.name }) { group ->
             val active = group.name == selected
-            Text(
-                group.name,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
-                color = if (active) colors.accentText else colors.label,
-                maxLines = 1,
-                modifier = Modifier.height(34.dp).clip(CircleShape)
+            val icon = rememberGroupIcon(group.icon.takeIf { iconStyle != GroupIconStyle.HIDDEN })
+            Row(
+                Modifier.height(34.dp).clip(CircleShape)
                     .background(if (active) colors.card else colors.track)
-                    .clickable(role = Role.Tab) { onSelect(group.name) }
-                    .wrapContentHeight(Alignment.CenterVertically)
-                    .padding(horizontal = 14.dp),
-            )
+                    .clickable(role = Role.Tab, onClickLabel = group.name) { onSelect(group.name) }
+                    .padding(horizontal = if (icon != null && iconStyle == GroupIconStyle.ICON_ONLY) 8.dp else 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                icon?.let { Image(it, contentDescription = group.name.takeIf { iconStyle == GroupIconStyle.ICON_ONLY }, modifier = Modifier.size(20.dp).clip(RoundedCornerShape(5.dp))) }
+                if (icon == null || iconStyle != GroupIconStyle.ICON_ONLY) {
+                    Text(
+                        group.name,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+                        color = if (active) colors.accentText else colors.label,
+                        maxLines = 1,
+                    )
+                }
+            }
         }
     }
 }
@@ -241,6 +251,15 @@ private fun ColumnScope.ProxiesDisplay(vm: AppViewModel) {
         ),
         settings.proxyTileStyle,
     ) { v -> vm.setAppSettings { it.copy(proxyTileStyle = v) } }
+    DisplayPicker(
+        stringResource(R.string.group_icons),
+        listOf(
+            GroupIconStyle.STANDARD to stringResource(R.string.icon_standard),
+            GroupIconStyle.ICON_ONLY to stringResource(R.string.icon_only),
+            GroupIconStyle.HIDDEN to stringResource(R.string.icon_hidden),
+        ),
+        settings.groupIconStyle,
+    ) { v -> vm.setAppSettings { it.copy(groupIconStyle = v) } }
     SheetDoneButton(onClick = sheets::dismiss)
 }
 
@@ -260,6 +279,7 @@ private fun LazyListScope.groupItems(
     testing: Boolean,
     columns: Int,
     style: ProxyTileStyle,
+    showIcon: Boolean,
     onToggle: (() -> Unit)?,
     onTest: () -> Unit,
     onSelect: (String) -> Unit,
@@ -269,7 +289,7 @@ private fun LazyListScope.groupItems(
     val rows = if (expanded) nodes.chunked(columns) else emptyList()
     item(key = "group:${group.name}") {
         CardSlice(top = true, bottom = rows.isEmpty()) {
-            GroupHeader(group, expanded, testing, onToggle, onTest)
+            GroupHeader(group, expanded, testing, showIcon, onToggle, onTest)
         }
     }
     items(rows.withIndex().toList(), key = { (index, _) -> "row:${group.name}:$index" }) { (index, row) ->
@@ -310,8 +330,9 @@ private fun CardSlice(top: Boolean, bottom: Boolean, content: @Composable () -> 
 }
 
 @Composable
-private fun GroupHeader(group: ProxyGroup, expanded: Boolean, testing: Boolean, onToggle: (() -> Unit)?, onTest: () -> Unit) {
+private fun GroupHeader(group: ProxyGroup, expanded: Boolean, testing: Boolean, showIcon: Boolean, onToggle: (() -> Unit)?, onTest: () -> Unit) {
     val colors = apple
+    val icon = rememberGroupIcon(group.icon.takeIf { showIcon })
     val now = group.nodes.firstOrNull { it.name == group.now }
     Row(
         Modifier.fillMaxWidth().then(if (onToggle != null) Modifier.clickable(onClick = onToggle) else Modifier)
@@ -319,6 +340,7 @@ private fun GroupHeader(group: ProxyGroup, expanded: Boolean, testing: Boolean, 
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        icon?.let { Image(it, contentDescription = null, modifier = Modifier.padding(end = 4.dp).size(36.dp).clip(RoundedCornerShape(9.dp))) }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(

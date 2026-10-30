@@ -103,6 +103,13 @@ Ubuntu 上的 `native-core.yaml` 通过，macOS 的 CI 里内核测试和真实�
   （右上角「编辑仪表盘」）、分应用代理和排除的 Wi-Fi。关掉日志捕获时活动页不显示日志。只有允许绕过、VPN 内系统代理、VPN IPv6
   三项内核没有字段，仍存在 Android 的 SharedPreferences。仪表盘加了「内网 IP」（`intranet_ip()`，网络变化时重读）和
   「网络接管」（VPN 开关）。模拟器上验证过：主题色即时生效、语言切换、排除 Wi-Fi 写进 settings.json 并断开 / 重连。
+- 策略组图标（配置里的 `icon`：图片地址、内联 SVG 或 base64）显示在标签和组卡片上，按 `group_icon_style` 显示为图标加名称、
+  仅图标或不显示，读不出来时就不显示图标。SVG 用 AndroidSVG 解码，下载的图标缓存在 cacheDir；应用自己的 Java 网络请求只有这一处，
+  为了和 Flutter 版一样能读 http 图标，打开了 `usesCleartextTraffic`。
+- 工具 → 备份与恢复：备份到文件 / 从文件恢复（系统文件选择器），WebDAV 地址、账号、密码、文件名，检查连接、备份到 WebDAV、
+  从 WebDAV 恢复，恢复时选全部数据或仅配置，恢复策略（合并 / 覆盖）。恢复后重读应用设置、内核选项和配置。模拟器上走通：
+  文件备份与恢复（恢复后改过的主题色回到备份里的值）；用 NL 上的测试 WebDAV，错误密码报「WebDAV refused the user name or
+  password」，正确密码时检查、上传 `po0-clash/backup.zip`、下载恢复都成功，VPN 全程保持连接。
 - 模拟器上验证过：三个外部 intent 各自生效；排除当前 Wi-Fi 后 2 秒断开、移除后 2 秒自动连回；只代理 Chrome 时 VPN 的
   UID 范围只剩 Chrome；日志级别改 Info 后写进 settings.json、日志页出现 Info 日志；未连接时更新 Geo 下载了四个文件。
   连接中更新 Geo 走 mihomo 自己的 `/configs/geo`，日志显示开始更新但两分钟内没有写出文件，没有再查。

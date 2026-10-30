@@ -99,6 +99,7 @@ fun ToolsScreen(vm: AppViewModel) {
             Tool.APPLICATION -> ApplicationScreen(vm, back)
             Tool.APPEARANCE -> AppearanceScreen(vm, back)
             Tool.LANGUAGE -> LanguageScreen(vm, back)
+            Tool.BACKUP -> BackupScreen(vm, back)
             Tool.ACCESS -> AccessControlScreen(vm, back)
             Tool.RESOURCES -> ResourcesScreen(vm, back)
             Tool.ABOUT -> AboutScreen(back)
