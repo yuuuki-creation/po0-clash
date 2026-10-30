@@ -89,7 +89,7 @@ private struct ConnectionCard: View {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(verbatim: "po0-clash").font(.headline)
-                    Text(model.stateTitle).font(.subheadline).foregroundStyle(.secondary)
+                    Text(model.stateTitle).font(.subheadline).foregroundStyle(.secondary).contentTransition(.opacity)
                 }
                 Spacer()
                 Toggle("Connect", isOn: Binding(get: { model.isOn }, set: { model.setConnected($0) }))
@@ -120,11 +120,14 @@ private struct ConnectionCard: View {
                             Label(Format.rate(model.traffic?.down ?? 0), systemImage: "arrow.down")
                         }
                         .monospacedDigit()
+                        .rollingDigits()
+                        .motion(Motion.quick, value: model.traffic?.down)
                     }
                 }
             }
             .font(.callout)
         }
+        .motion(value: model.stateTitle)
     }
 
 }
