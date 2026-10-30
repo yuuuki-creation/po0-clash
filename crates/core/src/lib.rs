@@ -309,9 +309,10 @@ impl Core {
                 if self.platform != Platform::Android
                     && settings.route_mode == RouteMode::SystemProxy
                 {
-                    sysproxy::set(session.runtime.mixed_port).map_err(|error| {
-                        CoreError::Engine(format!("cannot set the system proxy: {error}"))
-                    })?;
+                    sysproxy::set(session.runtime.mixed_port, &settings.options.bypass_domains)
+                        .map_err(|error| {
+                            CoreError::Engine(format!("cannot set the system proxy: {error}"))
+                        })?;
                     session.system_proxy.store(true, Ordering::SeqCst);
                 }
                 Ok(())
@@ -541,12 +542,13 @@ impl Core {
     /// A new mixed port moves the system proxy, so desktops restart for it; everything else hot-reloads.
     pub fn set_engine_options(&self, options: EngineOptions) -> Result<()> {
         self.engine.monitor.set_log_level(options.log_level);
-        let port_changed = self.store.update(|s| {
-            let changed = s.options.mixed_port != options.mixed_port;
+        let proxy_changed = self.store.update(|s| {
+            let changed = s.options.mixed_port != options.mixed_port
+                || s.options.bypass_domains != options.bypass_domains;
             s.options = options;
             Ok(changed)
         })?;
-        if port_changed && self.platform != Platform::Android {
+        if proxy_changed && self.platform != Platform::Android {
             self.restart()
         } else {
             self.reload()
