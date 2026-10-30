@@ -1,7 +1,5 @@
 package io.github.yuuukicreation.po0clash.ui
 
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -50,8 +48,7 @@ private const val MIHOMO = "https://github.com/MetaCubeX/mihomo"
 fun AboutScreen(vm: AppViewModel, onBack: () -> Unit) {
     var licenses by rememberSaveable { mutableStateOf(false) }
     val animate = vm.appSettings.collectAsStateWithLifecycle().value.pageAnimation
-    BackHandler(enabled = licenses) { licenses = false }
-    AnimatedContent(targetState = licenses.takeIf { it }, transitionSpec = { push(animate) }, label = "about") { open ->
+    PushHost(Unit.takeIf { licenses }, animate, onBack = { licenses = false }, label = "about") { open ->
         if (open == null) AboutPage(vm, onBack, onLicenses = { licenses = true }) else LicensesPage(vm) { licenses = false }
     }
 }

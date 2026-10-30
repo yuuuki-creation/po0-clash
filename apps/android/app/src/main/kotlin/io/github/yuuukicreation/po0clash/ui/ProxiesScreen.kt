@@ -1,14 +1,16 @@
 package io.github.yuuukicreation.po0clash.ui
 
-import io.github.yuuukicreation.po0clash.core.GroupIconStyle
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
-import io.github.yuuukicreation.po0clash.core.ProxyTileStyle
-import io.github.yuuukicreation.po0clash.core.ProxiesSort
-import io.github.yuuukicreation.po0clash.core.ProxiesLayout
-import io.github.yuuukicreation.po0clash.core.ProxiesDensity
-import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -45,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,11 +57,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.chrisbanes.haze.hazeSource
 import io.github.yuuukicreation.po0clash.R
+import io.github.yuuukicreation.po0clash.core.GroupIconStyle
 import io.github.yuuukicreation.po0clash.core.Mode
 import io.github.yuuukicreation.po0clash.core.Node
+import io.github.yuuukicreation.po0clash.core.ProxiesDensity
+import io.github.yuuukicreation.po0clash.core.ProxiesLayout
+import io.github.yuuukicreation.po0clash.core.ProxiesSort
 import io.github.yuuukicreation.po0clash.core.ProxyGroup
+import io.github.yuuukicreation.po0clash.core.ProxyTileStyle
 import kotlinx.coroutines.launch
 
 private val tileShape = RoundedCornerShape(14.dp)
@@ -131,7 +140,7 @@ fun ProxiesScreen(vm: AppViewModel) {
         PageScaffold(stringResource(R.string.proxies), list, actions = actions) { padding ->
             LazyColumn(
                 state = list,
-                modifier = Modifier.fillMaxSize().hazeSource(checkNotNull(LocalHaze.current)),
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = padding,
             ) {
                 item {
@@ -158,10 +167,10 @@ fun ProxiesScreen(vm: AppViewModel) {
                 }
                 when {
                     direct -> item {
-                        EmptyCard(stringResource(R.string.direct_mode_title), stringResource(R.string.direct_mode_body))
+                        EmptyCard(stringResource(R.string.direct_mode_title), stringResource(R.string.direct_mode_body), LineIcons.Unlink)
                     }
                     groups.isEmpty() || selected == null -> item {
-                        EmptyCard(stringResource(R.string.no_groups_title), stringResource(R.string.no_groups_body))
+                        EmptyCard(stringResource(R.string.no_groups_title), stringResource(R.string.no_groups_body), LineIcons.Globe)
                     }
                     tabs -> {
                         item(key = "tabs") { GroupTabs(groups, selected.name, settings.groupIconStyle) { tab = it } }
@@ -288,29 +297,33 @@ private fun LazyListScope.groupItems(
 ) {
     val rows = if (expanded) nodes.chunked(columns) else emptyList()
     item(key = "group:${group.name}") {
-        CardSlice(top = true, bottom = rows.isEmpty()) {
-            GroupHeader(group, expanded, testing, showIcon, onToggle, onTest)
+        Box(itemMotion()) {
+            CardSlice(top = true, bottom = rows.isEmpty()) {
+                GroupHeader(group, expanded, testing, showIcon, onToggle, onTest)
+            }
         }
     }
     items(rows.withIndex().toList(), key = { (index, _) -> "row:${group.name}:$index" }) { (index, row) ->
-        val last = index == rows.lastIndex
-        CardSlice(top = false, bottom = last) {
-            Row(
-                Modifier.padding(start = 12.dp, end = 12.dp, bottom = if (last) 12.dp else 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                row.forEach { node ->
-                    NodeTile(
-                        node,
-                        style,
-                        selected = node.name == group.now,
-                        enabled = group.selectable,
-                        testing = nodeTesting(node.name),
-                        onTest = { onTestNode(node.name) },
-                        modifier = Modifier.weight(1f),
-                    ) { onSelect(node.name) }
+        Box(itemMotion()) {
+            val last = index == rows.lastIndex
+            CardSlice(top = false, bottom = last) {
+                Row(
+                    Modifier.padding(start = 12.dp, end = 12.dp, bottom = if (last) 12.dp else 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    row.forEach { node ->
+                        NodeTile(
+                            node,
+                            style,
+                            selected = node.name == group.now,
+                            enabled = group.selectable,
+                            testing = nodeTesting(node.name),
+                            onTest = { onTestNode(node.name) },
+                            modifier = Modifier.weight(1f),
+                        ) { onSelect(node.name) }
+                    }
+                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                 }
-                repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }
@@ -407,17 +420,26 @@ private fun NodeTile(
             Modifier.heightIn(min = 18.dp).clip(CircleShape).clickable(enabled = !testing, onClick = onTest).padding(horizontal = 2.dp),
             contentAlignment = Alignment.Center,
         ) {
-            when {
-                testing -> CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.5.dp, color = colors.secondaryLabel)
-                node.delay == null -> Icon(LineIcons.Bolt, contentDescription = stringResource(R.string.test_delay), tint = colors.secondaryLabel, modifier = Modifier.size(14.dp))
-                else -> DelayText(node.delay, small.copy(fontWeight = FontWeight.Medium))
+            AnimatedContent(
+                if (testing) 0 else if (node.delay == null) 1 else 2,
+                transitionSpec = { (fadeIn(tween(180)) + scaleIn(initialScale = 0.8f)) togetherWith fadeOut(tween(100)) },
+                contentAlignment = Alignment.Center,
+                label = "delay",
+            ) { state ->
+                when (state) {
+                    0 -> CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.5.dp, color = colors.secondaryLabel)
+                    1 -> Icon(LineIcons.Bolt, contentDescription = stringResource(R.string.test_delay), tint = colors.secondaryLabel, modifier = Modifier.size(14.dp))
+                    else -> DelayText(node.delay, small.copy(fontWeight = FontWeight.Medium))
+                }
             }
         }
     }
+    val fill by animateColorAsState(if (selected) colors.accentSoft else colors.cell, label = "tile")
+    val edge by animateColorAsState(if (selected) colors.accent else colors.accent.copy(alpha = 0f), label = "edge")
     Column(
         modifier.clip(tileShape)
-            .background(if (selected) colors.accentSoft else colors.cell)
-            .then(if (selected) Modifier.border(1.5.dp, colors.accent, tileShape) else Modifier)
+            .background(fill)
+            .border(1.5.dp, edge, tileShape)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = if (style == ProxyTileStyle.DETAILED) 10.dp else 8.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -431,9 +453,12 @@ private fun NodeTile(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            when {
-                style == ProxyTileStyle.COMPACT -> delay()
-                selected -> Icon(LineIcons.Check, contentDescription = stringResource(R.string.selected), tint = colors.accent, modifier = Modifier.size(14.dp))
+            if (style == ProxyTileStyle.COMPACT) {
+                delay()
+            } else {
+                AnimatedVisibility(selected, enter = scaleIn(spring(0.55f, 500f)) + fadeIn(), exit = scaleOut() + fadeOut()) {
+                    Icon(LineIcons.Check, contentDescription = stringResource(R.string.selected), tint = colors.accent, modifier = Modifier.size(14.dp))
+                }
             }
         }
         if (style == ProxyTileStyle.DETAILED) {
@@ -456,7 +481,8 @@ fun DelayText(delay: UInt?, style: TextStyle = MaterialTheme.typography.bodyMedi
         else -> Triple(stringResource(R.string.delay_ms, delay.toInt()), colors.orange, colors.orange)
     }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        val tint by animateColorAsState(color, label = "delay")
         if (dot) Box(Modifier.size(7.dp).background(dotColor, CircleShape))
-        Text(text, style = style.tabular(), color = color, maxLines = 1)
+        RollingText(text, style.tabular(), color = tint)
     }
 }

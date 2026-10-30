@@ -4,10 +4,13 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -51,7 +54,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.chrisbanes.haze.hazeSource
 import io.github.yuuukicreation.po0clash.R
 import io.github.yuuukicreation.po0clash.core.Profile
 import io.github.yuuukicreation.po0clash.core.ProfileEdit
@@ -68,8 +70,7 @@ fun SubscriptionsScreen(vm: AppViewModel) {
     val animate = vm.appSettings.collectAsStateWithLifecycle().value.pageAnimation
     var open by rememberSaveable { mutableStateOf<Pair<ProfilePage, String>?>(null) }
     val page = open?.takeIf { (_, id) -> profiles.any { it.id == id } }
-    BackHandler(enabled = page != null) { open = null }
-    AnimatedContent(targetState = page, transitionSpec = { push(animate) }, label = "profiles") { target ->
+    PushHost(page, animate, onBack = { open = null }, label = "profiles") { target ->
         val profile = target?.let { (_, id) -> profiles.firstOrNull { it.id == id } }
         val back = { open = null }
         when {
@@ -111,24 +112,26 @@ private fun ProfileList(vm: AppViewModel, profiles: List<Profile>, onOpen: (Prof
     PageScaffold(stringResource(R.string.profiles), list, actions) { padding ->
         LazyColumn(
             state = list,
-            modifier = Modifier.fillMaxSize().hazeSource(checkNotNull(LocalHaze.current)),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = padding,
         ) {
             item { PageTitle(stringResource(R.string.profiles)) }
             if (profiles.isEmpty()) {
-                item { EmptyCard(stringResource(R.string.empty_title), stringResource(R.string.empty_body)) }
+                item { EmptyCard(stringResource(R.string.empty_title), stringResource(R.string.empty_body), LineIcons.Layers) }
             }
             itemsIndexed(profiles, key = { _, profile -> profile.id }) { index, profile ->
-                ProfileRow(
-                    index,
-                    profiles.size,
-                    profile,
-                    AppViewModel.busyProfile(profile.id) in busy,
-                    vm,
-                    onOpen = { onOpen(it, profile.id) },
-                ) {
-                    exporting = profile.id
-                    export.launch("${profile.name}.yaml")
+                Box(itemMotion()) {
+                    ProfileRow(
+                        index,
+                        profiles.size,
+                        profile,
+                        AppViewModel.busyProfile(profile.id) in busy,
+                        vm,
+                        onOpen = { onOpen(it, profile.id) },
+                    ) {
+                        exporting = profile.id
+                        export.launch("${profile.name}.yaml")
+                    }
                 }
             }
         }
@@ -180,7 +183,11 @@ private fun ProfileRow(
             ProfileUsage(profile, showUpdated = true)
         }
         Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-            if (profile.selected) {
+            androidx.compose.animation.AnimatedVisibility(
+                profile.selected,
+                enter = scaleIn(spring(0.55f, 500f)) + fadeIn(),
+                exit = scaleOut() + fadeOut(),
+            ) {
                 Icon(LineIcons.Check, contentDescription = stringResource(R.string.selected), tint = apple.accent, modifier = Modifier.size(22.dp))
             }
         }

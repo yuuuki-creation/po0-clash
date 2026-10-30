@@ -178,8 +178,8 @@ fun SheetField(
         visualTransformation = if (keyboardType == KeyboardType.Password) PasswordVisualTransformation() else VisualTransformation.None,
         shape = RoundedCornerShape(12.dp),
         colors = TextFieldDefaults.colors(
-            focusedContainerColor = colors.card,
-            unfocusedContainerColor = colors.card,
+            focusedContainerColor = if (colors.dark) colors.cell else colors.card,
+            unfocusedContainerColor = if (colors.dark) colors.cell else colors.card,
             focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent,
             cursorColor = colors.accent,

@@ -3,8 +3,13 @@ package io.github.yuuukicreation.po0clash.ui
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -14,6 +19,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -51,19 +58,27 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.GraphicsLayerScope
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -74,83 +89,148 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import dev.chrisbanes.haze.HazeInput
-import dev.chrisbanes.haze.HazeProgressive
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeBlurStyle
-import dev.chrisbanes.haze.blur.HazeColorEffect
-import dev.chrisbanes.haze.blur.hazeBlur
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.drawPlainBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.Shadow
 import io.github.yuuukicreation.po0clash.R
+import kotlin.math.tanh
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
-val LocalHaze = staticCompositionLocalOf<HazeState?> { null }
+val LocalBackdrop = staticCompositionLocalOf<Backdrop?> { null }
+
+val LocalReduceMotion = staticCompositionLocalOf { false }
 
 private val blurs = Build.VERSION.SDK_INT >= 31
 
-/**
- * Liquid Glass for the floating layer only: blurred content under a thin tint and a hairline highlight. Without blur
- * (before API 31) it falls back to a near-opaque fill, like iOS with Reduce Transparency. [tint] makes it the
- * prominent, accent-colored glass.
- */
+/** Spec glass for the floating layer; lens needs API 33 and blur API 31, below which the tint turns near-opaque. */
 @Composable
-fun Modifier.glass(shape: Shape, tint: Color? = null, shadow: Boolean = true): Modifier {
+fun Modifier.glass(shape: Shape, tint: Color? = null, shadow: Boolean = true, press: GlassPress? = null, thick: Boolean = false): Modifier {
     val colors = apple
-    val haze = LocalHaze.current.takeIf { blurs }
-    val lift = if (shadow) {
-        Modifier.shadow(16.dp, shape, ambientColor = Color.Black.copy(alpha = 0.06f), spotColor = Color.Black.copy(alpha = 0.16f))
-    } else {
-        Modifier
+    val backdrop = LocalBackdrop.current ?: return this.clip(shape).background(tint ?: colors.glassFallback)
+    val surface = when {
+        tint != null -> tint.copy(alpha = if (blurs) 0.86f else 1f)
+        thick -> (if (colors.dark) Color(0xFF252528) else colors.background).copy(alpha = if (blurs) 0.9f else 1f)
+        blurs -> colors.glass
+        else -> colors.glassFallback
     }
-    val fill = when {
-        haze == null -> Modifier.background(tint ?: colors.glassFallback)
-        else -> Modifier.hazeBlur(
-            HazeInput.Sources(haze),
-            HazeBlurStyle {
-                blurRadius(20.dp)
-                noiseFactor(0f)
-                backgroundColor(colors.background)
-                colorEffects(listOf(HazeColorEffect.tint(tint?.copy(alpha = 0.86f) ?: colors.glass)))
+    val shade = Color.Black.copy(alpha = if (colors.dark) 0.32f else 0.12f)
+    return this
+        .drawBackdrop(
+            backdrop = backdrop,
+            shape = { shape },
+            effects = {
+                colorControls(saturation = 1.8f)
+                blur(12.dp.toPx())
+                lens(10.dp.toPx(), 14.dp.toPx())
+            },
+            highlight = { Highlight.Default.copy(alpha = if (colors.dark) 0.9f else 0.6f) },
+            shadow = if (shadow) {
+                { Shadow(radius = 18.dp, offset = DpOffset(0.dp, 4.dp), color = shade) }
+            } else {
+                null
+            },
+            layerBlock = press?.layerBlock,
+            onDrawSurface = {
+                drawRect(surface)
+                press?.let { drawRect(Color.White.copy(alpha = 0.08f * it.progress), blendMode = BlendMode.Plus) }
             },
         )
-    }
-    return this
-        .then(lift)
-        .clip(shape)
-        .then(fill)
         .border(Dp.Hairline, if (tint != null) Color.White.copy(alpha = 0.3f) else colors.glassBorder, shape)
 }
 
-/** iOS 26's scroll edge effect: a progressive blur that fades out, shown only once content runs under the bar. */
+@Stable
+class GlassPress internal constructor(private val scope: CoroutineScope) {
+    private val press = Animatable(0f, 0.001f)
+    private val pull = Animatable(Offset.Zero, Offset.VectorConverter, Offset.VisibilityThreshold)
+    private var origin = Offset.Zero
+
+    val progress: Float get() = press.value
+
+    val layerBlock: GraphicsLayerScope.() -> Unit = {
+        val grow = 1f + press.value * 3.dp.toPx() / size.height.coerceAtLeast(1f)
+        val reach = size.minDimension
+        val offset = pull.value
+        translationX = reach * tanh(0.04f * offset.x / reach)
+        translationY = reach * tanh(0.04f * offset.y / reach)
+        scaleX = grow
+        scaleY = grow
+    }
+
+    /** Watches the pointer without consuming it, so the clicks inside keep working. */
+    val gesture: Modifier = Modifier.pointerInput(Unit) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            origin = down.position
+            scope.launch { pull.snapTo(Offset.Zero) }
+            scope.launch { press.animateTo(1f, pressSpring) }
+            while (true) {
+                val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) break
+                scope.launch { pull.snapTo(change.position - origin) }
+            }
+            scope.launch { press.animateTo(0f, pressSpring) }
+            scope.launch { pull.animateTo(Offset.Zero, pullSpring) }
+        }
+    }
+
+    private companion object {
+        val pressSpring = spring(0.5f, 300f, 0.001f)
+        val pullSpring = spring(0.5f, 300f, Offset.VisibilityThreshold)
+    }
+}
+
+@Composable
+fun rememberPageBackdrop(): LayerBackdrop {
+    val background = apple.background
+    val onDraw: ContentDrawScope.() -> Unit = remember(background) {
+        {
+            drawRect(background)
+            drawContent()
+        }
+    }
+    return rememberLayerBackdrop(onDraw = onDraw)
+}
+
+@Composable
+fun rememberGlassPress(): GlassPress? {
+    val scope = rememberCoroutineScope()
+    return if (LocalReduceMotion.current) null else remember(scope) { GlassPress(scope) }
+}
+
 @Composable
 fun ScrollEdge(visible: Boolean, height: Dp, modifier: Modifier = Modifier) {
     val colors = apple
     val alpha by animateFloatAsState(if (visible) 1f else 0f, label = "edge")
     if (alpha == 0f) return
-    val haze = LocalHaze.current.takeIf { blurs }
-    val fade = Brush.verticalGradient(0f to Color.Black, 0.7f to Color.Black, 1f to Color.Transparent)
-    val effect = if (haze != null) {
-        Modifier.hazeBlur(
-            HazeInput.Sources(haze),
-            HazeBlurStyle {
-                blurRadius(20.dp)
-                noiseFactor(0f)
-                backgroundColor(colors.background)
-                colorEffects(listOf(HazeColorEffect.tint(colors.background.copy(alpha = 0.8f))))
-                progressive(HazeProgressive.verticalGradient(startIntensity = 1f, endIntensity = 0f))
-                mask(fade)
-                alpha(alpha)
+    val backdrop = LocalBackdrop.current
+    val tint = colors.background.copy(alpha = if (blurs) 0.7f else 0.93f)
+    val fade = 28.dp
+    Column(modifier.fillMaxWidth().graphicsLayer { this.alpha = alpha }) {
+        val band = Modifier.fillMaxWidth().height(height - fade)
+        Box(
+            if (backdrop == null) {
+                band.background(tint)
+            } else {
+                band.drawPlainBackdrop(
+                    backdrop = backdrop,
+                    shape = { RectangleShape },
+                    effects = { blur(14.dp.toPx()) },
+                    onDrawSurface = { drawRect(tint) },
+                )
             },
         )
-    } else {
-        Modifier.background(
-            Brush.verticalGradient(
-                0f to colors.background.copy(alpha = 0.93f * alpha),
-                0.7f to colors.background.copy(alpha = 0.9f * alpha),
-                1f to Color.Transparent,
-            ),
-        )
+        Box(Modifier.fillMaxWidth().height(fade).background(Brush.verticalGradient(listOf(tint, Color.Transparent))))
     }
-    Box(modifier.fillMaxWidth().height(height).then(effect))
 }
 
 data class PageAction(
@@ -166,8 +246,10 @@ data class PageAction(
 @Composable
 fun GlassButtonGroup(actions: List<PageAction>, modifier: Modifier = Modifier) {
     val colors = apple
+    val press = rememberGlassPress()
     Row(
-        modifier.height(44.dp).glass(CircleShape).padding(horizontal = if (actions.size == 1) 0.dp else 2.dp),
+        modifier.height(44.dp).then(press?.gesture ?: Modifier).glass(CircleShape, press = press)
+            .padding(horizontal = if (actions.size == 1) 0.dp else 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         actions.forEach { action ->
@@ -219,7 +301,7 @@ fun <T> SegmentedPicker(options: List<Pair<T, String>>, selected: T, enabled: Bo
     ) {
         val width = maxWidth / options.size
         val index = options.indexOfFirst { it.first == selected }.coerceAtLeast(0)
-        val offset by animateDpAsState(width * index, label = "segment")
+        val offset by animateDpAsState(width * index, spring(0.8f, 500f), label = "segment")
         Box(
             Modifier.offset(x = offset).width(width).fillMaxHeight()
                 .shadow(2.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.08f), spotColor = Color.Black.copy(alpha = 0.12f))
@@ -324,6 +406,8 @@ class Sheets {
         content = null
         menu = null
     }
+
+    val open: Boolean get() = content != null || menu != null
 }
 
 val LocalSheets = staticCompositionLocalOf { Sheets() }
@@ -346,12 +430,12 @@ fun SheetHost(sheets: Sheets) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
         AnimatedVisibility(
             content != null,
-            enter = slideInVertically { it / 2 } + fadeIn(),
-            exit = slideOutVertically { it / 2 } + fadeOut(),
+            enter = slideInVertically(spring(0.86f, 380f)) { it } + fadeIn(tween(160)),
+            exit = slideOutVertically(spring(1f, 500f)) { it } + fadeOut(tween(200)),
         ) {
             Column(
                 Modifier.navigationBarsPadding().imePadding().padding(8.dp).fillMaxWidth()
-                    .glass(RoundedCornerShape(34.dp))
+                    .glass(RoundedCornerShape(34.dp), thick = true)
                     .clickable(remember { MutableInteractionSource() }, indication = null) {}
                     .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -377,10 +461,10 @@ private fun MenuPopup(menu: Menu, visible: Boolean, onDismiss: () -> Unit) {
             content = {
                 AnimatedVisibility(
                     visible,
-                    enter = scaleIn(initialScale = 0.6f, transformOrigin = origin) + fadeIn(),
-                    exit = scaleOut(targetScale = 0.6f, transformOrigin = origin) + fadeOut(),
+                    enter = scaleIn(spring(0.72f, 420f), initialScale = 0.4f, transformOrigin = origin) + fadeIn(tween(120)),
+                    exit = scaleOut(tween(180), targetScale = 0.6f, transformOrigin = origin) + fadeOut(tween(160)),
                 ) {
-                    Column(Modifier.widthIn(min = 220.dp, max = 280.dp).glass(RoundedCornerShape(26.dp)).padding(vertical = 6.dp)) {
+                    Column(Modifier.widthIn(min = 220.dp, max = 280.dp).glass(RoundedCornerShape(26.dp), thick = true).padding(vertical = 6.dp)) {
                         menu.title?.let {
                             Text(
                                 it,
@@ -440,7 +524,11 @@ fun SheetButtons(confirm: String, enabled: Boolean = true, onCancel: () -> Unit,
             onClick = onConfirm,
             enabled = enabled,
             shape = CircleShape,
-            colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colors.accent,
+                disabledContainerColor = colors.fill,
+                disabledContentColor = colors.secondaryLabel,
+            ),
             modifier = Modifier.fillMaxWidth().height(50.dp),
         ) {
             Text(confirm, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)

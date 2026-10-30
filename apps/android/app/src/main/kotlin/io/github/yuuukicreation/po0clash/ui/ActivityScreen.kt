@@ -40,17 +40,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.chrisbanes.haze.hazeSource
 import io.github.yuuukicreation.po0clash.R
 import io.github.yuuukicreation.po0clash.core.Connection
 import io.github.yuuukicreation.po0clash.core.EngineState
 import io.github.yuuukicreation.po0clash.core.LogEntry
 import io.github.yuuukicreation.po0clash.core.LogLevel
-import kotlinx.coroutines.flow.flowOf
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.flow.flowOf
 
 private enum class ActivityTab(@param:StringRes val label: Int) {
     REQUESTS(R.string.requests),
@@ -119,7 +118,7 @@ fun ActivityScreen(vm: AppViewModel, onBack: () -> Unit) {
     PageScaffold(title, list, actions = actions, onBack = onBack) { padding ->
         LazyColumn(
             state = list,
-            modifier = Modifier.fillMaxSize().hazeSource(checkNotNull(LocalHaze.current)),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = padding,
         ) {
             item { PageTitle(title) }
@@ -132,7 +131,7 @@ fun ActivityScreen(vm: AppViewModel, onBack: () -> Unit) {
             when (tab) {
                 ActivityTab.REQUESTS -> {
                     val shown = requests.filter { it.matches(needle) }
-                    if (shown.isEmpty()) item { EmptyCard(stringResource(R.string.no_requests), stringResource(R.string.no_requests_body)) }
+                    if (shown.isEmpty()) item { EmptyCard(stringResource(R.string.no_requests), stringResource(R.string.no_requests_body), LineIcons.Activity) }
                     itemsIndexed(shown) { index, request ->
                         ConnectionRow(index, shown.size, request, onClick = { showDetail(request, false) }, trailing = { TimeLabel(request.start) })
                     }
@@ -144,21 +143,24 @@ fun ActivityScreen(vm: AppViewModel, onBack: () -> Unit) {
                             EmptyCard(
                                 stringResource(R.string.no_connections),
                                 stringResource(if (running) R.string.no_connections_body else R.string.connect_first),
+                                LineIcons.Link,
                             )
                         }
                     }
                     itemsIndexed(shown, key = { _, it -> it.id }) { index, connection ->
-                        ConnectionRow(index, shown.size, connection, onClick = { showDetail(connection, true) }) {
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text("↑ ${bytes(connection.upload)}", style = MaterialTheme.typography.labelMedium.tabular(), color = apple.secondaryLabel)
-                                Text("↓ ${bytes(connection.download)}", style = MaterialTheme.typography.labelMedium.tabular(), color = apple.secondaryLabel)
-                            }
-                            IconButton(
-                                onClick = { vm.closeConnection(connection.id) },
-                                enabled = "connection:${connection.id}" !in busy,
-                                modifier = Modifier.size(36.dp),
-                            ) {
-                                Icon(LineIcons.Close, contentDescription = stringResource(R.string.close), tint = apple.secondaryLabel)
+                        Box(itemMotion()) {
+                            ConnectionRow(index, shown.size, connection, onClick = { showDetail(connection, true) }) {
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("↑ ${bytes(connection.upload)}", style = MaterialTheme.typography.labelMedium.tabular(), color = apple.secondaryLabel)
+                                    Text("↓ ${bytes(connection.download)}", style = MaterialTheme.typography.labelMedium.tabular(), color = apple.secondaryLabel)
+                                }
+                                IconButton(
+                                    onClick = { vm.closeConnection(connection.id) },
+                                    enabled = "connection:${connection.id}" !in busy,
+                                    modifier = Modifier.size(36.dp),
+                                ) {
+                                    Icon(LineIcons.Close, contentDescription = stringResource(R.string.close), tint = apple.secondaryLabel)
+                                }
                             }
                         }
                     }
@@ -166,7 +168,7 @@ fun ActivityScreen(vm: AppViewModel, onBack: () -> Unit) {
                 ActivityTab.LOGS -> {
                     val minimum = level?.ordinal ?: 0
                     val shown = logs.filter { it.level.ordinal >= minimum && (needle.isEmpty() || it.message.contains(needle, ignoreCase = true)) }
-                    if (shown.isEmpty()) item { EmptyCard(stringResource(R.string.no_logs), stringResource(R.string.no_logs_body)) }
+                    if (shown.isEmpty()) item { EmptyCard(stringResource(R.string.no_logs), stringResource(R.string.no_logs_body), LineIcons.FileText) }
                     itemsIndexed(shown) { index, entry -> LogRow(index, shown.size, entry) }
                 }
             }

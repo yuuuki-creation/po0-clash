@@ -1,6 +1,7 @@
 package io.github.yuuukicreation.po0clash.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -21,7 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.chrisbanes.haze.hazeSource
 import io.github.yuuukicreation.po0clash.R
 import io.github.yuuukicreation.po0clash.core.WhitelistEntry
 import io.github.yuuukicreation.po0clash.core.WhitelistKind
@@ -58,7 +58,7 @@ fun WhitelistScreen(vm: AppViewModel) {
     PageScaffold(stringResource(R.string.whitelist), list, actions) { padding ->
         LazyColumn(
             state = list,
-            modifier = Modifier.fillMaxSize().hazeSource(checkNotNull(LocalHaze.current)),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = padding,
         ) {
             item { PageTitle(stringResource(R.string.whitelist)) }
@@ -76,10 +76,12 @@ fun WhitelistScreen(vm: AppViewModel) {
             }
             item { SectionHeader(stringResource(R.string.whitelist_entries)) }
             if (whitelist.entries.isEmpty()) {
-                item { EmptyCard(stringResource(R.string.whitelist_none), stringResource(R.string.whitelist_empty_body)) }
+                item { EmptyCard(stringResource(R.string.whitelist_none), stringResource(R.string.whitelist_empty_body), LineIcons.ShieldCheck) }
             }
             itemsIndexed(whitelist.entries, key = { _, entry -> entry.id }) { index, entry ->
-                EntryRow(index, whitelist.entries.size, entry, vm)
+                Box(itemMotion()) {
+                    EntryRow(index, whitelist.entries.size, entry, vm)
+                }
             }
         }
     }
