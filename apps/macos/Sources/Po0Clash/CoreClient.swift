@@ -52,6 +52,9 @@ final class CoreClient: @unchecked Sendable {
     func traffic() async throws -> Traffic { try await work { $0.traffic() } }
     func exitIp() async throws -> ExitIp { try await work { try $0.exitIp() } }
     func checkUpdate() async throws -> Release? { try await work { try $0.checkUpdate() } }
+    func ipQuality(_ ip: String, refresh: Bool) async throws -> IpQuality {
+        try await work { try $0.ipQuality(ip: ip, refresh: refresh) }
+    }
     func intranetIp() async throws -> IntranetIp? { try await work { $0.intranetIp() } }
     func wasConnected() async throws -> Bool { try await work { $0.wasConnected() } }
     func appSettings() async throws -> AppSettings { try await work { $0.appSettings() } }

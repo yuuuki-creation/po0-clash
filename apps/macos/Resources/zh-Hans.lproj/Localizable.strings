@@ -388,3 +388,11 @@
 "This software is intended only for non-commercial uses such as learning and research. Using it for any commercial purpose is strictly prohibited; any commercial activity is unrelated to this software." = "本软件仅供学习交流、科研等非商业性质的用途，严禁将本软件用于商业目的。如有任何商业行为，均与本软件无关。";
 "Agree" = "同意";
 "View…" = "查看…";
+
+/* Exit IP quality */
+"Residential" = "住宅";
+"Mobile network" = "移动网络";
+"Business" = "商业";
+"Data center" = "机房";
+"Good" = "优";
+"Risky" = "风险";

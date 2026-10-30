@@ -14,6 +14,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var memory: UInt64 = 0
     @Published private(set) var connectionSummary = ConnectionSummary()
     @Published private(set) var exitIp: ExitIp?
+    @Published private(set) var ipQuality: IpQuality?
     @Published private(set) var intranetIp: IntranetIp?
     @Published private(set) var appSettings: AppSettings? {
         didSet {
@@ -584,7 +585,7 @@ final class AppModel: ObservableObject {
     }
 
     func refreshExitIpNow() {
-        refreshExitIp()
+        refreshExitIp(refresh: true)
         Task { await refreshIntranetIp() }
     }
 
@@ -652,7 +653,7 @@ final class AppModel: ObservableObject {
         intranetIp = try? await client.intranetIp()
     }
 
-    private func refreshExitIp() {
+    private func refreshExitIp(refresh: Bool = false) {
         guard let client else { return }
         exitIpTask?.cancel()
         exitIpTask = Task {
@@ -660,6 +661,11 @@ final class AppModel: ObservableObject {
             guard !Task.isCancelled else { return }
             exitIp = ip
             exitIpFetchedAt = Date()
+            if ipQuality?.ip != ip?.ip { ipQuality = nil }
+            guard let address = ip?.ip else { return }
+            let quality = try? await client.ipQuality(address, refresh: refresh)
+            guard !Task.isCancelled else { return }
+            ipQuality = quality
         }
     }
 

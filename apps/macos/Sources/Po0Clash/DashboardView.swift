@@ -749,7 +749,57 @@ private struct ExitIpCard: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .textSelection(.enabled)
-            Caption(text: model.exitIp?.country ?? " ")
+            HStack(spacing: 6) {
+                Caption(text: details.isEmpty ? " " : details.joined(separator: " · "))
+                if let quality {
+                    Text(verbatim: "\(quality.kind.title) · \(quality.level.title)")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(quality.level.tint)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(Color.controlFill, in: Capsule())
+                        .fixedSize()
+                }
+            }
+        }
+    }
+
+    private var quality: IpQuality? {
+        model.ipQuality.flatMap { $0.ip == model.exitIp?.ip ? $0 : nil }
+    }
+
+    /// FlClash names the network by its organisation, or by its AS number when no source knows the name.
+    private var details: [String] {
+        let network = quality?.organization ?? quality?.asn.map { "AS\($0)" }
+        return [model.exitIp?.country, network].compactMap { $0 }
+    }
+}
+
+extension IpType {
+    var title: String {
+        switch self {
+        case .residential: return String(localized: "Residential")
+        case .mobile: return String(localized: "Mobile network")
+        case .business: return String(localized: "Business")
+        case .hosting: return String(localized: "Data center")
+        }
+    }
+}
+
+extension IpQualityLevel {
+    var title: String {
+        switch self {
+        case .good: return String(localized: "Good")
+        case .normal: return String(localized: "Normal")
+        case .risky: return String(localized: "Risky")
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .good: return .green
+        case .normal: return .secondary
+        case .risky: return .red
         }
     }
 }
