@@ -82,11 +82,12 @@ enum Format {
     }
 }
 
-/// docs/development/native-design.md: a neutral page, opaque cards on it, tiles inside cards.
+/// docs/development/native-design.md in macOS 26's grouped-form colours, so cards match the settings pages: a white
+/// page, faint grey cards on it, white tiles inside the cards.
 extension Color {
-    static let pageBackground = Color(light: 0xF2F2F7, dark: 0x1C1C1E, black: 0x000000)
-    static let cardBackground = Color(light: 0xFFFFFF, dark: 0x2C2C2E, black: 0x1C1C1E)
-    static let tileBackground = Color(light: 0xF2F2F7, dark: 0x3A3A3C, black: 0x2C2C2E)
+    static let pageBackground = Color(light: 0xFFFFFF, dark: 0x1E1E1E, black: 0x000000)
+    static let cardBackground = Color(light: 0xF7F7F7, dark: 0x252525, black: 0x161616)
+    static let tileBackground = Color(light: 0xFFFFFF, dark: 0x303030, black: 0x262626)
     static let controlFill = Color(light: 0x767680, dark: 0x767680, lightAlpha: 0.12, darkAlpha: 0.24)
     static let cardEdge = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.05, darkAlpha: 0.06)
     static let goodText = Color(light: 0x1E7F35, dark: 0x30D158)
@@ -264,8 +265,6 @@ struct StatusDot: View {
 extension View {
     func cardSurface(radius: CGFloat = 14) -> some View {
         background(Color.cardBackground, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Color.cardEdge, lineWidth: 0.5))
-            .shadow(color: .black.opacity(0.04), radius: 1.5, y: 1)
     }
 
     func groupedSection() -> some View {

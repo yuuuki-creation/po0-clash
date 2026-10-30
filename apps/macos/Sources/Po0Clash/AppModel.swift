@@ -312,6 +312,64 @@ final class AppModel: ObservableObject {
         }
     }
 
+    // MARK: Backup
+
+    func checkWebDav(_ dav: WebDav) async -> String? {
+        guard let client else { return launchError }
+        do {
+            try await client.checkWebDav(dav)
+            return nil
+        } catch {
+            return describe(error)
+        }
+    }
+
+    func backupToWebDav() async {
+        guard let client else { return }
+        do {
+            try await client.backupToWebDav()
+            notice = String(localized: "Backup successful")
+        } catch {
+            notice = describe(error)
+        }
+    }
+
+    func backupToFile() async {
+        guard let client else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.zip]
+        panel.nameFieldStringValue = "po0-clash-backup-\(Self.stamp.string(from: Date())).zip"
+        activateApp()
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try await client.backup().write(to: url, options: .atomic)
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        } catch {
+            notice = describe(error)
+        }
+    }
+
+    func chooseBackupFile() -> URL? {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.zip]
+        activateApp()
+        return panel.runModal() == .OK ? panel.url : nil
+    }
+
+    func restore(from source: BackupSource, scope: RestoreScope) async {
+        guard let client else { return }
+        do {
+            switch source {
+            case .webDav: try await client.restoreFromWebDav(scope: scope)
+            case .file(let url): try await client.restore(Data(contentsOf: url), scope: scope)
+            }
+            await refreshAll()
+            notice = String(localized: "Restore successful")
+        } catch {
+            notice = describe(error)
+        }
+    }
+
     private static let stamp: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")

@@ -189,3 +189,36 @@
 "Add a color" = "添加颜色";
 "Color" = "颜色";
 "Remove Color" = "删除颜色";
+
+/* Backup and restore */
+"Address" = "地址";
+"Account" = "账号";
+"File" = "文件";
+"Connection" = "连通性";
+"Edit…" = "编辑…";
+"Back Up" = "备份";
+"Restore…" = "恢复…";
+"Set Up…" = "设置…";
+"Not set up" = "未设置";
+"Back up to a WebDAV account such as Nextcloud or Jianguoyun." = "备份到 WebDAV 账号，例如 Nextcloud 或坚果云。";
+"Local" = "本地";
+"Back Up…" = "备份…";
+"Back up to a file" = "备份到文件";
+"Saves the profiles and settings in a zip file." = "把配置和设置保存为 zip 文件。";
+"Restore from a file" = "从文件恢复";
+"Brings back a zip file made here or on another device." = "恢复在本机或其他设备上生成的 zip 文件。";
+"Restore strategy" = "恢复策略";
+"Compatible" = "兼容";
+"Override" = "覆盖";
+"Compatible keeps the profiles already here; Override replaces them with the backup's." = "兼容会保留本机已有的配置；覆盖会用备份里的配置替换它们。";
+"Restore" = "恢复";
+"Restore All Data" = "恢复所有数据";
+"Restore Only Profiles" = "仅恢复配置";
+"Profiles always come back; restoring all data also brings back the settings." = "配置总会恢复；恢复所有数据还会恢复各项设置。";
+"Checking…" = "检查中…";
+"Connected" = "已连接";
+"Password" = "密码";
+"Save" = "保存";
+"Backup successful" = "备份成功";
+"Restore successful" = "恢复成功";
+"Back" = "返回";

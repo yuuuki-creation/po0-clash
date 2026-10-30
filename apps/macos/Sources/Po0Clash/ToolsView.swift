@@ -41,6 +41,7 @@ enum ToolsPage: String, Hashable {
         switch self {
         case .appearance: AppearanceView()
         case .application: ApplicationView()
+        case .backup: BackupView()
         case .about: AboutView()
         default: ComingSoon(title: title)
         }
@@ -94,7 +95,9 @@ struct ToolsView: View {
                 .formStyle(.grouped)
             }
             .navigationDestination(for: ToolsPage.self) { page in
-                PageScaffold(page.title) { page.destination }
+                PageScaffold(page.title, back: { navigation.tools = Array(navigation.tools.dropLast()) }) {
+                    page.destination
+                }
             }
         }
     }

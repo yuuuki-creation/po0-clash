@@ -58,42 +58,27 @@ struct ProxiesView: View {
                     detail: "Connect with a subscription to load its proxy groups."
                 )
             } else {
-                VStack(spacing: 0) {
-                    if searching {
-                        SearchField(text: $query, prompt: "Search nodes")
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 6)
-                    }
-                    if arrangement == .tabs { tabBar }
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 12) {
-                                ForEach(shownGroups, id: \.name) { group in
-                                    GroupCard(
-                                        group: group,
-                                        nodes: nodes(of: group),
-                                        expanded: isExpanded(group),
-                                        collapsible: arrangement == .list && query.isEmpty,
-                                        density: density,
-                                        tileStyle: tileStyle
-                                    ) {
-                                        withAnimation(.easeInOut(duration: 0.2)) { toggle(group.name) }
+                ScrollViewReader { proxy in
+                    // The search field and tabs ride in the scroll view: macOS 26 draws the old opaque toolbar over
+                    // any page whose top edge is not a vertical scroll view.
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                            Section {
+                                groupCards
+                            } header: {
+                                VStack(spacing: 0) {
+                                    if searching {
+                                        SearchField(text: $query, prompt: "Search nodes")
+                                            .padding(.horizontal, 20)
+                                            .padding(.vertical, 6)
                                     }
-                                    .id(group.name)
+                                    if arrangement == .tabs { tabBar }
                                 }
-                                if shownGroups.isEmpty {
-                                    Text("No nodes match “\(query)”.")
-                                        .foregroundStyle(.secondary)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.top, 40)
-                                }
+                                .background(Color.pageBackground)
                             }
-                            .padding(.horizontal, 20)
-                            .padding(.top, arrangement == .tabs ? 8 : 6)
-                            .padding(.bottom, 20)
                         }
-                        .onChange(of: locateRequest) { _ in locate(proxy) }
                     }
+                    .onChange(of: locateRequest) { _ in locate(proxy) }
                 }
             }
         }
@@ -102,6 +87,33 @@ struct ProxiesView: View {
         .onAppear {
             if expanded.isEmpty, let first = model.primaryGroup { expanded.insert(first.name) }
         }
+    }
+
+    private var groupCards: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(shownGroups, id: \.name) { group in
+                GroupCard(
+                    group: group,
+                    nodes: nodes(of: group),
+                    expanded: isExpanded(group),
+                    collapsible: arrangement == .list && query.isEmpty,
+                    density: density,
+                    tileStyle: tileStyle
+                ) {
+                    withAnimation(.easeInOut(duration: 0.2)) { toggle(group.name) }
+                }
+                .id(group.name)
+            }
+            if shownGroups.isEmpty {
+                Text("No nodes match “\(query)”.")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 40)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, arrangement == .tabs ? 8 : 6)
+        .padding(.bottom, 20)
     }
 
     private var options: some View {
@@ -302,7 +314,7 @@ private struct NodeTile: View {
             .padding(.vertical, style == .detailed ? 9 : 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(selected ? Color.accentColor.opacity(0.08) : Color.tileBackground, in: shape)
-            .overlay(shape.strokeBorder(selected ? Color.accentColor : Color.clear, lineWidth: 1.5))
+            .overlay(shape.strokeBorder(selected ? Color.accentColor : Color.cardEdge, lineWidth: selected ? 1.5 : 0.5))
             .contentShape(shape)
             .onTapGesture(perform: select)
             .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)

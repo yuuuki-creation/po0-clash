@@ -97,6 +97,15 @@ final class CoreClient: @unchecked Sendable {
 
     func networkChanged() async throws { try await work { $0.networkChanged() } }
     func exportDiagnostics(to path: String) async throws { try await work { try $0.exportDiagnostics(path: path) } }
+    func backup() async throws -> Data { try await work { try $0.backup() } }
+    func checkWebDav(_ dav: WebDav) async throws { try await work { try $0.checkWebdav(dav: dav) } }
+    func backupToWebDav() async throws { try await work { try $0.backupToWebdav() } }
+    func restore(_ data: Data, scope: RestoreScope) async throws {
+        try await control { try $0.restore(data: data, scope: scope) }
+    }
+    func restoreFromWebDav(scope: RestoreScope) async throws {
+        try await control { try $0.restoreFromWebdav(scope: scope) }
+    }
 
     /// Queued behind pending commands so a stop or route change in flight cannot run after it and leave a proxy set.
     func shutdown(then done: @escaping () -> Void) {

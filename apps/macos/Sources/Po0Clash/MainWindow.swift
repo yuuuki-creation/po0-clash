@@ -140,17 +140,20 @@ struct MainView: View {
 struct PageScaffold<Actions: View, Content: View>: View {
     let title: LocalizedStringKey
     var subtitle: String?
+    var back: (() -> Void)?
     private let actions: Actions
     private let content: Content
 
     init(
         _ title: LocalizedStringKey,
         subtitle: String? = nil,
+        back: (() -> Void)? = nil,
         @ViewBuilder actions: () -> Actions,
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
         self.subtitle = subtitle
+        self.back = back
         self.actions = actions()
         self.content = content()
     }
@@ -158,13 +161,32 @@ struct PageScaffold<Actions: View, Content: View>: View {
     var body: some View {
         if #available(macOS 14, *) {
             content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.pageBackground)
                 .navigationTitle(title)
                 .navigationSubtitle(subtitle ?? "")
+                .navigationBarBackButtonHidden(back != nil)
+                .toolbar {
+                    if let back {
+                        ToolbarItem(placement: .navigation) {
+                            Button(action: back) {
+                                Label("Back", systemImage: "chevron.backward")
+                            }
+                            .help("Back")
+                        }
+                    }
+                }
                 .modifier(PageToolbar(actions: actions))
         } else {
             VStack(spacing: 0) {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    if let back {
+                        Button(action: back) {
+                            Image(systemName: "chevron.backward")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Back")
+                    }
                     Text(title).font(.title2.weight(.semibold))
                     if let subtitle { Text(subtitle).foregroundStyle(.secondary) }
                     Spacer()
@@ -173,7 +195,7 @@ struct PageScaffold<Actions: View, Content: View>: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
-                content
+                content.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .background(Color.pageBackground)
         }
@@ -245,8 +267,13 @@ struct ConnectButton: View {
 }
 
 extension PageScaffold where Actions == EmptyView {
-    init(_ title: LocalizedStringKey, subtitle: String? = nil, @ViewBuilder content: () -> Content) {
-        self.init(title, subtitle: subtitle, actions: { EmptyView() }, content: content)
+    init(
+        _ title: LocalizedStringKey,
+        subtitle: String? = nil,
+        back: (() -> Void)? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.init(title, subtitle: subtitle, back: back, actions: { EmptyView() }, content: content)
     }
 }
 

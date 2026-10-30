@@ -135,7 +135,15 @@ jobs:
           test -x /Applications/po0-clash.app/Contents/MacOS/mihomo
           settings="$support/core/settings.json"
           for _ in $(seq 40); do grep -q pgnfw_legacy "$settings" 2>/dev/null && break; sleep 0.5; done
-          grep -q '"Legacy sub"' "$settings" || { cat "$settings" || true; echo "::error::subscriptions were not imported"; exit 1; }
+          if ! grep -q '"Legacy sub"' "$settings"; then
+            cat "$settings" || true
+            pgrep -lf po0-clash || true
+            ls -la "$support" "$support/core" || true
+            find ~/Library/Logs/DiagnosticReports -name 'po0-clash*' -exec head -80 {} \; 2>/dev/null || true
+            log show --last 3m --style compact --predicate 'process == "po0-clash"' 2>/dev/null | tail -80 || true
+            echo "::error::subscriptions were not imported"
+            exit 1
+          fi
           grep -q pgnfw_legacy "$settings" || { echo "::error::whitelist tokens were not imported"; exit 1; }
 
           # A stand-in for the GitHub API: a draft, a Flutter release and the native prerelease, newest first.
