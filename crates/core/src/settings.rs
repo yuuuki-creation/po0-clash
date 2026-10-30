@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::Result;
 use crate::model::{Mode, ProfileKind, RouteMode, Usage};
+use crate::options::EngineOptions;
 use crate::util;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -18,6 +19,7 @@ pub struct Settings {
     pub profiles: Vec<ProfileRecord>,
     pub whitelist: WhitelistSettings,
     pub connected: bool,
+    pub options: EngineOptions,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

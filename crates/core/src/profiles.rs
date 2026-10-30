@@ -31,7 +31,12 @@ fn user_agent(app_version: &str) -> String {
     format!("clash-verge/v2 mihomo/1.19 po0-clash/{app_version}")
 }
 
-pub fn fetch(url: &str, proxy: Option<&str>, app_version: &str) -> Result<Fetched> {
+pub fn fetch(
+    url: &str,
+    proxy: Option<&str>,
+    app_version: &str,
+    custom_agent: Option<&str>,
+) -> Result<Fetched> {
     let parsed = url.parse::<ureq::http::Uri>().ok();
     let scheme_ok = parsed
         .as_ref()
@@ -49,7 +54,7 @@ pub fn fetch(url: &str, proxy: Option<&str>, app_version: &str) -> Result<Fetche
             .proxy(proxy)
             .timeout_global(Some(TIMEOUT))
             .http_status_as_error(false)
-            .user_agent(user_agent(app_version))
+            .user_agent(custom_agent.map_or_else(|| user_agent(app_version), str::to_owned))
             .build(),
     );
     let mut response = agent
@@ -269,7 +274,7 @@ mod tests {
     #[test]
     fn refuses_non_http_links() {
         assert!(matches!(
-            fetch("file:///etc/passwd", None, "0"),
+            fetch("file:///etc/passwd", None, "0", None),
             Err(CoreError::Invalid(_))
         ));
     }

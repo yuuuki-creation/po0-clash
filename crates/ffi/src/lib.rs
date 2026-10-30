@@ -1,5 +1,6 @@
 //! UniFFI surface of `po0-core` for the Swift and Kotlin apps. Only conversions live here.
 
+use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -92,6 +93,229 @@ mirror_enum!(Change {
     Groups,
     Whitelist
 });
+
+mirror_enum!(LogLevel {
+    Debug,
+    Info,
+    Warning,
+    Error,
+    Silent
+});
+mirror_enum!(FindProcessMode {
+    Off,
+    Strict,
+    Always
+});
+mirror_enum!(TunStack {
+    System,
+    Gvisor,
+    Mixed
+});
+mirror_enum!(GeodataLoader {
+    Standard,
+    Memconservative
+});
+mirror_enum!(DnsMode {
+    Normal,
+    FakeIp,
+    RedirHost
+});
+
+macro_rules! mirror_record {
+    ($name:ident { $($field:ident: $ty:ty),* $(,)? }) => {
+        #[derive(Debug, Clone, uniffi::Record)]
+        pub struct $name { $(pub $field: $ty),* }
+
+        impl From<core::$name> for $name {
+            fn from(value: core::$name) -> Self {
+                Self { $($field: value.$field),* }
+            }
+        }
+
+        impl From<$name> for core::$name {
+            fn from(value: $name) -> Self {
+                Self { $($field: value.$field),* }
+            }
+        }
+    };
+}
+
+mirror_record!(GeoxUrl {
+    geoip: String,
+    geosite: String,
+    mmdb: String,
+    asn: String,
+});
+
+mirror_record!(FallbackFilter {
+    geoip: bool,
+    geoip_code: String,
+    geosite: Vec<String>,
+    ipcidr: Vec<String>,
+    domain: Vec<String>,
+});
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct DnsOptions {
+    pub enable: bool,
+    pub listen: String,
+    pub prefer_h3: bool,
+    pub use_hosts: bool,
+    pub use_system_hosts: bool,
+    pub respect_rules: bool,
+    pub ipv6: bool,
+    pub enhanced_mode: DnsMode,
+    pub fake_ip_range: String,
+    pub fake_ip_filter: Vec<String>,
+    pub default_nameserver: Vec<String>,
+    pub nameserver: Vec<String>,
+    pub fallback: Vec<String>,
+    pub proxy_server_nameserver: Vec<String>,
+    pub nameserver_policy: HashMap<String, String>,
+    pub fallback_filter: FallbackFilter,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct EngineOptions {
+    pub mixed_port: u16,
+    pub socks_port: u16,
+    pub http_port: u16,
+    pub allow_lan: bool,
+    pub authentication: Vec<String>,
+    pub log_level: LogLevel,
+    pub ipv6: bool,
+    pub unified_delay: bool,
+    pub tcp_concurrent: bool,
+    pub find_process_mode: FindProcessMode,
+    pub keep_alive_interval: u32,
+    pub interface_name: String,
+    pub test_url: String,
+    pub user_agent: String,
+    pub hosts: HashMap<String, String>,
+    pub external_controller: bool,
+    pub tun_stack: Option<TunStack>,
+    pub tun_route_address: Vec<String>,
+    pub tun_dns_hijack: Vec<String>,
+    pub geodata_loader: GeodataLoader,
+    pub geo_auto_update: bool,
+    pub geo_update_interval: u32,
+    pub geox_url: GeoxUrl,
+    pub override_dns: bool,
+    pub dns: DnsOptions,
+    pub added_rules: Vec<String>,
+}
+
+impl From<core::DnsOptions> for DnsOptions {
+    fn from(v: core::DnsOptions) -> Self {
+        Self {
+            enable: v.enable,
+            listen: v.listen,
+            prefer_h3: v.prefer_h3,
+            use_hosts: v.use_hosts,
+            use_system_hosts: v.use_system_hosts,
+            respect_rules: v.respect_rules,
+            ipv6: v.ipv6,
+            enhanced_mode: v.enhanced_mode.into(),
+            fake_ip_range: v.fake_ip_range,
+            fake_ip_filter: v.fake_ip_filter,
+            default_nameserver: v.default_nameserver,
+            nameserver: v.nameserver,
+            fallback: v.fallback,
+            proxy_server_nameserver: v.proxy_server_nameserver,
+            nameserver_policy: v.nameserver_policy.into_iter().collect(),
+            fallback_filter: v.fallback_filter.into(),
+        }
+    }
+}
+
+impl From<DnsOptions> for core::DnsOptions {
+    fn from(v: DnsOptions) -> Self {
+        Self {
+            enable: v.enable,
+            listen: v.listen,
+            prefer_h3: v.prefer_h3,
+            use_hosts: v.use_hosts,
+            use_system_hosts: v.use_system_hosts,
+            respect_rules: v.respect_rules,
+            ipv6: v.ipv6,
+            enhanced_mode: v.enhanced_mode.into(),
+            fake_ip_range: v.fake_ip_range,
+            fake_ip_filter: v.fake_ip_filter,
+            default_nameserver: v.default_nameserver,
+            nameserver: v.nameserver,
+            fallback: v.fallback,
+            proxy_server_nameserver: v.proxy_server_nameserver,
+            nameserver_policy: v.nameserver_policy.into_iter().collect(),
+            fallback_filter: v.fallback_filter.into(),
+        }
+    }
+}
+
+impl From<core::EngineOptions> for EngineOptions {
+    fn from(v: core::EngineOptions) -> Self {
+        Self {
+            mixed_port: v.mixed_port,
+            socks_port: v.socks_port,
+            http_port: v.http_port,
+            allow_lan: v.allow_lan,
+            authentication: v.authentication,
+            log_level: v.log_level.into(),
+            ipv6: v.ipv6,
+            unified_delay: v.unified_delay,
+            tcp_concurrent: v.tcp_concurrent,
+            find_process_mode: v.find_process_mode.into(),
+            keep_alive_interval: v.keep_alive_interval,
+            interface_name: v.interface_name,
+            test_url: v.test_url,
+            user_agent: v.user_agent,
+            hosts: v.hosts.into_iter().collect(),
+            external_controller: v.external_controller,
+            tun_stack: v.tun_stack.map(Into::into),
+            tun_route_address: v.tun_route_address,
+            tun_dns_hijack: v.tun_dns_hijack,
+            geodata_loader: v.geodata_loader.into(),
+            geo_auto_update: v.geo_auto_update,
+            geo_update_interval: v.geo_update_interval,
+            geox_url: v.geox_url.into(),
+            override_dns: v.override_dns,
+            dns: v.dns.into(),
+            added_rules: v.added_rules,
+        }
+    }
+}
+
+impl From<EngineOptions> for core::EngineOptions {
+    fn from(v: EngineOptions) -> Self {
+        Self {
+            mixed_port: v.mixed_port,
+            socks_port: v.socks_port,
+            http_port: v.http_port,
+            allow_lan: v.allow_lan,
+            authentication: v.authentication,
+            log_level: v.log_level.into(),
+            ipv6: v.ipv6,
+            unified_delay: v.unified_delay,
+            tcp_concurrent: v.tcp_concurrent,
+            find_process_mode: v.find_process_mode.into(),
+            keep_alive_interval: v.keep_alive_interval,
+            interface_name: v.interface_name,
+            test_url: v.test_url,
+            user_agent: v.user_agent,
+            hosts: v.hosts.into_iter().collect(),
+            external_controller: v.external_controller,
+            tun_stack: v.tun_stack.map(Into::into),
+            tun_route_address: v.tun_route_address,
+            tun_dns_hijack: v.tun_dns_hijack,
+            geodata_loader: v.geodata_loader.into(),
+            geo_auto_update: v.geo_auto_update,
+            geo_update_interval: v.geo_update_interval,
+            geox_url: v.geox_url.into(),
+            override_dns: v.override_dns,
+            dns: v.dns.into(),
+            added_rules: v.added_rules,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Enum)]
 pub enum EngineState {
@@ -322,6 +546,14 @@ impl Po0Core {
 
     pub fn start(&self, tun_fd: Option<i32>) -> Result<()> {
         Ok(self.inner.start(tun_fd)?)
+    }
+
+    pub fn engine_options(&self) -> EngineOptions {
+        self.inner.engine_options().into()
+    }
+
+    pub fn set_engine_options(&self, options: EngineOptions) -> Result<()> {
+        Ok(self.inner.set_engine_options(options.into())?)
     }
 
     pub fn stop(&self) {

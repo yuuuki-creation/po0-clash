@@ -4,6 +4,7 @@ mod error;
 mod legacy;
 mod logfile;
 mod model;
+mod options;
 mod profiles;
 mod settings;
 mod util;
@@ -21,6 +22,7 @@ use serde_json::{Value, json};
 
 pub use error::{CoreError, Result};
 pub use model::*;
+pub use options::*;
 
 use engine::{Engine, Runtime, Session, sysproxy};
 use logfile::LogFile;
@@ -277,7 +279,13 @@ impl Core {
         engine::recover(&self.paths.run);
         let binary = lock(&self.mihomo_path).clone();
         let home = self.paths.home_for(binary.as_deref());
-        let runtime = Runtime::new(self.platform, &self.paths.run, home, tun_fd)?;
+        let runtime = Runtime::new(
+            self.platform,
+            &self.paths.run,
+            home,
+            tun_fd,
+            settings.options.mixed_port,
+        )?;
         let missing =
             !self.paths.yaml(&profile.id).exists() && !self.paths.links(&profile.id).exists();
         if missing && profile.url.is_some() {
@@ -454,7 +462,7 @@ impl Core {
         } else if let Ok(links) = fs::read_to_string(self.paths.links(&profile.id)) {
             let name = format!("po0-links-{}.txt", profile.id);
             util::write_atomic(&runtime.home.join(&name), links.as_bytes())?;
-            config::links_base(&format!("./{name}"))
+            config::links_base(&format!("./{name}"), settings.options.delay_url())
         } else {
             return Err(CoreError::Invalid(format!(
                 "{} has not been downloaded yet",
@@ -472,6 +480,7 @@ impl Core {
                 controller: runtime.controller.endpoint.config_entry(),
                 secret: runtime.controller.secret(),
                 direct: &runtime.direct,
+                options: &settings.options,
             },
         )?;
         let path = runtime.home.join("config.yaml");
@@ -489,6 +498,24 @@ impl Core {
     }
 
     // Mode and routing.
+
+    pub fn engine_options(&self) -> EngineOptions {
+        self.store.read(|s| s.options.clone())
+    }
+
+    /// A new mixed port moves the system proxy, so desktops restart for it; everything else hot-reloads.
+    pub fn set_engine_options(&self, options: EngineOptions) -> Result<()> {
+        let port_changed = self.store.update(|s| {
+            let changed = s.options.mixed_port != options.mixed_port;
+            s.options = options;
+            Ok(changed)
+        })?;
+        if port_changed && self.platform != Platform::Android {
+            self.restart()
+        } else {
+            self.reload()
+        }
+    }
 
     pub fn set_mode(&self, mode: Mode) -> Result<()> {
         self.store.update(|s| {
@@ -548,9 +575,11 @@ impl Core {
 
     fn fetch(&self, url: &str) -> Result<profiles::Fetched> {
         let proxy = self.proxy_url();
-        match profiles::fetch(url, proxy.as_deref(), &self.app_version) {
+        let agent = self.store.read(|s| s.options.user_agent.trim().to_owned());
+        let agent = (!agent.is_empty()).then_some(agent.as_str());
+        match profiles::fetch(url, proxy.as_deref(), &self.app_version, agent) {
             Err(CoreError::Network(_)) if proxy.is_some() => {
-                profiles::fetch(url, None, &self.app_version)
+                profiles::fetch(url, None, &self.app_version, agent)
             }
             other => other,
         }
@@ -865,7 +894,11 @@ impl Core {
         let path = format!(
             "/group/{}/delay?url={}&timeout={DELAY_TIMEOUT_MS}",
             util::encode_component(&group),
-            util::encode_component(config::DELAY_URL)
+            util::encode_component(
+                self.store
+                    .read(|s| s.options.delay_url().to_owned())
+                    .as_str()
+            )
         );
         let delays = session
             .controller()

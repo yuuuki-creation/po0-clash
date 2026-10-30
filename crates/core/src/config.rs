@@ -2,12 +2,16 @@ use serde_yaml::{Mapping, Value};
 
 use crate::error::{CoreError, Result};
 use crate::model::{Mode, Platform, RouteMode};
+use crate::options::{
+    DnsMode, DnsOptions, EngineOptions, FindProcessMode, GeodataLoader, LogLevel, TunStack,
+};
 
 pub const PO0_HOST: &str = "124.221.69.228";
 pub const PO0_CIDR: &str = "124.221.69.228/32";
 pub const DELAY_URL: &str = "https://www.gstatic.com/generate_204";
 const DIRECT_LISTENER: &str = "po0-direct";
 const LOOPBACK: &str = "127.0.0.1";
+const EXTERNAL_CONTROLLER: &str = "127.0.0.1:9090";
 
 /// Android VpnService addresses; the Builder in the app must use the same ones and MTU.
 pub const ANDROID_TUN_V4: &str = "172.19.0.1/30";
@@ -48,13 +52,6 @@ default-nameserver: [223.5.5.5, 119.29.29.29]
 nameserver: ['https://dns.alidns.com/dns-query', 'https://doh.pub/dns-query']
 ";
 
-const GEOX_URL: &str = "
-geoip: https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat
-geosite: https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat
-mmdb: https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/country.mmdb
-asn: https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/GeoLite2-ASN.mmdb
-";
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DirectListener {
     pub port: u16,
@@ -82,6 +79,7 @@ pub struct Params<'a> {
     pub controller: (&'static str, String),
     pub secret: &'a str,
     pub direct: &'a DirectListener,
+    pub options: &'a EngineOptions,
 }
 
 fn key(name: &str) -> Value {
@@ -96,13 +94,13 @@ fn strings<'a>(items: impl IntoIterator<Item = &'a str>) -> Value {
     Value::Sequence(items.into_iter().map(key).collect())
 }
 
-pub fn links_base(provider_path: &str) -> String {
+pub fn links_base(provider_path: &str, delay_url: &str) -> String {
     format!(
         "proxy-providers:
   links:
     type: file
     path: '{provider_path}'
-    health-check: {{enable: true, url: '{DELAY_URL}', interval: 600}}
+    health-check: {{enable: true, url: '{delay_url}', interval: 600}}
 proxy-groups:
   - {{name: PROXY, type: select, use: [links]}}
 rules:
@@ -128,12 +126,76 @@ pub fn render(base: &str, params: &Params) -> Result<String> {
     let set = |root: &mut Mapping, name: &str, value: Value| {
         root.insert(key(name), value);
     };
+    let options = params.options;
     set(&mut root, "mixed-port", Value::from(params.mixed_port));
-    set(&mut root, "allow-lan", Value::Bool(false));
-    set(&mut root, "bind-address", key(LOOPBACK));
+    if options.socks_port != 0 {
+        set(&mut root, "socks-port", Value::from(options.socks_port));
+    }
+    if options.http_port != 0 {
+        set(&mut root, "port", Value::from(options.http_port));
+    }
+    set(&mut root, "allow-lan", Value::Bool(options.allow_lan));
+    set(
+        &mut root,
+        "bind-address",
+        key(if options.allow_lan { "*" } else { LOOPBACK }),
+    );
+    if !options.authentication.is_empty() {
+        set(
+            &mut root,
+            "authentication",
+            strings(options.authentication.iter().map(String::as_str)),
+        );
+        // The system proxy cannot carry credentials, so local clients stay exempt.
+        set(
+            &mut root,
+            "skip-auth-prefixes",
+            strings(["127.0.0.1/8", "::1/128"]),
+        );
+    }
     set(&mut root, "mode", key(params.mode.as_str()));
-    set(&mut root, "log-level", key("warning"));
-    set(&mut root, "external-controller", key(""));
+    set(&mut root, "log-level", key(log_level(options.log_level)));
+    set(&mut root, "ipv6", Value::Bool(options.ipv6));
+    set(
+        &mut root,
+        "unified-delay",
+        Value::Bool(options.unified_delay),
+    );
+    set(
+        &mut root,
+        "tcp-concurrent",
+        Value::Bool(options.tcp_concurrent),
+    );
+    if options.keep_alive_interval != 0 {
+        set(
+            &mut root,
+            "keep-alive-interval",
+            Value::from(options.keep_alive_interval),
+        );
+    }
+    if !options.interface_name.trim().is_empty() {
+        set(
+            &mut root,
+            "interface-name",
+            key(options.interface_name.trim()),
+        );
+    }
+    if !options.hosts.is_empty() {
+        let mut hosts = match root.remove("hosts") {
+            Some(Value::Mapping(hosts)) => hosts,
+            _ => Mapping::new(),
+        };
+        for (host, address) in &options.hosts {
+            hosts.insert(key(host), key(address));
+        }
+        set(&mut root, "hosts", Value::Mapping(hosts));
+    }
+    let external = if options.external_controller {
+        EXTERNAL_CONTROLLER
+    } else {
+        ""
+    };
+    set(&mut root, "external-controller", key(external));
     set(&mut root, params.controller.0, key(&params.controller.1));
     set(&mut root, "secret", key(params.secret));
     set(
@@ -141,16 +203,43 @@ pub fn render(base: &str, params: &Params) -> Result<String> {
         "profile",
         yaml("{store-selected: false, store-fake-ip: true}"),
     );
-    if !root.contains_key("geox-url") {
-        set(&mut root, "geox-url", yaml(GEOX_URL));
-    }
-    if params.platform == Platform::Android {
-        set(&mut root, "find-process-mode", key("off"));
-    }
+    let mut geox = Mapping::new();
+    geox.insert(key("geoip"), key(&options.geox_url.geoip));
+    geox.insert(key("geosite"), key(&options.geox_url.geosite));
+    geox.insert(key("mmdb"), key(&options.geox_url.mmdb));
+    geox.insert(key("asn"), key(&options.geox_url.asn));
+    set(&mut root, "geox-url", Value::Mapping(geox));
+    set(
+        &mut root,
+        "geodata-loader",
+        key(match options.geodata_loader {
+            GeodataLoader::Standard => "standard",
+            GeodataLoader::Memconservative => "memconservative",
+        }),
+    );
+    set(
+        &mut root,
+        "geo-auto-update",
+        Value::Bool(options.geo_auto_update),
+    );
+    set(
+        &mut root,
+        "geo-update-interval",
+        Value::from(options.geo_update_interval.max(1)),
+    );
+    let find_process = match (params.platform, options.find_process_mode) {
+        (Platform::Android, _) | (_, FindProcessMode::Off) => "off",
+        (_, FindProcessMode::Strict) => "strict",
+        (_, FindProcessMode::Always) => "always",
+    };
+    set(&mut root, "find-process-mode", key(find_process));
 
     let tun = tun(params);
     let tun_on = tun.get("enable") == Some(&Value::Bool(true));
     set(&mut root, "tun", Value::Mapping(tun));
+    if options.override_dns {
+        set(&mut root, "dns", dns(&options.dns));
+    }
     match root.get_mut("dns") {
         Some(Value::Mapping(dns)) if tun_on => {
             dns.insert(key("enable"), Value::Bool(true));
@@ -179,16 +268,102 @@ pub fn render(base: &str, params: &Params) -> Result<String> {
     listeners.push(Value::Mapping(direct));
     set(&mut root, "listeners", Value::Sequence(listeners));
 
-    let po0_rule = key(&format!("IP-CIDR,{PO0_CIDR},DIRECT,no-resolve"));
-    match root.get_mut("rules") {
-        Some(Value::Sequence(rules)) => rules.insert(0, po0_rule),
-        _ => set(&mut root, "rules", Value::Sequence(vec![po0_rule])),
+    let mut rules = vec![key(&format!("IP-CIDR,{PO0_CIDR},DIRECT,no-resolve"))];
+    rules.extend(
+        options
+            .added_rules
+            .iter()
+            .map(|rule| rule.trim())
+            .filter(|rule| !rule.is_empty())
+            .map(key),
+    );
+    if let Some(Value::Sequence(theirs)) = root.remove("rules") {
+        rules.extend(theirs);
     }
+    set(&mut root, "rules", Value::Sequence(rules));
 
     serde_yaml::to_string(&Value::Mapping(root)).map_err(invalid)
 }
 
+fn log_level(level: LogLevel) -> &'static str {
+    match level {
+        LogLevel::Debug => "debug",
+        LogLevel::Info => "info",
+        LogLevel::Warning => "warning",
+        LogLevel::Error => "error",
+        LogLevel::Silent => "silent",
+    }
+}
+
+fn dns(options: &DnsOptions) -> Value {
+    let mut dns = Mapping::new();
+    let mut set = |name: &str, value: Value| {
+        dns.insert(key(name), value);
+    };
+    let list = |items: &[String]| strings(items.iter().map(String::as_str));
+    set("enable", Value::Bool(options.enable));
+    if !options.listen.trim().is_empty() {
+        set("listen", key(options.listen.trim()));
+    }
+    set("prefer-h3", Value::Bool(options.prefer_h3));
+    set("use-hosts", Value::Bool(options.use_hosts));
+    set("use-system-hosts", Value::Bool(options.use_system_hosts));
+    set("respect-rules", Value::Bool(options.respect_rules));
+    set("ipv6", Value::Bool(options.ipv6));
+    set(
+        "enhanced-mode",
+        key(match options.enhanced_mode {
+            DnsMode::Normal => "normal",
+            DnsMode::FakeIp => "fake-ip",
+            DnsMode::RedirHost => "redir-host",
+        }),
+    );
+    set("fake-ip-range", key(&options.fake_ip_range));
+    set("fake-ip-filter", list(&options.fake_ip_filter));
+    set("default-nameserver", list(&options.default_nameserver));
+    set("nameserver", list(&options.nameserver));
+    if !options.fallback.is_empty() {
+        set("fallback", list(&options.fallback));
+        let filter = &options.fallback_filter;
+        let mut fallback_filter = Mapping::new();
+        fallback_filter.insert(key("geoip"), Value::Bool(filter.geoip));
+        fallback_filter.insert(key("geoip-code"), key(&filter.geoip_code));
+        fallback_filter.insert(key("geosite"), list(&filter.geosite));
+        fallback_filter.insert(key("ipcidr"), list(&filter.ipcidr));
+        fallback_filter.insert(key("domain"), list(&filter.domain));
+        set("fallback-filter", Value::Mapping(fallback_filter));
+    }
+    if !options.proxy_server_nameserver.is_empty() {
+        set(
+            "proxy-server-nameserver",
+            list(&options.proxy_server_nameserver),
+        );
+    }
+    if !options.nameserver_policy.is_empty() {
+        let policy = options
+            .nameserver_policy
+            .iter()
+            .map(|(domain, server)| (key(domain), key(server)))
+            .collect();
+        set("nameserver-policy", Value::Mapping(policy));
+    }
+    Value::Mapping(dns)
+}
+
 fn tun(params: &Params) -> Mapping {
+    let options = params.options;
+    let stack = |default: TunStack| {
+        key(match options.tun_stack.unwrap_or(default) {
+            TunStack::System => "system",
+            TunStack::Gvisor => "gvisor",
+            TunStack::Mixed => "mixed",
+        })
+    };
+    let hijack = if options.tun_dns_hijack.is_empty() {
+        strings(["any:53"])
+    } else {
+        strings(options.tun_dns_hijack.iter().map(String::as_str))
+    };
     let mut tun = Mapping::new();
     let mut set = |name: &str, value: Value| {
         tun.insert(key(name), value);
@@ -196,25 +371,37 @@ fn tun(params: &Params) -> Mapping {
     match (params.platform, params.tun_fd, params.route_mode) {
         (Platform::Android, fd, _) => {
             set("enable", Value::Bool(fd.is_some()));
-            set("stack", key("gvisor"));
+            set("stack", stack(TunStack::Gvisor));
             set("file-descriptor", Value::from(fd.unwrap_or(0)));
             set("auto-route", Value::Bool(false));
             set("auto-detect-interface", Value::Bool(false));
             set("inet4-address", strings([ANDROID_TUN_V4]));
             set("inet6-address", strings([ANDROID_TUN_V6]));
             set("mtu", Value::from(ANDROID_TUN_MTU));
-            set("dns-hijack", strings(["any:53"]));
+            set("dns-hijack", hijack);
         }
         (platform, _, RouteMode::Tun) => {
             set("enable", Value::Bool(true));
             if platform == Platform::Windows {
                 set("device", key("po0-clash"));
             }
-            set("stack", key("mixed"));
+            // TCP over the mixed stack times out on Windows, so it defaults to gVisor there.
+            let default = if platform == Platform::Windows {
+                TunStack::Gvisor
+            } else {
+                TunStack::Mixed
+            };
+            set("stack", stack(default));
             set("auto-route", Value::Bool(true));
             set("auto-detect-interface", Value::Bool(true));
             set("strict-route", Value::Bool(false));
-            set("dns-hijack", strings(["any:53"]));
+            set("dns-hijack", hijack);
+            if !options.tun_route_address.is_empty() {
+                set(
+                    "route-address",
+                    strings(options.tun_route_address.iter().map(String::as_str)),
+                );
+            }
             set("route-exclude-address", strings([PO0_CIDR]));
         }
         (_, _, RouteMode::SystemProxy) => set("enable", Value::Bool(false)),
@@ -225,6 +412,7 @@ fn tun(params: &Params) -> Mapping {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::options::GeoxUrl;
 
     fn direct() -> DirectListener {
         DirectListener {
@@ -242,9 +430,14 @@ mod tests {
         (platform, route_mode, tun_fd)
     }
 
-    fn render_with(
+    fn render_with(base: &str, target: (Platform, RouteMode, Option<i32>)) -> Value {
+        render_options(base, target, &EngineOptions::default())
+    }
+
+    fn render_options(
         base: &str,
         (platform, route_mode, tun_fd): (Platform, RouteMode, Option<i32>),
+        options: &EngineOptions,
     ) -> Value {
         let direct = direct();
         let text = render(
@@ -258,6 +451,7 @@ mod tests {
                 controller: ("external-controller-unix", "/run/ctl.sock".into()),
                 secret: "s",
                 direct: &direct,
+                options,
             },
         )
         .unwrap();
@@ -343,7 +537,7 @@ rules:
     #[test]
     fn links_profiles_render() {
         let config = render_with(
-            &links_base("./providers/x.txt"),
+            &links_base("./providers/x.txt", DELAY_URL),
             params(Platform::MacOs, RouteMode::Tun, None),
         );
         assert_eq!(
@@ -371,9 +565,95 @@ rules:
                 controller: ("external-controller-unix", String::new()),
                 secret: "",
                 direct: &direct,
+                options: &EngineOptions::default(),
             },
         );
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn defaults_keep_the_engine_private() {
+        let config = render_with(SUBSCRIPTION, params(Platform::MacOs, RouteMode::Tun, None));
+        assert_eq!(config["bind-address"], key(LOOPBACK));
+        assert_eq!(config["log-level"], key("warning"));
+        assert_eq!(config["find-process-mode"], key("strict"));
+        assert_eq!(config["tun"]["stack"], key("mixed"));
+        assert!(config.get("authentication").is_none());
+        assert_eq!(config["geox-url"]["mmdb"], key(&GeoxUrl::default().mmdb));
+    }
+
+    #[test]
+    fn options_reach_the_config() {
+        let mut options = EngineOptions {
+            socks_port: 7891,
+            http_port: 7892,
+            allow_lan: true,
+            authentication: vec!["me:pw".into()],
+            log_level: LogLevel::Debug,
+            ipv6: true,
+            find_process_mode: FindProcessMode::Always,
+            keep_alive_interval: 30,
+            interface_name: "en0".into(),
+            external_controller: true,
+            tun_stack: Some(TunStack::System),
+            tun_route_address: vec!["0.0.0.0/1".into()],
+            added_rules: vec!["DOMAIN,example.com,DIRECT".into(), " ".into()],
+            override_dns: true,
+            ..EngineOptions::default()
+        };
+        options
+            .hosts
+            .insert("router.lan".into(), "192.168.1.1".into());
+        options
+            .dns
+            .nameserver_policy
+            .insert("+.cn".into(), "223.5.5.5".into());
+        let config = render_options(
+            SUBSCRIPTION,
+            params(Platform::MacOs, RouteMode::Tun, None),
+            &options,
+        );
+        assert_eq!(config["socks-port"], Value::from(7891));
+        assert_eq!(config["port"], Value::from(7892));
+        assert_eq!(config["allow-lan"], Value::Bool(true));
+        assert_eq!(config["bind-address"], key("*"));
+        assert_eq!(config["authentication"][0], key("me:pw"));
+        assert_eq!(config["skip-auth-prefixes"][0], key("127.0.0.1/8"));
+        assert_eq!(config["log-level"], key("debug"));
+        assert_eq!(config["ipv6"], Value::Bool(true));
+        assert_eq!(config["find-process-mode"], key("always"));
+        assert_eq!(config["keep-alive-interval"], Value::from(30));
+        assert_eq!(config["interface-name"], key("en0"));
+        assert_eq!(config["hosts"]["router.lan"], key("192.168.1.1"));
+        assert_eq!(config["external-controller"], key("127.0.0.1:9090"));
+        assert_eq!(config["tun"]["stack"], key("system"));
+        assert_eq!(config["tun"]["route-address"][0], key("0.0.0.0/1"));
+        assert_eq!(config["tun"]["route-exclude-address"][0], key(PO0_CIDR));
+        assert_eq!(config["dns"]["enable"], Value::Bool(true));
+        assert_eq!(config["dns"]["nameserver-policy"]["+.cn"], key("223.5.5.5"));
+        let rules = config["rules"].as_sequence().unwrap();
+        assert_eq!(rules[0], key("IP-CIDR,124.221.69.228/32,DIRECT,no-resolve"));
+        assert_eq!(rules[1], key("DOMAIN,example.com,DIRECT"));
+        assert_eq!(rules[2], key("MATCH,DIRECT"));
+    }
+
+    #[test]
+    fn android_never_looks_up_processes_and_windows_tun_uses_gvisor() {
+        let options = EngineOptions {
+            find_process_mode: FindProcessMode::Always,
+            ..EngineOptions::default()
+        };
+        let android = render_options(
+            "proxies: []\n",
+            params(Platform::Android, RouteMode::SystemProxy, Some(3)),
+            &options,
+        );
+        assert_eq!(android["find-process-mode"], key("off"));
+        let windows = render_with(
+            SUBSCRIPTION,
+            params(Platform::Windows, RouteMode::Tun, None),
+        );
+        assert_eq!(windows["tun"]["stack"], key("gvisor"));
     }
 
     #[test]

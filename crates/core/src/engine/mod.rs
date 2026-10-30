@@ -23,9 +23,9 @@ use crate::config::DirectListener;
 use crate::error::{CoreError, Result};
 use crate::logfile::LogFile;
 use crate::model::{EngineState, Platform, Traffic};
+use crate::options::DEFAULT_MIXED_PORT;
 use crate::util::{self, random_id, random_secret};
 
-const PREFERRED_MIXED_PORT: u16 = 7894;
 const READY_TIMEOUT: Duration = Duration::from_secs(45);
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -67,6 +67,7 @@ impl Runtime {
         run_dir: &Path,
         home: PathBuf,
         tun_fd: Option<i32>,
+        preferred_port: u16,
     ) -> io::Result<Self> {
         fs::create_dir_all(run_dir)?;
         fs::create_dir_all(&home)?;
@@ -74,8 +75,13 @@ impl Runtime {
             Platform::Windows => Endpoint::Pipe(format!(r"\\.\pipe\po0clash-{}", random_id())),
             Platform::MacOs | Platform::Android => Endpoint::Unix(socket_path(run_dir)),
         };
-        let mixed_port = match TcpListener::bind(("127.0.0.1", PREFERRED_MIXED_PORT)) {
-            Ok(_) => PREFERRED_MIXED_PORT,
+        let preferred_port = if preferred_port == 0 {
+            DEFAULT_MIXED_PORT
+        } else {
+            preferred_port
+        };
+        let mixed_port = match TcpListener::bind(("127.0.0.1", preferred_port)) {
+            Ok(_) => preferred_port,
             Err(_) => free_port()?,
         };
         Ok(Self {
