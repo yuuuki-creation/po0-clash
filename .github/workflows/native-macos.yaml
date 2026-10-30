@@ -300,6 +300,30 @@ jobs:
           shoot window-whitelist-dark 6 -showWindow whitelist -appearance dark
           shoot window-proxies-list 15 "${connected[@]}" -showWindow proxies -proxiesLayout list
 
+      # The Intel runner's paravirtual GPU aborts inside Metal when SwiftUI first needs a RenderBox pipeline; find
+      # which surface asks for one.
+      - name: Probe which surface crashes on Intel
+        if: always() && matrix.os == 'macos-15-intel'
+        continue-on-error: true
+        run: |
+          bin=/Applications/po0-clash.app/Contents/MacOS/po0-clash
+          probe() {
+            local name=$1
+            shift
+            "$bin" "$@" > /dev/null 2>&1 &
+            local pid=$!
+            sleep 8
+            if kill -0 "$pid" 2>/dev/null; then
+              echo "$name: alive"
+              kill -TERM "$pid"
+              wait "$pid" 2>/dev/null || true
+            else
+              echo "$name: CRASHED"
+            fi
+          }
+          probe menu -showMenu YES
+          for page in profiles whitelist tools activity proxies dashboard; do probe "$page" -showWindow "$page"; done
+
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4

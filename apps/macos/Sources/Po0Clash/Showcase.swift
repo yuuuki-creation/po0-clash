@@ -7,16 +7,16 @@ enum Showcase {
         let defaults = UserDefaults.standard
         if defaults.string(forKey: "appearance") == "dark" { NSApp.appearance = NSAppearance(named: .darkAqua) }
         Task {
-            if defaults.bool(forKey: "testDelays") { await testDelays() }
-            if let layout = defaults.string(forKey: "proxiesLayout") {
-                await wait(seconds: 10) { AppModel.shared.appSettings != nil }
-                AppModel.shared.updateAppSettings { $0.proxiesLayout = layout == "list" ? .list : .tabs }
-            }
             if let name = defaults.string(forKey: "showWindow") {
                 MainWindow.shared.show(Page(rawValue: name) ?? .dashboard)
             }
             if let name = defaults.string(forKey: "toolsPage"), let page = ToolsPage(rawValue: name) {
                 MainWindow.shared.navigation.tools = [page]
+            }
+            if defaults.bool(forKey: "testDelays") { await testDelays() }
+            if let layout = defaults.string(forKey: "proxiesLayout") {
+                await wait(seconds: 10) { AppModel.shared.appSettings != nil }
+                AppModel.shared.updateAppSettings { $0.proxiesLayout = layout == "list" ? .list : .tabs }
             }
             if defaults.bool(forKey: "showMenu") {
                 let clicks = defaults.bool(forKey: "reopenMenu") ? 3 : 1
@@ -32,9 +32,9 @@ enum Showcase {
         UserDefaults.standard.string(forKey: "appearance") != nil
     }
 
-    /// Menu screenshots need the screen to themselves.
+    /// Menu screenshots need the screen to themselves, and a requested page should be the first one drawn.
     static var keepsWindowClosed: Bool {
-        UserDefaults.standard.bool(forKey: "showMenu")
+        UserDefaults.standard.bool(forKey: "showMenu") || UserDefaults.standard.string(forKey: "showWindow") != nil
     }
 
     private static func testDelays() async {
