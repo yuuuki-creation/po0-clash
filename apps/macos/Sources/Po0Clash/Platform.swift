@@ -1,4 +1,5 @@
 import AppKit
+import CoreImage
 import Foundation
 import Network
 import os
@@ -109,5 +110,16 @@ enum LaunchAtLogin {
               event.eventID == AEEventID(kAEOpenApplication)
         else { return false }
         return event.paramDescriptor(forKeyword: AEKeyword(keyAEPropData))?.enumCodeValue == OSType(keyAELaunchedAsLogInItem)
+    }
+}
+
+enum QrCode {
+    static func read(_ url: URL) -> String? {
+        guard let image = CIImage(contentsOf: url),
+              let detector = CIDetector(
+                  ofType: CIDetectorTypeQRCode, context: nil, options: [CIDetectorAccuracy: CIDetectorAccuracyHigh]
+              )
+        else { return nil }
+        return detector.features(in: image).lazy.compactMap { ($0 as? CIQRCodeFeature)?.messageString }.first
     }
 }

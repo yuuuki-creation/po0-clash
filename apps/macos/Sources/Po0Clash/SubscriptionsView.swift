@@ -34,6 +34,7 @@ struct SubscriptionsView: View {
                 Button("Add Subscription…") { sheet = .subscription }
                 Button("Import Share Links…") { sheet = .links }
                 Button("Import File…") { model.importProfileFile() }
+                Button("Import QR Code Image…") { model.importQrCode() }
             } label: {
                 Label("Add", systemImage: "plus")
             }

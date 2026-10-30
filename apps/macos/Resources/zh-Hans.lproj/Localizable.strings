@@ -434,3 +434,5 @@
 
 /* Subscription links */
 "Add the subscription at %@?" = "要添加来自 %@ 的订阅吗？";
+"Import QR Code Image…" = "导入二维码图片…";
+"No QR code was found in the picture." = "图片中没有找到二维码。";

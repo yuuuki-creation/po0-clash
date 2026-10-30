@@ -258,6 +258,28 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// FlClash's desktop QR import: a picture of a subscription address or of share links.
+    func importQrCode() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        activateApp()
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard let text = QrCode.read(url)?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+            notice = String(localized: "No QR code was found in the picture.")
+            return
+        }
+        Task {
+            if text.hasPrefix("http://") || text.hasPrefix("https://") {
+                if let error = await addSubscription(text) { notice = error }
+                return
+            }
+            switch await importLinks(text) {
+            case .success(let count): notice = String(localized: "Imported \(count) nodes.")
+            case .failure(let failure): notice = failure.message
+            }
+        }
+    }
+
     func exportProfile(_ profile: Profile) {
         guard let client else { return }
         let panel = NSSavePanel()
