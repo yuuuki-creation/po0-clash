@@ -132,6 +132,11 @@ struct ProxiesView: View {
                 Text("Standard").tag(ProxiesDensity.standard)
                 Text("Tight").tag(ProxiesDensity.tight)
             }
+            Picker("Group icons", selection: model.setting(\.groupIconStyle, or: .standard)) {
+                Text("Standard").tag(GroupIconStyle.standard)
+                Text("Icon only").tag(GroupIconStyle.iconOnly)
+                Text("Hidden").tag(GroupIconStyle.hidden)
+            }
             Picker("Node tiles", selection: model.setting(\.proxyTileStyle, or: .detailed)) {
                 Text("Detailed").tag(ProxyTileStyle.detailed)
                 Text("Compact").tag(ProxyTileStyle.compact)
@@ -269,6 +274,9 @@ private struct GroupCard: View {
 
     private var header: some View {
         HStack(spacing: 8) {
+            if let icon = group.icon.flatMap(URL.init(string:)), iconStyle != .hidden {
+                GroupIcon(url: icon, framed: iconStyle == .standard).padding(.trailing, 2)
+            }
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
                     Text(verbatim: group.name).font(.system(size: 15, weight: .semibold)).lineLimit(1)
@@ -296,6 +304,30 @@ private struct GroupCard: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { if collapsible { toggle() } }
+    }
+
+    private var iconStyle: GroupIconStyle { model.appSettings?.groupIconStyle ?? .standard }
+}
+
+/// The `icon` a profile gives a proxy group, in a tile or on its own as FlClash's icon styles draw it.
+private struct GroupIcon: View {
+    let url: URL
+    let framed: Bool
+
+    var body: some View {
+        AsyncImage(url: url) { phase in
+            if let image = phase.image {
+                image
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: framed ? 22 : 34, height: framed ? 22 : 34)
+                    .padding(framed ? 6 : 0)
+                    .background(
+                        framed ? Color.controlFill : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    )
+            }
+        }
     }
 }
 
