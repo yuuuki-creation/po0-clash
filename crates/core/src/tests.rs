@@ -282,6 +282,9 @@ fn engine_runs_a_real_mihomo() {
     );
     core.import_links(format!("ss://{userinfo}@127.0.0.1:{port}#local-ss"))
         .unwrap();
+    let mut engine_options = core.engine_options();
+    engine_options.log_level = LogLevel::Info;
+    core.set_engine_options(engine_options).unwrap();
     core.start(None).unwrap();
     assert_eq!(core.status().engine, EngineState::Running);
 
@@ -305,6 +308,40 @@ fn engine_runs_a_real_mihomo() {
     let exit = core.exit_ip().unwrap();
     assert!(!exit.ip.is_empty());
     thread::sleep(Duration::from_millis(1500));
+
+    let mixed = core.proxy_url().unwrap();
+    let mut held = std::net::TcpStream::connect(mixed.trim_start_matches("http://")).unwrap();
+    write!(held, "CONNECT 127.0.0.1:{port} HTTP/1.1\r\n\r\n").unwrap();
+    thread::sleep(Duration::from_millis(2500));
+    let target = format!("127.0.0.1:{port}");
+    let connections = core.connections();
+    assert!(
+        connections.items.iter().any(|c| c.host == target),
+        "{connections:?}"
+    );
+    assert!(connections.download_total > 0);
+    assert!(core.requests().iter().any(|c| c.host == target));
+    assert!(
+        core.logs().iter().any(|l| l.message.contains(&target)),
+        "{:?}",
+        core.logs()
+    );
+    assert!(!core.traffic_history().is_empty());
+    assert!(core.memory() > 0);
+    core.close_all_connections().unwrap();
+    assert!(core.connections().items.iter().all(|c| c.host != target));
+    drop(held);
+    assert!(core.test_node_delay("local-ss".into()).unwrap() > 0);
+    assert!(!core.rules().unwrap().is_empty());
+    let providers = core.providers().unwrap();
+    let links = providers
+        .iter()
+        .find(|p| p.kind == ProviderKind::Proxy && p.vehicle == "File")
+        .unwrap_or_else(|| panic!("{providers:?}"));
+    assert_eq!(links.count, 1);
+    core.update_provider(ProviderKind::Proxy, links.name.clone())
+        .unwrap();
+    assert_eq!(core.geo_files().len(), 4);
 
     core.set_mode(Mode::Global).unwrap();
     assert_eq!(core.groups().unwrap()[0].name, "GLOBAL");
@@ -338,6 +375,8 @@ fn engine_runs_a_real_mihomo() {
     reopened.start(None).unwrap();
     reopened.stop();
     assert_eq!(reopened.status().engine, EngineState::Stopped);
+    assert!(reopened.connections().items.is_empty());
+    assert!(reopened.traffic_history().is_empty());
     assert!(!reopened.was_connected());
     reopened.shutdown();
     server.kill().unwrap();

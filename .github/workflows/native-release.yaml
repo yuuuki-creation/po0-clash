@@ -1,6 +1,7 @@
 name: native-release
 
 # Native apps only (ADR 0018); the Flutter app keeps release.yaml and its v* tags.
+# The release starts as a draft so its own assets are smoke-tested before it is published.
 # A push to `native` that edits this file builds without publishing.
 on:
   push:
@@ -161,6 +162,6 @@ jobs:
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release upload "$TAG" "${assets[@]}" --clobber
           else
-            gh release create "$TAG" "${assets[@]}" --prerelease --latest=false \
+            gh release create "$TAG" "${assets[@]}" --draft --prerelease --latest=false \
               --title "po0-clash $VERSION（原生版测试）" --notes-file "$notes"
           fi

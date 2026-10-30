@@ -1,6 +1,7 @@
 mod controller;
 #[cfg(target_os = "android")]
 mod inproc;
+mod monitor;
 #[cfg(not(target_os = "android"))]
 mod process;
 pub mod sysproxy;
@@ -15,17 +16,17 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 pub use controller::{Controller, Endpoint};
+pub use monitor::Monitor;
 
 use crate::config::DirectListener;
 use crate::error::{CoreError, Result};
 use crate::logfile::LogFile;
-use crate::model::{EngineState, Platform, Traffic};
+use crate::model::{EngineState, Platform};
+use crate::options::DEFAULT_MIXED_PORT;
 use crate::util::{self, random_id, random_secret};
 
-const PREFERRED_MIXED_PORT: u16 = 7894;
 const READY_TIMEOUT: Duration = Duration::from_secs(45);
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -67,6 +68,7 @@ impl Runtime {
         run_dir: &Path,
         home: PathBuf,
         tun_fd: Option<i32>,
+        preferred_port: u16,
     ) -> io::Result<Self> {
         fs::create_dir_all(run_dir)?;
         fs::create_dir_all(&home)?;
@@ -74,8 +76,13 @@ impl Runtime {
             Platform::Windows => Endpoint::Pipe(format!(r"\\.\pipe\po0clash-{}", random_id())),
             Platform::MacOs | Platform::Android => Endpoint::Unix(socket_path(run_dir)),
         };
-        let mixed_port = match TcpListener::bind(("127.0.0.1", PREFERRED_MIXED_PORT)) {
-            Ok(_) => PREFERRED_MIXED_PORT,
+        let preferred_port = if preferred_port == 0 {
+            DEFAULT_MIXED_PORT
+        } else {
+            preferred_port
+        };
+        let mixed_port = match TcpListener::bind(("127.0.0.1", preferred_port)) {
+            Ok(_) => preferred_port,
             Err(_) => free_port()?,
         };
         Ok(Self {
@@ -189,45 +196,10 @@ pub fn wait_ready(controller: &Controller, runner: &Runner, log: &LogFile) -> Re
     }
 }
 
-#[derive(Default)]
-pub struct TrafficCell {
-    up: AtomicU64,
-    down: AtomicU64,
-    stop: AtomicBool,
-}
-
-impl TrafficCell {
-    pub fn get(&self) -> Traffic {
-        Traffic {
-            up: self.up.load(Ordering::Relaxed),
-            down: self.down.load(Ordering::Relaxed),
-        }
-    }
-
-    pub fn stop(&self) {
-        self.stop.store(true, Ordering::SeqCst);
-    }
-}
-
-fn watch_traffic(controller: Controller, cell: Arc<TrafficCell>) {
-    thread::spawn(move || {
-        while !cell.stop.load(Ordering::SeqCst) {
-            let _ = controller.stream("/traffic", &cell.stop, |line| {
-                if let Ok(value) = serde_json::from_str::<Value>(line) {
-                    let read = |name: &str| value.get(name).and_then(Value::as_u64).unwrap_or(0);
-                    cell.up.store(read("up"), Ordering::Relaxed);
-                    cell.down.store(read("down"), Ordering::Relaxed);
-                }
-            });
-            thread::sleep(Duration::from_secs(1));
-        }
-    });
-}
-
 pub struct Session {
     pub runtime: Runtime,
     pub runner: Runner,
-    pub traffic: Arc<TrafficCell>,
+    stopped: Arc<AtomicBool>,
     pub system_proxy: AtomicBool,
     pub current_node: Mutex<Option<String>>,
     pub generation: u64,
@@ -238,7 +210,7 @@ impl Session {
         Self {
             runtime,
             runner,
-            traffic: Arc::default(),
+            stopped: Arc::default(),
             system_proxy: AtomicBool::new(false),
             current_node: Mutex::new(None),
             generation,
@@ -249,8 +221,12 @@ impl Session {
         &self.runtime.controller
     }
 
-    pub fn start_traffic(&self) {
-        watch_traffic(self.runtime.controller.clone(), self.traffic.clone());
+    pub fn watch(&self, monitor: &Arc<Monitor>) {
+        monitor.watch(&self.runtime.controller, &self.stopped);
+    }
+
+    pub fn poll(&self, monitor: &Monitor) -> Result<()> {
+        monitor.poll(&self.runtime.controller, &self.stopped)
     }
 
     pub fn current_node(&self) -> Option<String> {
@@ -263,7 +239,7 @@ impl Session {
 
     /// Everything but the runner's own shutdown, which differs between a stop and a crash.
     pub fn release(&self, run_dir: &Path) {
-        self.traffic.stop();
+        self.stopped.store(true, Ordering::SeqCst);
         if self.system_proxy.swap(false, Ordering::SeqCst) {
             sysproxy::clear(self.runtime.mixed_port);
         }
@@ -274,6 +250,7 @@ impl Session {
 #[derive(Default)]
 pub struct Engine {
     pub ops: Mutex<()>,
+    pub monitor: Arc<Monitor>,
     state: Mutex<EngineState>,
     session: Mutex<Option<Arc<Session>>>,
     generation: AtomicU64,
@@ -297,6 +274,7 @@ impl Engine {
     }
 
     pub fn take(&self) -> Option<Arc<Session>> {
+        self.monitor.reset();
         lock(&self.session).take()
     }
 

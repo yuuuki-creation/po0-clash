@@ -66,6 +66,45 @@ pub fn snippet(text: &str) -> String {
     }
 }
 
+/// Unix seconds of an RFC 3339 time as mihomo writes it; `None` for Go's zero time.
+pub fn parse_time(text: &str) -> Option<i64> {
+    let (date, rest) = text.split_once('T')?;
+    let mut date = date.splitn(3, '-').map(str::parse::<i64>);
+    let (year, month, day) = (date.next()?.ok()?, date.next()?.ok()?, date.next()?.ok()?);
+    let zone_at = rest.find(['Z', 'z', '+', '-']).unwrap_or(rest.len());
+    let (clock, zone) = rest.split_at(zone_at);
+    let mut clock = clock
+        .split('.')
+        .next()?
+        .splitn(3, ':')
+        .map(str::parse::<i64>);
+    let (hour, minute, second) = (
+        clock.next()?.ok()?,
+        clock.next()?.ok()?,
+        clock.next()?.ok()?,
+    );
+    let offset = match zone.chars().next() {
+        Some(sign @ ('+' | '-')) => {
+            let (hours, minutes) = zone[1..].split_once(':')?;
+            let offset = hours.parse::<i64>().ok()? * 3600 + minutes.parse::<i64>().ok()? * 60;
+            if sign == '-' { -offset } else { offset }
+        }
+        _ => 0,
+    };
+    let seconds =
+        days_from_civil(year, month, day) * 86_400 + hour * 3600 + minute * 60 + second - offset;
+    (seconds > 0).then_some(seconds)
+}
+
+fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
+    let year = if month <= 2 { year - 1 } else { year };
+    let era = year.div_euclid(400);
+    let year_of_era = year - era * 400;
+    let day_of_year = (153 * ((month + 9) % 12) + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    era * 146_097 + day_of_era - 719_468
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -89,5 +128,18 @@ mod tests {
         assert_eq!(snippet(" short "), "short");
         let long = "节".repeat(100);
         assert_eq!(snippet(&long).chars().count(), 81);
+    }
+
+    #[test]
+    fn parses_mihomo_times() {
+        assert_eq!(parse_time("1970-01-01T00:00:00Z"), None);
+        assert_eq!(parse_time("2024-03-01T08:00:00+08:00"), Some(1_709_251_200));
+        assert_eq!(
+            parse_time("2024-03-01T00:00:00.123456789Z"),
+            Some(1_709_251_200)
+        );
+        assert_eq!(parse_time("2024-02-29T23:30:00-00:30"), Some(1_709_251_200));
+        assert_eq!(parse_time("0001-01-01T00:00:00Z"), None);
+        assert_eq!(parse_time("yesterday"), None);
     }
 }
