@@ -136,8 +136,49 @@ jobs:
           path: dist/*.apk
           if-no-files-found: error
 
+  windows:
+    needs: version
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout mihomo
+        run: |
+          git submodule update --init --depth 1 mihomo/upstream
+          git -C mihomo/upstream fetch --depth 1 --tags origin
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: mihomo/upstream/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: apps/windows/package-lock.json
+      - run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        shell: bash
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          apps/windows/scripts/build-mihomo.sh
+          cd apps/windows
+          npm ci --no-fund --no-audit
+          npx tauri build --bundles nsis --config "{\"version\": \"$VERSION\"}"
+          mkdir -p ../../dist
+          cp ../../target/release/bundle/nsis/*-setup.exe "../../dist/po0-clash-$VERSION-windows-x64-setup.exe"
+          ls -l ../../dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*.exe
+          if-no-files-found: error
+
   publish:
-    needs: [version, macos, android]
+    needs: [version, macos, android, windows]
     if: needs.version.outputs.tag != ''
     runs-on: ubuntu-latest
     steps:

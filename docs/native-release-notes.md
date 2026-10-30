@@ -1,4 +1,4 @@
-原生重写（[ADR 0018](https://github.com/yuuuki-creation/po0-clash/blob/native/docs/adr/0018-native-rewrite.md)）的第一个测试版，只有 macOS 和 Android，Windows 稍后发布。
+原生重写（[ADR 0018](https://github.com/yuuuki-creation/po0-clash/blob/native/docs/adr/0018-native-rewrite.md)）的第二个测试版，macOS、Windows、Android 三端都有。
 正式版仍是 Flutter 版 6.4.4；这个版本适合愿意试用、能接受问题的人。
 
 ## 安装
@@ -8,11 +8,16 @@
 在终端运行：
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.0.0-beta.1/install-macos-native.sh | bash
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.0.0-beta.2/install-macos-native.sh | bash
 ```
 
 脚本会退出并替换已安装的 po0-clash（包括 Flutter 版），装到「应用程序」后启动。应用没有经过苹果公证，脚本会去掉下载带来的隔离标记。
 第一次切到「虚拟网卡」时需要输入一次管理员密码，用来安装以 root 运行的内核；取消则继续使用系统代理。
+
+### Windows（10 / 11，x64）
+
+下载 `po0-clash-7.0.0-beta.2-windows-x64-setup.exe` 运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
+应用以管理员身份运行（虚拟网卡需要）。已装 Flutter 版时会先静默卸载它，订阅和加白条目保留并导入。
 
 ### Android（8.0 及以上）
 
@@ -22,21 +27,28 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
 
 ## 这一版有什么
 
-- 三端共享的 Rust 内核，代理引擎为原版 mihomo v1.19.33（不打补丁）。
-- 连接开关与状态：当前节点、出口 IP、上下行速率；引擎出错时显示原因和「重新连接」。
-- 订阅：添加、更新、删除、切换，显示流量与到期时间，按订阅给出的间隔自动更新；用分享链接导入节点。
-- 策略组与节点选择、延迟测试；规则、全局、直连三种模式。
-- macOS：菜单栏应用，系统代理与虚拟网卡二选一，开机自启，开机后恢复上次的连接。
-- Android：VPN 与快捷设置磁贴；支持系统的「始终开启的 VPN」和「屏蔽未使用 VPN 的连接」，应用进程被系统结束后约一分钟内自动恢复连接；
-  应用自身的流量不经过 VPN。
-- po0 与 ggy 自动加白：不论是否连接都持续运行，po0 每 5 秒、ggy 每 11 秒；加白请求始终从真实出口发出。
-- 导出诊断日志（token 只保留开头几位）；界面为简体中文和英文，跟随系统；外观按苹果液态玻璃规范设计。
+beta.1 只有菜单栏和最基本的页面；这一版按 FlClash 的功能逐项补齐，三端都是带侧边栏（手机上是标签栏）的主界面，外观按苹果液态玻璃规范设计。
 
-从 Flutter 版只导入订阅和加白条目，其它设置不迁移。仪表盘、连接列表、规则编辑和覆写等功能有意不做。
+- 仪表盘：网络速度曲线、流量与连接数、内存、出口 IP、内网 IP、订阅用量、加白，卡片可增删排序。
+- 代理：标签式或列表式，排序、定位当前节点、单节点与整组测速。
+- 配置：订阅、文件导入、分享链接导入（节点可改名、删除），编辑原文、预览最终配置、导出、排序；覆写分标准（追加规则、停用全局规则、
+  MATCH 目标）、脚本（JavaScript）和自定义三种。
+- 活动：实时请求、当前连接（可断开）、日志（筛选、导出）。
+- 工具：基础配置、网络、DNS、高级（全局追加规则、脚本库）、Geo 资源与代理集 / 规则集、规则、外观（主题色）、语言、应用设置、
+  备份与恢复（本地文件或 WebDAV，也能恢复 Flutter 版的备份）、关于与开源许可。
+- 界面有简体中文、English、日本語、Русский。启动中崩溃后下次不自动连接，连续两次会取消选中当前配置。
+- 平台各自的：macOS 的菜单栏面板与快捷键；Windows 的托盘、开机自启、UWP 回环豁免；Android 的分应用代理、按需连接（排除的 Wi-Fi）、
+  快捷设置磁贴、外部启停 intent 和 TV 入口。
+- po0 与 ggy 自动加白照旧：不论是否连接都持续运行，加白请求始终从真实出口发出。
+
+## 相对 beta.1 的修复
+
+- 全局模式下 GLOBAL 组默认是 DIRECT，等于全部直连；现在没选过时用配置里的第一个策略组。
+- 刚连上时策略组可能为空、当前节点显示 COMPATIBLE、出口 IP 查不到；现在要等配置里的代理集和规则集加载完才算连上。
+- 分享链接导入的节点没有类型，测速结果刷新后就没了。
 
 ## 已知问题
 
 - macOS：管理员授权弹窗和开机自启只在 CI 中模拟过，没有在真机上验证。
+- Windows：快捷键和开发者页还没做；只在测试虚拟机里验证过。
 - Android：只在模拟器上测试过；订阅里把 DNS 写成 `system` 时无法解析。
-- 全局模式下 GLOBAL 组默认选的是 DIRECT，等于全部直连；切到全局后请先在 GLOBAL 组里选一个节点。
-- 刚连上时策略组可能短暂为空、当前节点显示 COMPATIBLE，稍等片刻即恢复。
