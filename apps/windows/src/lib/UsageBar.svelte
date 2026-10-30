@@ -6,9 +6,9 @@
 </script>
 
 {#if usage.total}
-  <div class="meter"><span style:width="{Math.min(100, (used / usage.total) * 100)}%"></span></div>
+  <div class="bar"><span style:width="{Math.min(100, (used / usage.total) * 100)}%"></span></div>
 {/if}
-<div class="usage sub">
+<div class="usage">
   {#if usage.total}<span>{t('profiles.used', { used: formatBytes(used), total: formatBytes(usage.total) })}</span>{/if}
   {#if usage.expire}<span>{t('profiles.expire', { date: formatDate(usage.expire) })}</span>{/if}
 </div>

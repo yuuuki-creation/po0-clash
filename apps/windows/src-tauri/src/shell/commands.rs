@@ -5,11 +5,11 @@ use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 use super::po0::{
-    Connection, Connections, Core, CoreError, ExitIp, ImportResult, LogEntry, Mode, Profile, ProfileEdit, ProxyGroup,
-    RouteMode,
+    Connection, Connections, Core, CoreError, EngineOptions, ExitIp, GeoFile, ImportResult, LogEntry, Mode, Profile,
+    ProfileEdit, Provider, ProviderKind, ProxyGroup, RouteMode, Rule,
     Status, Traffic, WhitelistState,
 };
-use super::{Backdrop, autostart, locale_is_zh};
+use super::{Backdrop, autostart, locale_is_zh, netwatch};
 
 type CoreState<'a> = State<'a, Arc<Core>>;
 type Reply<T> = Result<T, String>;
@@ -242,6 +242,62 @@ pub async fn whitelist_now(core: CoreState<'_>) -> Reply<()> {
         Ok(())
     })
     .await
+}
+
+#[tauri::command]
+pub async fn engine_options(core: CoreState<'_>) -> Reply<EngineOptions> {
+    blocking(&core, |c| Ok(c.engine_options())).await
+}
+
+#[tauri::command]
+pub async fn set_engine_options(core: CoreState<'_>, options: EngineOptions) -> Reply<()> {
+    blocking(&core, move |c| c.set_engine_options(options)).await
+}
+
+#[tauri::command]
+pub async fn providers(core: CoreState<'_>) -> Reply<Vec<Provider>> {
+    blocking(&core, |c| c.providers()).await
+}
+
+#[tauri::command]
+pub async fn update_provider(core: CoreState<'_>, kind: String, name: String) -> Reply<()> {
+    let kind = if kind == "rule" { ProviderKind::Rule } else { ProviderKind::Proxy };
+    blocking(&core, move |c| c.update_provider(kind, name)).await
+}
+
+#[tauri::command]
+pub async fn rules(core: CoreState<'_>) -> Reply<Vec<Rule>> {
+    blocking(&core, |c| c.rules()).await
+}
+
+#[tauri::command]
+pub async fn geo_files(core: CoreState<'_>) -> Reply<Vec<GeoFile>> {
+    blocking(&core, |c| Ok(c.geo_files())).await
+}
+
+#[tauri::command]
+pub async fn update_geo(core: CoreState<'_>) -> Reply<()> {
+    blocking(&core, |c| c.update_geo()).await
+}
+
+#[tauri::command]
+pub async fn flush_dns_cache(core: CoreState<'_>) -> Reply<()> {
+    blocking(&core, |c| c.flush_dns_cache()).await
+}
+
+#[derive(Serialize)]
+pub struct LocalAddress {
+    address: String,
+    interface: String,
+}
+
+#[tauri::command]
+pub async fn local_address() -> Reply<Option<LocalAddress>> {
+    tauri::async_runtime::spawn_blocking(|| {
+        netwatch::local_address().map(|(address, interface)| LocalAddress { address, interface })
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

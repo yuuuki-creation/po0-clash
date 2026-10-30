@@ -14,6 +14,9 @@ export const app = $state({
   traffic: { up: 0, down: 0 },
   history: [],
   memory: 0,
+  totals: null,
+  requestCount: 0,
+  lan: null,
   exitIp: null,
   exitIpLoading: false,
   busy: {},
@@ -119,18 +122,24 @@ async function refreshStatus() {
   if (engine === 'running' || engine === 'stopped') refreshExitIp();
 }
 
-export async function refreshAll() {
-  await Promise.all([refreshStatus(), refresh('profiles'), refresh('whitelist'), refresh('groups'), refreshExitIp()]);
-}
+let ticks = 0;
 
-async function pollTraffic() {
+async function poll() {
+  const tick = ticks++;
+  if (tick % 10 === 0) invoke('local_address').then((lan) => (app.lan = lan), () => (app.lan = null));
   if (document.hidden || app.status?.engine.state !== 'running') {
-    if (app.history.length) Object.assign(app, { traffic: { up: 0, down: 0 }, history: [], memory: 0 });
+    if (app.history.length || app.totals) {
+      Object.assign(app, { traffic: { up: 0, down: 0 }, history: [], memory: 0, totals: null, requestCount: 0 });
+    }
     return;
   }
   try {
     const [history, memory] = await Promise.all([invoke('traffic_history'), invoke('memory')]);
     Object.assign(app, { history, memory, traffic: history.at(-1) ?? { up: 0, down: 0 } });
+    if (tick % 2 === 0) {
+      const [connections, requests] = await Promise.all([invoke('connections'), invoke('requests')]);
+      Object.assign(app, { totals: connections, requestCount: requests.length });
+    }
   } catch {
     Object.assign(app, { traffic: { up: 0, down: 0 }, history: [], memory: 0 });
   }
@@ -145,5 +154,6 @@ export async function init() {
   });
   await listen('shell-error', ({ payload }) => notify(payload));
   await Promise.all([refreshStatus(), refresh('profiles'), refresh('whitelist')]);
-  setInterval(pollTraffic, 1000);
+  poll();
+  setInterval(poll, 1000);
 }

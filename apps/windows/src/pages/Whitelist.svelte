@@ -34,10 +34,11 @@
 
 <Page
   title={t('page.whitelist')}
-  subtitle={entries.length ? t('home.whitelisted', { applied, total: entries.length }) : ''}
+  subtitle={entries.length ? t('whitelist.summary', { applied, total: entries.length }) : ''}
+  form
 >
   {#snippet actions()}
-    <div class="group glass">
+    <div class="tb-group glass">
       <button
         type="button"
         title={t('whitelist.now')}
@@ -46,7 +47,7 @@
         onclick={() => act('wl:now', 'whitelist_now')}><Icon name="refresh" /></button
       >
     </div>
-    <div class="group glass">
+    <div class="tb-group glass">
       <button
         type="button"
         title={t('whitelist.addEllipsis')}
@@ -56,10 +57,10 @@
     </div>
   {/snippet}
 
-  <section class="form-section">
-    <div class="form-group">
-      <div class="form-row">
-        <div class="grow">
+  <section class="section">
+    <div class="list">
+      <div class="row tall">
+        <div class="label">
           <span>{t('whitelist.enabled')}</span>
           <span class="sub">{t('whitelist.hint')}</span>
         </div>
@@ -73,16 +74,16 @@
     </div>
   </section>
 
-  <section class="form-section">
-    <h2 class="section-title">{t('whitelist.entries')}</h2>
+  <section class="section">
+    <h2 class="group-title">{t('whitelist.entries')}</h2>
     {#if !entries.length}
-      <div class="form-group">
+      <div class="list">
         <EmptyState icon="shield" title={t('whitelist.empty')} detail={t('whitelist.emptyHint')} />
       </div>
     {:else}
-      <div class="form-group">
+      <div class="list">
         {#each entries as entry (entry.id)}
-          <div class="form-row top">
+          <div class="row top">
             <span class="tag mono">{entry.kind}</span>
             <div class="grow">
               <span class="title">

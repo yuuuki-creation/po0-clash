@@ -95,9 +95,9 @@
   }
 </script>
 
-<Page title={t('page.profiles')} fill={!app.profiles.length}>
+<Page title={t('page.profiles')} subtitle={app.profiles.length ? t('profiles.count', { count: app.profiles.length }) : ''} fill={!app.profiles.length} form={!!app.profiles.length}>
   {#snippet actions()}
-    <div class="group glass">
+    <div class="tb-group glass">
       <button
         type="button"
         title={t('profiles.importFile')}
@@ -125,12 +125,12 @@
   {#if !app.profiles.length}
     <EmptyState icon="stack" title={t('profiles.empty')} detail={t('profiles.emptyHint')} />
   {:else}
-    <section class="form-section">
-      <h2 class="section-title">{t('profiles.section')}</h2>
-      <div class="form-group">
+    <section class="section">
+      <h2 class="group-title">{t('profiles.section')}</h2>
+      <div class="list">
         {#each app.profiles as profile (profile.id)}
           <div
-            class="form-row top"
+            class="row top"
             class:dragging={dragged === profile.id}
             class:drop-target={target === profile.id && dragged !== profile.id}
             role="listitem"
@@ -276,10 +276,10 @@
         </div>
       {/if}
       <div class="split">
-        <button type="button" class="pill plain" disabled={app.busy.preview} onclick={showPreview}
+        <button type="button" class="pill" disabled={app.busy.preview} onclick={showPreview}
           >{t('profiles.preview')}</button
         >
-        <button type="button" class="pill plain" disabled={app.busy.export} onclick={exportProfile}
+        <button type="button" class="pill" disabled={app.busy.export} onclick={exportProfile}
           >{t('profiles.export')}</button
         >
       </div>

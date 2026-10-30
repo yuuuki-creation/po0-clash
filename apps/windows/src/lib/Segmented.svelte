@@ -1,14 +1,14 @@
 <script>
-  let { options, value, onchange, disabled = false, label } = $props();
+  let { options, value, onchange, disabled = false, label, small = false } = $props();
 </script>
 
-<div class="segmented" role="radiogroup" aria-label={label}>
+<div class="seg" class:small role="radiogroup" aria-label={label}>
   {#each options as option (option.value)}
     <button
       type="button"
       role="radio"
       aria-checked={value === option.value}
-      class:selected={value === option.value}
+      class:on={value === option.value}
       {disabled}
       onclick={() => value !== option.value && onchange(option.value)}>{option.label}</button
     >

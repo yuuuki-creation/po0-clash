@@ -12,7 +12,7 @@
     {@render children?.()}
     <div class="actions">
       {#if actions}
-        <button type="button" class="pill plain" onclick={onclose}>{t('common.cancel')}</button>
+        <button type="button" class="pill" onclick={onclose}>{t('common.cancel')}</button>
         {@render actions()}
       {:else}
         <!-- svelte-ignore a11y_autofocus -->

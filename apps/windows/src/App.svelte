@@ -11,7 +11,7 @@
   import Whitelist from './pages/Whitelist.svelte';
 
   const pages = [
-    { id: 'dashboard', icon: 'grid', page: Dashboard },
+    { id: 'dashboard', icon: 'dashboard', page: Dashboard },
     { id: 'proxies', icon: 'globe', page: Proxies },
     { id: 'profiles', icon: 'stack', page: Profiles },
     { id: 'whitelist', icon: 'shield', page: Whitelist },
@@ -33,11 +33,21 @@
   }
 </script>
 
-<nav class="sidebar glass" class:hidden={!app.sidebar} aria-label="po0-clash" data-tauri-drag-region>
-  <div class="brand" data-tauri-drag-region>po0-clash</div>
+<nav class="sidebar glass" class:hidden={!app.sidebar} aria-label="po0-clash">
+  <div class="sidebar-head" data-tauri-drag-region>
+    <span data-tauri-drag-region>po0-clash</span>
+    <button
+      type="button"
+      class="plain-button"
+      title={t('window.sidebar')}
+      aria-label={t('window.sidebar')}
+      onclick={() => (app.sidebar = false)}><Icon name="sidebar" /></button
+    >
+  </div>
   {#each pages as page (page.id)}
     <button
       type="button"
+      class="nav-item"
       class:active={app.page === page.id}
       aria-current={app.page === page.id ? 'page' : undefined}
       onclick={() => open(page.id)}
