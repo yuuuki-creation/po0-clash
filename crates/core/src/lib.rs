@@ -1,4 +1,5 @@
 mod app_settings;
+mod backup;
 mod config;
 mod engine;
 mod error;
@@ -11,6 +12,7 @@ mod profiles;
 mod resources;
 mod settings;
 mod util;
+mod webdav;
 mod whitelist;
 
 use std::collections::BTreeMap;
@@ -28,6 +30,7 @@ pub use error::{CoreError, Result};
 pub use model::*;
 pub use options::*;
 
+use backup::Backup;
 use engine::{Engine, Runtime, Session, sysproxy};
 use logfile::LogFile;
 use profiles::Content;
@@ -791,9 +794,17 @@ impl Core {
 
     /// The profile's text as downloaded or imported, for export.
     pub fn profile_content(&self, id: String) -> Result<String> {
-        fs::read_to_string(self.paths.yaml(&id))
-            .or_else(|_| fs::read_to_string(self.paths.links(&id)))
-            .map_err(|_| CoreError::Invalid("no such profile".into()))
+        match self.stored_content(&id) {
+            Some(Content::Yaml(text) | Content::Links(text)) => Ok(text),
+            None => Err(CoreError::Invalid("no such profile".into())),
+        }
+    }
+
+    fn stored_content(&self, id: &str) -> Option<Content> {
+        fs::read_to_string(self.paths.yaml(id))
+            .map(Content::Yaml)
+            .or_else(|_| fs::read_to_string(self.paths.links(id)).map(Content::Links))
+            .ok()
     }
 
     /// The config mihomo would run for this profile, with the controller secret and po0's direct login hidden.
@@ -1347,6 +1358,92 @@ impl Core {
         logfile::info(if active { "active" } else { "inactive" });
         self.engine.monitor.set_active(active);
         self.whitelist.set_active(active);
+    }
+
+    // Backup and restore.
+
+    pub fn backup(&self) -> Result<Vec<u8>> {
+        let settings = self.store.get();
+        let files = settings
+            .profiles
+            .iter()
+            .filter_map(|profile| Some((profile.id.clone(), self.stored_content(&profile.id)?)))
+            .collect();
+        Backup { settings, files }.to_zip(&self.app_version)
+    }
+
+    /// Merges or replaces the profiles as the restore strategy setting says, and the engine, if it runs,
+    /// moves onto the result.
+    pub fn restore(&self, data: Vec<u8>, scope: RestoreScope) -> Result<()> {
+        let backup = Backup::from_zip(&data)?;
+        let count = backup.files.len();
+        for (id, content) in &backup.files {
+            self.store_content(id, content)?;
+        }
+        let (before, dropped) = self.store.update(|s| {
+            let before = (s.route_mode, s.options.mixed_port);
+            let (next, dropped) = backup.restore_into(s, scope, s.app.restore_strategy);
+            *s = next;
+            Ok((before, dropped))
+        })?;
+        for id in &dropped {
+            let _ = fs::remove_file(self.paths.yaml(id));
+            let _ = fs::remove_file(self.paths.links(id));
+        }
+        logfile::info(format!("restored {count} profiles from a backup"));
+        let after = self.store.get();
+        let moved = (after.route_mode, after.options.mixed_port) != before;
+        self.engine.monitor.set_log_level(after.options.log_level);
+        self.whitelist.update(after.whitelist);
+        let applied = if moved && self.platform != Platform::Android {
+            self.restart()
+        } else {
+            self.reload()
+        };
+        self.emit(&[
+            Change::Profiles,
+            Change::Status,
+            Change::Groups,
+            Change::Whitelist,
+        ]);
+        applied
+    }
+
+    pub fn check_webdav(&self, dav: WebDav) -> Result<()> {
+        self.webdav(&dav, webdav::Client::check)
+    }
+
+    pub fn backup_to_webdav(&self) -> Result<()> {
+        let dav = self.saved_webdav()?;
+        let data = self.backup()?;
+        self.webdav(&dav, |client| client.upload(&dav.file_name, &data))?;
+        logfile::info("backup uploaded to WebDAV");
+        Ok(())
+    }
+
+    pub fn restore_from_webdav(&self, scope: RestoreScope) -> Result<()> {
+        let dav = self.saved_webdav()?;
+        let data = self.webdav(&dav, |client| client.download(&dav.file_name))?;
+        self.restore(data, scope)
+    }
+
+    fn saved_webdav(&self) -> Result<WebDav> {
+        self.store
+            .read(|s| s.app.webdav.clone())
+            .ok_or_else(|| CoreError::Invalid("set up WebDAV first".into()))
+    }
+
+    /// Through the engine's proxy while it runs, then directly if that fails, as subscriptions are fetched.
+    fn webdav<T>(&self, dav: &WebDav, call: impl Fn(&webdav::Client) -> Result<T>) -> Result<T> {
+        let verify = self.store.read(|s| s.app.check_certificate);
+        let direct = || call(&webdav::Client::new(dav, None, verify)?);
+        match self.proxy_url() {
+            Some(proxy) => match call(&webdav::Client::new(dav, Some(&proxy), verify)?) {
+                Err(CoreError::Network(_)) => direct(),
+                other => other,
+            },
+            None => direct(),
+        }
     }
 
     // Diagnostics and shutdown.
