@@ -18,6 +18,11 @@ enum Page: String, CaseIterable, Identifiable {
         }
     }
 
+    /// The title for AppKit, which cannot take a `LocalizedStringKey`.
+    var name: String {
+        NSLocalizedString(rawValue.capitalized, comment: "")
+    }
+
     var symbol: String {
         switch self {
         case .dashboard: return "square.grid.2x2"
@@ -100,8 +105,7 @@ final class MainWindow: NSObject, NSWindowDelegate {
     /// SwiftUI leaves the proxies list "Untitled" while that page's subtitle still bridges, so AppKit puts it back.
     private func keepTitle() {
         guard let window, navigation.page != .tools else { return }
-        let title = NSLocalizedString(navigation.page.rawValue.capitalized, comment: "")
-        if window.title != title { window.title = title }
+        if window.title != navigation.page.name { window.title = navigation.page.name }
     }
 }
 
@@ -112,15 +116,10 @@ struct MainView: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columns) {
-            List(Page.allCases, selection: Binding<Page?>(
-                get: { navigation.page },
-                set: { if let page = $0 { navigation.page = page } }
-            )) { page in
-                Label(page.title, systemImage: page.symbol).tag(page)
-            }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
-            // The window title bridges from the sidebar column; the detail's own title alone left it "Untitled".
-            .navigationTitle(navigation.page.title)
+            Sidebar(page: $navigation.page, accent: Theme.nsAccent(model.themeColor))
+                .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
+                // The window title bridges from the sidebar column; the detail's own title alone left it "Untitled".
+                .navigationTitle(navigation.page.title)
         } detail: {
             Group {
                 switch navigation.page {
