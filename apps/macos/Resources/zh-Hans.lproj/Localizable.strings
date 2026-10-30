@@ -477,3 +477,10 @@
 "Edit Script" = "编辑脚本";
 "main(config) receives the profile's config as an object and returns the config to use." = "main(config) 接收配置对象，返回要使用的配置。";
 "Profiles that use it go back to their own config." = "用它的配置会恢复原本的配置。";
+
+/* Share-link nodes */
+"Nodes…" = "节点…";
+"Nodes" = "节点";
+"Rename…" = "改名…";
+"Rename Node" = "节点改名";
+"Rename" = "改名";

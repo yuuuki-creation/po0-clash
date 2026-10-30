@@ -332,6 +332,18 @@ final class AppModel: ObservableObject {
         await outcome { try await $0.profileGroupsAndRules(id) }
     }
 
+    func shareNodes(_ id: String) async -> Result<[ShareNode], MessageError> {
+        await outcome { try await $0.shareNodes(id) }
+    }
+
+    func renameShareNode(_ id: String, _ name: String, to newName: String) async -> String? {
+        await failure { try await $0.renameShareNode(id, name, newName) }
+    }
+
+    func removeShareNode(_ id: String, _ name: String) async -> String? {
+        await failure { try await $0.removeShareNode(id, name) }
+    }
+
     func scripts() async -> [Script] {
         (try? await client?.scripts()) ?? []
     }

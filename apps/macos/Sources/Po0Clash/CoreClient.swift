@@ -93,6 +93,13 @@ final class CoreClient: @unchecked Sendable {
         try await work { try $0.profileGroupsAndRules(id: id) }
     }
     func scripts() async throws -> [Script] { try await work { $0.scripts() } }
+    func shareNodes(_ id: String) async throws -> [ShareNode] { try await work { try $0.shareNodes(id: id) } }
+    func renameShareNode(_ id: String, _ name: String, _ newName: String) async throws {
+        try await control { try $0.renameShareNode(id: id, name: name, newName: newName) }
+    }
+    func removeShareNode(_ id: String, _ name: String) async throws {
+        try await control { try $0.removeShareNode(id: id, name: name) }
+    }
     func saveScript(_ script: Script) async throws -> Script { try await control { try $0.saveScript(script: script) } }
     func removeScript(_ id: String) async throws { try await control { try $0.removeScript(id: id) } }
     func reorderProfiles(_ ids: [String]) async throws { try await work { try $0.reorderProfiles(ids: ids) } }

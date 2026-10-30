@@ -11,6 +11,7 @@ struct SubscriptionsView: View {
         case edit(Profile)
         case editor(Profile)
         case override(Profile)
+        case nodes(Profile)
         case text(Profile, ProfileText)
 
         var id: String {
@@ -20,6 +21,7 @@ struct SubscriptionsView: View {
             case .edit(let profile): return "edit/\(profile.id)"
             case .editor(let profile): return "editor/\(profile.id)"
             case .override(let profile): return "override/\(profile.id)"
+            case .nodes(let profile): return "nodes/\(profile.id)"
             case .text(let profile, let text): return "text/\(profile.id)/\(text)"
             }
         }
@@ -64,6 +66,7 @@ struct SubscriptionsView: View {
                                 case .edit: sheet = .edit(profile)
                                 case .editContent: sheet = .editor(profile)
                                 case .override: sheet = .override(profile)
+                                case .nodes: sheet = .nodes(profile)
                                 case .show(let text): sheet = .text(profile, text)
                                 case .remove: pendingRemoval = profile
                                 }
@@ -81,6 +84,7 @@ struct SubscriptionsView: View {
             case .edit(let profile): EditProfileSheet(profile: profile).environmentObject(model)
             case .editor(let profile): ProfileEditorSheet(profile: profile).environmentObject(model)
             case .override(let profile): ProfileOverrideSheet(profile: profile).environmentObject(model)
+            case .nodes(let profile): ShareNodesSheet(profile: profile).environmentObject(model)
             case .text(let profile, let text): ProfileTextSheet(profile: profile, text: text).environmentObject(model)
             }
         }
@@ -106,7 +110,7 @@ enum ProfileText: Hashable {
 }
 
 private enum ProfileAction {
-    case edit, editContent, override, show(ProfileText), remove
+    case edit, editContent, override, nodes, show(ProfileText), remove
 }
 
 private struct ProfileRow: View {
@@ -198,7 +202,9 @@ private struct ProfileRow: View {
             Button("Update") { model.updateProfile(profile.id) }
                 .disabled(model.updating.contains(profile.id))
         }
-        if profile.kind != .links {
+        if profile.kind == .links {
+            Button("Nodes…") { act(.nodes) }
+        } else {
             Button("Edit…") { act(.edit) }
         }
         Divider()
@@ -464,6 +470,89 @@ private struct ProfileEditorSheet: View {
             error = await model.saveProfileText(profile.id, text)
             saving = false
             if error == nil { dismiss() }
+        }
+    }
+}
+
+/// Renames and deletes single nodes of the share-link profile.
+private struct ShareNodesSheet: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    let profile: Profile
+    @State private var nodes: [ShareNode] = []
+    @State private var renaming: ShareNode?
+    @State private var newName = ""
+    @State private var pendingRemoval: ShareNode?
+    @State private var error: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Nodes").font(.headline)
+                Text(verbatim: profile.title).font(.caption).foregroundStyle(.secondary)
+            }
+            Form {
+                Section {
+                    ForEach(Array(nodes.enumerated()), id: \.offset) { _, node in
+                        LabeledContent {
+                            HStack {
+                                Button("Rename…") {
+                                    newName = node.name
+                                    renaming = node
+                                }
+                                Button("Delete…") { pendingRemoval = node }
+                                    .disabled(nodes.count == 1)
+                            }
+                        } label: {
+                            Text(verbatim: node.name.isEmpty ? "—" : node.name)
+                            Text(verbatim: node.kind)
+                        }
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            if let error {
+                Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled)
+            }
+            HStack {
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 520, height: 480)
+        .alert(
+            "Rename Node",
+            isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }),
+            presenting: renaming
+        ) { node in
+            TextField("Name", text: $newName)
+            Button("Rename") { change { await model.renameShareNode(profile.id, node.name, to: newName) } }
+            Button("Cancel", role: .cancel) {}
+        }
+        .alert(
+            String(localized: "Delete \(pendingRemoval?.name ?? "")?"),
+            isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } }),
+            presenting: pendingRemoval
+        ) { node in
+            Button("Delete", role: .destructive) { change { await model.removeShareNode(profile.id, node.name) } }
+            Button("Cancel", role: .cancel) {}
+        }
+        .task { await reload() }
+    }
+
+    private func change(_ body: @escaping () async -> String?) {
+        Task {
+            error = await body()
+            await reload()
+        }
+    }
+
+    private func reload() async {
+        switch await model.shareNodes(profile.id) {
+        case .success(let next): nodes = next
+        case .failure(let failure): error = failure.message
         }
     }
 }
