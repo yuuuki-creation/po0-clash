@@ -9,6 +9,7 @@ struct SubscriptionsView: View {
     private enum Sheet: Identifiable {
         case subscription, links
         case edit(Profile)
+        case editor(Profile)
         case text(Profile, ProfileText)
 
         var id: String {
@@ -16,6 +17,7 @@ struct SubscriptionsView: View {
             case .subscription: return "subscription"
             case .links: return "links"
             case .edit(let profile): return "edit/\(profile.id)"
+            case .editor(let profile): return "editor/\(profile.id)"
             case .text(let profile, let text): return "text/\(profile.id)/\(text)"
             }
         }
@@ -58,6 +60,7 @@ struct SubscriptionsView: View {
                             ) { action in
                                 switch action {
                                 case .edit: sheet = .edit(profile)
+                                case .editContent: sheet = .editor(profile)
                                 case .show(let text): sheet = .text(profile, text)
                                 case .remove: pendingRemoval = profile
                                 }
@@ -73,6 +76,7 @@ struct SubscriptionsView: View {
             case .subscription: AddSubscriptionSheet().environmentObject(model)
             case .links: ImportLinksSheet().environmentObject(model)
             case .edit(let profile): EditProfileSheet(profile: profile).environmentObject(model)
+            case .editor(let profile): ProfileEditorSheet(profile: profile).environmentObject(model)
             case .text(let profile, let text): ProfileTextSheet(profile: profile, text: text).environmentObject(model)
             }
         }
@@ -93,7 +97,7 @@ enum ProfileText: Hashable {
 }
 
 private enum ProfileAction {
-    case edit, show(ProfileText), remove
+    case edit, editContent, show(ProfileText), remove
 }
 
 private struct ProfileRow: View {
@@ -189,7 +193,7 @@ private struct ProfileRow: View {
             Button("Edit…") { act(.edit) }
         }
         Divider()
-        Button("View Content…") { act(.show(.content)) }
+        Button("Edit Content…") { act(.editContent) }
         Button("Preview Config…") { act(.show(.preview)) }
         Button("Export…") { model.exportProfile(profile) }
         if let url = profile.url {
@@ -378,6 +382,125 @@ private struct ProfileTextSheet: View {
         .padding(20)
         .frame(width: 640, height: 520)
         .task { loaded = await model.profileText(profile.id, text) }
+    }
+}
+
+private struct ProfileEditorSheet: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    let profile: Profile
+    @State private var text = ""
+    @State private var original: String?
+    @State private var error: String?
+    @State private var saving = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Edit Content").font(.headline)
+                Text(verbatim: profile.title).font(.caption).foregroundStyle(.secondary)
+            }
+            CodeEditor(text: $text)
+                .background(Color.tileBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.cardEdge))
+                .disabled(original == nil)
+            if profile.kind == .subscription {
+                Text("The next update of this subscription replaces your edits.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let error {
+                Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled)
+            }
+            HStack {
+                Button("Replace with File…", action: replaceWithFile)
+                    .disabled(original == nil)
+                Spacer()
+                if saving { ProgressView().controlSize(.small) }
+                Button("Cancel", role: .cancel) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Save", action: save)
+                    .keyboardShortcut("s", modifiers: .command)
+                    .disabled(original == nil || text == original || saving)
+            }
+        }
+        .padding(20)
+        .frame(width: 680, height: 560)
+        .task {
+            switch await model.profileText(profile.id, .content) {
+            case .success(let body):
+                text = body
+                original = body
+            case .failure(let failure):
+                error = failure.message
+            }
+        }
+    }
+
+    private func replaceWithFile() {
+        let panel = NSOpenPanel()
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            text = try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            self.error = describe(error)
+        }
+    }
+
+    private func save() {
+        saving = true
+        error = nil
+        Task {
+            error = await model.saveProfileText(profile.id, text)
+            saving = false
+            if error == nil { dismiss() }
+        }
+    }
+}
+
+/// SwiftUI's TextEditor turns straight quotes and dashes into typographic ones, which breaks YAML.
+struct CodeEditor: NSViewRepresentable {
+    @Binding var text: String
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scroll = NSTextView.scrollableTextView()
+        scroll.drawsBackground = false
+        let view = scroll.documentView as! NSTextView
+        view.isRichText = false
+        view.allowsUndo = true
+        view.drawsBackground = false
+        view.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        view.textContainerInset = NSSize(width: 6, height: 8)
+        view.isAutomaticQuoteSubstitutionEnabled = false
+        view.isAutomaticDashSubstitutionEnabled = false
+        view.isAutomaticTextReplacementEnabled = false
+        view.isAutomaticSpellingCorrectionEnabled = false
+        view.isContinuousSpellCheckingEnabled = false
+        view.string = text
+        view.delegate = context.coordinator
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        guard let view = scroll.documentView as? NSTextView else { return }
+        view.isEditable = context.environment.isEnabled
+        if view.string != text { view.string = text }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+
+    @MainActor
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        private let text: Binding<String>
+
+        init(text: Binding<String>) {
+            self.text = text
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard let view = notification.object as? NSTextView else { return }
+            text.wrappedValue = view.string
+        }
     }
 }
 

@@ -81,6 +81,9 @@ final class CoreClient: @unchecked Sendable {
         try await work { try $0.editProfile(id: id, edit: edit) }
     }
     func profileContent(_ id: String) async throws -> String { try await work { try $0.profileContent(id: id) } }
+    func saveProfileContent(_ id: String, _ content: String) async throws -> Profile {
+        try await control { try $0.saveProfileContent(id: id, content: content) }
+    }
     func previewConfig(_ id: String) async throws -> String { try await work { try $0.previewConfig(id: id) } }
     func reorderProfiles(_ ids: [String]) async throws { try await work { try $0.reorderProfiles(ids: ids) } }
 

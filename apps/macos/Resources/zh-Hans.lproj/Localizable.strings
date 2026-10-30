@@ -312,7 +312,6 @@
 "Updates every %lld h" = "每 %lld 小时自动更新";
 "Updates manually" = "手动更新";
 "Use" = "使用";
-"View Content…" = "查看内容…";
 "Preview Config…" = "预览运行配置…";
 "Copy Link" = "复制链接";
 "Move Up" = "上移";
@@ -436,3 +435,9 @@
 "Add the subscription at %@?" = "要添加来自 %@ 的订阅吗？";
 "Import QR Code Image…" = "导入二维码图片…";
 "No QR code was found in the picture." = "图片中没有找到二维码。";
+
+/* Profile editor */
+"Edit Content…" = "编辑内容…";
+"Edit Content" = "编辑内容";
+"Replace with File…" = "用文件替换…";
+"The next update of this subscription replaces your edits." = "订阅下次更新时会覆盖这些修改。";

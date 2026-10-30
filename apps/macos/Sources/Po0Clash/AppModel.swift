@@ -308,6 +308,18 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Returns an error message to show in the editor, or nil on success.
+    func saveProfileText(_ id: String, _ text: String) async -> String? {
+        guard let client else { return launchError }
+        do {
+            _ = try await client.saveProfileContent(id, text)
+            await refreshProfiles()
+            return nil
+        } catch {
+            return describe(error)
+        }
+    }
+
     /// A clash://install-config link that opens the app waits until the core is ready and the disclaimer is accepted.
     func openLinks(_ links: [URL]) {
         guard acceptsLinks else {
