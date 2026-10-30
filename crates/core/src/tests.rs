@@ -243,6 +243,77 @@ fn starting_without_a_profile_fails_cleanly() {
     fs::remove_dir_all(dir).unwrap();
 }
 
+#[test]
+fn file_profiles_can_be_edited_exported_previewed_and_ordered() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    let yaml = "proxies:\n  - {name: a, type: ss, server: 1.2.3.4, port: 1, cipher: aes-128-gcm, password: p}\n";
+    let first = core.import_file("work.yaml".into(), yaml.into()).unwrap();
+    assert_eq!(
+        (first.name.as_str(), first.kind, first.selected),
+        ("work", ProfileKind::File, true)
+    );
+    assert!(matches!(
+        core.import_file("x.txt".into(), "hello".into()),
+        Err(CoreError::Invalid(_))
+    ));
+    let links = "ss://YWVzLTEyOC1nY206cA@1.2.3.4:1#b";
+    let second = core.import_file("nodes.txt".into(), links.into()).unwrap();
+    assert_eq!(core.profile_content(second.id.clone()).unwrap(), links);
+    assert!(matches!(
+        core.update_profile(first.id.clone()),
+        Err(CoreError::Invalid(_))
+    ));
+
+    let edited = core
+        .edit_profile(
+            first.id.clone(),
+            ProfileEdit {
+                name: " Work ".into(),
+                url: Some("https://ignored.example".into()),
+                auto_update: false,
+                update_hours: 0,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        (
+            edited.name.as_str(),
+            edited.url,
+            edited.auto_update,
+            edited.update_hours
+        ),
+        ("Work", None, false, 1)
+    );
+    assert!(
+        core.edit_profile(
+            first.id.clone(),
+            ProfileEdit {
+                name: " ".into(),
+                url: None,
+                auto_update: true,
+                update_hours: 24,
+            },
+        )
+        .is_err()
+    );
+
+    let preview = core.preview_config(first.id.clone()).unwrap();
+    assert!(preview.contains("name: a"), "{preview}");
+    assert!(preview.contains("<hidden>"));
+    assert!(
+        core.preview_config(second.id.clone())
+            .unwrap()
+            .contains("po0-links-")
+    );
+
+    core.reorder_profiles(vec![second.id.clone()]).unwrap();
+    let order: Vec<String> = core.profiles().into_iter().map(|p| p.id).collect();
+    assert_eq!(order, [second.id, first.id]);
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
 /// Runs the real engine: `MIHOMO_BIN=/path/to/mihomo cargo test -- --ignored engine`.
 #[cfg(unix)]
 #[test]
