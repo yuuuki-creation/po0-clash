@@ -302,30 +302,6 @@ jobs:
 
       # The Intel runner's paravirtual GPU aborts inside Metal when SwiftUI first needs a RenderBox pipeline; find
       # which surface asks for one.
-      - name: Probe which surface crashes on Intel
-        if: always() && matrix.os == 'macos-15-intel'
-        continue-on-error: true
-        run: |
-          bin=/Applications/po0-clash.app/Contents/MacOS/po0-clash
-          probe() {
-            local name=$1
-            shift
-            "$bin" "$@" > /dev/null 2>&1 &
-            local pid=$!
-            sleep 8
-            if kill -0 "$pid" 2>/dev/null; then
-              echo "$name: alive"
-              kill -TERM "$pid"
-              wait "$pid" 2>/dev/null || true
-            else
-              echo "$name: CRASHED"
-            fi
-          }
-          probe dashboard-without-cards -showWindow dashboard -dashboardCards none
-          for card in currentNode speed mode takeover whitelist traffic connections memory intranetIp subscription exitIp; do
-            probe "card-$card" -showWindow dashboard -dashboardCards "$card"
-          done
-
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4

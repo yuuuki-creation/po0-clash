@@ -1,4 +1,3 @@
-import Charts
 import Po0FFI
 import SwiftUI
 
@@ -480,7 +479,7 @@ private struct SpeedCard: View {
     }
 }
 
-/// The last minute of download (accent, over a flat fill) and upload (grey), newest on the right.
+/// Plain shapes, since Swift Charts aborts on the paravirtual GPU of Intel Mac virtual machines.
 private struct SpeedChart: View {
     let history: [Traffic]
 
@@ -488,41 +487,51 @@ private struct SpeedChart: View {
     private static let span = 60
 
     var body: some View {
-        let offset = SpeedChart.span - history.count
-        let peak = history.map { Double(max($0.down, $0.up)) }.max() ?? 0
-        Chart {
-            RuleMark(y: .value("Zero", 0))
-                .foregroundStyle(Color.primary.opacity(0.12))
-                .lineStyle(StrokeStyle(lineWidth: 1))
-            ForEach(Array(history.enumerated()), id: \.offset) { index, sample in
-                AreaMark(x: .value("Time", offset + index), y: .value("Speed", Double(sample.down)))
-                    .foregroundStyle(Color.accentColor.opacity(0.1))
-                    .interpolationMethod(.monotone)
-                LineMark(
-                    x: .value("Time", offset + index),
-                    y: .value("Speed", Double(sample.down)),
-                    series: .value("Direction", "down")
-                )
-                .foregroundStyle(Color.accentColor)
-                .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-                .interpolationMethod(.monotone)
-                LineMark(
-                    x: .value("Time", offset + index),
-                    y: .value("Speed", Double(sample.up)),
-                    series: .value("Direction", "up")
-                )
-                .foregroundStyle(SpeedChart.uploadTint)
-                .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
-                .interpolationMethod(.monotone)
-            }
+        let peak = max(history.map { Double(max($0.down, $0.up)) }.max() ?? 0, 1) * 1.1
+        let down = history.map { Double($0.down) / peak }
+        let up = history.map { Double($0.up) / peak }
+        ZStack {
+            Rectangle()
+                .fill(Color.primary.opacity(0.12))
+                .frame(height: 1)
+                .frame(maxHeight: .infinity, alignment: .bottom)
+            SpeedLine(values: down, span: Self.span, closed: true)
+                .fill(Color.accentColor.opacity(0.1))
+            SpeedLine(values: down, span: Self.span)
+                .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+            SpeedLine(values: up, span: Self.span)
+                .stroke(Self.uploadTint, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
         }
-        .chartXScale(domain: 0...SpeedChart.span)
-        .chartYScale(domain: 0...max(peak * 1.1, 1))
-        .chartXAxis(.hidden)
-        .chartYAxis(.hidden)
-        .chartLegend(.hidden)
         .frame(height: 64)
+        .accessibilityElement()
         .accessibilityLabel(Text("Speed"))
+    }
+}
+
+/// Each segment bends at its midpoint, so the curve never overshoots a sample.
+private struct SpeedLine: Shape {
+    let values: [Double]
+    let span: Int
+    var closed = false
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let step = rect.width / CGFloat(span)
+        let points = values.enumerated().map { index, value in
+            CGPoint(x: CGFloat(span - values.count + index) * step, y: rect.maxY - CGFloat(value) * rect.height)
+        }
+        guard let first = points.first, let last = points.last else { return path }
+        path.move(to: first)
+        for (from, to) in zip(points, points.dropFirst()) {
+            let middle = (from.x + to.x) / 2
+            path.addCurve(to: to, control1: CGPoint(x: middle, y: from.y), control2: CGPoint(x: middle, y: to.y))
+        }
+        if closed {
+            path.addLine(to: CGPoint(x: last.x, y: rect.maxY))
+            path.addLine(to: CGPoint(x: first.x, y: rect.maxY))
+            path.closeSubpath()
+        }
+        return path
     }
 }
 
