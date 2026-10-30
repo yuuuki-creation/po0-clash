@@ -13,7 +13,9 @@
 3. **正确性**：加白请求必须以真实出口 IP 发出，不能被本应用的代理 / TUN 劫持成代理节点的 IP。
 4. **原生应用**：macOS 用 SwiftUI，Windows 用 Tauri，Android 用 Jetpack Compose；三端共享一个精简的 Rust 内核，
    代理引擎为原版 mihomo（[ADR 0018](adr/0018-native-rewrite.md)）。
-5. **精简**：只提供[功能范围](development/native-rewrite.md#功能范围)里列出的功能；界面按各平台规范从零设计，不沿用旧版。
+5. **功能完整**：FlClash 与本 fork 有的功能都要有（[ADR 0020](adr/0020-native-feature-parity.md)，清单见
+   [native-feature-parity.md](development/native-feature-parity.md)）；界面结构接近 FlClash，样式按苹果液态玻璃规范
+   （[ADR 0019](adr/0019-native-main-window.md)）。
 6. **交付**：
    - Windows：Tauri 打包的安装程序，自签名。
    - macOS：终端命令一键安装。
