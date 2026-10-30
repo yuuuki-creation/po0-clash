@@ -246,6 +246,9 @@ jobs:
             kill -TERM "$pid" 2>/dev/null || true
             wait "$pid" || true
           }
+          # The test servers are done by now, and their local-network prompt would cover every shot.
+          pkill -f 'http.server' || true
+          sleep 2
           login=(-launchedAtLogin YES -testDelays YES -showMenu YES)
           shoot menu 15 "${login[@]}"
           if ! grep -q "HTTPEnable : 1" "$RUNNER_TEMP/menu-proxy.txt"; then

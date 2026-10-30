@@ -1,3 +1,4 @@
+import AppKit
 import Po0FFI
 import SwiftUI
 
@@ -32,13 +33,29 @@ enum Format {
     }
 }
 
+/// The window and control backgrounds are both near-white on macOS 26, so grouped content gets the iOS grouped
+/// pair instead: a neutral page with lighter cards.
+extension Color {
+    static let page = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.isDark ? NSColor(white: 0.11, alpha: 1) : NSColor(srgbRed: 0.949, green: 0.949, blue: 0.969, alpha: 1)
+    })
+
+    static let card = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.isDark ? NSColor(white: 0.18, alpha: 1) : .white
+    })
+}
+
+private extension NSAppearance {
+    var isDark: Bool { bestMatch(from: [.darkAqua, .aqua]) == .darkAqua }
+}
+
 /// Liquid Glass belongs to the floating control layer only (HIG, macOS 26); content sits on opaque grouped
 /// surfaces like a grouped `Form`.
 extension View {
     func groupedSection() -> some View {
         padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(Color.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     @ViewBuilder

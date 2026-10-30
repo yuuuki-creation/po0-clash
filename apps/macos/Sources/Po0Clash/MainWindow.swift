@@ -142,7 +142,7 @@ struct PageScaffold<Actions: View, Content: View>: View {
             .padding(.bottom, 88)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color.page)
     }
 }
 
@@ -173,6 +173,6 @@ struct Card<Content: View>: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(14)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
