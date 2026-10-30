@@ -5,6 +5,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use serde::{Deserialize, Serialize};
 
+use crate::app_settings::{self, AppSettings};
 use crate::error::Result;
 use crate::model::{Mode, ProfileKind, RouteMode, Usage};
 use crate::options::EngineOptions;
@@ -20,6 +21,8 @@ pub struct Settings {
     pub whitelist: WhitelistSettings,
     pub connected: bool,
     pub options: EngineOptions,
+    #[serde(deserialize_with = "app_settings::lenient")]
+    pub app: AppSettings,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

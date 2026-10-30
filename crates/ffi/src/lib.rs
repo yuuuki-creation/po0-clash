@@ -374,6 +374,246 @@ pub enum EngineState {
     Failed { message: String },
 }
 
+mirror_enum!(ThemeMode {
+    System,
+    Light,
+    Dark
+});
+mirror_enum!(SchemeVariant {
+    TonalSpot,
+    Fidelity,
+    Monochrome,
+    Neutral,
+    Vibrant,
+    Expressive,
+    Content,
+    Rainbow,
+    FruitSalad
+});
+mirror_enum!(ProxiesLayout { Tabs, List });
+mirror_enum!(ProxiesSort {
+    Profile,
+    Delay,
+    Name
+});
+mirror_enum!(ProxiesDensity {
+    Loose,
+    Standard,
+    Tight
+});
+mirror_enum!(ProxyTileStyle {
+    Detailed,
+    Compact,
+    Minimal
+});
+mirror_enum!(GroupIconStyle {
+    Standard,
+    IconOnly,
+    Hidden
+});
+mirror_enum!(DashboardCard {
+    CurrentNode,
+    Speed,
+    Mode,
+    Takeover,
+    Whitelist,
+    Traffic,
+    Connections,
+    Memory,
+    IntranetIp,
+    Subscription,
+    ExitIp
+});
+mirror_enum!(HotkeyAction {
+    Connect,
+    ShowWindow,
+    Mode,
+    SystemProxy,
+    Tun
+});
+mirror_enum!(HotkeyModifier {
+    Control,
+    Alt,
+    Shift,
+    Meta
+});
+mirror_enum!(RestoreStrategy {
+    Compatible,
+    Override
+});
+mirror_enum!(AccessControlMode {
+    RejectSelected,
+    AcceptSelected
+});
+mirror_enum!(AppSort {
+    Unsorted,
+    Name,
+    InstallTime
+});
+
+mirror_record!(WebDav {
+    url: String,
+    user: String,
+    password: String,
+    file_name: String,
+});
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct Hotkey {
+    pub action: HotkeyAction,
+    pub key: String,
+    pub modifiers: Vec<HotkeyModifier>,
+}
+
+impl From<core::Hotkey> for Hotkey {
+    fn from(v: core::Hotkey) -> Self {
+        Self {
+            action: v.action.into(),
+            key: v.key,
+            modifiers: convert(v.modifiers),
+        }
+    }
+}
+
+impl From<Hotkey> for core::Hotkey {
+    fn from(v: Hotkey) -> Self {
+        Self {
+            action: v.action.into(),
+            key: v.key,
+            modifiers: convert(v.modifiers),
+        }
+    }
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct AccessControl {
+    pub enabled: bool,
+    pub mode: AccessControlMode,
+    pub accepted: Vec<String>,
+    pub rejected: Vec<String>,
+    pub sort: AppSort,
+    pub hide_system_apps: bool,
+    pub hide_offline_apps: bool,
+}
+
+impl From<core::AccessControl> for AccessControl {
+    fn from(v: core::AccessControl) -> Self {
+        Self {
+            enabled: v.enabled,
+            mode: v.mode.into(),
+            accepted: v.accepted,
+            rejected: v.rejected,
+            sort: v.sort.into(),
+            hide_system_apps: v.hide_system_apps,
+            hide_offline_apps: v.hide_offline_apps,
+        }
+    }
+}
+
+impl From<AccessControl> for core::AccessControl {
+    fn from(v: AccessControl) -> Self {
+        Self {
+            enabled: v.enabled,
+            mode: v.mode.into(),
+            accepted: v.accepted,
+            rejected: v.rejected,
+            sort: v.sort.into(),
+            hide_system_apps: v.hide_system_apps,
+            hide_offline_apps: v.hide_offline_apps,
+        }
+    }
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct AppSettings {
+    pub language: Option<String>,
+    pub theme_mode: ThemeMode,
+    pub theme_color: u32,
+    pub theme_colors: Vec<u32>,
+    pub scheme_variant: SchemeVariant,
+    pub pure_black: bool,
+    pub text_scale: Option<u16>,
+    pub launch_at_login: bool,
+    pub silent_launch: bool,
+    pub auto_connect: bool,
+    pub minimize_on_close: bool,
+    pub hide_from_recents: bool,
+    pub page_animation: bool,
+    pub show_nav_labels: bool,
+    pub capture_logs: bool,
+    pub close_connections_on_switch: bool,
+    pub only_proxy_traffic: bool,
+    pub notification_stop_button: bool,
+    pub auto_check_update: bool,
+    pub check_certificate: bool,
+    pub tray_speed: bool,
+    pub crash_reports: bool,
+    pub crash_reports_asked: bool,
+    pub disclaimer_accepted: bool,
+    pub developer_mode: bool,
+    pub proxies_layout: ProxiesLayout,
+    pub proxies_sort: ProxiesSort,
+    pub proxies_density: ProxiesDensity,
+    pub proxy_tile_style: ProxyTileStyle,
+    pub group_icon_style: GroupIconStyle,
+    pub dashboard_cards: Vec<DashboardCard>,
+    pub hotkeys: Vec<Hotkey>,
+    pub webdav: Option<WebDav>,
+    pub restore_strategy: RestoreStrategy,
+    pub access_control: AccessControl,
+    pub excluded_ssids: Vec<String>,
+}
+
+macro_rules! app_settings_from {
+    ($from:ty => $to:ty) => {
+        impl From<$from> for $to {
+            fn from(v: $from) -> Self {
+                Self {
+                    language: v.language,
+                    theme_mode: v.theme_mode.into(),
+                    theme_color: v.theme_color,
+                    theme_colors: v.theme_colors,
+                    scheme_variant: v.scheme_variant.into(),
+                    pure_black: v.pure_black,
+                    text_scale: v.text_scale,
+                    launch_at_login: v.launch_at_login,
+                    silent_launch: v.silent_launch,
+                    auto_connect: v.auto_connect,
+                    minimize_on_close: v.minimize_on_close,
+                    hide_from_recents: v.hide_from_recents,
+                    page_animation: v.page_animation,
+                    show_nav_labels: v.show_nav_labels,
+                    capture_logs: v.capture_logs,
+                    close_connections_on_switch: v.close_connections_on_switch,
+                    only_proxy_traffic: v.only_proxy_traffic,
+                    notification_stop_button: v.notification_stop_button,
+                    auto_check_update: v.auto_check_update,
+                    check_certificate: v.check_certificate,
+                    tray_speed: v.tray_speed,
+                    crash_reports: v.crash_reports,
+                    crash_reports_asked: v.crash_reports_asked,
+                    disclaimer_accepted: v.disclaimer_accepted,
+                    developer_mode: v.developer_mode,
+                    proxies_layout: v.proxies_layout.into(),
+                    proxies_sort: v.proxies_sort.into(),
+                    proxies_density: v.proxies_density.into(),
+                    proxy_tile_style: v.proxy_tile_style.into(),
+                    group_icon_style: v.group_icon_style.into(),
+                    dashboard_cards: convert(v.dashboard_cards),
+                    hotkeys: convert(v.hotkeys),
+                    webdav: v.webdav.map(Into::into),
+                    restore_strategy: v.restore_strategy.into(),
+                    access_control: v.access_control.into(),
+                    excluded_ssids: v.excluded_ssids,
+                }
+            }
+        }
+    };
+}
+
+app_settings_from!(core::AppSettings => AppSettings);
+app_settings_from!(AppSettings => core::AppSettings);
+
 impl From<core::EngineState> for EngineState {
     fn from(value: core::EngineState) -> Self {
         match value {
@@ -612,6 +852,14 @@ impl Po0Core {
 
     pub fn start(&self, tun_fd: Option<i32>) -> Result<()> {
         Ok(self.inner.start(tun_fd)?)
+    }
+
+    pub fn app_settings(&self) -> AppSettings {
+        self.inner.app_settings().into()
+    }
+
+    pub fn set_app_settings(&self, settings: AppSettings) -> Result<()> {
+        Ok(self.inner.set_app_settings(settings.into())?)
     }
 
     pub fn engine_options(&self) -> EngineOptions {
