@@ -60,13 +60,13 @@ fun SubscriptionsScreen(vm: AppViewModel) {
     )
 
     val list = rememberLazyListState()
-    PageScaffold(stringResource(R.string.subscriptions), list, actions) { padding ->
+    PageScaffold(stringResource(R.string.profiles), list, actions) { padding ->
         LazyColumn(
             state = list,
             modifier = Modifier.fillMaxSize().hazeSource(checkNotNull(LocalHaze.current)),
             contentPadding = padding,
         ) {
-            item { PageTitle(stringResource(R.string.subscriptions)) }
+            item { PageTitle(stringResource(R.string.profiles)) }
             if (profiles.isEmpty()) {
                 item { EmptyCard(stringResource(R.string.empty_title), stringResource(R.string.empty_body)) }
             }

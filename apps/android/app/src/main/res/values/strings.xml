@@ -29,7 +29,6 @@
     <string name="delay_ms">%d ms</string>
     <string name="delay_timeout">Timeout</string>
 
-    <string name="subscriptions">Subscriptions</string>
     <string name="add_subscription">Add subscription</string>
     <string name="subscription_url">Subscription URL</string>
     <string name="import_links">Import share links</string>
@@ -64,7 +63,6 @@
     <string name="outcome_rejected">Rejected</string>
     <string name="outcome_error">Failed</string>
 
-    <string name="diagnostics">Diagnostics</string>
     <string name="export_diagnostics">Export diagnostic log</string>
     <string name="export_diagnostics_hint">Saves the app and engine logs to a text file</string>
     <string name="export_done">Diagnostic log exported</string>
@@ -88,6 +86,28 @@
     <string name="whitelist_entries">Tokens and links</string>
     <string name="whitelist_none">No tokens or links yet</string>
     <string name="whitelist_empty_body">Add po0 tokens or ggy links to keep this device\'s exit IP whitelisted.</string>
+    <string name="back">Back</string>
+    <string name="profiles">Profiles</string>
+    <string name="tools">Tools</string>
+    <string name="network_and_core">Network and core</string>
+    <string name="other">Other</string>
+    <string name="language">Language</string>
+    <string name="appearance">Appearance</string>
+    <string name="application">Application</string>
+    <string name="basic_config">Basic configuration</string>
+    <string name="network">Network</string>
+    <string name="dns">DNS</string>
+    <string name="advanced">Advanced</string>
+    <string name="access_control">Access control</string>
+    <string name="resources">Resources</string>
+    <string name="activity">Activity</string>
+    <string name="backup">Backup and restore</string>
+    <string name="developer">Developer</string>
+    <string name="requests">Requests</string>
+    <string name="connections">Connections</string>
+    <string name="logs">Logs</string>
+    <string name="coming_soon">Coming soon</string>
+    <string name="coming_soon_body">The native app does not have this yet. It is on the way.</string>
     <plurals name="whitelist_summary">
         <item quantity="one">%1$d of %2$d whitelisted</item>
         <item quantity="other">%1$d of %2$d whitelisted</item>

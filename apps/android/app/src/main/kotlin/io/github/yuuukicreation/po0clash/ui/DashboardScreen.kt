@@ -92,7 +92,7 @@ fun DashboardScreen(vm: AppViewModel, onConnect: () -> Unit, onOpen: (Page) -> U
                 item { ExitIpCard(vm) }
                 item(span = wide) { NodeCard(vm, onClick = { onOpen(Page.PROXIES) }) }
                 item(span = wide) { ModeCard(vm) }
-                item(span = wide) { SubscriptionCard(vm, onAdd = { onOpen(Page.SUBSCRIPTIONS) }) }
+                item(span = wide) { SubscriptionCard(vm, onAdd = { onOpen(Page.PROFILES) }) }
                 item(span = wide) { WhitelistCard(vm, onClick = { onOpen(Page.WHITELIST) }) }
             }
         }

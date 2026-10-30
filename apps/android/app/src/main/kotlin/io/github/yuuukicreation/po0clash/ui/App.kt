@@ -27,9 +27,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Inbox
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SpaceDashboard
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.Icon
@@ -62,9 +62,9 @@ import io.github.yuuukicreation.po0clash.R
 enum class Page(@param:StringRes val label: Int, val icon: ImageVector) {
     DASHBOARD(R.string.dashboard, Icons.Filled.SpaceDashboard),
     PROXIES(R.string.proxies, Icons.Filled.Hub),
-    SUBSCRIPTIONS(R.string.subscriptions, Icons.Filled.Inbox),
+    PROFILES(R.string.profiles, Icons.Filled.Inbox),
     WHITELIST(R.string.whitelist, Icons.Filled.VerifiedUser),
-    SETTINGS(R.string.settings, Icons.Filled.Settings),
+    TOOLS(R.string.tools, Icons.Filled.Handyman),
 }
 
 private val tabBarHeight = 62.dp
@@ -87,9 +87,9 @@ fun App(onConnect: () -> Unit, vm: AppViewModel = viewModel()) {
                 when (page) {
                     Page.DASHBOARD -> DashboardScreen(vm, onConnect, onOpen = { page = it })
                     Page.PROXIES -> ProxiesScreen(vm)
-                    Page.SUBSCRIPTIONS -> SubscriptionsScreen(vm)
+                    Page.PROFILES -> SubscriptionsScreen(vm)
                     Page.WHITELIST -> WhitelistScreen(vm)
-                    Page.SETTINGS -> SettingsScreen(vm)
+                    Page.TOOLS -> ToolsScreen(vm)
                 }
             }
             Column(Modifier.align(Alignment.BottomCenter)) {

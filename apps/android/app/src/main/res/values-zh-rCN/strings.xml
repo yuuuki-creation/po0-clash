@@ -28,7 +28,6 @@
     <string name="delay_ms">%d ms</string>
     <string name="delay_timeout">超时</string>
 
-    <string name="subscriptions">订阅</string>
     <string name="add_subscription">添加订阅</string>
     <string name="subscription_url">订阅链接</string>
     <string name="import_links">导入分享链接</string>
@@ -62,7 +61,6 @@
     <string name="outcome_rejected">被拒绝</string>
     <string name="outcome_error">失败</string>
 
-    <string name="diagnostics">诊断</string>
     <string name="export_diagnostics">导出诊断日志</string>
     <string name="export_diagnostics_hint">把应用和引擎日志保存为文本文件</string>
     <string name="export_done">已导出诊断日志</string>
@@ -86,6 +84,28 @@
     <string name="whitelist_entries">Token 与链接</string>
     <string name="whitelist_none">还没有 token 或链接</string>
     <string name="whitelist_empty_body">添加 po0 token 或 ggy 链接后，自动加白会让本机出口 IP 留在白名单中。</string>
+    <string name="back">返回</string>
+    <string name="profiles">配置</string>
+    <string name="tools">工具</string>
+    <string name="network_and_core">网络与内核</string>
+    <string name="other">其他</string>
+    <string name="language">语言</string>
+    <string name="appearance">外观</string>
+    <string name="application">应用</string>
+    <string name="basic_config">基础配置</string>
+    <string name="network">网络</string>
+    <string name="dns">DNS</string>
+    <string name="advanced">高级</string>
+    <string name="access_control">访问控制</string>
+    <string name="resources">资源</string>
+    <string name="activity">活动</string>
+    <string name="backup">备份与恢复</string>
+    <string name="developer">开发者</string>
+    <string name="requests">请求</string>
+    <string name="connections">连接</string>
+    <string name="logs">日志</string>
+    <string name="coming_soon">即将推出</string>
+    <string name="coming_soon_body">原生版还没有这项功能，之后会补上。</string>
     <plurals name="whitelist_summary">
         <item quantity="other">%1$d / %2$d 已加白</item>
     </plurals>
