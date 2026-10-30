@@ -3,6 +3,7 @@ import { mount } from 'svelte';
 import App from './App.svelte';
 import './app.css';
 import { app, init } from './lib/core.svelte.js';
+import { watchGlass } from './lib/glass.js';
 import { setLanguage } from './lib/i18n.js';
 import { loadSettings } from './lib/settings.svelte.js';
 import { watchAppearance } from './lib/theme.svelte.js';
@@ -17,5 +18,6 @@ document.addEventListener('contextmenu', (event) => {
 });
 
 watchAppearance();
+watchGlass();
 mount(App, { target: document.getElementById('app') });
 init();

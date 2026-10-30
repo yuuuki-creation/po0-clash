@@ -1,9 +1,11 @@
 <script>
+  import { flip } from 'svelte/animate';
   import { act, app, notify } from '../lib/core.svelte.js';
   import { formatTime, t } from '../lib/i18n.js';
   import Dialog from '../lib/Dialog.svelte';
   import EmptyState from '../lib/EmptyState.svelte';
   import Icon from '../lib/Icon.svelte';
+  import { motion, rise } from '../lib/motion.svelte.js';
   import Page from '../lib/Page.svelte';
   import Switch from '../lib/Switch.svelte';
 
@@ -83,7 +85,7 @@
     {:else}
       <div class="list">
         {#each entries as entry (entry.id)}
-          <div class="row top">
+          <div class="row top" animate:flip={{ duration: motion(260) }} transition:rise>
             <span class="tag mono">{entry.kind}</span>
             <div class="grow">
               <span class="title">

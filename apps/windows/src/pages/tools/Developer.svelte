@@ -3,6 +3,7 @@
   import { t } from '../../lib/i18n.js';
   import Dialog from '../../lib/Dialog.svelte';
   import Toggle from '../../lib/form/Toggle.svelte';
+  import { navigate } from '../../lib/motion.svelte.js';
   import { settings, updateSettings } from '../../lib/settings.svelte.js';
 
   let confirming = $state(null);
@@ -50,7 +51,7 @@
     checked={settings.value.developerMode}
     onchange={async (on) => {
       await updateSettings({ developerMode: on });
-      if (!on) app.tool = null;
+      if (!on) navigate('tools', null, 'back');
     }}
   />
 </div>

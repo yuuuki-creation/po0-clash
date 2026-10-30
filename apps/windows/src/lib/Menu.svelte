@@ -1,5 +1,6 @@
 <script>
   import Icon from './Icon.svelte';
+  import { pop } from './motion.svelte.js';
 
   let { options, value, onchange, label, small = false, left = false, disabled = false, trigger } = $props();
   let open = $state(false);
@@ -38,7 +39,7 @@
     </button>
   {/if}
   {#if open}
-    <div class="menu-pop glass" class:left role="menu" aria-label={label}>
+    <div class="menu-pop glass" class:left role="menu" aria-label={label} transition:pop={{ from: 0.94 }}>
       {#each options as option (option.value)}
         <button type="button" role="menuitemradio" aria-checked={option.value === value} onclick={() => pick(option)}>
           <span class="check">{#if option.value === value}<Icon name="check" />{/if}</span>

@@ -1,9 +1,11 @@
 <script>
+  import { flip } from 'svelte/animate';
   import { act, app, notify } from '../lib/core.svelte.js';
   import { formatTime, t } from '../lib/i18n.js';
   import Dialog from '../lib/Dialog.svelte';
   import EmptyState from '../lib/EmptyState.svelte';
   import Icon from '../lib/Icon.svelte';
+  import { motion, navigate, rise } from '../lib/motion.svelte.js';
   import Page from '../lib/Page.svelte';
   import Switch from '../lib/Switch.svelte';
   import UsageBar from '../lib/UsageBar.svelte';
@@ -25,8 +27,8 @@
     const profile = app.tool && app.profiles.find((p) => p.id === app.tool.id);
     return profile && { ...profile, title: title(profile) };
   });
-  const open = (view, profile) => (app.tool = { view, id: profile.id });
-  const back = () => (app.tool = null);
+  const open = (view, profile) => navigate('profiles', { view, id: profile.id }, 'forward');
+  const back = () => navigate('profiles', null, 'back');
 
   async function add(event) {
     event.preventDefault();
@@ -143,6 +145,8 @@
         <div class="list">
           {#each app.profiles as profile (profile.id)}
             <div
+              animate:flip={{ duration: motion(260) }}
+              transition:rise
               class="row top"
               class:dragging={dragged === profile.id}
               class:drop-target={target === profile.id && dragged !== profile.id}

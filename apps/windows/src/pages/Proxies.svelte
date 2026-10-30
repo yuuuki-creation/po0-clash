@@ -8,12 +8,14 @@
 
 <script>
   import { tick } from 'svelte';
+  import { slide } from 'svelte/transition';
   import { act, app, testDelay, testNode } from '../lib/core.svelte.js';
   import { delayTone, formatDelay, t } from '../lib/i18n.js';
   import EmptyState from '../lib/EmptyState.svelte';
   import GroupIcon from '../lib/GroupIcon.svelte';
   import Icon from '../lib/Icon.svelte';
   import Menu from '../lib/Menu.svelte';
+  import { motion, pop } from '../lib/motion.svelte.js';
   import Page from '../lib/Page.svelte';
   import SectionMenu from '../lib/SectionMenu.svelte';
   import { settings, updateSettings } from '../lib/settings.svelte.js';
@@ -205,7 +207,7 @@
           {/if}
         </div>
         {#if open}
-          <div class="nodes {s.proxiesDensity}">
+          <div class="nodes {s.proxiesDensity}" transition:slide={{ duration: motion(260) }}>
             {#each group.shown as node (node.name)}
               {@const selected = node.name === group.now}
               <div class="node" class:selected class:inline={s.proxyTileStyle !== 'detailed'}>
@@ -218,7 +220,11 @@
                   onclick={() =>
                     !selected && act(`select:${group.name}`, 'select_node', { group: group.name, node: node.name })}
                 ></button>
-                <span class="node-top"><span>{node.name}</span>{#if selected}<Icon name="check" />{/if}</span>
+                <span class="node-top"
+                  ><span>{node.name}</span>{#if selected}<span class="check-in" in:pop={{ from: 0.4, y: 0 }}
+                      ><Icon name="check" /></span
+                    >{/if}</span
+                >
                 {#if s.proxyTileStyle === 'minimal'}
                   <span class="dot {delayTone(node.delay)}"></span>
                 {:else}

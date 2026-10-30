@@ -1,10 +1,12 @@
 <script>
+  import { flip } from 'svelte/animate';
   import { act, notify } from '../../lib/core.svelte.js';
   import { engine, fromLines, saveOptions, toLines } from '../../lib/engine.svelte.js';
   import { t } from '../../lib/i18n.js';
   import Dialog from '../../lib/Dialog.svelte';
   import Icon from '../../lib/Icon.svelte';
   import Lines from '../../lib/form/Lines.svelte';
+  import { motion, rise } from '../../lib/motion.svelte.js';
   import ScriptEditor from '../../lib/ScriptEditor.svelte';
   import { lineCount, loadScripts, scripts } from '../../lib/scripts.svelte.js';
 
@@ -38,7 +40,7 @@
 <h2 class="group-title">{t('script.library')}</h2>
 <div class="list">
   {#each scripts.list as script (script.id)}
-    <div class="row">
+    <div class="row" animate:flip={{ duration: motion(260) }} transition:rise>
       <span class="row-icon"><Icon name="doc" /></span>
       <div class="grow stacked">
         <span class="title">{script.name}</span>

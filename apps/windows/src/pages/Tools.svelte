@@ -8,6 +8,7 @@
   import { engine, loadOptions } from '../lib/engine.svelte.js';
   import { t } from '../lib/i18n.js';
   import Icon from '../lib/Icon.svelte';
+  import { navigate } from '../lib/motion.svelte.js';
   import Page from '../lib/Page.svelte';
   import Switch from '../lib/Switch.svelte';
   import Toggle from '../lib/form/Toggle.svelte';
@@ -108,7 +109,7 @@
     location.reload();
   }
 
-  const back = () => (app.tool = null);
+  const back = () => navigate('tools', null, 'back');
 
   // FlClash turns developer mode on after five clicks on the version.
   let versionClicks = 0;
@@ -151,7 +152,7 @@
               >
             </div>
           {:else}
-            <button type="button" class="row with-icon" onclick={() => (app.tool = id)}>
+            <button type="button" class="row with-icon" onclick={() => navigate('tools', id, 'forward')}>
               <span class="row-icon"><Icon name={icon} /></span>
               <span class="label">{t(`tools.${id}`)}</span>
               <span class="trailing">
@@ -212,14 +213,14 @@
         <span class="label">{t('tools.version')}</span>
         <span class="trailing">{app.version}</span>
       </button>
-      <button type="button" class="row" onclick={() => (app.tool = 'licenses')}>
+      <button type="button" class="row" onclick={() => navigate('tools', 'licenses', 'forward')}>
         <span class="label">{t('licenses.title')}</span>
         <span class="chevron"><Icon name="chevron" /></span>
       </button>
     </div>
   </Page>
 {:else if app.tool === 'licenses'}
-  <Licenses onback={() => (app.tool = 'about')} />
+  <Licenses onback={() => navigate('tools', 'about', 'back')} />
 {:else if app.tool === 'loopback'}
   <Loopback onback={back} />
 {:else if app.tool === 'rules'}

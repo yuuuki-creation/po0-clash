@@ -3,11 +3,13 @@
 </script>
 
 <script>
+  import { flip } from 'svelte/animate';
   import { act, app, refreshExitIp, testDelay, testNode } from '../lib/core.svelte.js';
   import { delayTone, formatAgo, formatBytes, formatDate, formatDelay, formatRate, t } from '../lib/i18n.js';
   import Card from '../lib/Card.svelte';
   import Icon from '../lib/Icon.svelte';
   import Menu from '../lib/Menu.svelte';
+  import { motion, navigate, pop } from '../lib/motion.svelte.js';
   import Page from '../lib/Page.svelte';
   import Segmented from '../lib/Segmented.svelte';
   import SpeedChart from '../lib/SpeedChart.svelte';
@@ -142,6 +144,8 @@
   <div class="dash" class:editing>
     {#each cards as id (id)}
       <div
+        animate:flip={{ duration: motion(300) }}
+        transition:pop={{ from: 0.9, y: 0 }}
         class="dash-item"
         class:span2={wide.has(id)}
         class:dragging={dragged === id}
@@ -312,7 +316,7 @@
       />
     {/snippet}
     <Value text={`${entries.length} ${t('home.entryUnit')}`} />
-    <button type="button" class="caption link-caption" onclick={() => (app.page = 'whitelist')}
+    <button type="button" class="caption link-caption" onclick={() => navigate('whitelist')}
       ><span class="dot {whitelistStatus.tone}"></span><span class="title">{whitelistStatus.text}</span></button
     >
   </Card>
@@ -328,7 +332,7 @@
 {#snippet connections()}
   <Card title={t('home.connections')} icon="link">
     {#snippet accessory()}
-      <button type="button" class="plain-button" aria-label={t('page.activity')} onclick={() => (app.page = 'activity')}
+      <button type="button" class="plain-button" aria-label={t('page.activity')} onclick={() => navigate('activity')}
         ><Icon name="chevron" /></button
       >
     {/snippet}
@@ -369,7 +373,7 @@
       {/if}
     {/snippet}
     {#if !profile}
-      <button type="button" class="text-button start-aligned" onclick={() => (app.page = 'profiles')}
+      <button type="button" class="text-button start-aligned" onclick={() => navigate('profiles')}
         >{t('home.addProfile')}</button
       >
     {:else}

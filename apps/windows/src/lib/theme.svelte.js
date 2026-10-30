@@ -29,7 +29,6 @@ export function watchAppearance() {
       root.toggleAttribute('data-dark', s.themeMode === 'dark' || (s.themeMode === 'system' && prefersDark));
       root.toggleAttribute('data-black', s.pureBlack);
       root.classList.toggle('nav-icons', !s.showNavLabels);
-      root.classList.toggle('animate', s.pageAnimation);
       const accent = toHex(s.themeColor);
       for (const name of ['--accent', '--accent-text', '--accent-solid']) {
         if (accent !== '#007AFF') root.style.setProperty(name, accent);
