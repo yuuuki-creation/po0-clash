@@ -23,6 +23,19 @@
 	<string>po0-clash</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>io.github.yuuukicreation.po0clash</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>clash</string>
+				<string>clashmeta</string>
+				<string>po0clash</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleShortVersionString</key>
 	<string>0.0.0</string>
 	<key>CFBundleVersion</key>

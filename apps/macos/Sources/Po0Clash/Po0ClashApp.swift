@@ -46,6 +46,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Showcase.run()
     }
 
+    func application(_ application: NSApplication, open urls: [URL]) {
+        AppModel.shared.openLinks(urls)
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         MainWindow.shared.show()
         return false

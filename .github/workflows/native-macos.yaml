@@ -287,6 +287,17 @@ jobs:
           for page in basic resources developer; do shoot "window-$page" 15 "${connected[@]}" -showWindow tools -toolsPage "$page"; done
           shoot window-backup 6 -showWindow tools -toolsPage backup
           for page in profiles whitelist tools; do shoot "window-$page" 6 -showWindow "$page"; done
+          "$bin" > /dev/null 2>&1 &
+          pid=$!
+          sleep 6
+          open "po0clash://install-config?url=https%3A%2F%2Fexample.com%2Fsubscription"
+          sleep 3
+          screencapture -x shots/window-install-link.png || true
+          # The confirmation is modal, so a stuck shutdown must not hold up the job.
+          kill -TERM "$pid" 2>/dev/null || true
+          sleep 5
+          kill -KILL "$pid" 2>/dev/null || true
+          wait "$pid" || true
           for tab in requests connections logs; do
             shoot "window-activity-$tab" 15 "${connected[@]}" -showWindow activity -activityTab "$tab"
           done

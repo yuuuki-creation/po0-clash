@@ -424,3 +424,13 @@
 "Clear all data?" = "确定要清除所有数据？";
 "Clear Data" = "清除数据";
 "Every profile, whitelist entry and setting is removed and po0-clash restarts. This cannot be undone." = "所有配置、加白条目和设置都会被删除，随后 po0-clash 重启。此操作无法撤销。";
+
+/* Menu bar */
+"Show Speed in Menu Bar" = "在菜单栏显示网速";
+"Launch at Login" = "开机自启";
+"Copy Terminal Proxy Command" = "复制终端代理命令";
+"Copied" = "已复制";
+"Quit po0-clash" = "退出 po0-clash";
+
+/* Subscription links */
+"Add the subscription at %@?" = "要添加来自 %@ 的订阅吗？";

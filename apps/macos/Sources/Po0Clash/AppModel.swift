@@ -35,6 +35,14 @@ final class AppModel: ObservableObject {
     @Published var notice: String?
     var showsMenuBarSpeed: Bool { appSettings?.traySpeed ?? true }
 
+    var proxyCommand: String? {
+        guard let options = engineOptions else { return nil }
+        let port = options.mixedPort != 0 ? options.mixedPort : options.httpPort
+        guard port != 0 else { return nil }
+        let proxy = "http://127.0.0.1:\(port)"
+        return "export https_proxy=\(proxy) http_proxy=\(proxy) all_proxy=\(proxy)"
+    }
+
     private var client: CoreClient?
     private let network = NetworkWatcher()
     private var trafficTimer: Timer?
@@ -42,6 +50,8 @@ final class AppModel: ObservableObject {
     private var exitIpFetchedAt: Date?
     private var visibleSurfaces: Set<Surface> = []
     private var busyCount = 0
+    private var acceptsLinks = false
+    private var pendingLinks: [URL] = []
 
     var isOn: Bool {
         switch status?.engine {
@@ -73,6 +83,10 @@ final class AppModel: ObservableObject {
                     return
                 }
                 if !atLogin, !Showcase.keepsWindowClosed, appSettings?.silentLaunch != true { MainWindow.shared.show() }
+                acceptsLinks = true
+                let links = pendingLinks
+                pendingLinks = []
+                openLinks(links)
                 await adoptInstalledTunEngine()
                 network.start {
                     Task {
@@ -269,6 +283,31 @@ final class AppModel: ObservableObject {
             }
         } catch {
             return .failure(MessageError(describe(error)))
+        }
+    }
+
+    /// A clash://install-config link that opens the app waits until the core is ready and the disclaimer is accepted.
+    func openLinks(_ links: [URL]) {
+        guard acceptsLinks else {
+            pendingLinks += links
+            return
+        }
+        for link in links {
+            guard link.host == "install-config",
+                  let address = URLComponents(url: link, resolvingAgainstBaseURL: false)?
+                      .queryItems?.first(where: { $0.name == "url" })?.value
+            else { continue }
+            MainWindow.shared.show(.profiles)
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Add Subscription")
+            alert.informativeText = String(localized: "Add the subscription at \(address)?")
+            alert.addButton(withTitle: String(localized: "Add"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
+            activateApp()
+            guard alert.runModal() == .alertFirstButtonReturn else { continue }
+            Task {
+                if let error = await addSubscription(address) { notice = error }
+            }
         }
     }
 

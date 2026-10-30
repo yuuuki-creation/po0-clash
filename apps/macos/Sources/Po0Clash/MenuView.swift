@@ -25,21 +25,7 @@ struct MenuView: View {
             if let notice = model.notice {
                 NoticeBanner(text: notice) { model.notice = nil }.groupedSection()
             }
-            ControlBar {
-                Button {
-                    MainWindow.shared.show()
-                } label: {
-                    Label("Open po0-clash", systemImage: "macwindow")
-                }
-                .keyboardShortcut("o")
-                Spacer()
-                Button {
-                    NSApp.terminate(nil)
-                } label: {
-                    Label("Quit", systemImage: "power")
-                }
-                .keyboardShortcut("q")
-            }
+            MenuActions()
         }
         .padding(12)
         .frame(width: 340)
@@ -302,6 +288,94 @@ private struct WhitelistSummary: View {
             .labelsHidden()
             .disabled(model.whitelist == nil)
         }
+    }
+}
+
+/// FlClash's tray menu items, drawn as menu rows so the panel ends the way a native menu does.
+private struct MenuActions: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var launchAtLogin = LaunchAtLogin.isEnabled
+    @State private var copied = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            MenuRow("Open po0-clash", shortcut: "⌘O") { MainWindow.shared.show() }
+                .keyboardShortcut("o")
+            MenuRow("Show Speed in Menu Bar", checked: model.showsMenuBarSpeed) {
+                let shows = model.showsMenuBarSpeed
+                model.updateAppSettings { $0.traySpeed = !shows }
+            }
+            .disabled(model.appSettings == nil)
+            MenuRow("Launch at Login", checked: launchAtLogin, action: toggleLaunchAtLogin)
+            MenuRow(copied ? "Copied" : "Copy Terminal Proxy Command", action: copyProxyCommand)
+                .disabled(model.proxyCommand == nil)
+            Divider().padding(.vertical, 4)
+            MenuRow("Quit po0-clash", shortcut: "⌘Q") { NSApp.terminate(nil) }
+                .keyboardShortcut("q")
+        }
+        .onAppear { launchAtLogin = LaunchAtLogin.isEnabled }
+    }
+
+    private func toggleLaunchAtLogin() {
+        do {
+            try LaunchAtLogin.set(!launchAtLogin)
+        } catch {
+            model.notice = describe(error)
+        }
+        launchAtLogin = LaunchAtLogin.isEnabled
+        if LaunchAtLogin.needsApproval { LaunchAtLogin.openSystemSettings() }
+    }
+
+    private func copyProxyCommand() {
+        guard let command = model.proxyCommand else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(command, forType: .string)
+        copied = true
+        Task {
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            copied = false
+        }
+    }
+}
+
+private struct MenuRow: View {
+    let title: LocalizedStringKey
+    var checked = false
+    var shortcut: String?
+    let action: () -> Void
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var hovering = false
+
+    init(_ title: LocalizedStringKey, checked: Bool = false, shortcut: String? = nil, action: @escaping () -> Void) {
+        self.title = title
+        self.checked = checked
+        self.shortcut = shortcut
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "checkmark")
+                    .font(.caption.weight(.semibold))
+                    .frame(width: 16)
+                    .opacity(checked ? 1 : 0)
+                Text(title)
+                Spacer(minLength: 12)
+                if let shortcut {
+                    Text(verbatim: shortcut).foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(hovering && isEnabled ? Color.primary.opacity(0.08) : .clear)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
     }
 }
 
