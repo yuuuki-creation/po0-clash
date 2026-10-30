@@ -816,6 +816,32 @@ impl Core {
         }
     }
 
+    /// FlClash's profile editor. While the profile runs mihomo checks the text too, and an edit it rejects is undone.
+    pub fn save_profile_content(&self, id: String, content: String) -> Result<Profile> {
+        let content = profiles::classify(&content)?;
+        let kind = self
+            .store
+            .read(|s| s.profile(&id).map(|profile| profile.kind))
+            .ok_or_else(|| CoreError::Invalid("no such profile".into()))?;
+        if kind == ProfileKind::Links && !matches!(content, Content::Links(_)) {
+            return Err(CoreError::Invalid(
+                "the share-link profile holds share links only".into(),
+            ));
+        }
+        let previous = self
+            .stored_content(&id)
+            .ok_or_else(|| CoreError::Invalid("no such profile".into()))?;
+        self.store_content(&id, &content)?;
+        if let Err(error) = self.reload_if_current(&id) {
+            self.store_content(&id, &previous)?;
+            let _ = self.reload_if_current(&id);
+            return Err(error);
+        }
+        logfile::info(format!("profile {id} edited"));
+        self.emit(&[Change::Profiles, Change::Status]);
+        self.profile(&id)
+    }
+
     fn stored_content(&self, id: &str) -> Option<Content> {
         fs::read_to_string(self.paths.yaml(id))
             .map(Content::Yaml)

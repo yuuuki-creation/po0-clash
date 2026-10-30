@@ -1038,6 +1038,10 @@ impl Po0Core {
         Ok(self.inner.update_geo()?)
     }
 
+    pub fn save_profile_content(&self, id: String, content: String) -> Result<Profile> {
+        Ok(self.inner.save_profile_content(id, content)?.into())
+    }
+
     pub fn crash_engine(&self) -> Result<()> {
         Ok(self.inner.crash_engine()?)
     }
