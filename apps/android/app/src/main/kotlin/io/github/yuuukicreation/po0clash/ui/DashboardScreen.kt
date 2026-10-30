@@ -22,7 +22,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.outlined.AltRoute
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.PlayArrow
@@ -102,13 +101,13 @@ fun DashboardScreen(vm: AppViewModel, onConnect: () -> Unit, onOpen: (Page) -> U
             ) {
                 item(span = full) { PageTitle(stringResource(R.string.dashboard)) }
                 if (failure != null) item(span = full) { FailureCard(failure, onConnect) }
+                item(span = full) { ModePicker(vm) }
                 item(span = wide) { SpeedCard(snapshot?.history) }
                 item { TrafficCard(snapshot?.connections) }
                 item { ConnectionsCard(snapshot?.connections) }
                 item { ExitIpCard(vm) }
                 item { MemoryCard(snapshot?.memory) }
                 item(span = wide) { NodeCard(vm, onClick = { onOpen(Page.PROXIES) }) }
-                item(span = wide) { ModeCard(vm) }
                 item(span = wide) { SubscriptionCard(vm, onAdd = { onOpen(Page.PROFILES) }) }
                 item(span = wide) { WhitelistCard(vm, onClick = { onOpen(Page.WHITELIST) }) }
             }
@@ -340,8 +339,9 @@ private fun NodeCard(vm: AppViewModel, onClick: () -> Unit) {
     }
 }
 
+/** The most-changed setting sits right under the title, as a bare segmented control rather than a card. */
 @Composable
-private fun ModeCard(vm: AppViewModel) {
+private fun ModePicker(vm: AppViewModel) {
     val status by vm.engine.status.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val modes = listOf(
@@ -349,9 +349,7 @@ private fun ModeCard(vm: AppViewModel) {
         Mode.GLOBAL to stringResource(R.string.mode_global),
         Mode.DIRECT to stringResource(R.string.mode_direct),
     )
-    InfoCard(stringResource(R.string.mode), Icons.AutoMirrored.Outlined.AltRoute) {
-        SegmentedPicker(modes, status.mode, enabled = AppViewModel.BUSY_MODE !in busy, onSelect = vm::setMode)
-    }
+    SegmentedPicker(modes, status.mode, enabled = AppViewModel.BUSY_MODE !in busy, onSelect = vm::setMode)
 }
 
 @Composable

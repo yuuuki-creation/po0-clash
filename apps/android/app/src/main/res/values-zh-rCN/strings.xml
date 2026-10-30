@@ -20,7 +20,6 @@
     <string name="empty_title">还没有订阅</string>
     <string name="empty_body">添加订阅或导入分享链接后即可连接。</string>
 
-    <string name="mode">模式</string>
     <string name="mode_rule">规则</string>
     <string name="mode_global">全局</string>
     <string name="mode_direct">直连</string>

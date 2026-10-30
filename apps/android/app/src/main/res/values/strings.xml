@@ -21,7 +21,6 @@
     <string name="empty_title">No subscription yet</string>
     <string name="empty_body">Add a subscription or import share links to connect.</string>
 
-    <string name="mode">Mode</string>
     <string name="mode_rule">Rule</string>
     <string name="mode_global">Global</string>
     <string name="mode_direct">Direct</string>
