@@ -11,9 +11,14 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.sp
+import io.github.yuuukicreation.po0clash.core.AppSettings
+import io.github.yuuukicreation.po0clash.core.ThemeMode
 
 /** The design spec's color table (docs/development/native-design.md), phone column for dark. */
 @Immutable
@@ -120,9 +125,29 @@ private val typography = Typography(
 /** Fixed-width digits, so rates, timers and delays do not jitter as they change. */
 fun TextStyle.tabular() = copy(fontFeatureSettings = "tnum")
 
+/** The spec's blues for the default color; any other theme color stands in for the whole accent group. */
+private fun AppleColors.withAccent(argb: UInt?): AppleColors {
+    if (argb == null || argb == DEFAULT_ACCENT) return this
+    val base = Color(argb.toInt())
+    val accent = if (dark) lerp(base, Color.White, 0.08f) else base
+    return copy(
+        accent = accent,
+        accentText = if (dark) lerp(base, Color.White, 0.25f) else lerp(base, Color.Black, 0.15f),
+        accentFill = lerp(base, Color.Black, 0.08f),
+        accentSoft = accent.copy(alpha = if (dark) 0.18f else 0.08f),
+    )
+}
+
+private const val DEFAULT_ACCENT = 0xFF007AFFu
+
 @Composable
-fun Po0Theme(content: @Composable () -> Unit) {
-    val colors = if (isSystemInDarkTheme()) Dark else Light
+fun Po0Theme(settings: AppSettings? = null, content: @Composable () -> Unit) {
+    val dark = when (settings?.themeMode) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        else -> isSystemInDarkTheme()
+    }
+    val colors = (if (dark) Dark else Light).withAccent(settings?.themeColor)
     val scheme = (if (colors.dark) darkColorScheme() else lightColorScheme()).copy(
         primary = colors.accent,
         onPrimary = Color.White,
@@ -136,7 +161,12 @@ fun Po0Theme(content: @Composable () -> Unit) {
         outlineVariant = colors.separator,
         error = colors.red,
     )
-    CompositionLocalProvider(LocalAppleColors provides colors) {
+    val density = LocalDensity.current
+    val scale = settings?.textScale?.let { it.toFloat() / 100f } ?: 1f
+    CompositionLocalProvider(
+        LocalAppleColors provides colors,
+        LocalDensity provides Density(density.density, density.fontScale * scale),
+    ) {
         MaterialTheme(colorScheme = scheme, typography = typography) {
             CompositionLocalProvider(LocalContentColor provides colors.label, content = content)
         }

@@ -20,11 +20,13 @@ import androidx.core.content.ContextCompat
 import io.github.yuuukicreation.po0clash.AccessMode
 import io.github.yuuukicreation.po0clash.AndroidSettings
 import io.github.yuuukicreation.po0clash.Engine
+import io.github.yuuukicreation.po0clash.accessMode
 import io.github.yuuukicreation.po0clash.MainActivity
 import io.github.yuuukicreation.po0clash.R
 import io.github.yuuukicreation.po0clash.core.EngineState
 import io.github.yuuukicreation.po0clash.core.Status
 import io.github.yuuukicreation.po0clash.engine
+import io.github.yuuukicreation.po0clash.selected
 import io.github.yuuukicreation.po0clash.userMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -50,7 +52,7 @@ class Po0VpnService : VpnService() {
         super.onCreate()
         val engine = engine ?: return
         scope.launch {
-            combine(engine.status, engine.settings.state) { status, _ -> status }.collectLatest { status ->
+            combine(engine.status, engine.appSettings) { status, _ -> status }.collectLatest { status ->
                 if (foreground) notificationManager().notify(NOTIFICATION_ID, notification(status))
             }
         }
@@ -155,12 +157,14 @@ class Po0VpnService : VpnService() {
         }
         val settings = engine?.settings?.state?.value ?: AndroidSettings()
         if (settings.ipv6) addRoute("::", 0)
-        val others = settings.accessPackages - packageName
-        if (settings.accessMode == AccessMode.ALLOW && others.isNotEmpty()) {
+        val access = engine?.appSettings?.value?.accessControl
+        val mode = access?.accessMode ?: AccessMode.OFF
+        val others = access?.selected.orEmpty() - packageName
+        if (mode == AccessMode.ALLOW && others.isNotEmpty()) {
             others.forEach { runCatching { addAllowedApplication(it) } }
         } else {
             addDisallowedApplication(packageName)
-            if (settings.accessMode == AccessMode.DENY) others.forEach { runCatching { addDisallowedApplication(it) } }
+            if (mode == AccessMode.DENY) others.forEach { runCatching { addDisallowedApplication(it) } }
         }
         if (settings.allowBypass) allowBypass()
         if (settings.systemProxy && Build.VERSION.SDK_INT >= 29) {
@@ -221,7 +225,7 @@ class Po0VpnService : VpnService() {
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setContentIntent(openAppIntent())
-            .apply { if (engine?.settings?.state?.value?.notificationStop != false) addAction(0, getString(R.string.disconnect), stop) }
+            .apply { if (engine?.appSettings?.value?.notificationStopButton != false) addAction(0, getString(R.string.disconnect), stop) }
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }

@@ -91,6 +91,10 @@ object LineIcons {
     val Rules = icon("M8 6h13M8 12h13M8 18h13", "M3 6h.01M3 12h.01M3 18h.01")
     val Download = icon("M12 3v12", "m7 10 5 5 5-5", "M5 21h14")
     val Battery = icon(rect(2, 7, 16, 10, 2), "M22 11v2")
+    val Grid = icon(rect(3.5, 3.5, 7, 7, 1.8), rect(13.5, 3.5, 7, 7, 1.8), rect(3.5, 13.5, 7, 7, 1.8), rect(13.5, 13.5, 7, 7, 1.8))
+    val Lan = icon(rect(9, 2.5, 6, 5, 1), rect(2.5, 16.5, 6, 5, 1), rect(15.5, 16.5, 6, 5, 1), "M12 7.5v4.5M5.5 16.5V12h13v4.5")
+    val Shield = icon("M12 21.5s8-3.8 8-9.8V5.2l-8-2.9-8 2.9v6.5c0 6 8 9.8 8 9.8z")
+    val Palette = icon(circle(12, 12, 9.5), "F:" + circle(7.5, 11, 1.4), "F:" + circle(10.5, 7, 1.4), "F:" + circle(15, 7.5, 1.4))
     val Play = icon("F:M7 3.5v17l14-8.5z")
     val Stop = icon("F:" + rect(4, 4, 16, 16, 3.5))
 

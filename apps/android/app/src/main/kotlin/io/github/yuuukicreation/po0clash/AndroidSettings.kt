@@ -2,22 +2,40 @@ package io.github.yuuukicreation.po0clash
 
 import android.content.Context
 import androidx.annotation.StringRes
+import io.github.yuuukicreation.po0clash.core.AccessControl
+import io.github.yuuukicreation.po0clash.core.AccessControlMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+/** FlClash's per-app proxy as one choice: off, or which of the core's two lists applies. */
 enum class AccessMode(@param:StringRes val label: Int) {
     OFF(R.string.access_off),
     ALLOW(R.string.access_allow),
     DENY(R.string.access_deny),
 }
 
-/** Settings only the Android VPN has (per-app proxy, Wi-Fi exclusions, notification and VPN builder options). */
+val AccessControl.accessMode: AccessMode
+    get() = when {
+        !enabled -> AccessMode.OFF
+        mode == AccessControlMode.ACCEPT_SELECTED -> AccessMode.ALLOW
+        else -> AccessMode.DENY
+    }
+
+/** The list the current mode uses; the core keeps the other one for when the mode switches back. */
+val AccessControl.selected: List<String>
+    get() = if (mode == AccessControlMode.ACCEPT_SELECTED) accepted else rejected
+
+fun AccessControl.withMode(mode: AccessMode): AccessControl = when (mode) {
+    AccessMode.OFF -> copy(enabled = false)
+    AccessMode.ALLOW -> copy(enabled = true, mode = AccessControlMode.ACCEPT_SELECTED)
+    AccessMode.DENY -> copy(enabled = true, mode = AccessControlMode.REJECT_SELECTED)
+}
+
+fun AccessControl.withSelected(packages: Collection<String>): AccessControl =
+    if (mode == AccessControlMode.ACCEPT_SELECTED) copy(accepted = packages.toList()) else copy(rejected = packages.toList())
+
+/** VPN builder options only Android has; the core's settings do not model them. */
 data class AndroidSettings(
-    val accessMode: AccessMode = AccessMode.OFF,
-    val accessPackages: Set<String> = emptySet(),
-    val excludedSsids: Set<String> = emptySet(),
-    val notificationStop: Boolean = true,
-    val hideFromRecents: Boolean = false,
     val allowBypass: Boolean = false,
     val systemProxy: Boolean = false,
     val ipv6: Boolean = true,
@@ -32,11 +50,6 @@ class AndroidSettingsStore(context: Context) {
     fun update(change: (AndroidSettings) -> AndroidSettings) {
         val next = change(_state.value)
         prefs.edit()
-            .putString(ACCESS_MODE, next.accessMode.name)
-            .putStringSet(ACCESS_PACKAGES, next.accessPackages)
-            .putStringSet(EXCLUDED_SSIDS, next.excludedSsids)
-            .putBoolean(NOTIFICATION_STOP, next.notificationStop)
-            .putBoolean(HIDE_FROM_RECENTS, next.hideFromRecents)
             .putBoolean(ALLOW_BYPASS, next.allowBypass)
             .putBoolean(SYSTEM_PROXY, next.systemProxy)
             .putBoolean(IPV6, next.ipv6)
@@ -47,11 +60,6 @@ class AndroidSettingsStore(context: Context) {
     private fun read(): AndroidSettings {
         val defaults = AndroidSettings()
         return AndroidSettings(
-            accessMode = prefs.getString(ACCESS_MODE, null)?.let { runCatching { AccessMode.valueOf(it) }.getOrNull() } ?: defaults.accessMode,
-            accessPackages = prefs.getStringSet(ACCESS_PACKAGES, null)?.toSet() ?: defaults.accessPackages,
-            excludedSsids = prefs.getStringSet(EXCLUDED_SSIDS, null)?.toSet() ?: defaults.excludedSsids,
-            notificationStop = prefs.getBoolean(NOTIFICATION_STOP, defaults.notificationStop),
-            hideFromRecents = prefs.getBoolean(HIDE_FROM_RECENTS, defaults.hideFromRecents),
             allowBypass = prefs.getBoolean(ALLOW_BYPASS, defaults.allowBypass),
             systemProxy = prefs.getBoolean(SYSTEM_PROXY, defaults.systemProxy),
             ipv6 = prefs.getBoolean(IPV6, defaults.ipv6),
@@ -59,11 +67,6 @@ class AndroidSettingsStore(context: Context) {
     }
 
     private companion object {
-        const val ACCESS_MODE = "access_mode"
-        const val ACCESS_PACKAGES = "access_packages"
-        const val EXCLUDED_SSIDS = "excluded_ssids"
-        const val NOTIFICATION_STOP = "notification_stop"
-        const val HIDE_FROM_RECENTS = "hide_from_recents"
         const val ALLOW_BYPASS = "allow_bypass"
         const val SYSTEM_PROXY = "system_proxy"
         const val IPV6 = "ipv6"

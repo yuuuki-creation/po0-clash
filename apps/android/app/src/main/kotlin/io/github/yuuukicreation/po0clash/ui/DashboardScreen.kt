@@ -1,5 +1,14 @@
 package io.github.yuuukicreation.po0clash.ui
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import io.github.yuuukicreation.po0clash.core.IntranetIp
+import androidx.compose.runtime.produceState
+import io.github.yuuukicreation.po0clash.core.DashboardCard
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.ColumnScope
 import android.text.format.Formatter
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -51,7 +60,7 @@ import io.github.yuuukicreation.po0clash.core.Traffic
 import kotlinx.coroutines.flow.flowOf
 
 @Composable
-fun DashboardScreen(vm: AppViewModel, onOpen: (Page) -> Unit) {
+fun DashboardScreen(vm: AppViewModel, onConnect: () -> Unit, onOpen: (Page) -> Unit) {
     val engine = vm.engine
     val status by engine.status.collectAsStateWithLifecycle()
     val profiles by engine.profiles.collectAsStateWithLifecycle()
@@ -70,9 +79,12 @@ fun DashboardScreen(vm: AppViewModel, onOpen: (Page) -> Unit) {
     ) { group?.let { vm.testDelay(it.name) } }
     val profile = profiles.firstOrNull { it.selected }?.let { profileName(it.kind, it.name) }
     val subtitle = listOfNotNull(profile, stringResource(R.string.mode_summary, stringResource(modeLabel(status.mode)))).joinToString(" · ")
+    val settings by vm.appSettings.collectAsStateWithLifecycle()
+    val sheets = LocalSheets.current
+    val edit = PageAction(LineIcons.Grid, stringResource(R.string.edit_dashboard)) { sheets.show { DashboardEditor(vm) } }
 
     val grid = rememberLazyGridState()
-    PageScaffold(stringResource(R.string.dashboard), grid, actions = listOf(test)) { padding ->
+    PageScaffold(stringResource(R.string.dashboard), grid, actions = listOf(test, edit)) { padding ->
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val columns = ((maxWidth - 20.dp) / 172.dp).toInt().coerceAtLeast(2)
             val wide: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(minOf(2, maxLineSpan)) }
@@ -86,18 +98,88 @@ fun DashboardScreen(vm: AppViewModel, onOpen: (Page) -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item(span = full) { PageTitle(stringResource(R.string.dashboard), subtitle) }
-                item(span = wide) { SpeedCard(snapshot?.history) }
-                item(span = wide) { ModeCard(vm) }
-                item(span = wide) { NodeCard(vm, onClick = { onOpen(Page.PROXIES) }) }
-                item { TrafficCard(snapshot?.connections) }
-                item { ConnectionsCard(snapshot?.connections) }
-                item { MemoryCard(snapshot?.memory) }
-                item { ExitIpCard(vm) }
-                item(span = wide) { SubscriptionCard(vm, onAdd = { onOpen(Page.PROFILES) }) }
-                item(span = wide) { WhitelistCard(vm, onClick = { onOpen(Page.WHITELIST) }) }
+                settings.dashboardCards.forEach { card ->
+                    item(key = card.name, span = if (card in halfCards) null else wide) {
+                        when (card) {
+                            DashboardCard.SPEED -> SpeedCard(snapshot?.history)
+                            DashboardCard.MODE -> ModeCard(vm)
+                            DashboardCard.CURRENT_NODE -> NodeCard(vm, onClick = { onOpen(Page.PROXIES) })
+                            DashboardCard.TAKEOVER -> TakeoverCard(vm, onConnect)
+                            DashboardCard.WHITELIST -> WhitelistCard(vm, onClick = { onOpen(Page.WHITELIST) })
+                            DashboardCard.TRAFFIC -> TrafficCard(snapshot?.connections)
+                            DashboardCard.CONNECTIONS -> ConnectionsCard(snapshot?.connections)
+                            DashboardCard.MEMORY -> MemoryCard(snapshot?.memory)
+                            DashboardCard.INTRANET_IP -> IntranetIpCard(vm)
+                            DashboardCard.SUBSCRIPTION -> SubscriptionCard(vm, onAdd = { onOpen(Page.PROFILES) })
+                            DashboardCard.EXIT_IP -> ExitIpCard(vm)
+                        }
+                    }
+                }
             }
         }
     }
+}
+
+/** Cards that pair up two to a row on a phone; the rest take the full width. */
+private val halfCards = setOf(
+    DashboardCard.TAKEOVER,
+    DashboardCard.WHITELIST,
+    DashboardCard.TRAFFIC,
+    DashboardCard.CONNECTIONS,
+    DashboardCard.MEMORY,
+    DashboardCard.INTRANET_IP,
+)
+
+private fun cardLabel(card: DashboardCard) = when (card) {
+    DashboardCard.CURRENT_NODE -> R.string.current_node
+    DashboardCard.SPEED -> R.string.network_speed
+    DashboardCard.MODE -> R.string.outbound_mode
+    DashboardCard.TAKEOVER -> R.string.takeover
+    DashboardCard.WHITELIST -> R.string.whitelist_enabled
+    DashboardCard.TRAFFIC -> R.string.traffic_total
+    DashboardCard.CONNECTIONS -> R.string.connections
+    DashboardCard.MEMORY -> R.string.memory
+    DashboardCard.INTRANET_IP -> R.string.intranet_ip
+    DashboardCard.SUBSCRIPTION -> R.string.subscription
+    DashboardCard.EXIT_IP -> R.string.exit_ip
+}
+
+/** Shown cards in order with up and down buttons, then the hidden ones to add back. */
+@Composable
+private fun ColumnScope.DashboardEditor(vm: AppViewModel) {
+    val settings by vm.appSettings.collectAsStateWithLifecycle()
+    val sheets = LocalSheets.current
+    val shown = settings.dashboardCards
+    val hidden = DashboardCard.entries - shown.toSet()
+    fun save(cards: List<DashboardCard>) = vm.setAppSettings { it.copy(dashboardCards = cards) }
+    SheetTitle(stringResource(R.string.edit_dashboard))
+    Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+        shown.forEachIndexed { index, card ->
+            GroupRow(index, shown.size) {
+                CheckCircle(true, Modifier.clickable { save(shown - card) })
+                Text(stringResource(cardLabel(card)), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                FillButton(LineIcons.ChevronUp, stringResource(R.string.move_up), size = 28.dp, enabled = index > 0) {
+                    save(shown.toMutableList().apply { add(index - 1, removeAt(index)) })
+                }
+                FillButton(LineIcons.ChevronDown, stringResource(R.string.move_down), size = 28.dp, enabled = index < shown.lastIndex) {
+                    save(shown.toMutableList().apply { add(index + 1, removeAt(index)) })
+                }
+            }
+        }
+        if (hidden.isNotEmpty()) {
+            SectionHeader(stringResource(R.string.hidden_cards))
+            hidden.forEachIndexed { index, card ->
+                GroupRow(index, hidden.size, onClick = { save(shown + card) }) {
+                    CheckCircle(false)
+                    Text(stringResource(cardLabel(card)), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+    TextButton(onClick = { save(DashboardCard.entries) }, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.restore_default), color = apple.accent, style = MaterialTheme.typography.bodyLarge)
+    }
+    SheetDoneButton(onClick = sheets::dismiss)
 }
 
 fun modeLabel(mode: Mode) = when (mode) {
@@ -361,16 +443,61 @@ private fun SubscriptionCard(vm: AppViewModel, onAdd: () -> Unit) {
 }
 
 @Composable
+private fun IntranetIpCard(vm: AppViewModel) {
+    val exitIp by vm.engine.exitIp.collectAsStateWithLifecycle()
+    val ip by produceState<IntranetIp?>(null, exitIp) { value = withContext(Dispatchers.IO) { vm.engine.core.intranetIp() } }
+    InfoCard(stringResource(R.string.intranet_ip), LineIcons.Lan) {
+        Text(
+            ip?.ip ?: "—",
+            style = MaterialTheme.typography.bodyLarge.tabular(),
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.MiddleEllipsis,
+            modifier = Modifier.padding(vertical = 5.dp),
+        )
+        Text(
+            ip?.`interface`?.takeIf(String::isNotBlank) ?: stringResource(R.string.unknown),
+            style = MaterialTheme.typography.labelMedium,
+            color = apple.secondaryLabel,
+            maxLines = 1,
+        )
+    }
+}
+
+/** Android's takeover is the VPN itself, so the switch connects and disconnects. */
+@Composable
+private fun TakeoverCard(vm: AppViewModel, onConnect: () -> Unit) {
+    val active by vm.engine.vpnActive.collectAsStateWithLifecycle()
+    val profiles by vm.engine.profiles.collectAsStateWithLifecycle()
+    InfoCard(stringResource(R.string.takeover), LineIcons.Shield) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("VPN", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                Text(
+                    stringResource(if (active) R.string.takeover_on else R.string.takeover_off),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = apple.secondaryLabel,
+                )
+            }
+            AppleSwitch(active, { on -> if (on) onConnect() else vm.disconnect() }, enabled = active || profiles.any { it.selected })
+        }
+    }
+}
+
+@Composable
 private fun WhitelistCard(vm: AppViewModel, onClick: () -> Unit) {
     val whitelist by vm.engine.whitelist.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
-    InfoCard(stringResource(R.string.whitelist_enabled), LineIcons.ShieldCheck, onClick = onClick) {
+    InfoCard(stringResource(R.string.whitelist), LineIcons.ShieldCheck, onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                whitelistSummary(whitelist),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f),
-            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    stringResource(if (whitelist.enabled) R.string.on else R.string.off),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(whitelistSummary(whitelist), style = MaterialTheme.typography.labelMedium, color = apple.secondaryLabel, maxLines = 1)
+            }
             AppleSwitch(whitelist.enabled, vm::setWhitelistEnabled, enabled = AppViewModel.BUSY_WHITELIST !in busy)
         }
     }

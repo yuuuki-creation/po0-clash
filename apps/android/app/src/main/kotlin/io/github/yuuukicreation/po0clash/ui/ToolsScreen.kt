@@ -5,6 +5,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -38,6 +40,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.chrisbanes.haze.hazeSource
 import io.github.yuuukicreation.po0clash.BuildConfig
 import io.github.yuuukicreation.po0clash.R
+import io.github.yuuukicreation.po0clash.accessMode
+import io.github.yuuukicreation.po0clash.core.ThemeMode
 import io.github.yuuukicreation.po0clash.core.EngineState
 import kotlinx.coroutines.flow.flowOf
 import java.text.SimpleDateFormat
@@ -68,11 +72,14 @@ private val application = listOf(Tool.APPEARANCE, Tool.LANGUAGE, Tool.APPLICATIO
 @Composable
 fun ToolsScreen(vm: AppViewModel) {
     var open by rememberSaveable { mutableStateOf<Tool?>(null) }
+    val animate = vm.appSettings.collectAsStateWithLifecycle().value.pageAnimation
     BackHandler(enabled = open != null) { open = null }
     AnimatedContent(
         targetState = open,
         transitionSpec = {
-            if (targetState != null) {
+            if (!animate) {
+                EnterTransition.None togetherWith ExitTransition.None
+            } else if (targetState != null) {
                 (slideInHorizontally { it } + fadeIn()) togetherWith (slideOutHorizontally { -it / 3 } + fadeOut())
             } else {
                 (slideInHorizontally { -it / 3 } + fadeIn()) togetherWith (slideOutHorizontally { it } + fadeOut())
@@ -90,6 +97,8 @@ fun ToolsScreen(vm: AppViewModel) {
             Tool.ADVANCED -> AdvancedOptionsScreen(vm, back)
             Tool.ON_DEMAND -> OnDemandScreen(vm, back)
             Tool.APPLICATION -> ApplicationScreen(vm, back)
+            Tool.APPEARANCE -> AppearanceScreen(vm, back)
+            Tool.LANGUAGE -> LanguageScreen(vm, back)
             Tool.ACCESS -> AccessControlScreen(vm, back)
             Tool.RESOURCES -> ResourcesScreen(vm, back)
             Tool.ABOUT -> AboutScreen(back)
@@ -104,7 +113,7 @@ private fun ToolList(vm: AppViewModel, onOpen: (Tool) -> Unit) {
     val busy by vm.busy.collectAsStateWithLifecycle()
     val status by engine.status.collectAsStateWithLifecycle()
     val options by vm.options.collectAsStateWithLifecycle()
-    val android by vm.androidSettings.collectAsStateWithLifecycle()
+    val settings by vm.appSettings.collectAsStateWithLifecycle()
     val running = status.engine == EngineState.Running
     val connections by remember(running) {
         if (running) engine.poll { connections().items.size } else flowOf(null)
@@ -115,10 +124,16 @@ private fun ToolList(vm: AppViewModel, onOpen: (Tool) -> Unit) {
     val values = mapOf(
         Tool.ACTIVITY to connections?.let { pluralStringResource(R.plurals.connection_count, it, it) },
         Tool.DNS to stringResource(if (options.overrideDns) R.string.dns_override else R.string.dns_from_profile),
-        Tool.ON_DEMAND to android.excludedSsids.size.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.wifi_count, it, it) },
-        Tool.APPEARANCE to stringResource(R.string.follow_system),
-        Tool.LANGUAGE to stringResource(R.string.follow_system),
-        Tool.ACCESS to stringResource(android.accessMode.label),
+        Tool.ON_DEMAND to settings.excludedSsids.size.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.wifi_count, it, it) },
+        Tool.APPEARANCE to stringResource(
+            when (settings.themeMode) {
+                ThemeMode.LIGHT -> R.string.theme_light
+                ThemeMode.DARK -> R.string.theme_dark
+                ThemeMode.SYSTEM -> R.string.follow_system
+            },
+        ),
+        Tool.LANGUAGE to (languageLabel(settings.language) ?: stringResource(R.string.follow_system)),
+        Tool.ACCESS to stringResource(settings.accessControl.accessMode.label),
     )
     val list = rememberLazyListState()
     PageScaffold(stringResource(R.string.tools), list) { padding ->

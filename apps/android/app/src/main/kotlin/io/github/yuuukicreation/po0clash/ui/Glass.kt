@@ -456,6 +456,18 @@ fun SheetButtons(confirm: String, enabled: Boolean = true, onCancel: () -> Unit,
 }
 
 @Composable
+fun SheetDoneButton(onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        shape = CircleShape,
+        colors = ButtonDefaults.buttonColors(containerColor = apple.accent),
+        modifier = Modifier.fillMaxWidth().height(50.dp),
+    ) {
+        Text(stringResource(R.string.done), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
 fun Hairline(modifier: Modifier = Modifier) {
     HorizontalDivider(modifier, Dp.Hairline, apple.separator)
 }

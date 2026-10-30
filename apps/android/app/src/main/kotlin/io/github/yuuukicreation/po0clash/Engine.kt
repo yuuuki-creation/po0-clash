@@ -19,6 +19,7 @@ import android.os.SystemClock
 import android.service.quicksettings.TileService
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
+import io.github.yuuukicreation.po0clash.core.AppSettings
 import io.github.yuuukicreation.po0clash.core.Change
 import io.github.yuuukicreation.po0clash.core.CoreListener
 import io.github.yuuukicreation.po0clash.core.CoreOptions
@@ -43,6 +44,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -83,6 +85,9 @@ class Engine(private val app: Application) {
     val vpnActive = MutableStateFlow(false)
     val vpnError = MutableStateFlow<String?>(null)
     val settings = AndroidSettingsStore(app)
+    private val _appSettings = MutableStateFlow(core.appSettings())
+    val appSettings = _appSettings.asStateFlow()
+    private val appWriter = Dispatchers.IO.limitedParallelism(1)
     private val _ssid = MutableStateFlow<String?>(null)
 
     /** The Wi-Fi the device is on, when location permission lets us read its name. */
@@ -152,6 +157,20 @@ class Engine(private val app: Application) {
 
     fun refreshExitIp() = scheduleExitIp(0)
 
+    /** Shows at once; the core gets only the latest settings when several changes queue up. */
+    fun setAppSettings(change: (AppSettings) -> AppSettings, onError: (Exception) -> Unit) {
+        val next = _appSettings.updateAndGet(change)
+        scope.launch(appWriter) {
+            if (_appSettings.value != next) return@launch
+            try {
+                core.setAppSettings(next)
+            } catch (e: Exception) {
+                _appSettings.value = core.appSettings()
+                onError(e)
+            }
+        }
+    }
+
     fun setNodeDelay(node: String, delay: UInt) {
         _groups.update { groups ->
             groups.map { group -> group.copy(nodes = group.nodes.map { if (it.name == node) it.copy(delay = delay) else it }) }
@@ -211,7 +230,7 @@ class Engine(private val app: Application) {
         }
         app.getSystemService(ConnectivityManager::class.java).registerNetworkCallback(request, callback)
         scope.launch {
-            combine(_ssid, settings.state) { ssid, settings -> ssid != null && ssid in settings.excludedSsids }
+            combine(_ssid, appSettings) { ssid, settings -> ssid != null && ssid in settings.excludedSsids }
                 .distinctUntilChanged()
                 .collect(::onExcludedWifi)
         }

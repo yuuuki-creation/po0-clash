@@ -65,7 +65,10 @@ fun ActivityScreen(vm: AppViewModel, onBack: () -> Unit) {
     val status by engine.status.collectAsStateWithLifecycle()
     val running = status.engine == EngineState.Running
     val busy by vm.busy.collectAsStateWithLifecycle()
-    var tab by rememberSaveable { mutableStateOf(ActivityTab.REQUESTS) }
+    val captureLogs = vm.appSettings.collectAsStateWithLifecycle().value.captureLogs
+    val tabs = if (captureLogs) ActivityTab.entries else ActivityTab.entries - ActivityTab.LOGS
+    var picked by rememberSaveable { mutableStateOf(ActivityTab.REQUESTS) }
+    val tab = picked.takeIf { it in tabs } ?: ActivityTab.REQUESTS
     var query by rememberSaveable { mutableStateOf("") }
     val requests by remember(tab) {
         if (tab == ActivityTab.REQUESTS) engine.poll { requests().asReversed() } else flowOf(emptyList())
@@ -122,7 +125,7 @@ fun ActivityScreen(vm: AppViewModel, onBack: () -> Unit) {
             item { PageTitle(title) }
             item(key = "controls") {
                 Column(Modifier.padding(top = 8.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SegmentedPicker(ActivityTab.entries.map { it to stringResource(it.label) }, tab, enabled = true) { tab = it }
+                    SegmentedPicker(tabs.map { it to stringResource(it.label) }, tab, enabled = true) { picked = it }
                     SearchField(query) { query = it }
                 }
             }

@@ -93,7 +93,7 @@ fun App(onConnect: () -> Unit, vm: AppViewModel = viewModel()) {
         Box(Modifier.fillMaxSize().background(apple.background)) {
             pages.SaveableStateProvider(page) {
                 when (page) {
-                    Page.DASHBOARD -> DashboardScreen(vm, onOpen = { page = it })
+                    Page.DASHBOARD -> DashboardScreen(vm, onConnect, onOpen = { page = it })
                     Page.PROXIES -> ProxiesScreen(vm)
                     Page.PROFILES -> SubscriptionsScreen(vm)
                     Page.WHITELIST -> WhitelistScreen(vm)
@@ -106,7 +106,7 @@ fun App(onConnect: () -> Unit, vm: AppViewModel = viewModel()) {
             ) {
                 GlassToastHost(snackbar)
                 StatusBar(vm, onConnect)
-                TabBar(page, onSelect = { page = it })
+                TabBar(page, vm.appSettings.collectAsStateWithLifecycle().value.showNavLabels, onSelect = { page = it })
             }
             SheetHost(sheets)
         }
@@ -192,7 +192,7 @@ private fun elapsed(since: Long): String {
 
 /** iOS 26's floating tab bar: one glass capsule, the selected tab in the accent color on a faint sliding capsule. */
 @Composable
-private fun TabBar(selected: Page, onSelect: (Page) -> Unit) {
+private fun TabBar(selected: Page, labels: Boolean, onSelect: (Page) -> Unit) {
     val colors = apple
     BoxWithConstraints(
         Modifier.padding(horizontal = barSide).widthIn(max = 480.dp).fillMaxWidth().height(tabBarHeight)
@@ -214,8 +214,8 @@ private fun TabBar(selected: Page, onSelect: (Page) -> Unit) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
                 ) {
-                    Icon(page.icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
-                    Text(
+                    Icon(page.icon, contentDescription = stringResource(page.label).takeIf { !labels }, tint = tint, modifier = Modifier.size(if (labels) 22.dp else 26.dp))
+                    if (labels) Text(
                         stringResource(page.label),
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 12.sp),
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,

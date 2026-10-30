@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.yuuukicreation.po0clash.AndroidSettings
 import io.github.yuuukicreation.po0clash.R
+import io.github.yuuukicreation.po0clash.core.AppSettings
 import io.github.yuuukicreation.po0clash.core.Change
 import io.github.yuuukicreation.po0clash.core.EngineOptions
 import io.github.yuuukicreation.po0clash.core.Mode
@@ -36,6 +37,7 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     private val _options = MutableStateFlow(core.engineOptions())
     val options = _options.asStateFlow()
     val androidSettings = engine.settings.state
+    val appSettings = engine.appSettings
     private val optionWriter = Dispatchers.IO.limitedParallelism(1)
 
     private fun launch(key: String, block: () -> String?) {
@@ -91,6 +93,8 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    fun setAppSettings(change: (AppSettings) -> AppSettings) = engine.setAppSettings(change) { _messages.trySend(it.userMessage()) }
 
     fun updateAndroid(change: (AndroidSettings) -> AndroidSettings) = engine.settings.update(change)
 
