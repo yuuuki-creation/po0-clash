@@ -468,3 +468,170 @@ fn groups_carry_their_icon() {
     assert_eq!(group.nodes[0].delay, Some(42));
     assert_eq!(Core::build_group(proxies, "Auto").unwrap().icon, None);
 }
+
+#[test]
+fn a_backup_restores_profiles_and_settings() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    let saved = core.import_links("vless://u@h:1#a".into()).unwrap().profile;
+    core.set_mode(Mode::Global).unwrap();
+    core.set_app_settings(AppSettings {
+        pure_black: true,
+        ..core.app_settings()
+    })
+    .unwrap();
+    let backup = core.backup().unwrap();
+    core.shutdown();
+
+    let other = temp_dir();
+    let restored = Core::new(options(&other)).unwrap();
+    let local = restored
+        .import_file("local.yaml".into(), "proxies: []\n".into())
+        .unwrap();
+    restored
+        .restore(backup.clone(), RestoreScope::Profiles)
+        .unwrap();
+    assert_eq!(
+        restored.profiles().len(),
+        2,
+        "the default strategy keeps local profiles"
+    );
+    assert_eq!(restored.status().mode, Mode::Rule);
+    assert!(!restored.app_settings().pure_black);
+
+    restored
+        .set_app_settings(AppSettings {
+            restore_strategy: RestoreStrategy::Override,
+            ..restored.app_settings()
+        })
+        .unwrap();
+    restored.restore(backup, RestoreScope::All).unwrap();
+    let profiles = restored.profiles();
+    assert_eq!(profiles.len(), 1);
+    assert_eq!(profiles[0].id, saved.id);
+    assert!(profiles[0].selected);
+    assert_eq!(restored.status().mode, Mode::Global);
+    assert!(restored.app_settings().pure_black);
+    assert!(restored.profile_content(local.id).is_err());
+    assert!(
+        restored
+            .restore(b"not a zip".to_vec(), RestoreScope::All)
+            .is_err()
+    );
+    restored.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+    fs::remove_dir_all(other).unwrap();
+}
+
+/// A WebDAV server holding one file, which answers each request on its own connection and logs its request line.
+fn serve_webdav() -> (String, Arc<Mutex<Vec<String>>>) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let log = Arc::new(Mutex::new(Vec::new()));
+    let seen = log.clone();
+    thread::spawn(move || {
+        let mut stored: Option<Vec<u8>> = None;
+        for stream in listener.incoming() {
+            let mut stream = stream.unwrap();
+            let mut data = Vec::new();
+            let mut buf = [0u8; 8192];
+            let head_end = loop {
+                if let Some(at) = data.windows(4).position(|w| w == b"\r\n\r\n") {
+                    break at + 4;
+                }
+                let read = stream.read(&mut buf).unwrap();
+                assert!(read > 0, "the request ended early");
+                data.extend_from_slice(&buf[..read]);
+            };
+            let head = String::from_utf8_lossy(&data[..head_end]).to_ascii_lowercase();
+            let length: usize = head
+                .lines()
+                .find_map(|line| line.strip_prefix("content-length:"))
+                .map_or(0, |value| value.trim().parse().unwrap());
+            while data.len() < head_end + length {
+                let read = stream.read(&mut buf).unwrap();
+                data.extend_from_slice(&buf[..read]);
+            }
+            let line = head
+                .lines()
+                .next()
+                .unwrap()
+                .trim_end_matches(" http/1.1")
+                .to_owned();
+            lock(&seen).push(line.clone());
+            let reply = |status: &str, body: &[u8]| {
+                let mut reply = format!(
+                    "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                )
+                .into_bytes();
+                reply.extend_from_slice(body);
+                reply
+            };
+            let response = if !head.contains("authorization: basic dxnlcjpwyxnz") {
+                reply("401 Unauthorized", b"")
+            } else if line == "propfind /dav/" {
+                reply("207 Multi-Status", b"<multistatus xmlns=\"DAV:\"/>")
+            } else if line == "mkcol /dav/po0-clash/" {
+                reply("201 Created", b"")
+            } else if line == "put /dav/po0-clash/backup.zip" {
+                stored = Some(data[head_end..].to_vec());
+                reply("201 Created", b"")
+            } else if let ("get /dav/po0-clash/backup.zip", Some(file)) = (line.as_str(), &stored) {
+                reply("200 OK", file)
+            } else {
+                reply("404 Not Found", b"")
+            };
+            stream.write_all(&response).unwrap();
+        }
+    });
+    (format!("http://127.0.0.1:{port}/dav"), log)
+}
+
+#[test]
+fn backups_go_to_webdav_and_come_back() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    let links = core.import_links("vless://u@h:1#b".into()).unwrap().profile;
+    let (url, requests) = serve_webdav();
+    let dav = WebDav {
+        url,
+        user: "user".into(),
+        password: "pass".into(),
+        file_name: String::new(),
+    };
+    let wrong = WebDav {
+        password: "wrong".into(),
+        ..dav.clone()
+    };
+    assert!(core.check_webdav(wrong).is_err());
+    core.check_webdav(dav.clone()).unwrap();
+    assert!(core.backup_to_webdav().is_err(), "nothing set up yet");
+    core.set_app_settings(AppSettings {
+        webdav: Some(dav),
+        ..core.app_settings()
+    })
+    .unwrap();
+    assert!(
+        core.restore_from_webdav(RestoreScope::All).is_err(),
+        "nothing uploaded yet"
+    );
+    core.backup_to_webdav().unwrap();
+    core.remove_profile(links.id.clone()).unwrap();
+    core.restore_from_webdav(RestoreScope::Profiles).unwrap();
+    assert_eq!(core.profiles()[0].id, links.id);
+    assert_eq!(core.profile_content(links.id).unwrap(), "vless://u@h:1#b");
+    assert_eq!(
+        *lock(&requests),
+        [
+            "propfind /dav/",
+            "propfind /dav/",
+            "get /dav/po0-clash/backup.zip",
+            "mkcol /dav/po0-clash/",
+            "put /dav/po0-clash/backup.zip",
+            "get /dav/po0-clash/backup.zip",
+        ]
+    );
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}

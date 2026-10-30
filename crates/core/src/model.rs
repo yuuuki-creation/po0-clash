@@ -196,6 +196,13 @@ pub enum Change {
     Whitelist,
 }
 
+/// What a restore brings back besides the profiles: everything, or nothing else.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RestoreScope {
+    All,
+    Profiles,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Connection {
