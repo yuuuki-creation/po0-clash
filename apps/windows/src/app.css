@@ -1102,6 +1102,18 @@ button.row.link-row {
   color: var(--accent);
 }
 
+.sub.bad {
+  color: var(--red-text);
+}
+
+.pill.shortcut {
+  min-width: 140px;
+}
+
+.pill.shortcut.recording {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
 .list {
   border-radius: 12px;
   background: var(--card);

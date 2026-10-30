@@ -1,5 +1,6 @@
 mod autostart;
 mod commands;
+mod hotkeys;
 mod loopback;
 mod netwatch;
 mod tray;
@@ -181,6 +182,12 @@ pub fn run() {
             commands::loopback_apps,
             commands::set_loopback,
             commands::open_url,
+            commands::hotkey_failures,
+            commands::pause_hotkeys,
+            commands::crash_engine,
+            commands::add_test_logs,
+            commands::prune_cache,
+            commands::clear_data,
         ])
         .setup(move |app| {
             let handle = app.handle();
@@ -192,6 +199,8 @@ pub fn run() {
                 .is_ok();
             app.manage(Backdrop(backdrop));
             tray::create(handle)?;
+            app.manage(hotkeys::Hotkeys::spawn(handle.clone()));
+            hotkeys::refresh(handle);
             core.set_listener(Arc::new(Bridge(handle.clone())));
             netwatch::spawn(Arc::clone(&core));
             let check = core.launch_started(None);
