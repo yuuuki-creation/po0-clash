@@ -105,7 +105,7 @@ build_app() {
     codesign --force --sign - "$dist/po0-e2e"
   fi
 
-  plutil -lint "$app_dir"/Resources/*.lproj/Localizable.strings >/dev/null
+  plutil -lint "$app_dir"/Resources/*.lproj/Localizable.* >/dev/null
   rm -rf "$app"
   mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
   lipo -create "${bins[@]}" -output "$app/Contents/MacOS/po0-clash"
@@ -113,7 +113,7 @@ build_app() {
   cp "$app_dir/Resources/Info.plist" "$app/Contents/Info.plist"
   plutil -replace CFBundleShortVersionString -string "$version" "$app/Contents/Info.plist"
   plutil -replace CFBundleVersion -string "$build_number" "$app/Contents/Info.plist"
-  cp -R "$app_dir/Resources/en.lproj" "$app_dir/Resources/zh-Hans.lproj" "$app/Contents/Resources/"
+  cp -R "$app_dir"/Resources/*.lproj "$app/Contents/Resources/"
   cp "$app_dir"/Resources/MenuBarIcon*.png "$app/Contents/Resources/"
   make_icon "$app/Contents/Resources/AppIcon.icns"
 

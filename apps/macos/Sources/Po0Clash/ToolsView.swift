@@ -262,7 +262,12 @@ enum AppLanguage {
         let name: String
     }
 
-    static let choices = [Choice(id: "zh_CN", name: "简体中文"), Choice(id: "en", name: "English")]
+    static let choices = [
+        Choice(id: "zh_CN", name: "简体中文"),
+        Choice(id: "en", name: "English"),
+        Choice(id: "ja", name: "日本語"),
+        Choice(id: "ru", name: "Русский"),
+    ]
 
     static func store(_ code: String?) {
         if let code {

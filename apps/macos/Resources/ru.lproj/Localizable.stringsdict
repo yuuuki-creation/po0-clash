@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>%lld nodes</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld узел</string>
+			<key>few</key>
+			<string>%lld узла</string>
+			<key>many</key>
+			<string>%lld узлов</string>
+			<key>other</key>
+			<string>%lld узла</string>
+		</dict>
+	</dict>
+	<key>%lld entries</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld запись</string>
+			<key>few</key>
+			<string>%lld записи</string>
+			<key>many</key>
+			<string>%lld записей</string>
+			<key>other</key>
+			<string>%lld записи</string>
+		</dict>
+	</dict>
+	<key>%lld requests</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld запрос</string>
+			<key>few</key>
+			<string>%lld запроса</string>
+			<key>many</key>
+			<string>%lld запросов</string>
+			<key>other</key>
+			<string>%lld запроса</string>
+		</dict>
+	</dict>
+	<key>%lld connections</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld соединение</string>
+			<key>few</key>
+			<string>%lld соединения</string>
+			<key>many</key>
+			<string>%lld соединений</string>
+			<key>other</key>
+			<string>%lld соединения</string>
+		</dict>
+	</dict>
+	<key>%lld log lines</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld строка лога</string>
+			<key>few</key>
+			<string>%lld строки лога</string>
+			<key>many</key>
+			<string>%lld строк лога</string>
+			<key>other</key>
+			<string>%lld строки лога</string>
+		</dict>
+	</dict>
+	<key>%lld rules</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld правило</string>
+			<key>few</key>
+			<string>%lld правила</string>
+			<key>many</key>
+			<string>%lld правил</string>
+			<key>other</key>
+			<string>%lld правила</string>
+		</dict>
+	</dict>
+	<key>%lld lines</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld строка</string>
+			<key>few</key>
+			<string>%lld строки</string>
+			<key>many</key>
+			<string>%lld строк</string>
+			<key>other</key>
+			<string>%lld строки</string>
+		</dict>
+	</dict>
+	<key>Imported %lld nodes.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>Импортирован %lld узел.</string>
+			<key>few</key>
+			<string>Импортировано %lld узла.</string>
+			<key>many</key>
+			<string>Импортировано %lld узлов.</string>
+			<key>other</key>
+			<string>Импортировано %lld узла.</string>
+		</dict>
+	</dict>
+	<key>Removed %lld unused files.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>Удалён %lld неиспользуемый файл.</string>
+			<key>few</key>
+			<string>Удалено %lld неиспользуемых файла.</string>
+			<key>many</key>
+			<string>Удалено %lld неиспользуемых файлов.</string>
+			<key>other</key>
+			<string>Удалено %lld неиспользуемых файла.</string>
+		</dict>
+	</dict>
+</dict>
+</plist>
