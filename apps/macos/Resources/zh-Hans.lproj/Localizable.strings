@@ -444,3 +444,5 @@
 "Group icons" = "组图标";
 "Icon only" = "仅图标";
 "Restart Engine" = "重启内核";
+"Auto-set system DNS" = "自动设置系统 DNS";
+"While TUN is on, adds 223.5.5.5 to the network's DNS servers so lookups pass through TUN. The original servers come back when you disconnect." = "开启虚拟网卡时给当前网络的 DNS 服务器追加 223.5.5.5，让域名解析经过虚拟网卡；断开后恢复原来的 DNS。";

@@ -78,6 +78,10 @@ struct BasicConfigView: View {
                 TextField("Interface name", text: $options.interfaceName, prompt: Text("Automatic"))
                 LinesEditor("Route addresses", detail: "CIDR, one per line", lines: $options.tunRouteAddress)
                 LinesEditor("DNS hijacking", detail: "such as any:53, one per line", lines: $options.tunDnsHijack)
+                Toggle(isOn: $options.autoSetSystemDns) {
+                    Text("Auto-set system DNS")
+                    Text("While TUN is on, adds 223.5.5.5 to the network's DNS servers so lookups pass through TUN. The original servers come back when you disconnect.")
+                }
             }
             Section {
                 PairsEditor("Hosts", detail: "domain = address, one per line", pairs: $options.hosts)
