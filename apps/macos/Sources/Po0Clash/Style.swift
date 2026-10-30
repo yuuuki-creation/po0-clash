@@ -15,7 +15,14 @@ enum Format {
     }
 
     static func rate(_ value: UInt64) -> String {
-        bytes(value) + "/s"
+        let units = ["B", "KB", "MB", "GB", "TB"]
+        var size = Double(value)
+        var unit = 0
+        while size >= 1024, unit < units.count - 1 {
+            size /= 1024
+            unit += 1
+        }
+        return String(format: unit == 0 || size >= 100 ? "%.0f %@/s" : "%.1f %@/s", size, units[unit])
     }
 
     /// Whole numbers in 1024 steps, as the Flutter app's menu bar showed them.
@@ -77,19 +84,19 @@ enum Format {
 
 /// docs/development/native-design.md: a neutral page, opaque cards on it, tiles inside cards.
 extension Color {
-    static let pageBackground = Color(light: 0xF2F2F7, dark: 0x1C1C1E)
-    static let cardBackground = Color(light: 0xFFFFFF, dark: 0x2C2C2E)
-    static let tileBackground = Color(light: 0xF2F2F7, dark: 0x3A3A3C)
+    static let pageBackground = Color(light: 0xF2F2F7, dark: 0x1C1C1E, black: 0x000000)
+    static let cardBackground = Color(light: 0xFFFFFF, dark: 0x2C2C2E, black: 0x1C1C1E)
+    static let tileBackground = Color(light: 0xF2F2F7, dark: 0x3A3A3C, black: 0x2C2C2E)
     static let controlFill = Color(light: 0x767680, dark: 0x767680, lightAlpha: 0.12, darkAlpha: 0.24)
     static let cardEdge = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.05, darkAlpha: 0.06)
     static let goodText = Color(light: 0x1E7F35, dark: 0x30D158)
     static let warnText = Color(light: 0xB25000, dark: 0xFF9F0A)
     static let badText = Color(light: 0xD70015, dark: 0xFF6961)
 
-    init(light: UInt32, dark: UInt32, lightAlpha: CGFloat = 1, darkAlpha: CGFloat = 1) {
+    init(light: UInt32, dark: UInt32, black: UInt32? = nil, lightAlpha: CGFloat = 1, darkAlpha: CGFloat = 1) {
         self.init(nsColor: NSColor(name: nil) { appearance in
             let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            let hex = isDark ? dark : light
+            let hex = isDark ? (Theme.pureBlack ? black ?? dark : dark) : light
             return NSColor(
                 srgbRed: CGFloat(hex >> 16 & 0xFF) / 255,
                 green: CGFloat(hex >> 8 & 0xFF) / 255,
@@ -97,6 +104,73 @@ extension Color {
                 alpha: isDark ? darkAlpha : lightAlpha
             )
         })
+    }
+}
+
+/// The theme settings FlClash keeps in the core, applied over the system appearance.
+enum Theme {
+    static var pureBlack = false
+    static let defaultColor: UInt32 = 0xFF00_7AFF
+    static let presets: [UInt32] = [
+        defaultColor, 0xFF58_56D6, 0xFFAF_52DE, 0xFFFF_2D55, 0xFFFF_9500, 0xFF34_C759, 0xFF30_B0C7, 0xFF8E_8E93,
+    ]
+
+    @MainActor
+    static func apply(_ settings: AppSettings?) {
+        guard let settings else { return }
+        pureBlack = settings.pureBlack
+        guard !Showcase.forcesAppearance else { return }
+        switch settings.themeMode {
+        case .system: NSApp.appearance = nil
+        case .light: NSApp.appearance = NSAppearance(named: .aqua)
+        case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
+    }
+
+    /// The presets are Apple's system colours, so they keep their dark-mode variants.
+    static func accent(_ argb: UInt32) -> Color {
+        switch argb {
+        case 0xFF00_7AFF: return Color(nsColor: .systemBlue)
+        case 0xFF58_56D6: return Color(nsColor: .systemIndigo)
+        case 0xFFAF_52DE: return Color(nsColor: .systemPurple)
+        case 0xFFFF_2D55: return Color(nsColor: .systemPink)
+        case 0xFFFF_9500: return Color(nsColor: .systemOrange)
+        case 0xFF34_C759: return Color(nsColor: .systemGreen)
+        case 0xFF30_B0C7: return Color(nsColor: .systemTeal)
+        case 0xFF8E_8E93: return Color(nsColor: .systemGray)
+        default: return Color(argb: argb)
+        }
+    }
+}
+
+struct AppTheme: ViewModifier {
+    @EnvironmentObject private var model: AppModel
+
+    func body(content: Content) -> some View {
+        let accent = Theme.accent(model.appSettings?.themeColor ?? Theme.defaultColor)
+        content
+            .tint(accent)
+            .accentColor(accent)
+            .id(model.appSettings?.pureBlack ?? false)
+    }
+}
+
+extension Color {
+    init(argb: UInt32) {
+        self.init(
+            .sRGB,
+            red: Double(argb >> 16 & 0xFF) / 255,
+            green: Double(argb >> 8 & 0xFF) / 255,
+            blue: Double(argb & 0xFF) / 255,
+            opacity: Double(argb >> 24 & 0xFF) / 255
+        )
+    }
+
+    var argb: UInt32? {
+        guard let color = NSColor(self).usingColorSpace(.sRGB) else { return nil }
+        let channel = { (value: CGFloat) in UInt32((min(max(value, 0), 1) * 255).rounded()) }
+        return 0xFF00_0000 | channel(color.redComponent) << 16 | channel(color.greenComponent) << 8
+            | channel(color.blueComponent)
     }
 }
 
@@ -282,6 +356,13 @@ extension AppModel {
         case .failed?: return String(localized: "Connection failed")
         default: return String(localized: "Not connected")
         }
+    }
+
+    func setting<Value>(_ key: WritableKeyPath<AppSettings, Value>, or fallback: Value) -> Binding<Value> {
+        Binding(
+            get: { self.appSettings?[keyPath: key] ?? fallback },
+            set: { value in self.updateAppSettings { $0[keyPath: key] = value } }
+        )
     }
 
     /// The group the core reads the current node from: GLOBAL in global mode, otherwise the profile's first group.

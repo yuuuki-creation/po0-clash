@@ -261,7 +261,7 @@ jobs:
           shoot menu-zh 15 "${login[@]}" -AppleLanguages '(zh-Hans)'
           connected=(-launchedAtLogin YES -testDelays YES)
           for page in dashboard proxies; do shoot "window-$page" 15 "${connected[@]}" -showWindow "$page"; done
-          shoot window-proxies-tabs 15 "${connected[@]}" -showWindow proxies -proxiesArrangement tabs -proxiesTileStyle compact
+          shoot window-appearance 6 -showWindow tools -toolsPage appearance
           for page in profiles whitelist tools; do shoot "window-$page" 6 -showWindow "$page"; done
           for tab in requests connections logs; do
             shoot "window-activity-$tab" 15 "${connected[@]}" -showWindow activity -activityTab "$tab"
@@ -274,6 +274,7 @@ jobs:
           shoot window-dashboard-dark 15 "${connected[@]}" -showWindow dashboard -appearance dark
           shoot window-proxies-dark 15 "${connected[@]}" -showWindow proxies -appearance dark
           shoot window-whitelist-dark 6 -showWindow whitelist -appearance dark
+          shoot window-proxies-list 15 "${connected[@]}" -showWindow proxies -proxiesLayout list
 
       - name: Upload screenshots
         if: always()

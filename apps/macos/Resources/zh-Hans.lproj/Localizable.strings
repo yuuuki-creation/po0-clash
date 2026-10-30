@@ -175,3 +175,17 @@
 "Name only" = "仅名称";
 "Hide nodes" = "收起节点";
 "Show nodes" = "展开节点";
+"Edit Dashboard" = "编辑仪表盘";
+"Shown" = "显示";
+"Hidden" = "隐藏";
+"Restore Defaults" = "恢复默认";
+"Theme" = "主题";
+"System" = "跟随系统";
+"Light" = "浅色";
+"Dark" = "深色";
+"Pure black" = "纯黑";
+"Uses black instead of dark grey behind the content in dark mode." = "深色模式下内容背后用纯黑，而不是深灰。";
+"Theme color" = "主题色";
+"Add a color" = "添加颜色";
+"Color" = "颜色";
+"Remove Color" = "删除颜色";

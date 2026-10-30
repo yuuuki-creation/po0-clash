@@ -39,6 +39,7 @@ struct ActivityView: View {
     @StateObject private var activity = ActivityModel()
     @AppStorage("activityTab") private var tab = ActivityTab.requests
     @State private var search = ""
+    @State private var searching = false
     @State private var minimumLevel = LogLevel.debug
 
     var body: some View {
@@ -48,9 +49,24 @@ struct ActivityView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { searching.toggle() }
+                if !searching { search = "" }
+            } label: {
+                Label("Search", systemImage: "magnifyingglass")
+            }
+            .help("Search")
+            .keyboardShortcut("f")
             actions
         } content: {
-            content.searchable(text: $search)
+            VStack(spacing: 0) {
+                if searching {
+                    SearchField(text: $search, prompt: "Search")
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 6)
+                }
+                content
+            }
         }
         .task(id: tab) {
             while !Task.isCancelled {

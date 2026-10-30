@@ -53,6 +53,10 @@ final class CoreClient: @unchecked Sendable {
     func exitIp() async throws -> ExitIp { try await work { try $0.exitIp() } }
     func intranetIp() async throws -> IntranetIp? { try await work { $0.intranetIp() } }
     func wasConnected() async throws -> Bool { try await work { $0.wasConnected() } }
+    func appSettings() async throws -> AppSettings { try await work { $0.appSettings() } }
+    func setAppSettings(_ settings: AppSettings) async throws {
+        try await work { try $0.setAppSettings(settings: settings) }
+    }
 
     func start() async throws { try await control { try $0.start(tunFd: nil) } }
     func stop() async throws { try await control { $0.stop() } }

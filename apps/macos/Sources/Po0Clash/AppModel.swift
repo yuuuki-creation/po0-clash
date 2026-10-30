@@ -15,6 +15,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var connectionSummary = ConnectionSummary()
     @Published private(set) var exitIp: ExitIp?
     @Published private(set) var intranetIp: IntranetIp?
+    @Published private(set) var appSettings: AppSettings? {
+        didSet { Theme.apply(appSettings) }
+    }
     @Published private(set) var profiles: [Profile] = []
     @Published private(set) var groups: [ProxyGroup] = []
     @Published private(set) var whitelist: WhitelistState?
@@ -240,18 +243,33 @@ final class AppModel: ObservableObject {
             do {
                 let delay = try await client.testNodeDelay(node)
                 groups = groups.map { group in
-                    ProxyGroup(
-                        name: group.name,
-                        kind: group.kind,
-                        selectable: group.selectable,
-                        now: group.now,
-                        nodes: group.nodes.map { $0.name == node ? Node(name: $0.name, kind: $0.kind, delay: delay) : $0 }
-                    )
+                    var group = group
+                    for index in group.nodes.indices where group.nodes[index].name == node {
+                        group.nodes[index].delay = delay
+                    }
+                    return group
                 }
             } catch {
                 notice = describe(error)
             }
         }
+    }
+
+    // MARK: Settings
+
+    func updateAppSettings(_ change: (inout AppSettings) -> Void) {
+        guard let client, var next = appSettings else { return }
+        change(&next)
+        appSettings = next
+        Task {
+            do { try await client.setAppSettings(next) } catch { notice = describe(error) }
+            await refreshAppSettings()
+        }
+    }
+
+    private func refreshAppSettings() async {
+        guard let client, let next = try? await client.appSettings() else { return }
+        appSettings = next
     }
 
     // MARK: Whitelist
@@ -340,6 +358,7 @@ final class AppModel: ObservableObject {
     }
 
     private func refreshAll() async {
+        await refreshAppSettings()
         await refreshStatus()
         await refreshProfiles()
         await refreshWhitelist()

@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 enum Page: String, CaseIterable, Identifiable {
@@ -31,6 +32,7 @@ enum Page: String, CaseIterable, Identifiable {
 
 final class Navigation: ObservableObject {
     @Published var page: Page = .dashboard
+    @Published var tools: [ToolsPage] = []
 }
 
 /// An AppKit-owned window so a login launch can stay in the menu bar and the Dock icon only shows while it is open;
@@ -41,6 +43,7 @@ final class MainWindow: NSObject, NSWindowDelegate {
 
     let navigation = Navigation()
     private var window: NSWindow?
+    private var titleWatches: [Any] = []
 
     func show(_ page: Page? = nil) {
         if let page { navigation.page = page }
@@ -56,6 +59,7 @@ final class MainWindow: NSObject, NSWindowDelegate {
 
     private func build() {
         let root = MainView()
+            .modifier(AppTheme())
             .environmentObject(AppModel.shared)
             .environmentObject(navigation)
         let window = NSWindow(contentViewController: NSHostingController(rootView: root))
@@ -73,10 +77,22 @@ final class MainWindow: NSObject, NSWindowDelegate {
         window.setFrameAutosaveName("main")
         window.delegate = self
         self.window = window
+        titleWatches = [
+            window.observe(\.title) { _, _ in Task { @MainActor in MainWindow.shared.keepTitle() } },
+            navigation.$page.sink { _ in Task { @MainActor in MainWindow.shared.keepTitle() } },
+        ]
+    }
+
+    /// SwiftUI leaves the proxies list "Untitled" while that page's subtitle still bridges, so AppKit puts it back.
+    private func keepTitle() {
+        guard let window, navigation.page != .tools else { return }
+        let title = NSLocalizedString(navigation.page.rawValue.capitalized, comment: "")
+        if window.title != title { window.title = title }
     }
 }
 
 struct MainView: View {
+    @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var navigation: Navigation
     @State private var columns = NavigationSplitViewVisibility.all
 
@@ -104,6 +120,13 @@ struct MainView: View {
             }
             .navigationTitle(navigation.page.title)
         }
+        .navigationTitle(navigation.page.title)
+        .alert(
+            model.notice ?? "",
+            isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })
+        ) {
+            Button("OK") { model.notice = nil }
+        }
         // macOS 13 gets no toolbar, so nothing could bring a collapsed sidebar back.
         .onChange(of: columns) { visibility in
             if #unavailable(macOS 14) {
@@ -115,7 +138,6 @@ struct MainView: View {
 
 /// macOS 13's hosting controller cannot bridge a toolbar into the window, so it gets the toolbar items as a header row.
 struct PageScaffold<Actions: View, Content: View>: View {
-    @EnvironmentObject private var model: AppModel
     let title: LocalizedStringKey
     var subtitle: String?
     private let actions: Actions
@@ -134,17 +156,6 @@ struct PageScaffold<Actions: View, Content: View>: View {
     }
 
     var body: some View {
-        page
-            .alert(
-                model.notice ?? "",
-                isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })
-            ) {
-                Button("OK") { model.notice = nil }
-            }
-    }
-
-    @ViewBuilder
-    private var page: some View {
         if #available(macOS 14, *) {
             content
                 .background(Color.pageBackground)

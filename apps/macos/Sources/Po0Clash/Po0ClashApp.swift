@@ -10,6 +10,7 @@ struct Po0ClashApp: App {
     var body: some Scene {
         MenuBarExtra {
             MenuView()
+                .modifier(AppTheme())
                 .environmentObject(model)
         } label: {
             MenuBarLabel().environmentObject(model)

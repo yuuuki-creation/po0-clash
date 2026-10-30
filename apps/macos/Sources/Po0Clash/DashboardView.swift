@@ -4,6 +4,7 @@ import SwiftUI
 
 struct DashboardView: View {
     @EnvironmentObject private var model: AppModel
+    @State private var editing = false
 
     var body: some View {
         PageScaffold("Dashboard", subtitle: subtitle) {
@@ -20,6 +21,13 @@ struct DashboardView: View {
                 Label("Refresh", systemImage: "arrow.clockwise")
             }
             .help("Refresh")
+            Button {
+                editing = true
+            } label: {
+                Label("Edit Dashboard", systemImage: "square.grid.2x2")
+            }
+            .help("Edit Dashboard")
+            .disabled(model.appSettings == nil)
         } content: {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
@@ -37,20 +45,8 @@ struct DashboardView: View {
                         FailureCard(message: message)
                     }
                     DashboardGrid(spacing: 12) {
-                        Group {
-                            CurrentNodeCard().dashboardSpan(2)
-                            SpeedCard().dashboardSpan(2)
-                            ModeCard().dashboardSpan(2)
-                            RouteCard()
-                            WhitelistCard()
-                        }
-                        Group {
-                            TrafficCard()
-                            ConnectionsCard()
-                            MemoryCard()
-                            IntranetIpCard()
-                            SubscriptionCard().dashboardSpan(2)
-                            ExitIpCard().dashboardSpan(2)
+                        ForEach(model.appSettings?.dashboardCards ?? DashboardCard.all, id: \.self) { card in
+                            card.view.dashboardSpan(card.span)
                         }
                     }
                 }
@@ -61,6 +57,7 @@ struct DashboardView: View {
         }
         .background(WindowVisibility { model.setVisible(.dashboard, $0) })
         .onDisappear { model.setVisible(.dashboard, false) }
+        .sheet(isPresented: $editing) { DashboardEditor().environmentObject(model) }
     }
 
     private var subtitle: String {
@@ -69,8 +66,132 @@ struct DashboardView: View {
     }
 }
 
-/// FlClash's dashboard grid: four columns in a wide window and two in a narrow one; a card spans one or two
-/// columns, and the cards in a row share the tallest one's height.
+extension DashboardCard {
+    static let all: [DashboardCard] = [
+        .currentNode, .speed, .mode, .takeover, .whitelist, .traffic, .connections, .memory, .intranetIp,
+        .subscription, .exitIp,
+    ]
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .currentNode: return "Current node"
+        case .speed: return "Speed"
+        case .mode: return "Mode"
+        case .takeover: return "Network takeover"
+        case .whitelist: return "Auto whitelist"
+        case .traffic: return "Traffic"
+        case .connections: return "Connections"
+        case .memory: return "Memory"
+        case .intranetIp: return "Intranet IP"
+        case .subscription: return "Subscription"
+        case .exitIp: return "Exit IP"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .currentNode: return "globe"
+        case .speed: return "chart.xyaxis.line"
+        case .mode: return "arrow.triangle.branch"
+        case .takeover: return "network"
+        case .whitelist: return "checkmark.shield"
+        case .traffic: return "arrow.up.arrow.down"
+        case .connections: return "link"
+        case .memory: return "memorychip"
+        case .intranetIp: return "desktopcomputer"
+        case .subscription: return "square.stack.3d.up"
+        case .exitIp: return "mappin.and.ellipse"
+        }
+    }
+
+    fileprivate var span: DashboardSpan.Value {
+        switch self {
+        case .currentNode, .speed, .subscription: return .init(wide: 2, narrow: 2)
+        case .mode, .exitIp: return .init(wide: 2, narrow: 1)
+        default: return .init(wide: 1, narrow: 1)
+        }
+    }
+
+    @ViewBuilder
+    fileprivate var view: some View {
+        switch self {
+        case .currentNode: CurrentNodeCard()
+        case .speed: SpeedCard()
+        case .mode: ModeCard()
+        case .takeover: RouteCard()
+        case .whitelist: WhitelistCard()
+        case .traffic: TrafficCard()
+        case .connections: ConnectionsCard()
+        case .memory: MemoryCard()
+        case .intranetIp: IntranetIpCard()
+        case .subscription: SubscriptionCard()
+        case .exitIp: ExitIpCard()
+        }
+    }
+}
+
+/// FlClash's edit mode as a sheet: the shown cards in order, dragged to reorder, and the hidden ones to add back.
+private struct DashboardEditor: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var cards: [DashboardCard] = []
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Edit Dashboard").font(.headline)
+            List {
+                Section("Shown") {
+                    ForEach(cards, id: \.self) { card in
+                        HStack {
+                            Label(card.title, systemImage: card.symbol)
+                            Spacer()
+                            Button {
+                                cards.removeAll { $0 == card }
+                            } label: {
+                                Image(systemName: "minus.circle.fill").foregroundStyle(.red)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Remove")
+                        }
+                    }
+                    .onMove { cards.move(fromOffsets: $0, toOffset: $1) }
+                }
+                Section("Hidden") {
+                    ForEach(DashboardCard.all.filter { !cards.contains($0) }, id: \.self) { card in
+                        HStack {
+                            Label(card.title, systemImage: card.symbol)
+                            Spacer()
+                            Button {
+                                cards.append(card)
+                            } label: {
+                                Image(systemName: "plus.circle.fill").foregroundStyle(.green)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Add")
+                        }
+                    }
+                }
+            }
+            HStack {
+                Button("Restore Defaults") { cards = DashboardCard.all }
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Done") {
+                    model.updateAppSettings { $0.dashboardCards = cards }
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 400, height: 520)
+        .onAppear { cards = model.appSettings?.dashboardCards ?? DashboardCard.all }
+    }
+}
+
+/// FlClash's dashboard grid: four columns in a wide window and two in a narrow one. A card spans one or two columns,
+/// a later card fills a gap an earlier wide one left, and the cards in a row share the tallest one's height.
 private struct DashboardGrid: Layout {
     var spacing: CGFloat
 
@@ -82,6 +203,7 @@ private struct DashboardGrid: Layout {
 
     private struct Row {
         var cells: [Cell] = []
+        var used = 0
         var height: CGFloat = 0
     }
 
@@ -107,33 +229,40 @@ private struct DashboardGrid: Layout {
 
     private func arrange(_ subviews: Subviews, width: CGFloat) -> [Row] {
         let columns = width >= 820 ? 4 : 2
-        let unit = (width - spacing * CGFloat(columns - 1)) / CGFloat(columns)
+        let unit = max((width - spacing * CGFloat(columns - 1)) / CGFloat(columns), 0)
         var rows: [Row] = []
-        var row = Row()
-        var used = 0
         for (index, subview) in subviews.enumerated() {
-            let span = min(subview[DashboardSpan.self], columns)
-            if used + span > columns {
-                rows.append(row)
-                row = Row()
-                used = 0
-            }
+            let preferred = subview[DashboardSpan.self]
+            let span = min(columns == 4 ? preferred.wide : preferred.narrow, columns)
             let cellWidth = unit * CGFloat(span) + spacing * CGFloat(span - 1)
-            row.cells.append(Cell(index: index, x: (unit + spacing) * CGFloat(used), width: cellWidth))
-            row.height = max(row.height, subview.sizeThatFits(ProposedViewSize(width: cellWidth, height: nil)).height)
-            used += span
+            let target: Int
+            if let open = rows.firstIndex(where: { $0.used + span <= columns }) {
+                target = open
+            } else {
+                rows.append(Row())
+                target = rows.count - 1
+            }
+            let x = (unit + spacing) * CGFloat(rows[target].used)
+            rows[target].cells.append(Cell(index: index, x: x, width: cellWidth))
+            rows[target].used += span
+            let height = subview.sizeThatFits(ProposedViewSize(width: cellWidth, height: nil)).height
+            rows[target].height = max(rows[target].height, height)
         }
-        if !row.cells.isEmpty { rows.append(row) }
         return rows
     }
 }
 
 private struct DashboardSpan: LayoutValueKey {
-    static let defaultValue = 1
+    struct Value {
+        let wide: Int
+        let narrow: Int
+    }
+
+    static let defaultValue = Value(wide: 1, narrow: 1)
 }
 
 private extension View {
-    func dashboardSpan(_ span: Int) -> some View {
+    func dashboardSpan(_ span: DashboardSpan.Value) -> some View {
         layoutValue(key: DashboardSpan.self, value: span)
     }
 }

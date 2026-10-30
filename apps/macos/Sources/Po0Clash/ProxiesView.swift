@@ -1,19 +1,7 @@
 import Po0FFI
 import SwiftUI
 
-/// FlClash's proxies settings: groups stacked or as tabs, the node order, how many tiles share a row, and how much
-/// each tile shows.
-enum ProxiesArrangement: String, CaseIterable {
-    case list, tabs
-}
-
-enum ProxiesSort: String, CaseIterable {
-    case profile, delay, name
-}
-
-enum ProxiesDensity: String, CaseIterable {
-    case loose, standard, tight
-
+extension ProxiesDensity {
     var tileWidth: CGFloat {
         switch self {
         case .loose: return 220
@@ -23,16 +11,8 @@ enum ProxiesDensity: String, CaseIterable {
     }
 }
 
-enum ProxyTileStyle: String, CaseIterable {
-    case detailed, compact, minimal
-}
-
 struct ProxiesView: View {
     @EnvironmentObject private var model: AppModel
-    @AppStorage("proxiesArrangement") private var arrangement = ProxiesArrangement.list
-    @AppStorage("proxiesSort") private var sort = ProxiesSort.profile
-    @AppStorage("proxiesDensity") private var density = ProxiesDensity.standard
-    @AppStorage("proxiesTileStyle") private var tileStyle = ProxyTileStyle.detailed
     @State private var expanded: Set<String> = []
     @State private var tab: String?
     @State private var query = ""
@@ -126,21 +106,21 @@ struct ProxiesView: View {
 
     private var options: some View {
         Menu {
-            Picker("Show groups as", selection: $arrangement) {
-                Text("List").tag(ProxiesArrangement.list)
-                Text("Tabs").tag(ProxiesArrangement.tabs)
+            Picker("Show groups as", selection: model.setting(\.proxiesLayout, or: .tabs)) {
+                Text("Tabs").tag(ProxiesLayout.tabs)
+                Text("List").tag(ProxiesLayout.list)
             }
-            Picker("Sort by", selection: $sort) {
+            Picker("Sort by", selection: model.setting(\.proxiesSort, or: .profile)) {
                 Text("Profile order").tag(ProxiesSort.profile)
                 Text("Delay").tag(ProxiesSort.delay)
                 Text("Name").tag(ProxiesSort.name)
             }
-            Picker("Spacing", selection: $density) {
+            Picker("Spacing", selection: model.setting(\.proxiesDensity, or: .standard)) {
                 Text("Loose").tag(ProxiesDensity.loose)
                 Text("Standard").tag(ProxiesDensity.standard)
                 Text("Tight").tag(ProxiesDensity.tight)
             }
-            Picker("Node tiles", selection: $tileStyle) {
+            Picker("Node tiles", selection: model.setting(\.proxyTileStyle, or: .detailed)) {
                 Text("Detailed").tag(ProxyTileStyle.detailed)
                 Text("Compact").tag(ProxyTileStyle.compact)
                 Text("Name only").tag(ProxyTileStyle.minimal)
@@ -175,6 +155,11 @@ struct ProxiesView: View {
             .padding(.vertical, 6)
         }
     }
+
+    private var arrangement: ProxiesLayout { model.appSettings?.proxiesLayout ?? .tabs }
+    private var sort: ProxiesSort { model.appSettings?.proxiesSort ?? .profile }
+    private var density: ProxiesDensity { model.appSettings?.proxiesDensity ?? .standard }
+    private var tileStyle: ProxyTileStyle { model.appSettings?.proxyTileStyle ?? .detailed }
 
     private var currentTab: ProxyGroup? {
         model.groups.first { $0.name == tab } ?? model.primaryGroup
