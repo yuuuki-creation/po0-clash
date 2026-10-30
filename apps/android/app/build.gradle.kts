@@ -11,7 +11,7 @@ val repoRoot: File = rootDir.resolve("../..").canonicalFile
 val minApi = 26
 val abis = providers.gradleProperty("po0.abis").orNull?.split(',')?.map(String::trim)
     ?: listOf("arm64-v8a", "armeabi-v7a", "x86_64")
-val baseVersionCode = 2026103010
+val baseVersionCode = 2026103011
 // Flutter's split-APK offsets: each native APK must out-number the Flutter APK of the same ABI to upgrade it.
 val abiVersionOffset = mapOf("armeabi-v7a" to 1000, "arm64-v8a" to 2000, "x86_64" to 4000)
 
@@ -99,7 +99,7 @@ android {
         minSdk = minApi
         targetSdk = 36
         versionCode = baseVersionCode
-        versionName = "7.0.0-beta.2"
+        versionName = "7.0.0"
     }
 
     signingConfigs {

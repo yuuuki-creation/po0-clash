@@ -1,5 +1,6 @@
-原生重写（[ADR 0018](https://github.com/yuuuki-creation/po0-clash/blob/native/docs/adr/0018-native-rewrite.md)）的第二个测试版，macOS、Windows、Android 三端都有。
-正式版仍是 Flutter 版 6.4.4；这个版本适合愿意试用、能接受问题的人。
+原生重写（[ADR 0018](https://github.com/yuuuki-creation/po0-clash/blob/native/docs/adr/0018-native-rewrite.md)）的第一个正式版，取代 Flutter 版 6.4.4：
+macOS 用 SwiftUI，Windows 用 Tauri，Android 用 Jetpack Compose，共用一个 Rust 内核，代理引擎仍是 mihomo。
+Flutter 版今后只修严重问题。从 Flutter 版升级时，订阅和加白条目会自动导入。
 
 ## 安装
 
@@ -8,7 +9,7 @@
 在终端运行：
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.0.0-beta.2/install-macos-native.sh | bash
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.0.0/install-macos-native.sh | bash
 ```
 
 脚本会退出并替换已安装的 po0-clash（包括 Flutter 版），装到「应用程序」后启动。应用没有经过苹果公证，脚本会去掉下载带来的隔离标记。
@@ -16,7 +17,7 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
 
 ### Windows（10 / 11，x64）
 
-下载 `po0-clash-7.0.0-beta.2-windows-x64-setup.exe` 运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
+下载 `po0-clash-7.0.0-windows-x64-setup.exe` 运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
 应用以管理员身份运行（虚拟网卡需要）。已装 Flutter 版时会先静默卸载它，订阅和加白条目保留并导入。
 
 ### Android（8.0 及以上）
@@ -25,9 +26,9 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
 
 可以直接覆盖安装 Flutter 版，订阅和加白条目会自动导入。覆盖之后不能直接装回 Flutter 版，要先卸载，应用数据会一起清除。
 
-## 这一版有什么
+## 功能
 
-beta.1 只有菜单栏和最基本的页面；这一版按 FlClash 的功能逐项补齐，三端都是带侧边栏（手机上是标签栏）的主界面，外观按苹果液态玻璃规范设计。
+三端都是带侧边栏（手机上是标签栏）的主界面，外观按苹果的液态玻璃规范：玻璃只用在浮动的导航和控件层，内容是不透明的卡片。
 
 - 仪表盘：网络速度曲线、流量与连接数、内存、出口 IP、内网 IP、订阅用量、加白，卡片可增删排序。
 - 代理：标签式或列表式，排序、定位当前节点、单节点与整组测速。
@@ -41,14 +42,16 @@ beta.1 只有菜单栏和最基本的页面；这一版按 FlClash 的功能逐�
   快捷设置磁贴、外部启停 intent 和 TV 入口。
 - po0 与 ggy 自动加白照旧：不论是否连接都持续运行，加白请求始终从真实出口发出。
 
-## 相对 beta.1 的修复
+## 相对 7.0.0-beta.2
 
-- 全局模式下 GLOBAL 组默认是 DIRECT，等于全部直连；现在没选过时用配置里的第一个策略组。
-- 刚连上时策略组可能为空、当前节点显示 COMPATIBLE、出口 IP 查不到；现在要等配置里的代理集和规则集加载完才算连上。
-- 分享链接导入的节点没有类型，测速结果刷新后就没了。
+- 液态玻璃：macOS 26 上代理页的分组标签浮在玻璃上；Windows 的玻璃控件边缘有轻微折射和高光边；Android 13 起标签栏、状态条、
+  弹层和菜单有透镜折射，按住标签栏可以拖动换页，内容下滑时标签栏收成圆形。
+- 动画：页面切换（桌面端淡入，子页面和手机上是推入，Android 的返回手势跟手）、选中块滑动、连接按钮和状态的过渡、数字滚动、
+  按下和悬停的反馈。系统关掉动画（macOS「减弱动态效果」、Windows 动画效果、Android 动画时长缩放为 0）或关掉应用的页面切换动画时直接切换。
 
 ## 已知问题
 
-- macOS：管理员授权弹窗和开机自启只在 CI 中模拟过，没有在真机上验证。
+- macOS：管理员授权弹窗和开机自启只在 CI 中模拟过；动画没有在真机上看过。
 - Windows：只在测试虚拟机里验证过，安装程序没有签名。
-- Android：只在模拟器上测试过；订阅里把 DNS 写成 `system` 时无法解析。
+- Android：只在模拟器上测试过，Android 12 及更早系统上的玻璃降级没有跑过；订阅里把 DNS 写成 `system` 时无法解析；
+  关于页的开源许可只列了内核的依赖，没有列 Android 自己的依赖。

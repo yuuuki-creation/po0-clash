@@ -203,6 +203,10 @@ jobs:
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release upload "$TAG" "${assets[@]}" --clobber
           else
-            gh release create "$TAG" "${assets[@]}" --draft --prerelease --latest=false \
-              --title "po0-clash $VERSION（原生版测试）" --notes-file "$notes"
+            if [[ "$VERSION" == *-* ]]; then
+              gh release create "$TAG" "${assets[@]}" --draft --prerelease --latest=false \
+                --title "po0-clash $VERSION（原生版测试）" --notes-file "$notes"
+            else
+              gh release create "$TAG" "${assets[@]}" --draft --title "po0-clash $VERSION" --notes-file "$notes"
+            fi
           fi
