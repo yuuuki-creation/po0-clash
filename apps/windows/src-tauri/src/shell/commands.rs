@@ -6,8 +6,8 @@ use tauri_plugin_dialog::DialogExt;
 
 use super::po0::{
     AppSettings, Connection, Connections, Core, CoreError, EngineOptions, ExitIp, GeoFile, ImportResult, IntranetIp, LogEntry, Mode, Profile,
-    ProfileEdit, Provider, ProviderKind, ProxyGroup, RouteMode, Rule,
-    Status, Traffic, WhitelistState,
+    ProfileEdit, Provider, ProviderKind, ProxyGroup, RestoreScope, RouteMode, Rule,
+    Status, Traffic, WebDav, WhitelistState,
 };
 use super::{Backdrop, autostart, is_zh};
 
@@ -320,6 +320,63 @@ fn save_dialog(app: &AppHandle, file_name: &str, filter: &str, extensions: &[&st
         dialog = dialog.set_directory(desktop);
     }
     dialog.blocking_save_file()?.into_path().ok()
+}
+
+fn scope(name: &str) -> RestoreScope {
+    if name == "profiles" { RestoreScope::Profiles } else { RestoreScope::All }
+}
+
+#[tauri::command]
+pub async fn backup_to_file(app: AppHandle, core: CoreState<'_>) -> Reply<Option<String>> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let data = core.backup().map_err(|e| e.to_string())?;
+        let Some(path) = save_dialog(&app, "po0-clash-backup.zip", "Zip", &["zip"]) else {
+            return Ok(None);
+        };
+        std::fs::write(&path, data).map_err(|e| e.to_string())?;
+        Ok(Some(path.display().to_string()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Returns false when the person cancels the file picker.
+#[tauri::command]
+pub async fn restore_from_file(app: AppHandle, core: CoreState<'_>, scope_name: String) -> Reply<bool> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut dialog = app.dialog().file().add_filter("Zip", &["zip"]);
+        if let Some(window) = app.get_webview_window("main") {
+            dialog = dialog.set_parent(&window);
+        }
+        if let Ok(desktop) = app.path().desktop_dir() {
+            dialog = dialog.set_directory(desktop);
+        }
+        let Some(path) = dialog.blocking_pick_file().and_then(|picked| picked.into_path().ok()) else {
+            return Ok(false);
+        };
+        let data = std::fs::read(&path).map_err(|e| e.to_string())?;
+        core.restore(data, scope(&scope_name)).map_err(|e| e.to_string())?;
+        Ok(true)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn check_webdav(core: CoreState<'_>, dav: WebDav) -> Reply<()> {
+    blocking(&core, move |c| c.check_webdav(dav)).await
+}
+
+#[tauri::command]
+pub async fn backup_to_webdav(core: CoreState<'_>) -> Reply<()> {
+    blocking(&core, |c| c.backup_to_webdav()).await
+}
+
+#[tauri::command]
+pub async fn restore_from_webdav(core: CoreState<'_>, scope_name: String) -> Reply<()> {
+    blocking(&core, move |c| c.restore_from_webdav(scope(&scope_name))).await
 }
 
 #[tauri::command]

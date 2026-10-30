@@ -129,6 +129,11 @@ pub fn run() {
             commands::autostart_enabled,
             commands::set_autostart,
             commands::export_diagnostics,
+            commands::backup_to_file,
+            commands::restore_from_file,
+            commands::check_webdav,
+            commands::backup_to_webdav,
+            commands::restore_from_webdav,
         ])
         .setup(move |app| {
             let handle = app.handle();

@@ -15,6 +15,7 @@
   import { settings, updateSettings } from '../lib/settings.svelte.js';
   import Advanced from './tools/Advanced.svelte';
   import Appearance from './tools/Appearance.svelte';
+  import Backup from './tools/Backup.svelte';
   import Basic from './tools/Basic.svelte';
   import Dns from './tools/Dns.svelte';
   import Network from './tools/Network.svelte';
@@ -57,7 +58,7 @@
     },
   ];
   const engineForms = { basic: Basic, networkSettings: Network, dns: Dns, advanced: Advanced, resources: Resources };
-  const pages = { appearance: Appearance, providers: Providers, ...engineForms };
+  const pages = { appearance: Appearance, providers: Providers, backup: Backup, ...engineForms };
 
   let autostart = $state(false);
 
