@@ -715,6 +715,7 @@ pub struct ProxyGroup {
     pub selectable: bool,
     pub now: Option<String>,
     pub nodes: Vec<Node>,
+    pub icon: Option<String>,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -775,6 +776,7 @@ impl From<core::ProxyGroup> for ProxyGroup {
             kind: value.kind,
             selectable: value.selectable,
             now: value.now,
+            icon: value.icon,
             nodes: value
                 .nodes
                 .into_iter()
