@@ -1,6 +1,6 @@
 # 三端原生重写
 
-决定见 [ADR 0018](../adr/0018-native-rewrite.md)。原则只有一条：能不做的都不做。
+决定见 [ADR 0018](../adr/0018-native-rewrite.md)；功能范围后来改为对齐 FlClash（ADR 0020）。
 
 ## 结构
 
@@ -17,7 +17,7 @@ Flutter 版的目录（`lib`、`android`、`macos`、`windows`、`core`、`plugi
 
 ## 共享内核
 
-`crates/core` 只做六件事。所有状态由内核持有，设置文件只由内核读写，界面只通过内核接口操作；接口用普通 Rust 类型，
+`crates/core` 起初只做下面六件事，功能对齐 FlClash 后会继续扩展（见 [native-feature-parity.md](native-feature-parity.md)）。所有状态由内核持有，设置文件只由内核读写，界面只通过内核接口操作；接口用普通 Rust 类型，
 UniFFI 和 Tauri 命令只做转换：
 
 1. **设置**：一个 JSON 文件加一个订阅目录，不用数据库。
@@ -45,26 +45,8 @@ UniFFI 和 Tauri 命令只做转换：
 
 ## 功能范围
 
-三端一致，只保留：
-
-- 连接开关与状态（当前节点、出口 IP）。
-- 订阅：添加、更新、删除、切换，显示流量与到期时间。
-- 用分享链接导入节点。
-- 策略组与节点选择、延迟测试。
-- 模式：规则、全局、直连。
-- 桌面端在虚拟网卡与系统代理之间二选一；Android 使用 VPN。
-- 加白：po0 token 与 ggy 链接列表、总开关、每条最近一次的结果。po0 固定每 5 秒轮询一次，ggy 固定 11 秒。
-- 开机自启（桌面）、快捷设置磁贴（Android）。
-- 导出诊断日志。
-- 界面语言：简体中文和英文。
-
-不做（确有需要时再单独提）：
-
-- 流量图表、连接与请求列表、实时日志页。
-- 规则编辑、标准与脚本覆写、DNS 和高级网络设置、端口设置、局域网共享、对外开放的 external-controller。
-- WebDAV 备份、IP 质量检测、网站探测、全局快捷键、主题与配色设置（一律跟随系统）。
-- Android 分应用代理。
-- 加白轮询间隔的调节。
+与 Flutter 版一致，FlClash 和本 fork 有的功能都要有（ADR 0020）。逐项清单、内核与三端各自缺的部分、实施顺序见
+[native-feature-parity.md](native-feature-parity.md)。
 
 ## 界面
 
