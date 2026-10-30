@@ -208,6 +208,8 @@ pub struct EngineOptions {
     /// macOS also CIDR ranges.
     pub bypass_domains: Vec<String>,
     pub append_system_dns: bool,
+    /// macOS only: while TUN runs, the default network service also lists a public resolver.
+    pub auto_set_system_dns: bool,
 }
 
 impl Default for EngineOptions {
@@ -241,6 +243,7 @@ impl Default for EngineOptions {
             added_rules: Vec::new(),
             bypass_domains: strings(DEFAULT_BYPASS),
             append_system_dns: false,
+            auto_set_system_dns: true,
         }
     }
 }
