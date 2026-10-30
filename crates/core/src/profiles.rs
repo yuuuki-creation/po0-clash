@@ -9,6 +9,7 @@ use crate::error::{CoreError, Result};
 use crate::model::Usage;
 
 const BODY_LIMIT: u64 = 32 << 20;
+const DOWNLOAD_LIMIT: u64 = 128 << 20;
 const TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,7 +32,12 @@ fn user_agent(app_version: &str) -> String {
     format!("clash-verge/v2 mihomo/1.19 po0-clash/{app_version}")
 }
 
-pub fn fetch(url: &str, proxy: Option<&str>, app_version: &str) -> Result<Fetched> {
+pub fn fetch(
+    url: &str,
+    proxy: Option<&str>,
+    app_version: &str,
+    custom_agent: Option<&str>,
+) -> Result<Fetched> {
     let parsed = url.parse::<ureq::http::Uri>().ok();
     let scheme_ok = parsed
         .as_ref()
@@ -49,7 +55,7 @@ pub fn fetch(url: &str, proxy: Option<&str>, app_version: &str) -> Result<Fetche
             .proxy(proxy)
             .timeout_global(Some(TIMEOUT))
             .http_status_as_error(false)
-            .user_agent(user_agent(app_version))
+            .user_agent(custom_agent.map_or_else(|| user_agent(app_version), str::to_owned))
             .build(),
     );
     let mut response = agent
@@ -86,6 +92,27 @@ pub fn fetch(url: &str, proxy: Option<&str>, app_version: &str) -> Result<Fetche
         usage,
         update_hours,
     })
+}
+
+/// A file such as a geo database, through the engine's proxy when there is one.
+pub fn download(url: &str, proxy: Option<&str>) -> Result<Vec<u8>> {
+    let network = |error: ureq::Error| CoreError::Network(error.to_string());
+    let proxy = proxy.map(Proxy::new).transpose().map_err(network)?;
+    let agent = Agent::new_with_config(
+        Agent::config_builder()
+            .proxy(proxy)
+            .timeout_global(Some(Duration::from_secs(180)))
+            .build(),
+    );
+    agent
+        .get(url)
+        .call()
+        .map_err(network)?
+        .body_mut()
+        .with_config()
+        .limit(DOWNLOAD_LIMIT)
+        .read_to_vec()
+        .map_err(network)
 }
 
 pub fn classify(body: &str) -> Result<Content> {
@@ -269,7 +296,7 @@ mod tests {
     #[test]
     fn refuses_non_http_links() {
         assert!(matches!(
-            fetch("file:///etc/passwd", None, "0"),
+            fetch("file:///etc/passwd", None, "0", None),
             Err(CoreError::Invalid(_))
         ));
     }
