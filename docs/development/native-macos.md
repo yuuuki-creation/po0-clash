@@ -6,16 +6,18 @@ SwiftUI 应用（主窗口加菜单栏），代码在 `apps/macos`，方案见 [
 
 - SwiftPM 包（`apps/macos/Package.swift`），最低 macOS 13，`LSUIElement`；主窗口打开时切成普通应用（显示程序坞图标），
   关闭后回到只在菜单栏。正常打开应用、再次打开或点程序坞图标时显示主窗口，开机自启时不显示。
-- 主窗口（`MainWindow.swift`，ADR 0019）：AppKit 管理的窗口里放 `NavigationSplitView`，侧边栏依次为仪表盘、代理、订阅、
-  加白、设置。仪表盘是 FlClash 式的卡片网格（速率、出口 IP、当前节点、模式、接管方式、订阅用量、加白）和右下角的浮动
-  启动按钮（已连接时显示时长）；代理页是可展开的策略组卡片和节点卡片网格。每页顶部是大标题和浮动的玻璃按钮组。窗口没有
-  工具栏（macOS 13 的 `NSHostingController` 不桥接 SwiftUI 工具栏），所以页面操作放在标题行，侧边栏也不允许收起。
+- 主窗口（`MainWindow.swift`，ADR 0019）照访达布局：AppKit 管理的窗口里放 `NavigationSplitView`，侧边栏依次为仪表盘、代理、
+  订阅、加白、设置。从 macOS 14 起 `NSHostingController` 把 SwiftUI 的 `.toolbar`、`.navigationTitle` 和
+  `.navigationSubtitle` 桥接到窗口的统一工具栏，页面操作是纯图标按钮，macOS 26 上由系统放进共用的玻璃胶囊；macOS 13
+  不能桥接，改为内容顶部的标题行，侧边栏也不允许收起。仪表盘是 FlClash 式的卡片网格（速率、出口 IP、当前节点、模式、
+  接管方式、订阅用量、加白，填充与分组表单相同）和右下角的浮动启动按钮（已连接时显示时长）；代理页是策略组标题加节点
+  卡片网格；订阅、加白、设置是 `.formStyle(.grouped)` 表单；空页面用 `ContentUnavailableView`，提示用标准弹窗。
 - 菜单栏窗口（`MenuBarExtra`，`.window` 样式）作为快捷入口：连接开关与状态、出口 IP、速率、模式、虚拟网卡 / 系统代理、
   订阅切换、策略组与延迟测试、加白总开关，底部按钮打开主窗口。
 - 内核调用全部经过 `CoreClient.swift`，在后台队列执行；引擎与路由命令走同一个串行队列，保证按用户操作顺序生效。
 - 按 HIG 的液态玻璃规范：用 macOS 26 SDK 构建，系统控件、菜单栏窗口、工具栏与弹出表单自动获得液态玻璃；只有浮动的
-  控件层（页面标题行和菜单底部的按钮组、启动按钮、「重新连接」）额外用 `.glass` / `.glassProminent` 与
-  `GlassEffectContainer`。内容一律放在不透明的分组卡片上，用系统背景色、系统强调色与语义色，不加渐变、彩色背景或
+  控件层（启动按钮、「重新连接」、菜单底部的按钮组）额外用 `.glass` / `.glassProminent` 与 `GlassEffectContainer`。
+  内容层不用玻璃，用系统背景色、系统强调色与语义色，不加渐变、彩色背景或
   自绘模糊。更早的系统使用默认外观。
 - 界面语言跟随系统，简体中文与英文（`Resources/*.lproj/Localizable.strings`）。
 
