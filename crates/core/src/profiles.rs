@@ -37,6 +37,7 @@ pub fn fetch(
     proxy: Option<&str>,
     app_version: &str,
     custom_agent: Option<&str>,
+    verify_tls: bool,
 ) -> Result<Fetched> {
     let parsed = url.parse::<ureq::http::Uri>().ok();
     let scheme_ok = parsed
@@ -56,6 +57,11 @@ pub fn fetch(
             .timeout_global(Some(TIMEOUT))
             .http_status_as_error(false)
             .user_agent(custom_agent.map_or_else(|| user_agent(app_version), str::to_owned))
+            .tls_config(
+                ureq::tls::TlsConfig::builder()
+                    .disable_verification(!verify_tls)
+                    .build(),
+            )
             .build(),
     );
     let mut response = agent
@@ -296,7 +302,7 @@ mod tests {
     #[test]
     fn refuses_non_http_links() {
         assert!(matches!(
-            fetch("file:///etc/passwd", None, "0", None),
+            fetch("file:///etc/passwd", None, "0", None, true),
             Err(CoreError::Invalid(_))
         ));
     }
