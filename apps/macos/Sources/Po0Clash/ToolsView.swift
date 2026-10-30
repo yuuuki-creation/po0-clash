@@ -2,8 +2,7 @@ import AppKit
 import Po0FFI
 import SwiftUI
 
-/// FlClash's tools page: grouped entries that open their own pages. Entries whose core support is still missing
-/// (docs/development/native-feature-parity.md) open a placeholder rather than being hidden.
+/// FlClash's tools page: grouped entries that open their own pages.
 enum ToolsPage: String, Hashable {
     case language, appearance, application, hotkeys, basic, advanced, resources, backup, developer, about
 
@@ -48,8 +47,8 @@ enum ToolsPage: String, Hashable {
         case .advanced: AdvancedConfigView()
         case .resources: ResourcesView()
         case .backup: BackupView()
+        case .developer: DeveloperView()
         case .about: AboutView()
-        default: ComingSoon(title: title)
         }
     }
 }
@@ -126,14 +125,6 @@ private struct ToolsIcon: View {
 
     var body: some View {
         Image(systemName: symbol).frame(width: 20)
-    }
-}
-
-struct ComingSoon: View {
-    let title: LocalizedStringKey
-
-    var body: some View {
-        EmptyState(title: title, symbol: "hourglass", detail: "Coming soon.")
     }
 }
 
@@ -430,5 +421,79 @@ private struct AboutView: View {
         guard versionClicks == 5, model.appSettings?.developerMode == false else { return }
         model.updateAppSettings { $0.developerMode = true }
         model.notice = String(localized: "Developer mode is enabled.")
+    }
+}
+
+/// FlClash's developer mode, which About turns on after five clicks on the version.
+private struct DeveloperView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var confirmingCrash = false
+    @State private var confirmingClear = false
+
+    private var captureLogs: Bool { model.appSettings?.captureLogs == true }
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle(isOn: model.setting(\.developerMode, or: false)) {
+                    Text("Developer mode")
+                    Text("Turning this off hides this page. Click the version in About five times to bring it back.")
+                }
+                .disabled(model.appSettings == nil)
+            }
+            Section("Options") {
+                row("Message test", "Shows a sample message.", button: "Show") {
+                    model.notice = String(localized: "This is a message.")
+                }
+                row(
+                    "Logs test",
+                    captureLogs ? "Adds 1,000 lines of random text to the logs in Activity." : "Turn on Capture logs in Application first.",
+                    button: "Add"
+                ) { model.addTestLogs() }
+                .disabled(!captureLogs)
+                row(
+                    "Crash test",
+                    model.isRunning ? "Ends the engine the way a crash would." : "Available while connected.",
+                    button: "Crash…"
+                ) { confirmingCrash = true }
+                .disabled(!model.isRunning)
+                row(
+                    "Clear data", "Removes every profile, whitelist entry and setting, then restarts po0-clash.",
+                    button: "Clear…"
+                ) { confirmingClear = true }
+                row("Prune cache", "Deletes files left behind by removed profiles.", button: "Prune") {
+                    model.pruneCache()
+                }
+            }
+            .disabled(model.core == nil)
+        }
+        .formStyle(.grouped)
+        .toggleStyle(.switch)
+        .alert("Crash the engine?", isPresented: $confirmingCrash) {
+            Button("Crash", role: .destructive) { model.crashEngine() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The connection drops until you connect again.")
+        }
+        .alert("Clear all data?", isPresented: $confirmingClear) {
+            Button("Clear Data", role: .destructive) { model.clearData() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Every profile, whitelist entry and setting is removed and po0-clash restarts. This cannot be undone.")
+        }
+    }
+
+    private func row(
+        _ title: LocalizedStringKey,
+        _ detail: LocalizedStringKey,
+        button: LocalizedStringKey,
+        action: @escaping () -> Void
+    ) -> some View {
+        LabeledContent {
+            Button(button, action: action)
+        } label: {
+            Text(title)
+            Text(detail)
+        }
     }
 }

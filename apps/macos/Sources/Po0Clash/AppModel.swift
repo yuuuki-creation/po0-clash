@@ -704,6 +704,26 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func crashEngine() { command { try await $0.crashEngine() } }
+    func addTestLogs() { attempt { try await $0.addTestLogs() } }
+
+    func pruneCache() {
+        attempt { client in
+            let removed = try await client.pruneCache()
+            self.notice = String(localized: "Removed \(Int(removed)) unused files.")
+        }
+    }
+
+    /// The core wipes its data at the next start, so the app restarts straight away.
+    func clearData() {
+        attempt { client in
+            try await client.clearData()
+            try? LaunchAtLogin.set(false)
+            if let domain = Bundle.main.bundleIdentifier { UserDefaults.standard.removePersistentDomain(forName: domain) }
+            AppLanguage.relaunch()
+        }
+    }
+
     // MARK: Helpers
 
     /// Engine and route changes: the connect controls stay disabled until the status has been re-read.

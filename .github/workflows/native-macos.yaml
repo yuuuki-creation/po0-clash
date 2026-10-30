@@ -284,7 +284,7 @@ jobs:
           connected=(-launchedAtLogin YES -testDelays YES)
           for page in dashboard proxies; do shoot "window-$page" 15 "${connected[@]}" -showWindow "$page"; done
           for page in appearance application language hotkeys about; do shoot "window-$page" 6 -showWindow tools -toolsPage "$page"; done
-          for page in basic resources; do shoot "window-$page" 15 "${connected[@]}" -showWindow tools -toolsPage "$page"; done
+          for page in basic resources developer; do shoot "window-$page" 15 "${connected[@]}" -showWindow tools -toolsPage "$page"; done
           shoot window-backup 6 -showWindow tools -toolsPage backup
           for page in profiles whitelist tools; do shoot "window-$page" 6 -showWindow "$page"; done
           for tab in requests connections logs; do

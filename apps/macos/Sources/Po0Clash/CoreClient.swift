@@ -111,6 +111,10 @@ final class CoreClient: @unchecked Sendable {
     func networkChanged() async throws { try await work { $0.networkChanged() } }
     func exportDiagnostics(to path: String) async throws { try await work { try $0.exportDiagnostics(path: path) } }
     func backup() async throws -> Data { try await work { try $0.backup() } }
+    func crashEngine() async throws { try await control { try $0.crashEngine() } }
+    func addTestLogs() async throws { try await work { $0.addTestLogs() } }
+    func pruneCache() async throws -> UInt32 { try await work { try $0.pruneCache() } }
+    func clearData() async throws { try await control { try $0.clearData() } }
     func engineOptions() async throws -> EngineOptions { try await work { $0.engineOptions() } }
     func setEngineOptions(_ options: EngineOptions) async throws {
         try await control { try $0.setEngineOptions(options: options) }

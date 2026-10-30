@@ -396,3 +396,31 @@
 "Data center" = "机房";
 "Good" = "优";
 "Risky" = "风险";
+
+/* Developer mode */
+"Turning this off hides this page. Click the version in About five times to bring it back." = "关闭后此页面会隐藏；在「关于」中连续点击版本号五次可再次打开。";
+"Options" = "选项";
+"Message test" = "消息测试";
+"Shows a sample message." = "显示一条示例消息。";
+"Show" = "显示";
+"This is a message." = "这是一条消息。";
+"Logs test" = "日志测试";
+"Adds 1,000 lines of random text to the logs in Activity." = "向「活动」的日志中添加 1000 行随机文本。";
+"Turn on Capture logs in Application first." = "请先在「应用程序」中打开「日志捕获」。";
+"Crash test" = "崩溃测试";
+"Ends the engine the way a crash would." = "像崩溃一样直接结束内核进程。";
+"Available while connected." = "连接后可用。";
+"Crash…" = "崩溃…";
+"Clear data" = "清除数据";
+"Removes every profile, whitelist entry and setting, then restarts po0-clash." = "删除所有配置、加白条目和设置，然后重启 po0-clash。";
+"Clear…" = "清除…";
+"Prune cache" = "修剪缓存";
+"Deletes files left behind by removed profiles." = "删除已移除配置留下的文件。";
+"Prune" = "修剪";
+"Removed %lld unused files." = "已删除 %lld 个残留文件。";
+"Crash the engine?" = "确定要强制崩溃内核？";
+"Crash" = "崩溃";
+"The connection drops until you connect again." = "重新连接之前，网络会一直断开。";
+"Clear all data?" = "确定要清除所有数据？";
+"Clear Data" = "清除数据";
+"Every profile, whitelist entry and setting is removed and po0-clash restarts. This cannot be undone." = "所有配置、加白条目和设置都会被删除，随后 po0-clash 重启。此操作无法撤销。";
