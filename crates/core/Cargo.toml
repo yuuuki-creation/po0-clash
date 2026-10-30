@@ -10,16 +10,23 @@ name = "po0_core"
 [dependencies]
 base64 = "0.22"
 getrandom = "0.3"
+md-5 = "0.10"
+rquickjs = { version = "0.12", default-features = false }
 rusqlite = { version = "0.37", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
+sha2 = "0.10"
 thiserror = "2"
 ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+# rquickjs ships pre-generated bindings for every target but Android, where bindgen makes them at build time.
+[target.'cfg(target_os = "android")'.dependencies]
+rquickjs = { version = "0.12", default-features = false, features = ["bindgen"] }
 
 [target.'cfg(any(target_os = "macos", windows))'.dependencies]
 sysproxy = "0.3"

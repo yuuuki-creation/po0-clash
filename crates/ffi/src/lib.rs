@@ -178,6 +178,63 @@ mirror_record!(GeoFile {
 
 mirror_record!(Traffic { up: u64, down: u64 });
 
+mirror_enum!(IpType {
+    Residential,
+    Mobile,
+    Business,
+    Hosting
+});
+mirror_enum!(IpQualityLevel {
+    Good,
+    Normal,
+    Risky
+});
+mirror_enum!(IpQualitySource {
+    IdentMe,
+    IpApiCom,
+    IpQuery,
+    IpLocate,
+    ProxyCheck,
+    IpApiIs
+});
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct IpQuality {
+    pub ip: String,
+    pub source: IpQualitySource,
+    pub kind: IpType,
+    pub level: IpQualityLevel,
+    pub organization: Option<String>,
+    pub asn: Option<u32>,
+    pub is_proxy: bool,
+    pub is_vpn: bool,
+    pub is_tor: bool,
+    pub is_abuser: bool,
+}
+
+impl From<core::IpQuality> for IpQuality {
+    fn from(value: core::IpQuality) -> Self {
+        Self {
+            ip: value.ip,
+            source: value.source.into(),
+            kind: value.kind.into(),
+            level: value.level.into(),
+            organization: value.organization,
+            asn: value.asn,
+            is_proxy: value.is_proxy,
+            is_vpn: value.is_vpn,
+            is_tor: value.is_tor,
+            is_abuser: value.is_abuser,
+        }
+    }
+}
+
+mirror_record!(Release {
+    version: String,
+    url: String,
+    notes: String,
+});
+
 mirror_record!(Usage {
     upload: u64,
     download: u64,
@@ -252,6 +309,9 @@ pub struct EngineOptions {
     pub override_dns: bool,
     pub dns: DnsOptions,
     pub added_rules: Vec<String>,
+    pub bypass_domains: Vec<String>,
+    pub append_system_dns: bool,
+    pub auto_set_system_dns: bool,
 }
 
 impl From<core::DnsOptions> for DnsOptions {
@@ -329,6 +389,9 @@ impl From<core::EngineOptions> for EngineOptions {
             override_dns: v.override_dns,
             dns: v.dns.into(),
             added_rules: v.added_rules,
+            bypass_domains: v.bypass_domains,
+            append_system_dns: v.append_system_dns,
+            auto_set_system_dns: v.auto_set_system_dns,
         }
     }
 }
@@ -362,6 +425,9 @@ impl From<EngineOptions> for core::EngineOptions {
             override_dns: v.override_dns,
             dns: v.dns.into(),
             added_rules: v.added_rules,
+            bypass_domains: v.bypass_domains,
+            append_system_dns: v.append_system_dns,
+            auto_set_system_dns: v.auto_set_system_dns,
         }
     }
 }
@@ -696,6 +762,118 @@ mirror_record!(ProfileEdit {
     update_hours: u32,
 });
 
+mirror_enum!(ExitKind {
+    Crashed,
+    Stopped,
+    Other
+});
+mirror_enum!(LaunchRecovery {
+    Normal,
+    SkipAutoConnect,
+    ClearProfile
+});
+
+#[derive(Debug, Clone, Copy, uniffi::Record)]
+pub struct LastExit {
+    pub kind: ExitKind,
+    pub at_ms: i64,
+}
+
+impl From<LastExit> for core::LastExit {
+    fn from(value: LastExit) -> Self {
+        Self {
+            kind: value.kind.into(),
+            at_ms: value.at_ms,
+        }
+    }
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct LaunchCheck {
+    pub recovery: LaunchRecovery,
+    pub failures: u32,
+    pub profile_name: Option<String>,
+}
+
+impl From<core::LaunchCheck> for LaunchCheck {
+    fn from(value: core::LaunchCheck) -> Self {
+        Self {
+            recovery: value.recovery.into(),
+            failures: value.failures,
+            profile_name: value.profile_name,
+        }
+    }
+}
+
+mirror_enum!(OverrideMode {
+    Standard,
+    Script,
+    Custom
+});
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ProfileOverride {
+    pub mode: OverrideMode,
+    pub added_rules: Vec<String>,
+    pub disabled_global_rules: Vec<String>,
+    pub match_target: Option<String>,
+    pub script_id: Option<String>,
+    pub custom_groups: String,
+    pub custom_rules: Vec<String>,
+}
+
+impl From<core::ProfileOverride> for ProfileOverride {
+    fn from(value: core::ProfileOverride) -> Self {
+        Self {
+            mode: value.mode.into(),
+            added_rules: value.added_rules,
+            disabled_global_rules: value.disabled_global_rules,
+            match_target: value.match_target,
+            script_id: value.script_id,
+            custom_groups: value.custom_groups,
+            custom_rules: value.custom_rules,
+        }
+    }
+}
+
+impl From<ProfileOverride> for core::ProfileOverride {
+    fn from(value: ProfileOverride) -> Self {
+        Self {
+            mode: value.mode.into(),
+            added_rules: value.added_rules,
+            disabled_global_rules: value.disabled_global_rules,
+            match_target: value.match_target,
+            script_id: value.script_id,
+            custom_groups: value.custom_groups,
+            custom_rules: value.custom_rules,
+        }
+    }
+}
+
+mirror_record!(Script {
+    id: String,
+    name: String,
+    content: String,
+});
+
+mirror_record!(License {
+    name: String,
+    version: String,
+    license: String,
+    url: String,
+});
+
+mirror_record!(ShareNode {
+    name: String,
+    kind: String,
+});
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ProfileParts {
+    pub groups: String,
+    pub rules: Vec<String>,
+}
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct ImportResult {
     pub profile: Profile,
@@ -973,6 +1151,89 @@ impl Po0Core {
 
     pub fn update_geo(&self) -> Result<()> {
         Ok(self.inner.update_geo()?)
+    }
+
+    pub fn save_profile_content(&self, id: String, content: String) -> Result<Profile> {
+        Ok(self.inner.save_profile_content(id, content)?.into())
+    }
+
+    pub fn profile_override(&self, id: String) -> Result<ProfileOverride> {
+        Ok(self.inner.profile_override(id)?.into())
+    }
+
+    pub fn set_profile_override(&self, id: String, overrides: ProfileOverride) -> Result<()> {
+        Ok(self.inner.set_profile_override(id, overrides.into())?)
+    }
+
+    pub fn profile_groups_and_rules(&self, id: String) -> Result<ProfileParts> {
+        let (groups, rules) = self.inner.profile_groups_and_rules(id)?;
+        Ok(ProfileParts { groups, rules })
+    }
+
+    pub fn launch_started(&self, last_exit: Option<LastExit>) -> LaunchCheck {
+        self.inner.launch_started(last_exit.map(Into::into)).into()
+    }
+
+    pub fn launch_finished(&self) {
+        self.inner.launch_finished();
+    }
+
+    pub fn licenses(&self) -> Vec<License> {
+        self.inner.licenses().into_iter().map(Into::into).collect()
+    }
+
+    pub fn share_nodes(&self, id: String) -> Result<Vec<ShareNode>> {
+        Ok(self
+            .inner
+            .share_nodes(id)?
+            .into_iter()
+            .map(Into::into)
+            .collect())
+    }
+
+    pub fn rename_share_node(&self, id: String, name: String, new_name: String) -> Result<()> {
+        Ok(self.inner.rename_share_node(id, name, new_name)?)
+    }
+
+    pub fn remove_share_node(&self, id: String, name: String) -> Result<()> {
+        Ok(self.inner.remove_share_node(id, name)?)
+    }
+
+    pub fn scripts(&self) -> Vec<Script> {
+        self.inner.scripts().into_iter().map(Into::into).collect()
+    }
+
+    pub fn save_script(&self, script: Script) -> Result<Script> {
+        Ok(self.inner.save_script(script.into())?.into())
+    }
+
+    pub fn remove_script(&self, id: String) -> Result<()> {
+        Ok(self.inner.remove_script(id)?)
+    }
+
+    pub fn crash_engine(&self) -> Result<()> {
+        Ok(self.inner.crash_engine()?)
+    }
+
+    pub fn add_test_logs(&self) {
+        self.inner.add_test_logs();
+    }
+
+    pub fn prune_cache(&self) -> Result<u32> {
+        Ok(self.inner.prune_cache()?)
+    }
+
+    pub fn clear_data(&self) -> Result<()> {
+        Ok(self.inner.clear_data()?)
+    }
+
+    /// Answers are kept for the address; a failed lookup is repeated for five minutes unless `refresh` is set.
+    pub fn ip_quality(&self, ip: String, refresh: bool) -> Result<IpQuality> {
+        Ok(self.inner.ip_quality(&ip, refresh)?.into())
+    }
+
+    pub fn check_update(&self) -> Result<Option<Release>> {
+        Ok(self.inner.check_update()?.map(Into::into))
     }
 
     pub fn exit_ip(&self) -> Result<ExitIp> {

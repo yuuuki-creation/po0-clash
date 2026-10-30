@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::app_settings::{self, AppSettings};
 use crate::error::Result;
-use crate::model::{Mode, ProfileKind, RouteMode, Usage};
+use crate::model::{Mode, ProfileKind, ProfileOverride, RouteMode, Script, Usage};
 use crate::options::EngineOptions;
 use crate::util;
 
@@ -23,6 +23,7 @@ pub struct Settings {
     pub options: EngineOptions,
     #[serde(deserialize_with = "app_settings::lenient")]
     pub app: AppSettings,
+    pub scripts: Vec<Script>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,6 +44,8 @@ pub struct ProfileRecord {
     pub manual_update: bool,
     #[serde(default)]
     pub selections: BTreeMap<String, String>,
+    #[serde(default)]
+    pub overrides: ProfileOverride,
 }
 
 impl ProfileRecord {
@@ -57,6 +60,7 @@ impl ProfileRecord {
             update_hours: None,
             manual_update: false,
             selections: BTreeMap::new(),
+            overrides: ProfileOverride::default(),
         }
     }
 }
@@ -79,6 +83,10 @@ pub struct EntryRecord {
 impl Settings {
     pub fn profile(&self, id: &str) -> Option<&ProfileRecord> {
         self.profiles.iter().find(|profile| profile.id == id)
+    }
+
+    pub fn script(&self, id: &str) -> Option<&Script> {
+        self.scripts.iter().find(|script| script.id == id)
     }
 
     pub fn profile_mut(&mut self, id: &str) -> Option<&mut ProfileRecord> {
