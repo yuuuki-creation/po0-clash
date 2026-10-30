@@ -10,6 +10,7 @@ struct SubscriptionsView: View {
         case subscription, links
         case edit(Profile)
         case editor(Profile)
+        case override(Profile)
         case text(Profile, ProfileText)
 
         var id: String {
@@ -18,6 +19,7 @@ struct SubscriptionsView: View {
             case .links: return "links"
             case .edit(let profile): return "edit/\(profile.id)"
             case .editor(let profile): return "editor/\(profile.id)"
+            case .override(let profile): return "override/\(profile.id)"
             case .text(let profile, let text): return "text/\(profile.id)/\(text)"
             }
         }
@@ -61,6 +63,7 @@ struct SubscriptionsView: View {
                                 switch action {
                                 case .edit: sheet = .edit(profile)
                                 case .editContent: sheet = .editor(profile)
+                                case .override: sheet = .override(profile)
                                 case .show(let text): sheet = .text(profile, text)
                                 case .remove: pendingRemoval = profile
                                 }
@@ -77,7 +80,13 @@ struct SubscriptionsView: View {
             case .links: ImportLinksSheet().environmentObject(model)
             case .edit(let profile): EditProfileSheet(profile: profile).environmentObject(model)
             case .editor(let profile): ProfileEditorSheet(profile: profile).environmentObject(model)
+            case .override(let profile): ProfileOverrideSheet(profile: profile).environmentObject(model)
             case .text(let profile, let text): ProfileTextSheet(profile: profile, text: text).environmentObject(model)
+            }
+        }
+        .task(id: model.profiles.count) {
+            if Showcase.showsOverride, sheet == nil, let profile = model.profiles.first(where: \.selected) {
+                sheet = .override(profile)
             }
         }
         .alert(
@@ -97,7 +106,7 @@ enum ProfileText: Hashable {
 }
 
 private enum ProfileAction {
-    case edit, editContent, show(ProfileText), remove
+    case edit, editContent, override, show(ProfileText), remove
 }
 
 private struct ProfileRow: View {
@@ -194,6 +203,7 @@ private struct ProfileRow: View {
         }
         Divider()
         Button("Edit Content…") { act(.editContent) }
+        Button("Override…") { act(.override) }
         Button("Preview Config…") { act(.show(.preview)) }
         Button("Export…") { model.exportProfile(profile) }
         if let url = profile.url {

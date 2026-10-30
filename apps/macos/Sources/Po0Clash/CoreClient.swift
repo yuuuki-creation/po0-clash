@@ -85,6 +85,16 @@ final class CoreClient: @unchecked Sendable {
         try await control { try $0.saveProfileContent(id: id, content: content) }
     }
     func previewConfig(_ id: String) async throws -> String { try await work { try $0.previewConfig(id: id) } }
+    func profileOverride(_ id: String) async throws -> ProfileOverride { try await work { try $0.profileOverride(id: id) } }
+    func setProfileOverride(_ id: String, _ overrides: ProfileOverride) async throws {
+        try await control { try $0.setProfileOverride(id: id, overrides: overrides) }
+    }
+    func profileGroupsAndRules(_ id: String) async throws -> ProfileParts {
+        try await work { try $0.profileGroupsAndRules(id: id) }
+    }
+    func scripts() async throws -> [Script] { try await work { $0.scripts() } }
+    func saveScript(_ script: Script) async throws -> Script { try await control { try $0.saveScript(script: script) } }
+    func removeScript(_ id: String) async throws { try await control { try $0.removeScript(id: id) } }
     func reorderProfiles(_ ids: [String]) async throws { try await work { try $0.reorderProfiles(ids: ids) } }
 
     func groups() async throws -> [ProxyGroup] { try await work { try $0.groups() } }

@@ -446,3 +446,34 @@
 "Restart Engine" = "重启内核";
 "Auto-set system DNS" = "自动设置系统 DNS";
 "While TUN is on, adds 223.5.5.5 to the network's DNS servers so lookups pass through TUN. The original servers come back when you disconnect." = "开启虚拟网卡时给当前网络的 DNS 服务器追加 223.5.5.5，让域名解析经过虚拟网卡；断开后恢复原来的 DNS。";
+
+/* Profile override */
+"Override…" = "覆写…";
+"Profile Override" = "覆写";
+"Script" = "脚本";
+"Custom" = "自定义";
+"None" = "无";
+"Adds rules in front of the profile's own." = "在配置自带的规则前追加规则。";
+"Rewrites the profile's config with a script." = "用脚本改写配置。";
+"Replaces the profile's proxy groups and rules with your own." = "用自己的策略组和规则替换配置自带的。";
+"MATCH target" = "MATCH 目标";
+"Where the profile's final rule goes" = "与配置最后一条规则相同";
+"One per line, matched before the global rules and the profile's own. A rule whose target is MATCH goes to the MATCH target." = "每行一条，先于全局规则和配置自带的规则匹配。目标写 MATCH 的规则走 MATCH 目标。";
+"Global rules" = "全局规则";
+"No global rules. Add them in Tools › Advanced." = "没有全局规则，可在「工具 › 高级」里添加。";
+"Edit Script…" = "编辑脚本…";
+"New Script…" = "新建脚本…";
+"The script's main(config) gets the profile's config before po0-clash's settings and returns the config to use. Scripts are kept in Tools › Advanced." = "脚本的 main(config) 在应用 po0-clash 的设置之前拿到配置，返回要使用的配置。脚本统一保存在「工具 › 高级」。";
+"Proxy groups" = "策略组";
+"Rules" = "规则";
+"Proxy groups are a YAML list. Left empty, the profile keeps its own groups or rules." = "策略组写成 YAML 列表。留空则沿用配置自带的策略组或规则。";
+"Copy from Profile" = "从配置复制";
+"Replace with the profile's own groups and rules?" = "用配置自带的策略组和规则替换当前内容？";
+"Replace" = "替换";
+"%lld lines" = "%lld 行";
+"No scripts yet." = "还没有脚本。";
+"A profile runs a script once you choose it in the profile's Override settings." = "在配置的「覆写」里选中脚本后才会运行。";
+"New Script" = "新建脚本";
+"Edit Script" = "编辑脚本";
+"main(config) receives the profile's config as an object and returns the config to use." = "main(config) 接收配置对象，返回要使用的配置。";
+"Profiles that use it go back to their own config." = "用它的配置会恢复原本的配置。";

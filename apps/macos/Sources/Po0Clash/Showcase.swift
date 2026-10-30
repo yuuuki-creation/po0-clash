@@ -39,6 +39,8 @@ enum Showcase {
             || ProcessInfo.processInfo.environment["CI"] != nil
     }
 
+    static var showsOverride: Bool { UserDefaults.standard.bool(forKey: "showOverride") }
+
     static var forcesAppearance: Bool {
         UserDefaults.standard.string(forKey: "appearance") != nil
     }

@@ -139,8 +139,13 @@ struct BasicConfigView: View {
     }
 }
 
-/// FlClash's advanced configuration: rules added in front of every profile's own.
+/// FlClash's advanced configuration: rules added in front of every standard profile's own, and the script library.
 struct AdvancedConfigView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var scripts: [Script] = []
+    @State private var editing: ScriptSheet?
+    @State private var pendingRemoval: Script?
+
     var body: some View {
         EngineOptionsForm { $options in
             Section {
@@ -150,12 +155,28 @@ struct AdvancedConfigView: View {
                     lines: $options.addedRules
                 )
             }
-            Section {
-                LabeledContent("Override scripts") {
-                    Text("Coming soon.").foregroundStyle(.secondary)
+            ScriptsSection(scripts: scripts, edit: { editing = $0 }, remove: { pendingRemoval = $0 })
+        }
+        .sheet(item: $editing) { sheet in
+            ScriptEditorSheet(script: sheet.script) { _ in Task { scripts = await model.scripts() } }
+                .environmentObject(model)
+        }
+        .alert(
+            String(localized: "Delete \(pendingRemoval?.name ?? "")?"),
+            isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } }),
+            presenting: pendingRemoval
+        ) { script in
+            Button("Delete", role: .destructive) {
+                Task {
+                    if let error = await model.removeScript(script.id) { model.notice = error }
+                    scripts = await model.scripts()
                 }
             }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Profiles that use it go back to their own config.")
         }
+        .task { scripts = await model.scripts() }
     }
 }
 

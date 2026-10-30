@@ -320,6 +320,44 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func profileOverride(_ id: String) async -> Result<ProfileOverride, MessageError> {
+        await outcome { try await $0.profileOverride(id) }
+    }
+
+    func saveProfileOverride(_ id: String, _ overrides: ProfileOverride) async -> String? {
+        await failure { try await $0.setProfileOverride(id, overrides) }
+    }
+
+    func profileGroupsAndRules(_ id: String) async -> Result<ProfileParts, MessageError> {
+        await outcome { try await $0.profileGroupsAndRules(id) }
+    }
+
+    func scripts() async -> [Script] {
+        (try? await client?.scripts()) ?? []
+    }
+
+    func saveScript(_ script: Script) async -> Result<Script, MessageError> {
+        await outcome { try await $0.saveScript(script) }
+    }
+
+    func removeScript(_ id: String) async -> String? {
+        await failure { try await $0.removeScript(id) }
+    }
+
+    private func outcome<T>(_ body: (CoreClient) async throws -> T) async -> Result<T, MessageError> {
+        guard let client else { return .failure(MessageError(launchError ?? "")) }
+        do {
+            return .success(try await body(client))
+        } catch {
+            return .failure(MessageError(describe(error)))
+        }
+    }
+
+    private func failure(_ body: (CoreClient) async throws -> Void) async -> String? {
+        if case .failure(let failure) = await outcome(body) { return failure.message }
+        return nil
+    }
+
     /// A clash://install-config link that opens the app waits until the core is ready and the disclaimer is accepted.
     func openLinks(_ links: [URL]) {
         guard acceptsLinks else {
