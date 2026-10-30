@@ -28,12 +28,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.outlined.FileOpen
-import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -83,11 +77,11 @@ fun SubscriptionsScreen(vm: AppViewModel) {
         exporting = null
     }
     val actions = listOf(
-        PageAction(Icons.Outlined.FileOpen, stringResource(R.string.import_file), enabled = !adding) { pickFile.launch(arrayOf("*/*")) },
-        PageAction(Icons.Outlined.Link, importTitle, enabled = !adding) {
+        PageAction(LineIcons.FileImport, stringResource(R.string.import_file), enabled = !adding) { pickFile.launch(arrayOf("*/*")) },
+        PageAction(LineIcons.Link, importTitle, enabled = !adding) {
             sheets.show { TextSheet(importTitle, linksHint, multiline = true, confirm = add) { text, _ -> vm.importLinks(text) } }
         },
-        PageAction(Icons.Filled.Add, addTitle, busy = adding) {
+        PageAction(LineIcons.Plus, addTitle, busy = adding) {
             sheets.show { TextSheet(addTitle, urlHint, multiline = false, confirm = add) { text, _ -> vm.addSubscription(text) } }
         },
     )
@@ -149,7 +143,7 @@ private fun ProfileRow(index: Int, count: Int, profile: Profile, busy: Boolean, 
         }
         Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
             if (profile.selected) {
-                Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.selected), tint = apple.accent, modifier = Modifier.size(22.dp))
+                Icon(LineIcons.Check, contentDescription = stringResource(R.string.selected), tint = apple.accent, modifier = Modifier.size(22.dp))
             }
         }
         Box(Modifier.size(36.dp).anchor(anchor), contentAlignment = Alignment.Center) {
@@ -177,7 +171,7 @@ private fun ProfileRow(index: Int, count: Int, profile: Profile, busy: Boolean, 
                         )
                     },
                 ) {
-                    Icon(Icons.Filled.MoreHoriz, contentDescription = stringResource(R.string.more), tint = apple.accent)
+                    Icon(LineIcons.More, contentDescription = stringResource(R.string.more), tint = apple.accent)
                 }
             }
         }

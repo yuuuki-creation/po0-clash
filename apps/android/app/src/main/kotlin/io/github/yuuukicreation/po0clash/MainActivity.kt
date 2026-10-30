@@ -1,6 +1,7 @@
 package io.github.yuuukicreation.po0clash
 
 import android.Manifest
+import android.app.ActivityManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.VpnService
@@ -21,9 +22,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import io.github.yuuukicreation.po0clash.ui.App
 import io.github.yuuukicreation.po0clash.ui.Po0Theme
 import io.github.yuuukicreation.po0clash.vpn.Po0VpnService
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val vpnPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -45,6 +50,13 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (savedInstanceState == null) handle(intent)
+        app.engine?.let { engine ->
+            lifecycleScope.launch {
+                engine.settings.state.map { it.hideFromRecents }.distinctUntilChanged().collect { hide ->
+                    getSystemService(ActivityManager::class.java).appTasks.forEach { it.setExcludeFromRecents(hide) }
+                }
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

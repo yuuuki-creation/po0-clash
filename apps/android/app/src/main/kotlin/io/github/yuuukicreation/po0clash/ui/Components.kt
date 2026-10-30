@@ -42,7 +42,7 @@ import io.github.yuuukicreation.po0clash.R
 import java.text.DateFormat
 import java.util.Date
 
-val cardRadius = 26.dp
+val cardRadius = 22.dp
 
 /**
  * One row of an inset grouped list; rows are separate lazy items so long lists stay lazy. The separator starts where
@@ -66,7 +66,7 @@ fun GroupRow(
     ) {
         if (index > 0) Hairline(Modifier.padding(start = inset))
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 16.dp, vertical = 11.dp),
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 16.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             content = content,
@@ -113,10 +113,10 @@ fun ActionRow(index: Int, count: Int, label: String, icon: ImageVector? = null, 
 fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
-        style = MaterialTheme.typography.bodyMedium,
+        style = MaterialTheme.typography.bodySmall,
         fontWeight = FontWeight.SemiBold,
         color = apple.secondaryLabel,
-        modifier = modifier.padding(start = 16.dp, top = 22.dp, bottom = 8.dp),
+        modifier = modifier.padding(start = 16.dp, top = 20.dp, bottom = 6.dp),
     )
 }
 
@@ -131,8 +131,8 @@ fun SectionFooter(text: String) {
 }
 
 @Composable
-fun SmallProgress() {
-    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = apple.secondaryLabel)
+fun SmallProgress(size: Dp = 18.dp) {
+    CircularProgressIndicator(Modifier.size(size), strokeWidth = 2.dp, color = apple.secondaryLabel)
 }
 
 @Composable

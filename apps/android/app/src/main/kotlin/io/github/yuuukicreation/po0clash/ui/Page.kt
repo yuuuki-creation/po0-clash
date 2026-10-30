@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -23,8 +24,6 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -46,11 +45,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.yuuukicreation.po0clash.R
 
-/** Space the floating tab bar takes at the bottom of every page, navigation bar included. */
+/** Space the floating status bar and tab bar take at the bottom of every page, navigation bar included. */
 val LocalBottomPadding = compositionLocalOf { 0.dp }
 
-private val navHeight = 52.dp
-private val titleHeight = 52.dp
+private val navHeight = 44.dp
+private val titleHeight = 41.dp
 val cardShape = RoundedCornerShape(cardRadius)
 
 @Composable
@@ -123,7 +122,7 @@ private fun PageScaffold(
                 )
             }
             if (onBack != null) {
-                val back = PageAction(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(R.string.back), onClick = onBack)
+                val back = PageAction(LineIcons.ChevronLeft, stringResource(R.string.back), onClick = onBack)
                 GlassButtonGroup(listOf(back), Modifier.align(Alignment.CenterStart).padding(start = 16.dp))
             }
             if (actions.isNotEmpty()) {
@@ -133,52 +132,94 @@ private fun PageScaffold(
     }
 }
 
+/** The large title, with an optional 15 pt summary line under it. */
 @Composable
-fun PageTitle(title: String) {
-    Text(
-        title,
-        style = MaterialTheme.typography.headlineLarge,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.fillMaxWidth().height(titleHeight).wrapContentHeight(Alignment.CenterVertically)
-            .padding(start = 4.dp),
-    )
+fun PageTitle(title: String, subtitle: String? = null) {
+    Column(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 2.dp, bottom = 14.dp)) {
+        Text(
+            title,
+            style = MaterialTheme.typography.headlineLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.height(titleHeight).wrapContentHeight(Alignment.CenterVertically),
+        )
+        if (subtitle != null) {
+            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = apple.secondaryLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
 }
 
 @Composable
-fun ContentCard(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+fun ContentCard(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    spacing: Dp = 8.dp,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Column(
         modifier.fillMaxWidth().clip(cardShape).background(apple.card)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(spacing),
         content = content,
     )
 }
 
-/** A dashboard card: a small monochrome header over its value. */
+/** A dashboard card: a small gray title with its monochrome icon, an optional note or button at the end, then the value. */
 @Composable
 fun InfoCard(
     title: String,
     icon: ImageVector,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    note: String? = null,
+    spacing: Dp = 4.dp,
     trailing: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    ContentCard(modifier, onClick) {
-        Row(Modifier.fillMaxWidth().height(24.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = apple.secondaryLabel, modifier = Modifier.size(18.dp))
+    val colors = apple
+    ContentCard(modifier, onClick, spacing) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = colors.secondaryLabel, modifier = Modifier.size(15.dp))
             Text(
                 title,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Medium,
-                color = apple.secondaryLabel,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = colors.secondaryLabel,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(start = 6.dp),
             )
+            if (note != null) {
+                Text(note, style = MaterialTheme.typography.bodySmall.tabular(), fontWeight = FontWeight.Medium, color = colors.secondaryLabel, maxLines = 1)
+            }
             trailing?.invoke()
         }
         content()
+    }
+}
+
+/** A large semibold number with its small gray unit, as the spec sets values apart from their labels. */
+@Composable
+fun BigValue(value: String, unit: String? = null, large: Boolean = false) {
+    val colors = apple
+    Row(verticalAlignment = Alignment.Bottom) {
+        Text(
+            value,
+            style = (if (large) MaterialTheme.typography.displaySmall else MaterialTheme.typography.headlineSmall).tabular(),
+            maxLines = 1,
+            modifier = Modifier.alignByBaseline(),
+        )
+        if (unit != null) {
+            Text(
+                unit,
+                style = if (large) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium,
+                color = colors.secondaryLabel,
+                maxLines = 1,
+                modifier = Modifier.alignByBaseline().padding(start = 3.dp),
+            )
+        }
     }
 }
 

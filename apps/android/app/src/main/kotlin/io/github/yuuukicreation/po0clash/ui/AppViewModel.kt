@@ -5,10 +5,13 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.yuuukicreation.po0clash.AndroidSettings
 import io.github.yuuukicreation.po0clash.R
 import io.github.yuuukicreation.po0clash.core.Change
+import io.github.yuuukicreation.po0clash.core.EngineOptions
 import io.github.yuuukicreation.po0clash.core.Mode
 import io.github.yuuukicreation.po0clash.core.ProfileEdit
+import io.github.yuuukicreation.po0clash.core.ProviderKind
 import io.github.yuuukicreation.po0clash.engine
 import io.github.yuuukicreation.po0clash.userMessage
 import io.github.yuuukicreation.po0clash.vpn.Po0VpnService
@@ -18,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -29,6 +33,10 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     val messages = _messages.receiveAsFlow()
     private val _busy = MutableStateFlow(emptySet<String>())
     val busy = _busy.asStateFlow()
+    private val _options = MutableStateFlow(core.engineOptions())
+    val options = _options.asStateFlow()
+    val androidSettings = engine.settings.state
+    private val optionWriter = Dispatchers.IO.limitedParallelism(1)
 
     private fun launch(key: String, block: () -> String?) {
         if (key in _busy.value) return
@@ -66,7 +74,42 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     }
 
     fun testNodeDelay(node: String) = launch(busyNodeDelay(node)) {
-        core.testNodeDelay(node)
+        engine.setNodeDelay(node, core.testNodeDelay(node))
+        null
+    }
+
+    /** Applies at once on screen; the core gets only the latest options when several changes queue up. */
+    fun setOptions(change: (EngineOptions) -> EngineOptions) {
+        val next = _options.updateAndGet(change)
+        viewModelScope.launch(optionWriter) {
+            if (_options.value != next) return@launch
+            try {
+                core.setEngineOptions(next)
+            } catch (e: Exception) {
+                _options.value = core.engineOptions()
+                _messages.send(e.userMessage())
+            }
+        }
+    }
+
+    fun updateAndroid(change: (AndroidSettings) -> AndroidSettings) = engine.settings.update(change)
+
+    fun toast(message: String) {
+        _messages.trySend(message)
+    }
+
+    fun exportText(uri: Uri, text: String) = launch("export-text") {
+        checkNotNull(app.contentResolver.openOutputStream(uri)).use { it.write(text.encodeToByteArray()) }
+        app.getString(R.string.export_done_short)
+    }
+
+    fun updateGeo() = launch(BUSY_GEO) {
+        core.updateGeo()
+        app.getString(R.string.geo_updated)
+    }
+
+    fun updateProvider(kind: ProviderKind, name: String) = launch(busyProvider(name)) {
+        core.updateProvider(kind, name)
         null
     }
 
@@ -197,6 +240,8 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
         const val BUSY_WHITELIST_NOW = "whitelist-now"
         const val BUSY_DIAGNOSTICS = "diagnostics"
         const val BUSY_CONNECTIONS = "connections"
+        const val BUSY_GEO = "geo"
+        fun busyProvider(name: String) = "provider:$name"
         fun busyDelay(group: String) = "delay:$group"
         fun busyNodeDelay(node: String) = "node-delay:$node"
         fun busyProfile(id: String) = "profile:$id"

@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.net.IpPrefix
+import android.net.ProxyInfo
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -16,6 +17,8 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import io.github.yuuukicreation.po0clash.AccessMode
+import io.github.yuuukicreation.po0clash.AndroidSettings
 import io.github.yuuukicreation.po0clash.Engine
 import io.github.yuuukicreation.po0clash.MainActivity
 import io.github.yuuukicreation.po0clash.R
@@ -28,6 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.net.InetAddress
 
@@ -46,7 +50,7 @@ class Po0VpnService : VpnService() {
         super.onCreate()
         val engine = engine ?: return
         scope.launch {
-            engine.status.collectLatest { status ->
+            combine(engine.status, engine.settings.state) { status, _ -> status }.collectLatest { status ->
                 if (foreground) notificationManager().notify(NOTIFICATION_ID, notification(status))
             }
         }
@@ -141,7 +145,7 @@ class Po0VpnService : VpnService() {
         setSession(getString(R.string.app_name))
         setMtu(VpnRoutes.MTU)
         addAddress(VpnRoutes.ADDRESS4, VpnRoutes.PREFIX4)
-        addAddress(VpnRoutes.ADDRESS6, VpnRoutes.PREFIX6)
+        if (engine?.settings?.state?.value?.ipv6 != false) addAddress(VpnRoutes.ADDRESS6, VpnRoutes.PREFIX6)
         addDnsServer(VpnRoutes.DNS)
         if (Build.VERSION.SDK_INT >= 33) {
             addRoute("0.0.0.0", 0)
@@ -149,8 +153,19 @@ class Po0VpnService : VpnService() {
         } else {
             VpnRoutes.ipv4Excluding(VpnRoutes.PO0_API).forEach { addRoute(it.address, it.prefix) }
         }
-        addRoute("::", 0)
-        addDisallowedApplication(packageName)
+        val settings = engine?.settings?.state?.value ?: AndroidSettings()
+        if (settings.ipv6) addRoute("::", 0)
+        val others = settings.accessPackages - packageName
+        if (settings.accessMode == AccessMode.ALLOW && others.isNotEmpty()) {
+            others.forEach { runCatching { addAllowedApplication(it) } }
+        } else {
+            addDisallowedApplication(packageName)
+            if (settings.accessMode == AccessMode.DENY) others.forEach { runCatching { addDisallowedApplication(it) } }
+        }
+        if (settings.allowBypass) allowBypass()
+        if (settings.systemProxy && Build.VERSION.SDK_INT >= 29) {
+            engine?.let { setHttpProxy(ProxyInfo.buildDirectProxy("127.0.0.1", it.core.engineOptions().mixedPort.toInt())) }
+        }
         if (Build.VERSION.SDK_INT >= 29) setMetered(false)
         setConfigureIntent(openAppIntent())
     }
@@ -206,7 +221,7 @@ class Po0VpnService : VpnService() {
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setContentIntent(openAppIntent())
-            .addAction(0, getString(R.string.disconnect), stop)
+            .apply { if (engine?.settings?.state?.value?.notificationStop != false) addAction(0, getString(R.string.disconnect), stop) }
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }

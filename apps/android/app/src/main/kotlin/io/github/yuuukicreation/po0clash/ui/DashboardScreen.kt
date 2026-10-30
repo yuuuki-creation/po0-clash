@@ -1,7 +1,8 @@
 package io.github.yuuukicreation.po0clash.ui
 
-import android.os.SystemClock
+import android.text.format.Formatter
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -20,36 +20,14 @@ import androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.UnfoldMore
-import androidx.compose.material.icons.outlined.Cable
-import androidx.compose.material.icons.outlined.Hub
-import androidx.compose.material.icons.outlined.Inbox
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.Memory
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Speed
-import androidx.compose.material.icons.outlined.SwapVert
-import androidx.compose.material.icons.outlined.VerifiedUser
-import androidx.compose.material.icons.outlined.WarningAmber
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -57,7 +35,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,24 +48,31 @@ import io.github.yuuukicreation.po0clash.core.Connections
 import io.github.yuuukicreation.po0clash.core.EngineState
 import io.github.yuuukicreation.po0clash.core.Mode
 import io.github.yuuukicreation.po0clash.core.Traffic
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 
-private val connectButtonHeight = 56.dp
-
 @Composable
-fun DashboardScreen(vm: AppViewModel, onConnect: () -> Unit, onOpen: (Page) -> Unit) {
+fun DashboardScreen(vm: AppViewModel, onOpen: (Page) -> Unit) {
     val engine = vm.engine
     val status by engine.status.collectAsStateWithLifecycle()
-    val vpnError by engine.vpnError.collectAsStateWithLifecycle()
-    val failure = (status.engine as? EngineState.Failed)?.message ?: vpnError
+    val profiles by engine.profiles.collectAsStateWithLifecycle()
+    val groups by engine.groups.collectAsStateWithLifecycle()
+    val busy by vm.busy.collectAsStateWithLifecycle()
     val running = status.engine == EngineState.Running
     val snapshot by remember(running) {
         if (running) engine.poll { Snapshot(trafficHistory(), memory(), connections()) } else flowOf(null)
     }.collectAsStateWithLifecycle(null)
+    val group = currentGroup(groups, status.currentNode)
+    val test = PageAction(
+        LineIcons.Bolt,
+        stringResource(R.string.test_delay),
+        enabled = running && group != null,
+        busy = group != null && AppViewModel.busyDelay(group.name) in busy,
+    ) { group?.let { vm.testDelay(it.name) } }
+    val profile = profiles.firstOrNull { it.selected }?.let { profileName(it.kind, it.name) }
+    val subtitle = listOfNotNull(profile, stringResource(R.string.mode_summary, stringResource(modeLabel(status.mode)))).joinToString(" · ")
 
     val grid = rememberLazyGridState()
-    PageScaffold(stringResource(R.string.dashboard), grid, extraBottom = connectButtonHeight + 12.dp) { padding ->
+    PageScaffold(stringResource(R.string.dashboard), grid, actions = listOf(test)) { padding ->
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val columns = ((maxWidth - 20.dp) / 172.dp).toInt().coerceAtLeast(2)
             val wide: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(minOf(2, maxLineSpan)) }
@@ -99,184 +85,196 @@ fun DashboardScreen(vm: AppViewModel, onConnect: () -> Unit, onOpen: (Page) -> U
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                item(span = full) { PageTitle(stringResource(R.string.dashboard)) }
-                if (failure != null) item(span = full) { FailureCard(failure, onConnect) }
-                item(span = full) { ModePicker(vm) }
+                item(span = full) { PageTitle(stringResource(R.string.dashboard), subtitle) }
                 item(span = wide) { SpeedCard(snapshot?.history) }
+                item(span = wide) { ModeCard(vm) }
+                item(span = wide) { NodeCard(vm, onClick = { onOpen(Page.PROXIES) }) }
                 item { TrafficCard(snapshot?.connections) }
                 item { ConnectionsCard(snapshot?.connections) }
-                item { ExitIpCard(vm) }
                 item { MemoryCard(snapshot?.memory) }
-                item(span = wide) { NodeCard(vm, onClick = { onOpen(Page.PROXIES) }) }
+                item { ExitIpCard(vm) }
                 item(span = wide) { SubscriptionCard(vm, onAdd = { onOpen(Page.PROFILES) }) }
                 item(span = wide) { WhitelistCard(vm, onClick = { onOpen(Page.WHITELIST) }) }
             }
         }
-        Box(Modifier.fillMaxSize().padding(end = 16.dp, bottom = LocalBottomPadding.current + 12.dp), Alignment.BottomEnd) {
-            ConnectButton(vm, onConnect)
-        }
     }
 }
 
-@Composable
-private fun FailureCard(message: String, onReconnect: () -> Unit) {
-    ContentCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.WarningAmber, contentDescription = null, tint = apple.red, modifier = Modifier.size(22.dp))
-            Text(
-                stringResource(R.string.state_failed),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f).padding(start = 8.dp),
-            )
-            TextButton(onClick = onReconnect, shape = CircleShape) {
-                Text(stringResource(R.string.reconnect), style = MaterialTheme.typography.bodyLarge, color = apple.accent)
-            }
-        }
-        Text(message, style = MaterialTheme.typography.bodyMedium, color = apple.secondaryLabel, maxLines = 6, overflow = TextOverflow.Ellipsis)
-    }
-}
-
-/**
- * FlClash's start button, the app's one tinted action: prominent blue glass while off, plain glass showing the
- * connection's age once it is up; a tap while on disconnects.
- */
-@Composable
-private fun ConnectButton(vm: AppViewModel, onConnect: () -> Unit) {
-    val engine = vm.engine
-    val active by engine.vpnActive.collectAsStateWithLifecycle()
-    val connectedAt by engine.connectedAt.collectAsStateWithLifecycle()
-    val profiles by engine.profiles.collectAsStateWithLifecycle()
-    val colors = apple
-    val enabled = active || profiles.any { it.selected }
-    val shape = CircleShape
-    val surface = when {
-        active -> Modifier.glass(shape)
-        enabled -> Modifier.glass(shape, tint = colors.accent)
-        else -> Modifier.glass(shape, tint = colors.accent).alpha(0.5f)
-    }
-    val tint = if (active) colors.label else Color.White
-    Row(
-        Modifier.height(connectButtonHeight).then(surface).clip(shape)
-            .clickable(enabled = enabled) { if (active) vm.disconnect() else onConnect() }
-            .padding(start = 18.dp, end = 22.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        val since = connectedAt
-        when {
-            !active -> Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = tint)
-            since == null -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = colors.secondaryLabel)
-            else -> Icon(Icons.Filled.Stop, contentDescription = stringResource(R.string.disconnect), tint = tint)
-        }
-        val label = when {
-            !active -> stringResource(R.string.connect)
-            since == null -> stringResource(R.string.state_starting)
-            else -> elapsed(since)
-        }
-        Text(label, style = MaterialTheme.typography.titleMedium.tabular(), color = tint)
-    }
-}
-
-@Composable
-private fun elapsed(since: Long): String {
-    val now by produceState(SystemClock.elapsedRealtime(), since) {
-        while (true) {
-            value = SystemClock.elapsedRealtime()
-            delay(1000 - (value - since) % 1000)
-        }
-    }
-    val seconds = ((now - since) / 1000).coerceAtLeast(0)
-    return "%02d:%02d:%02d".format(seconds / 3600, seconds / 60 % 60, seconds % 60)
+fun modeLabel(mode: Mode) = when (mode) {
+    Mode.RULE -> R.string.mode_rule
+    Mode.GLOBAL -> R.string.mode_global
+    Mode.DIRECT -> R.string.mode_direct
 }
 
 private class Snapshot(val history: List<Traffic>, val memory: ULong, val connections: Connections)
 
+/** [Formatter]'s size split into number and unit, so the number can be large and the unit small. */
+@Composable
+fun byteParts(value: ULong, perSecond: Boolean = false): Pair<String, String> {
+    val text = Formatter.formatFileSize(LocalContext.current, value.toLong())
+    val split = text.indexOfLast { it.isWhitespace() || it == ' ' }
+    val (number, unit) = if (split < 0) text to "" else text.substring(0, split) to text.substring(split + 1)
+    return number to if (perSecond) "$unit/s" else unit
+}
+
 @Composable
 private fun SpeedCard(history: List<Traffic>?) {
+    val colors = apple
     val now = history?.lastOrNull()
-    val peak = history?.maxOfOrNull { maxOf(it.up, it.down) }
-    InfoCard(
-        stringResource(R.string.traffic),
-        Icons.Outlined.Speed,
-        trailing = {
-            peak?.let {
-                Text(stringResource(R.string.peak, bytes(it)), style = MaterialTheme.typography.labelMedium.tabular(), color = apple.secondaryLabel)
+    InfoCard(stringResource(R.string.network_speed), LineIcons.Chart, note = stringResource(R.string.last_minute), spacing = 8.dp) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            listOf(
+                Triple(now?.down ?: 0u, R.string.download, colors.accent),
+                Triple(now?.up ?: 0u, R.string.upload, colors.upload),
+            ).forEach { (rate, label, color) ->
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    val (number, unit) = byteParts(rate, perSecond = true)
+                    BigValue(number, unit, large = true)
+                    Legend(color, stringResource(label))
+                }
             }
-        },
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            RateLine(Icons.Filled.ArrowUpward, now?.up?.let { stringResource(R.string.per_second, bytes(it)) })
-            RateLine(Icons.Filled.ArrowDownward, now?.down?.let { stringResource(R.string.per_second, bytes(it)) })
         }
         SpeedChart(history.orEmpty())
     }
 }
 
-/** The last minute of rates: download as the solid line, upload as the faint one, scaled to the busier of the two. */
+@Composable
+private fun Legend(color: Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Box(Modifier.size(8.dp).background(color, CircleShape))
+        Text(label, style = MaterialTheme.typography.bodySmall, color = apple.secondaryLabel)
+    }
+}
+
+/** The last minute: download as the accent line over a faint fill, upload as the gray line, one baseline, no axes. */
 @Composable
 private fun SpeedChart(history: List<Traffic>) {
     val colors = apple
     Canvas(Modifier.fillMaxWidth().height(56.dp)) {
         drawLine(colors.separator, Offset(0f, size.height), Offset(size.width, size.height), strokeWidth = 1f)
         if (history.size < 2) return@Canvas
-        val top = maxOf(history.maxOf { maxOf(it.up, it.down) }.toFloat(), 1024f)
+        val top = maxOf(history.maxOf { maxOf(it.up, it.down) }.toFloat() * 1.1f, 1024f)
         val step = size.width / (HISTORY - 1)
         val start = size.width - step * (history.size - 1)
         fun line(value: (Traffic) -> ULong) = Path().apply {
             history.forEachIndexed { index, traffic ->
                 val x = start + step * index
-                val y = size.height * (1 - value(traffic).toFloat() / top)
+                val y = (size.height - 1) * (1 - value(traffic).toFloat() / top)
                 if (index == 0) moveTo(x, y) else lineTo(x, y)
             }
         }
-        val stroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-        drawPath(line { it.up }, colors.accent.copy(alpha = 0.4f), style = stroke)
-        drawPath(line { it.down }, colors.accent, style = stroke)
+        val down = line { it.down }
+        val area = Path().apply {
+            addPath(down)
+            lineTo(size.width, size.height)
+            lineTo(start, size.height)
+            close()
+        }
+        drawPath(area, colors.accentSoft)
+        drawPath(line { it.up }, colors.upload, style = Stroke(1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawPath(down, colors.accent, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
 }
 
 private const val HISTORY = 60
 
 @Composable
-private fun TrafficCard(connections: Connections?) {
-    InfoCard(stringResource(R.string.traffic_total), Icons.Outlined.SwapVert, Modifier.heightIn(min = 112.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            RateLine(Icons.Filled.ArrowUpward, connections?.uploadTotal?.let { bytes(it) })
-            RateLine(Icons.Filled.ArrowDownward, connections?.downloadTotal?.let { bytes(it) })
+private fun ModeCard(vm: AppViewModel) {
+    val status by vm.engine.status.collectAsStateWithLifecycle()
+    val busy by vm.busy.collectAsStateWithLifecycle()
+    val modes = Mode.entries.map { it to stringResource(modeLabel(it)) }
+    val detail = when (status.mode) {
+        Mode.RULE -> R.string.mode_rule_detail
+        Mode.GLOBAL -> R.string.mode_global_detail
+        Mode.DIRECT -> R.string.mode_direct_detail
+    }
+    InfoCard(stringResource(R.string.outbound_mode), LineIcons.Branch, spacing = 10.dp) {
+        SegmentedPicker(modes, status.mode, enabled = AppViewModel.BUSY_MODE !in busy, onSelect = vm::setMode)
+        Text(stringResource(detail), style = MaterialTheme.typography.bodySmall, color = apple.secondaryLabel)
+    }
+}
+
+@Composable
+private fun NodeCard(vm: AppViewModel, onClick: () -> Unit) {
+    val engine = vm.engine
+    val colors = apple
+    val status by engine.status.collectAsStateWithLifecycle()
+    val groups by engine.groups.collectAsStateWithLifecycle()
+    val running = status.engine == EngineState.Running
+    val nodeName = status.currentNode.takeIf { running }
+    val group = currentGroup(groups, nodeName)
+    val node = nodeName?.let { name -> groups.asSequence().flatMap { it.nodes }.firstOrNull { it.name == name } }
+    InfoCard(
+        stringResource(R.string.current_node),
+        LineIcons.Globe,
+        onClick = onClick,
+        spacing = 6.dp,
+        trailing = {
+            Text(
+                group?.name.orEmpty(),
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = colors.secondaryLabel,
+                maxLines = 1,
+            )
+            Icon(LineIcons.ChevronRight, contentDescription = null, tint = colors.secondaryLabel, modifier = Modifier.size(14.dp))
+        },
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                nodeName ?: stringResource(if (running) R.string.state_running else R.string.state_stopped),
+                style = MaterialTheme.typography.titleLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            node?.delay?.let { DelayText(it, MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), dot = true) }
         }
+        val detail = listOfNotNull(node?.kind, group?.let { pluralStringResource(R.plurals.node_count, it.nodes.size, it.nodes.size) })
+        Text(
+            detail.joinToString(" · ").ifEmpty { stringResource(R.string.connect_to_see_node) },
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.secondaryLabel,
+        )
+    }
+}
+
+@Composable
+private fun TrafficCard(connections: Connections?) {
+    val up = connections?.uploadTotal ?: 0u
+    val down = connections?.downloadTotal ?: 0u
+    InfoCard(stringResource(R.string.traffic_total), LineIcons.UpDown) {
+        val (number, unit) = byteParts(up + down)
+        BigValue(number, unit)
+        Text("↑ ${bytes(up)} · ↓ ${bytes(down)}", style = MaterialTheme.typography.labelMedium.tabular(), color = apple.secondaryLabel, maxLines = 1)
     }
 }
 
 @Composable
 private fun ConnectionsCard(connections: Connections?) {
-    InfoCard(stringResource(R.string.connections), Icons.Outlined.Cable, Modifier.heightIn(min = 112.dp)) {
-        BigValue(connections?.items?.size?.toString())
+    val items = connections?.items.orEmpty()
+    val tcp = items.count { it.network.equals("tcp", ignoreCase = true) }
+    InfoCard(stringResource(R.string.connections), LineIcons.Link) {
+        BigValue(items.size.toString(), stringResource(R.string.count_unit).ifEmpty { null })
+        Text(
+            stringResource(R.string.tcp_udp, tcp, items.size - tcp),
+            style = MaterialTheme.typography.labelMedium.tabular(),
+            color = apple.secondaryLabel,
+            maxLines = 1,
+        )
     }
 }
 
 @Composable
 private fun MemoryCard(memory: ULong?) {
-    InfoCard(stringResource(R.string.memory), Icons.Outlined.Memory, Modifier.heightIn(min = 112.dp)) {
-        BigValue(memory?.takeIf { it > 0u }?.let { bytes(it) })
-    }
-}
-
-@Composable
-private fun BigValue(value: String?) {
-    Text(value ?: "—", style = MaterialTheme.typography.titleLarge.tabular(), maxLines = 1)
-}
-
-@Composable
-private fun RateLine(icon: ImageVector, value: String?) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, contentDescription = null, tint = apple.secondaryLabel, modifier = Modifier.size(16.dp))
-        Text(
-            value ?: "—",
-            style = MaterialTheme.typography.bodyLarge.tabular(),
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            modifier = Modifier.padding(start = 6.dp),
-        )
+    InfoCard(stringResource(R.string.memory), LineIcons.Chip) {
+        if (memory != null && memory > 0u) {
+            val (number, unit) = byteParts(memory)
+            BigValue(number, unit)
+        } else {
+            BigValue("—")
+        }
+        Text(stringResource(R.string.engine_memory), style = MaterialTheme.typography.labelMedium, color = apple.secondaryLabel, maxLines = 1)
     }
 }
 
@@ -285,71 +283,24 @@ private fun ExitIpCard(vm: AppViewModel) {
     val exitIp by vm.engine.exitIp.collectAsStateWithLifecycle()
     InfoCard(
         stringResource(R.string.exit_ip),
-        Icons.Outlined.Language,
-        Modifier.heightIn(min = 112.dp),
-        trailing = {
-            IconButton(onClick = vm.engine::refreshExitIp, modifier = Modifier.size(28.dp)) {
-                Icon(
-                    Icons.Outlined.Refresh,
-                    contentDescription = stringResource(R.string.refresh),
-                    tint = apple.accent,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-        },
+        LineIcons.Pin,
+        trailing = { FillButton(LineIcons.Refresh, stringResource(R.string.refresh), size = 24.dp, onClick = vm.engine::refreshExitIp) },
     ) {
-        Column {
-            Text(
-                exitIp?.ip ?: "—",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.MiddleEllipsis,
-            )
-            exitIp?.country?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = apple.secondaryLabel) }
-        }
+        Text(
+            exitIp?.ip ?: "—",
+            style = MaterialTheme.typography.bodyLarge.tabular(),
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.MiddleEllipsis,
+            modifier = Modifier.padding(vertical = 5.dp),
+        )
+        Text(
+            exitIp?.country ?: stringResource(R.string.unknown),
+            style = MaterialTheme.typography.labelMedium,
+            color = apple.secondaryLabel,
+            maxLines = 1,
+        )
     }
-}
-
-@Composable
-private fun NodeCard(vm: AppViewModel, onClick: () -> Unit) {
-    val engine = vm.engine
-    val status by engine.status.collectAsStateWithLifecycle()
-    val groups by engine.groups.collectAsStateWithLifecycle()
-    val node = status.currentNode.takeIf { status.engine == EngineState.Running }
-    val delay = node?.let { name -> groups.asSequence().flatMap { it.nodes }.firstOrNull { it.name == name && it.delay != null }?.delay }
-    InfoCard(
-        stringResource(R.string.current_node),
-        Icons.Outlined.Hub,
-        onClick = onClick,
-        trailing = {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = apple.secondaryLabel)
-        },
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                node ?: "—",
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            DelayText(delay)
-        }
-    }
-}
-
-/** The most-changed setting sits right under the title, as a bare segmented control rather than a card. */
-@Composable
-private fun ModePicker(vm: AppViewModel) {
-    val status by vm.engine.status.collectAsStateWithLifecycle()
-    val busy by vm.busy.collectAsStateWithLifecycle()
-    val modes = listOf(
-        Mode.RULE to stringResource(R.string.mode_rule),
-        Mode.GLOBAL to stringResource(R.string.mode_global),
-        Mode.DIRECT to stringResource(R.string.mode_direct),
-    )
-    SegmentedPicker(modes, status.mode, enabled = AppViewModel.BUSY_MODE !in busy, onSelect = vm::setMode)
 }
 
 @Composable
@@ -357,40 +308,53 @@ private fun SubscriptionCard(vm: AppViewModel, onAdd: () -> Unit) {
     val profiles by vm.engine.profiles.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val sheets = LocalSheets.current
+    val colors = apple
     val current = profiles.firstOrNull { it.selected }
     val switchTitle = stringResource(R.string.switch_subscription)
     val names = profiles.map { profileName(it.kind, it.name) }
     val anchor = rememberAnchor()
-    InfoCard(stringResource(R.string.subscription), Icons.Outlined.Inbox) {
+    InfoCard(
+        stringResource(R.string.subscription),
+        LineIcons.Layers,
+        note = current?.updatedAt?.let { stringResource(R.string.updated, relativeTime(it)) },
+        spacing = 8.dp,
+    ) {
         if (profiles.isEmpty()) {
             Text(
                 stringResource(R.string.add_subscription),
                 style = MaterialTheme.typography.bodyLarge,
-                color = apple.accent,
+                color = colors.accent,
                 modifier = Modifier.clip(CircleShape).clickable(onClick = onAdd).padding(vertical = 2.dp),
             )
             return@InfoCard
         }
-        Row(
-            Modifier.anchor(anchor).clip(CircleShape)
-                .clickable(enabled = AppViewModel.BUSY_PROFILES !in busy) {
-                    sheets.menu(anchor, switchTitle, profiles.mapIndexed { i, profile -> SheetAction(names[i]) { vm.selectProfile(profile.id) } })
-                },
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                current?.let { profileName(it.kind, it.name) } ?: stringResource(R.string.no_profile),
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            Icon(
-                Icons.Filled.UnfoldMore,
-                contentDescription = switchTitle,
-                tint = apple.secondaryLabel,
-                modifier = Modifier.padding(start = 4.dp).size(20.dp),
-            )
+        val usage = current?.usage?.takeIf { it.total > 0u }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.weight(1f).anchor(anchor).clip(CircleShape)
+                    .clickable(enabled = AppViewModel.BUSY_PROFILES !in busy) {
+                        sheets.menu(anchor, switchTitle, profiles.mapIndexed { i, profile -> SheetAction(names[i]) { vm.selectProfile(profile.id) } })
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    current?.let { profileName(it.kind, it.name) } ?: stringResource(R.string.no_profile),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Icon(
+                    LineIcons.ChevronDown,
+                    contentDescription = switchTitle,
+                    tint = colors.secondaryLabel,
+                    modifier = Modifier.padding(start = 4.dp).size(14.dp),
+                )
+            }
+            if (usage != null) {
+                val percent = ((usage.upload + usage.download).toDouble() * 100 / usage.total.toDouble()).toInt().coerceIn(0, 100)
+                Text("$percent%", style = MaterialTheme.typography.bodySmall.tabular(), color = colors.secondaryLabel)
+            }
         }
         current?.let { ProfileUsage(it) }
     }
@@ -400,12 +364,11 @@ private fun SubscriptionCard(vm: AppViewModel, onAdd: () -> Unit) {
 private fun WhitelistCard(vm: AppViewModel, onClick: () -> Unit) {
     val whitelist by vm.engine.whitelist.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
-    InfoCard(stringResource(R.string.whitelist_enabled), Icons.Outlined.VerifiedUser, onClick = onClick) {
+    InfoCard(stringResource(R.string.whitelist_enabled), LineIcons.ShieldCheck, onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 whitelistSummary(whitelist),
-                style = MaterialTheme.typography.bodyLarge,
-                color = apple.secondaryLabel,
+                style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
             AppleSwitch(whitelist.enabled, vm::setWhitelistEnabled, enabled = AppViewModel.BUSY_WHITELIST !in busy)

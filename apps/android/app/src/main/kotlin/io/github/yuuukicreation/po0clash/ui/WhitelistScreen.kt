@@ -7,10 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,13 +39,13 @@ fun WhitelistScreen(vm: AppViewModel) {
     val add = stringResource(R.string.add)
     val actions = listOf(
         PageAction(
-            Icons.Outlined.Refresh,
+            LineIcons.Refresh,
             stringResource(R.string.whitelist_now),
             enabled = whitelist.entries.isNotEmpty(),
             busy = AppViewModel.BUSY_WHITELIST_NOW in busy,
             onClick = vm::whitelistNow,
         ),
-        PageAction(Icons.Filled.Add, addTitle, busy = AppViewModel.BUSY_WHITELIST in busy) {
+        PageAction(LineIcons.Plus, addTitle, busy = AppViewModel.BUSY_WHITELIST in busy) {
             sheets.show {
                 TextSheet(addTitle, hint, multiline = true, confirm = add, namePlaceholder = nameHint) { text, name ->
                     vm.addWhitelist(text, name)
@@ -126,7 +122,7 @@ private fun EntryRow(index: Int, count: Int, entry: WhitelistEntry, vm: AppViewM
             onClick = { sheets.menu(anchor, confirm, listOf(SheetAction(delete, destructive = true) { vm.removeWhitelist(entry.id) })) },
             modifier = Modifier.anchor(anchor),
         ) {
-            Icon(Icons.Outlined.Delete, contentDescription = delete, tint = colors.secondaryLabel)
+            Icon(LineIcons.Trash, contentDescription = delete, tint = colors.secondaryLabel)
         }
     }
 }

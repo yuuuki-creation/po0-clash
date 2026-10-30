@@ -11,9 +11,13 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.VpnService
+import android.net.wifi.WifiInfo
+import android.net.wifi.WifiManager
+import android.os.Build
 import android.os.PowerManager
 import android.os.SystemClock
 import android.service.quicksettings.TileService
+import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import io.github.yuuukicreation.po0clash.core.Change
 import io.github.yuuukicreation.po0clash.core.CoreListener
@@ -34,6 +38,8 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
@@ -76,6 +82,13 @@ class Engine(private val app: Application) {
 
     val vpnActive = MutableStateFlow(false)
     val vpnError = MutableStateFlow<String?>(null)
+    val settings = AndroidSettingsStore(app)
+    private val _ssid = MutableStateFlow<String?>(null)
+
+    /** The Wi-Fi the device is on, when location permission lets us read its name. */
+    val ssid = _ssid.asStateFlow()
+    private var wifi: Network? = null
+    private var pausedOnWifi = false
 
     /** Reads [read] once a second while collected; the engine's monitor refreshes at that pace while the screen is on. */
     fun <T> poll(read: Po0Core.() -> T): Flow<T> = flow {
@@ -93,6 +106,7 @@ class Engine(private val app: Application) {
         })
         scheduleExitIp(0)
         watchNetwork()
+        watchWifi()
         watchScreen()
         restoreConnection()
     }
@@ -138,6 +152,12 @@ class Engine(private val app: Application) {
 
     fun refreshExitIp() = scheduleExitIp(0)
 
+    fun setNodeDelay(node: String, delay: UInt) {
+        _groups.update { groups ->
+            groups.map { group -> group.copy(nodes = group.nodes.map { if (it.name == node) it.copy(delay = delay) else it }) }
+        }
+    }
+
     private fun scheduleExitIp(delayMillis: Long = 1000) {
         exitJob?.cancel()
         exitJob = scope.launch {
@@ -162,6 +182,60 @@ class Engine(private val app: Application) {
                 override fun onLost(network: Network) = physicalChanged { remove(network) }
             },
         )
+    }
+
+    // Since API 31 a callback sees the SSID only when it asks for location info; before that WifiManager still has it.
+    private inner class WifiCallback : ConnectivityManager.NetworkCallback {
+        constructor() : super()
+
+        @RequiresApi(31)
+        constructor(flags: Int) : super(flags)
+
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+            wifi = network
+            val info = if (Build.VERSION.SDK_INT >= 31) caps.transportInfo as? WifiInfo else null
+            wifiChanged(info?.ssid ?: legacySsid())
+        }
+
+        override fun onLost(network: Network) {
+            if (wifi == network) wifiChanged(null)
+        }
+    }
+
+    private fun watchWifi() {
+        val request = NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI).build()
+        val callback = if (Build.VERSION.SDK_INT >= 31) {
+            WifiCallback(ConnectivityManager.NetworkCallback.FLAG_INCLUDE_LOCATION_INFO)
+        } else {
+            WifiCallback()
+        }
+        app.getSystemService(ConnectivityManager::class.java).registerNetworkCallback(request, callback)
+        scope.launch {
+            combine(_ssid, settings.state) { ssid, settings -> ssid != null && ssid in settings.excludedSsids }
+                .distinctUntilChanged()
+                .collect(::onExcludedWifi)
+        }
+    }
+
+    fun refreshSsid() {
+        if (wifi != null && Build.VERSION.SDK_INT < 31) wifiChanged(legacySsid())
+    }
+
+    @Suppress("DEPRECATION")
+    private fun legacySsid(): String? = app.getSystemService(WifiManager::class.java)?.connectionInfo?.ssid
+
+    private fun wifiChanged(raw: String?) {
+        _ssid.value = raw?.removeSurrounding("\"")?.takeUnless { it.isBlank() || it == WifiManager.UNKNOWN_SSID }
+    }
+
+    private fun onExcludedWifi(excluded: Boolean) {
+        if (excluded && vpnActive.value) {
+            pausedOnWifi = true
+            Po0VpnService.stop(app)
+        } else if (!excluded && pausedOnWifi) {
+            pausedOnWifi = false
+            if (VpnService.prepare(app) == null) runCatching { Po0VpnService.start(app) }
+        }
     }
 
     private fun physicalChanged(edit: MutableSet<Network>.() -> Unit) {

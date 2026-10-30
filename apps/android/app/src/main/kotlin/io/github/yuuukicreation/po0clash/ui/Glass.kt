@@ -153,17 +153,29 @@ fun ScrollEdge(visible: Boolean, height: Dp, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth().height(height).then(effect))
 }
 
-data class PageAction(val icon: ImageVector, val label: String, val enabled: Boolean = true, val busy: Boolean = false, val onClick: () -> Unit)
+data class PageAction(
+    val icon: ImageVector,
+    val label: String,
+    val enabled: Boolean = true,
+    val busy: Boolean = false,
+    val anchor: Anchor? = null,
+    val onClick: () -> Unit,
+)
 
-/** Toolbar buttons that share one glass capsule; icons only, as iOS groups them. */
+/** Toolbar buttons that share one 44-high glass capsule; icons only, as iOS groups them. */
 @Composable
 fun GlassButtonGroup(actions: List<PageAction>, modifier: Modifier = Modifier) {
     val colors = apple
-    Row(modifier.height(44.dp).glass(CircleShape), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier.height(44.dp).glass(CircleShape).padding(horizontal = if (actions.size == 1) 0.dp else 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         actions.forEach { action ->
             val enabled = action.enabled && !action.busy
             Box(
-                Modifier.fillMaxHeight().width(if (actions.size == 1) 44.dp else 48.dp).clip(CircleShape)
+                Modifier.size(44.dp, if (actions.size == 1) 44.dp else 40.dp)
+                    .then(action.anchor?.let { Modifier.anchor(it) } ?: Modifier)
+                    .clip(CircleShape)
                     .clickable(enabled = enabled, role = Role.Button, onClickLabel = action.label, onClick = action.onClick),
                 contentAlignment = Alignment.Center,
             ) {
@@ -174,10 +186,27 @@ fun GlassButtonGroup(actions: List<PageAction>, modifier: Modifier = Modifier) {
                         action.icon,
                         contentDescription = action.label,
                         tint = if (enabled) colors.label else colors.secondaryLabel,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
+        }
+    }
+}
+
+/** The spec's secondary button: a filled circle holding a small monochrome icon. */
+@Composable
+fun FillButton(icon: ImageVector, label: String, size: Dp = 32.dp, busy: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
+    val colors = apple
+    Box(
+        Modifier.size(size).clip(CircleShape).background(colors.track)
+            .clickable(enabled = enabled && !busy, role = Role.Button, onClickLabel = label, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (busy) {
+            SmallProgress(14.dp)
+        } else {
+            Icon(icon, contentDescription = label, tint = if (enabled) colors.label else colors.secondaryLabel, modifier = Modifier.size(size * 0.47f))
         }
     }
 }
@@ -193,21 +222,22 @@ fun <T> SegmentedPicker(options: List<Pair<T, String>>, selected: T, enabled: Bo
         val offset by animateDpAsState(width * index, label = "segment")
         Box(
             Modifier.offset(x = offset).width(width).fillMaxHeight()
-                .shadow(3.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.1f), spotColor = Color.Black.copy(alpha = 0.15f))
+                .shadow(2.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.08f), spotColor = Color.Black.copy(alpha = 0.12f))
                 .background(colors.selection, CircleShape),
         )
         Row(Modifier.fillMaxSize()) {
             options.forEach { (value, label) ->
                 val active = value == selected
                 Box(
-                    Modifier.weight(1f).fillMaxHeight().clip(CircleShape).clickable(enabled = enabled) { onSelect(value) },
+                    Modifier.weight(1f).fillMaxHeight().clip(CircleShape)
+                        .clickable(enabled = enabled, role = Role.Tab) { onSelect(value) },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         label,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
-                        color = if (active) colors.label else colors.secondaryLabel,
+                        color = colors.label,
                     )
                 }
             }
@@ -269,7 +299,7 @@ fun rememberAnchor() = remember { Anchor() }
 
 fun Modifier.anchor(anchor: Anchor) = onGloballyPositioned { anchor.bounds = it.boundsInRoot() }
 
-data class SheetAction(val label: String, val destructive: Boolean = false, val onClick: () -> Unit)
+data class SheetAction(val label: String, val destructive: Boolean = false, val checked: Boolean = false, val onClick: () -> Unit)
 
 internal class Menu(val anchor: Rect, val title: String?, val actions: List<SheetAction>)
 
@@ -360,15 +390,21 @@ private fun MenuPopup(menu: Menu, visible: Boolean, onDismiss: () -> Unit) {
                             )
                         }
                         menu.actions.forEach { action ->
-                            Text(
-                                action.label,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = if (action.destructive) colors.red else colors.label,
-                                modifier = Modifier.fillMaxWidth().clickable {
+                            Row(
+                                Modifier.fillMaxWidth().clickable {
                                     onDismiss()
                                     action.onClick()
                                 }.padding(horizontal = 20.dp, vertical = 13.dp),
-                            )
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    action.label,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = if (action.destructive) colors.red else colors.label,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                if (action.checked) Icon(LineIcons.Check, contentDescription = null, tint = colors.accent, modifier = Modifier.size(16.dp))
+                            }
                         }
                     }
                 }
