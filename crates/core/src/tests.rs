@@ -298,6 +298,58 @@ fn profile_text_can_be_edited() {
 }
 
 #[test]
+fn share_nodes_can_be_renamed_and_removed() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    let profile = core
+        .import_links("ss://YWVzLTEyOC1nY206cA@1.2.3.4:1#a\ntrojan://p@1.2.3.4:443#a\nhysteria2://p@5.6.7.8:443#b".into())
+        .unwrap()
+        .profile;
+    let names = |core: &Core| {
+        core.share_nodes(profile.id.clone())
+            .unwrap()
+            .into_iter()
+            .map(|node| node.name)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(names(&core), ["a", "a-01", "b"]);
+    assert_eq!(
+        core.share_nodes(profile.id.clone()).unwrap()[1].kind,
+        "trojan"
+    );
+    assert!(
+        core.rename_share_node(profile.id.clone(), "a-01".into(), "b".into())
+            .is_err()
+    );
+    assert!(
+        core.rename_share_node(profile.id.clone(), "missing".into(), "c".into())
+            .is_err()
+    );
+    core.rename_share_node(profile.id.clone(), "a-01".into(), " Tokyo ".into())
+        .unwrap();
+    assert_eq!(names(&core), ["a", "Tokyo", "b"]);
+    core.remove_share_node(profile.id.clone(), "a".into())
+        .unwrap();
+    assert_eq!(names(&core), ["Tokyo", "b"]);
+    assert!(
+        core.profile_content(profile.id.clone())
+            .unwrap()
+            .contains("#Tokyo")
+    );
+    core.remove_share_node(profile.id.clone(), "b".into())
+        .unwrap();
+    assert!(
+        core.remove_share_node(profile.id.clone(), "Tokyo".into())
+            .is_err()
+    );
+    let yaml = "proxies:\n  - {name: a, type: ss, server: 1.2.3.4, port: 1, cipher: aes-128-gcm, password: p}\n";
+    let file = core.import_file("work.yaml".into(), yaml.into()).unwrap();
+    assert!(core.share_nodes(file.id).is_err());
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn overrides_and_scripts_shape_the_running_config() {
     let dir = temp_dir();
     let core = Core::new(options(&dir)).unwrap();
