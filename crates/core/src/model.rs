@@ -130,6 +130,8 @@ pub struct ProxyGroup {
     pub selectable: bool,
     pub now: Option<String>,
     pub nodes: Vec<Node>,
+    /// The profile's `icon` for the group: an image URL, or inline SVG or base64 data.
+    pub icon: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
