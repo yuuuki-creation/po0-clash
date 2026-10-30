@@ -24,7 +24,7 @@ final class Hotkeys: ObservableObject {
     }
 
     private func apply(_ hotkeys: [Hotkey]) {
-        refs.forEach { UnregisterEventHotKey($0) }
+        for ref in refs { UnregisterEventHotKey(ref) }
         refs = []
         actions = [:]
         registered = hotkeys
@@ -55,21 +55,10 @@ final class Hotkeys: ObservableObject {
     private func installHandler() {
         guard handler == nil else { return }
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        InstallEventHandler(GetEventDispatcherTarget(), { _, event, _ in
-            var id = EventHotKeyID()
-            let status = GetEventParameter(
-                event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,
-                MemoryLayout<EventHotKeyID>.size, nil, &id
-            )
-            if status == OSStatus(noErr) {
-                let index = id.id
-                Task { @MainActor in Hotkeys.shared.fire(index) }
-            }
-            return status
-        }, 1, &spec, nil, &handler)
+        InstallEventHandler(GetEventDispatcherTarget(), hotkeyPressed, 1, &spec, nil, &handler)
     }
 
-    private func fire(_ index: UInt32) {
+    fileprivate func fire(_ index: UInt32) {
         guard let action = actions[index] else { return }
         let model = AppModel.shared
         switch action {
@@ -89,6 +78,19 @@ final class Hotkeys: ObservableObject {
             model.setRouteMode(model.status?.routeMode == .tun ? .systemProxy : .tun)
         }
     }
+}
+
+private func hotkeyPressed(_: EventHandlerCallRef?, event: EventRef?, _: UnsafeMutableRawPointer?) -> OSStatus {
+    var id = EventHotKeyID()
+    let status = GetEventParameter(
+        event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,
+        MemoryLayout<EventHotKeyID>.size, nil, &id
+    )
+    if status == OSStatus(noErr) {
+        let index = id.id
+        Task { @MainActor in Hotkeys.shared.fire(index) }
+    }
+    return status
 }
 
 /// Keys are stored as W3C `KeyboardEvent.code` names so every platform reads the same settings.
