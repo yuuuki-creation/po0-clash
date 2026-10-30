@@ -53,6 +53,14 @@ final class MainWindow: NSObject, NSWindowDelegate {
         window?.makeKeyAndOrderFront(nil)
     }
 
+    func toggle() {
+        if let window, window.isVisible, NSApp.isActive {
+            window.close()
+        } else {
+            show()
+        }
+    }
+
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         guard AppModel.shared.appSettings?.minimizeOnClose == false else { return true }
         NSApp.terminate(nil)

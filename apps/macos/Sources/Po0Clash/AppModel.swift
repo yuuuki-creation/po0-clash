@@ -18,6 +18,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var appSettings: AppSettings? {
         didSet {
             Theme.apply(appSettings)
+            Hotkeys.shared.register(appSettings?.hotkeys ?? [])
             updateTrafficTimer()
         }
     }

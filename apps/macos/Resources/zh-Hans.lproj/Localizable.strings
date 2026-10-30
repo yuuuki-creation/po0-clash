@@ -370,3 +370,15 @@
 "Open Download Page" = "前往下载";
 "Don't Remind Me" = "不再提示";
 "Core" = "内核";
+
+/* Hotkeys */
+"Connect/Disconnect" = "连接/断开";
+"Show/Hide window" = "显示/隐藏窗口";
+"Switch mode" = "切换模式";
+"Use the system proxy" = "切换到系统代理";
+"Turn TUN on or off" = "开关虚拟网卡";
+"Not registered; another app may be using it." = "未能注册，可能已被其他应用占用。";
+"Global hotkeys work even while the window is hidden. Click a shortcut to record a new one; while recording, Delete clears it and Esc cancels." = "全局快捷键在窗口隐藏时依然生效。点击快捷键即可录制新的组合键；录制时按删除键清除，按 Esc 取消。";
+"Include ⌃, ⌥ or ⌘" = "至少包含 ⌃、⌥ 或 ⌘";
+"Press a shortcut…" = "请按下快捷键…";
+"Not set" = "未设置";

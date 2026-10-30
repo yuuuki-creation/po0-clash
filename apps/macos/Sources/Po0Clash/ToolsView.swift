@@ -41,6 +41,7 @@ enum ToolsPage: String, Hashable {
     var destination: some View {
         switch self {
         case .language: LanguageView()
+        case .hotkeys: HotkeysView()
         case .appearance: AppearanceView()
         case .application: ApplicationView()
         case .basic: BasicConfigView()
