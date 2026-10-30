@@ -38,3 +38,5 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
 
 - macOS：管理员授权弹窗和开机自启只在 CI 中模拟过，没有在真机上验证。
 - Android：只在模拟器上测试过；订阅里把 DNS 写成 `system` 时无法解析。
+- 全局模式下 GLOBAL 组默认选的是 DIRECT，等于全部直连；切到全局后请先在 GLOBAL 组里选一个节点。
+- 刚连上时策略组可能短暂为空、当前节点显示 COMPATIBLE，稍等片刻即恢复。
