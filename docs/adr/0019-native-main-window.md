@@ -1,6 +1,6 @@
 # 0019. 原生版恢复主界面，结构接近 FlClash
 
-- 状态：已采纳
+- 状态：已采纳，样式细节与启动按钮的位置由 [native-design.md](../development/native-design.md) 修改
 - 日期：2026-10-30
 
 ## 背景
