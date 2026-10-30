@@ -252,15 +252,19 @@ jobs:
       - name: Menu refreshes on every opening
         run: |
           mkdir -p shots
+          start=$(date '+%Y-%m-%d %H:%M:%S')
           /Applications/po0-clash.app/Contents/MacOS/po0-clash -showMenu YES -reopenMenu YES > /dev/null 2>&1 &
           pid=$!
-          sleep 10
+          for _ in $(seq 30); do
+            sleep 1
+            shown=$(log show --start "$start" --style compact \
+              --predicate 'subsystem == "io.github.yuuukicreation.po0clash" AND eventMessage == "menu panel shown"' |
+              grep -c "menu panel shown" || true)
+            [ "$shown" -ge 2 ] && break
+          done
           screencapture -x "shots/menu-reopened-${{ matrix.os }}.png" || true
           kill -TERM "$pid"
           wait "$pid" || true
-          shown=$(log show --last 1m --style compact \
-            --predicate 'subsystem == "io.github.yuuukicreation.po0clash" AND eventMessage == "menu panel shown"' |
-            grep -c "menu panel shown" || true)
           echo "panel refreshed $shown times"
           [ "$shown" -ge 2 ] || { echo "::error::opening the panel twice refreshed it $shown times"; exit 1; }
 
@@ -331,6 +335,8 @@ jobs:
           shoot window-dashboard-ja 15 "${connected[@]}" -showWindow dashboard -AppleLanguages '(ja)'
           shoot window-application-ru 6 -showWindow tools -toolsPage application -AppleLanguages '(ru)'
           shoot window-application-pink 6 -showWindow tools -toolsPage application -themeColor 4294913365
+          shoot window-dashboard-pink 15 "${connected[@]}" -showWindow dashboard -themeColor 4294913365
+          shoot menu-pink 15 "${login[@]}" -themeColor 4294913365
           # The runner's system appearance cannot be switched, so the app forces its own.
           shoot menu-dark 15 "${login[@]}" -appearance dark
           shoot window-dashboard-dark 15 "${connected[@]}" -showWindow dashboard -appearance dark
@@ -338,8 +344,6 @@ jobs:
           shoot window-whitelist-dark 6 -showWindow whitelist -appearance dark
           shoot window-proxies-list 15 "${connected[@]}" -showWindow proxies -proxiesLayout list
 
-      # The Intel runner's paravirtual GPU aborts inside Metal when SwiftUI first needs a RenderBox pipeline; find
-      # which surface asks for one.
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
