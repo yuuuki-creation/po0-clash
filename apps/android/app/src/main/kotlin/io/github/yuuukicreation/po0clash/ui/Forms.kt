@@ -94,12 +94,20 @@ fun EditRow(
 
 /** A row for a list of strings, edited one per line; shows how many there are. */
 @Composable
-fun ListRow(index: Int, count: Int, label: String, values: List<String>, hint: String? = null, onSave: (List<String>) -> Unit) {
+fun ListRow(
+    index: Int,
+    count: Int,
+    label: String,
+    values: List<String>,
+    hint: String? = null,
+    code: Boolean = false,
+    onSave: (List<String>) -> Unit,
+) {
     val sheets = LocalSheets.current
     val summary = if (values.isEmpty()) stringResource(R.string.not_set) else values.singleOrNull() ?: stringResource(R.string.item_count, values.size)
     NavRow(index, count, null, label, summary) {
         sheets.show {
-            ValueSheet(label, values.joinToString("\n"), multiline = true, hint = hint) { text ->
+            ValueSheet(label, values.joinToString("\n"), multiline = true, hint = hint, code = code) { text ->
                 onSave(text.lines().map(String::trim).filter(String::isNotEmpty))
             }
         }
@@ -133,19 +141,20 @@ fun <T> ChoiceRow(index: Int, count: Int, label: String, options: List<Pair<T, S
 }
 
 @Composable
-private fun ValueSheet(
+fun ValueSheet(
     title: String,
     initial: String,
     multiline: Boolean,
     keyboard: KeyboardType = KeyboardType.Text,
     validate: (String) -> Boolean = { true },
     hint: String? = null,
+    code: Boolean = false,
     onSave: (String) -> Unit,
 ) {
     val sheets = LocalSheets.current
     var text by rememberSaveable { mutableStateOf(initial) }
     SheetTitle(title)
-    SheetField(text, { text = it }, hint ?: title, multiline, keyboard)
+    SheetField(text, { text = it }, hint ?: title, multiline, keyboard, code)
     if (hint != null) Text(hint, style = MaterialTheme.typography.bodySmall, color = apple.secondaryLabel)
     SheetButtons(stringResource(R.string.save), enabled = validate(text.trim()), onCancel = sheets::dismiss) {
         sheets.dismiss()

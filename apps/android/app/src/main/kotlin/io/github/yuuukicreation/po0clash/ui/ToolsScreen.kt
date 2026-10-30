@@ -5,6 +5,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
@@ -12,33 +14,21 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.chrisbanes.haze.hazeSource
-import io.github.yuuukicreation.po0clash.BuildConfig
 import io.github.yuuukicreation.po0clash.R
 import io.github.yuuukicreation.po0clash.accessMode
 import io.github.yuuukicreation.po0clash.core.ThemeMode
@@ -48,7 +38,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Every FlClash tools entry; those not built yet open a "coming soon" page instead of hiding. */
+/** Every FlClash tools entry. */
 enum class Tool(@param:StringRes val label: Int, val icon: ImageVector) {
     ACTIVITY(R.string.activity, LineIcons.Activity),
     BASIC(R.string.basic_config, LineIcons.FileText),
@@ -76,15 +66,7 @@ fun ToolsScreen(vm: AppViewModel) {
     BackHandler(enabled = open != null) { open = null }
     AnimatedContent(
         targetState = open,
-        transitionSpec = {
-            if (!animate) {
-                EnterTransition.None togetherWith ExitTransition.None
-            } else if (targetState != null) {
-                (slideInHorizontally { it } + fadeIn()) togetherWith (slideOutHorizontally { -it / 3 } + fadeOut())
-            } else {
-                (slideInHorizontally { -it / 3 } + fadeIn()) togetherWith (slideOutHorizontally { it } + fadeOut())
-            }
-        },
+        transitionSpec = { push(animate) },
         label = "tools",
     ) { tool ->
         val back = { open = null }
@@ -102,10 +84,17 @@ fun ToolsScreen(vm: AppViewModel) {
             Tool.BACKUP -> BackupScreen(vm, back)
             Tool.ACCESS -> AccessControlScreen(vm, back)
             Tool.RESOURCES -> ResourcesScreen(vm, back)
-            Tool.ABOUT -> AboutScreen(back)
-            else -> ComingSoonScreen(stringResource(tool.label), back)
+            Tool.ABOUT -> AboutScreen(vm, back)
+            Tool.DEVELOPER -> DeveloperScreen(vm, back)
         }
     }
+}
+
+/** iOS's push: a page opening slides in from the right, closing slides it back out. */
+fun <T> AnimatedContentTransitionScope<T?>.push(animate: Boolean): ContentTransform = when {
+    !animate -> EnterTransition.None togetherWith ExitTransition.None
+    targetState != null -> (slideInHorizontally { it } + fadeIn()) togetherWith (slideOutHorizontally { -it / 3 } + fadeOut())
+    else -> (slideInHorizontally { -it / 3 } + fadeIn()) togetherWith (slideOutHorizontally { it } + fadeOut())
 }
 
 @Composable
@@ -154,12 +143,13 @@ private fun ToolList(vm: AppViewModel, onOpen: (Tool) -> Unit) {
                 application.forEachIndexed { index, tool -> ToolRow(index, application.size, tool, values[tool], onOpen) }
             }
             item {
+                val other = listOfNotNull(Tool.DEVELOPER.takeIf { settings.developerMode }, Tool.ABOUT)
+                val count = other.size + 1
                 SectionHeader(stringResource(R.string.other))
-                ToolRow(0, 3, Tool.DEVELOPER, null, onOpen)
-                ToolRow(1, 3, Tool.ABOUT, null, onOpen)
+                other.forEachIndexed { index, tool -> ToolRow(index, count, tool, null, onOpen) }
                 NavRow(
-                    2,
-                    3,
+                    count - 1,
+                    count,
                     LineIcons.Download,
                     stringResource(R.string.export_diagnostics),
                     busy = AppViewModel.BUSY_DIAGNOSTICS in busy,
@@ -198,40 +188,5 @@ fun ToolPage(
             item { PageTitle(title, subtitle) }
             content()
         }
-    }
-}
-
-@Composable
-private fun AboutScreen(onBack: () -> Unit) {
-    ToolPage(stringResource(R.string.about), onBack) {
-        item {
-            ValueRow(0, 2, stringResource(R.string.version), "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
-            ValueRow(1, 2, stringResource(R.string.engine), "mihomo")
-        }
-    }
-}
-
-@Composable
-fun ComingSoonScreen(title: String, onBack: () -> Unit) {
-    ToolPage(title, onBack) {
-        item { ComingSoon() }
-    }
-}
-
-@Composable
-fun ComingSoon() {
-    Column(
-        Modifier.fillMaxWidth().padding(top = 96.dp, start = 24.dp, end = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Icon(LineIcons.Hourglass, contentDescription = null, tint = apple.secondaryLabel, modifier = Modifier.size(44.dp))
-        Text(stringResource(R.string.coming_soon), style = MaterialTheme.typography.titleMedium)
-        Text(
-            stringResource(R.string.coming_soon_body),
-            style = MaterialTheme.typography.bodyMedium,
-            color = apple.secondaryLabel,
-            textAlign = TextAlign.Center,
-        )
     }
 }

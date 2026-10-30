@@ -4,8 +4,10 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -58,9 +60,28 @@ import io.github.yuuukicreation.po0clash.userMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+private enum class ProfilePage { OVERRIDE, NODES }
+
 @Composable
 fun SubscriptionsScreen(vm: AppViewModel) {
     val profiles by vm.engine.profiles.collectAsStateWithLifecycle()
+    val animate = vm.appSettings.collectAsStateWithLifecycle().value.pageAnimation
+    var open by rememberSaveable { mutableStateOf<Pair<ProfilePage, String>?>(null) }
+    val page = open?.takeIf { (_, id) -> profiles.any { it.id == id } }
+    BackHandler(enabled = page != null) { open = null }
+    AnimatedContent(targetState = page, transitionSpec = { push(animate) }, label = "profiles") { target ->
+        val profile = target?.let { (_, id) -> profiles.firstOrNull { it.id == id } }
+        val back = { open = null }
+        when {
+            target == null || profile == null -> ProfileList(vm, profiles) { kind, id -> open = kind to id }
+            target.first == ProfilePage.OVERRIDE -> OverrideScreen(vm, profile, back)
+            else -> ShareNodesScreen(vm, profile, back)
+        }
+    }
+}
+
+@Composable
+private fun ProfileList(vm: AppViewModel, profiles: List<Profile>, onOpen: (ProfilePage, String) -> Unit) {
     val busy by vm.busy.collectAsStateWithLifecycle()
     val sheets = LocalSheets.current
     val add = stringResource(R.string.add)
@@ -98,7 +119,14 @@ fun SubscriptionsScreen(vm: AppViewModel) {
                 item { EmptyCard(stringResource(R.string.empty_title), stringResource(R.string.empty_body)) }
             }
             itemsIndexed(profiles, key = { _, profile -> profile.id }) { index, profile ->
-                ProfileRow(index, profiles.size, profile, AppViewModel.busyProfile(profile.id) in busy, vm) {
+                ProfileRow(
+                    index,
+                    profiles.size,
+                    profile,
+                    AppViewModel.busyProfile(profile.id) in busy,
+                    vm,
+                    onOpen = { onOpen(it, profile.id) },
+                ) {
                     exporting = profile.id
                     export.launch("${profile.name}.yaml")
                 }
@@ -108,7 +136,15 @@ fun SubscriptionsScreen(vm: AppViewModel) {
 }
 
 @Composable
-private fun ProfileRow(index: Int, count: Int, profile: Profile, busy: Boolean, vm: AppViewModel, onExport: () -> Unit) {
+private fun ProfileRow(
+    index: Int,
+    count: Int,
+    profile: Profile,
+    busy: Boolean,
+    vm: AppViewModel,
+    onOpen: (ProfilePage) -> Unit,
+    onExport: () -> Unit,
+) {
     val sheets = LocalSheets.current
     val context = LocalContext.current
     val anchor = rememberAnchor()
@@ -119,6 +155,8 @@ private fun ProfileRow(index: Int, count: Int, profile: Profile, busy: Boolean, 
     val labels = ProfileMenu(
         update = stringResource(R.string.update),
         edit = stringResource(R.string.edit),
+        nodes = stringResource(R.string.nodes),
+        override = stringResource(R.string.override),
         preview = stringResource(R.string.preview_config),
         export = stringResource(R.string.export),
         copyLink = stringResource(R.string.copy_link),
@@ -159,6 +197,8 @@ private fun ProfileRow(index: Int, count: Int, profile: Profile, busy: Boolean, 
                                 SheetAction(labels.update) { vm.updateProfile(profile.id) }.takeIf { subscription },
                                 SheetAction(labels.edit) { sheets.show { EditSheet(profile) { vm.editProfile(profile.id, it) } } }
                                     .takeIf { profile.kind != ProfileKind.LINKS },
+                                SheetAction(labels.nodes) { onOpen(ProfilePage.NODES) }.takeIf { profile.kind == ProfileKind.LINKS },
+                                SheetAction(labels.override) { onOpen(ProfilePage.OVERRIDE) },
                                 SheetAction(labels.preview) { sheets.show { PreviewSheet(vm, profile.id) } },
                                 SheetAction(labels.export, onClick = onExport),
                                 SheetAction(labels.copyLink) { copy(context, profile.url.orEmpty()) }.takeIf { subscription },
@@ -181,6 +221,8 @@ private fun ProfileRow(index: Int, count: Int, profile: Profile, busy: Boolean, 
 private class ProfileMenu(
     val update: String,
     val edit: String,
+    val nodes: String,
+    val override: String,
     val preview: String,
     val export: String,
     val copyLink: String,

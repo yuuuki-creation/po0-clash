@@ -13,6 +13,7 @@ import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.system.Os
+import android.text.format.Formatter
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -25,6 +26,7 @@ import io.github.yuuukicreation.po0clash.MainActivity
 import io.github.yuuukicreation.po0clash.R
 import io.github.yuuukicreation.po0clash.core.EngineState
 import io.github.yuuukicreation.po0clash.core.Status
+import io.github.yuuukicreation.po0clash.core.Traffic
 import io.github.yuuukicreation.po0clash.engine
 import io.github.yuuukicreation.po0clash.selected
 import io.github.yuuukicreation.po0clash.userMessage
@@ -32,9 +34,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.net.InetAddress
 
 class Po0VpnService : VpnService() {
@@ -52,8 +56,16 @@ class Po0VpnService : VpnService() {
         super.onCreate()
         val engine = engine ?: return
         scope.launch {
-            combine(engine.status, engine.appSettings) { status, _ -> status }.collectLatest { status ->
-                if (foreground) notificationManager().notify(NOTIFICATION_ID, notification(status))
+            combine(engine.status, engine.appSettings, engine.screenOn) { status, _, on -> status to on }.collectLatest { (status, on) ->
+                if (status.engine != EngineState.Running || !on) {
+                    if (foreground) notificationManager().notify(NOTIFICATION_ID, notification(status))
+                    return@collectLatest
+                }
+                while (true) {
+                    val speed = withContext(Dispatchers.IO) { engine.core.traffic() }
+                    if (foreground) notificationManager().notify(NOTIFICATION_ID, notification(status, speed))
+                    delay(1000)
+                }
             }
         }
     }
@@ -206,11 +218,14 @@ class Po0VpnService : VpnService() {
         return manager
     }
 
-    private fun notification(status: Status): Notification {
+    /** FlClash's ongoing notification; [speed] adds the current rates while the screen is on. */
+    private fun notification(status: Status, speed: Traffic? = null): Notification {
         notificationManager()
         val text = when (val state = status.engine) {
-            EngineState.Running -> status.currentNode?.let { getString(R.string.notification_running, it) }
-                ?: getString(R.string.state_running)
+            EngineState.Running -> listOfNotNull(
+                status.currentNode?.let { getString(R.string.notification_running, it) } ?: getString(R.string.state_running),
+                speed?.let { "↑ ${rate(it.up)} ↓ ${rate(it.down)}" },
+            ).joinToString(" · ")
             EngineState.Starting, EngineState.Stopped -> getString(R.string.state_starting)
             is EngineState.Failed -> state.message
         }
@@ -229,6 +244,8 @@ class Po0VpnService : VpnService() {
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
+
+    private fun rate(bytes: ULong) = Formatter.formatShortFileSize(this, bytes.toLong()) + "/s"
 
     private fun failureNotification(message: String): Notification = NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
         .setSmallIcon(R.drawable.ic_stat_po0)

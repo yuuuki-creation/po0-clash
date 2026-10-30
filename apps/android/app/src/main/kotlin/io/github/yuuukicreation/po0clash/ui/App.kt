@@ -31,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -62,6 +63,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.chrisbanes.haze.rememberHazeState
 import io.github.yuuukicreation.po0clash.R
 import io.github.yuuukicreation.po0clash.core.EngineState
+import io.github.yuuukicreation.po0clash.core.LaunchCheck
+import io.github.yuuukicreation.po0clash.core.LaunchRecovery
 import kotlinx.coroutines.delay
 
 enum class Page(@param:StringRes val label: Int, val icon: ImageVector) {
@@ -87,6 +90,24 @@ fun App(onConnect: () -> Unit, vm: AppViewModel = viewModel()) {
     val tabBarBottom = maxOf(30.dp, WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + barGap)
     val bottom = tabBarBottom + tabBarHeight + barGap + statusBarHeight
     LaunchedEffect(vm) { vm.messages.collect { snackbar.showSnackbar(it) } }
+    val notice by vm.engine.launchNotice.collectAsStateWithLifecycle()
+    LaunchedEffect(notice) {
+        val check = notice ?: return@LaunchedEffect
+        vm.engine.dismissLaunchNotice()
+        sheets.show { LaunchNotice(check, sheets::dismiss) }
+    }
+    LaunchedEffect(vm) { if (vm.appSettings.value.autoCheckUpdate) vm.checkUpdate(userInitiated = false) }
+    val release by vm.release.collectAsStateWithLifecycle()
+    LaunchedEffect(release) {
+        val (found, automatic) = release ?: return@LaunchedEffect
+        vm.dismissRelease()
+        sheets.show {
+            ReleaseSheet(found, automatic, onDone = sheets::dismiss) {
+                sheets.dismiss()
+                vm.setAppSettings { it.copy(autoCheckUpdate = false) }
+            }
+        }
+    }
     BackHandler(enabled = page != Page.DASHBOARD) { page = Page.DASHBOARD }
 
     CompositionLocalProvider(LocalHaze provides haze, LocalSheets provides sheets, LocalBottomPadding provides bottom) {
@@ -111,6 +132,21 @@ fun App(onConnect: () -> Unit, vm: AppViewModel = viewModel()) {
             SheetHost(sheets)
         }
     }
+}
+
+/** Why this launch did not connect by itself, in Flutter's words. */
+@Composable
+private fun LaunchNotice(check: LaunchCheck, onDone: () -> Unit) {
+    val cleared = check.recovery == LaunchRecovery.CLEAR_PROFILE
+    SheetTitle(stringResource(if (cleared) R.string.crash_detected else R.string.launch_interrupted))
+    Text(
+        if (cleared) stringResource(R.string.crash_detected_body, check.profileName.orEmpty()) else stringResource(R.string.launch_interrupted_body),
+        style = MaterialTheme.typography.bodyMedium,
+        color = apple.secondaryLabel,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    SheetDoneButton(onDone)
 }
 
 /** The spec's bottom status bar: state dot, state and "uptime · node", and the one solid start/stop button. */

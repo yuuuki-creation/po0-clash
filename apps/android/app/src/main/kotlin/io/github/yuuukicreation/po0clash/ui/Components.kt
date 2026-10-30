@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -32,7 +33,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -156,6 +159,7 @@ fun SheetField(
     placeholder: String,
     multiline: Boolean,
     keyboardType: KeyboardType = if (multiline) KeyboardType.Text else KeyboardType.Uri,
+    code: Boolean = false,
 ) {
     val colors = apple
     TextField(
@@ -163,9 +167,14 @@ fun SheetField(
         onValueChange = onValueChange,
         placeholder = { Text(placeholder, color = colors.secondaryLabel) },
         singleLine = !multiline,
-        minLines = if (multiline) 4 else 1,
-        maxLines = if (multiline) 8 else 1,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        minLines = if (code) 10 else if (multiline) 4 else 1,
+        maxLines = if (code) 16 else if (multiline) 8 else 1,
+        textStyle = if (code) MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace) else LocalTextStyle.current,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = keyboardType,
+            autoCorrectEnabled = !code,
+            capitalization = KeyboardCapitalization.None,
+        ),
         visualTransformation = if (keyboardType == KeyboardType.Password) PasswordVisualTransformation() else VisualTransformation.None,
         shape = RoundedCornerShape(12.dp),
         colors = TextFieldDefaults.colors(

@@ -145,8 +145,7 @@ fun ApplicationScreen(vm: AppViewModel, onBack: () -> Unit) {
         }
         item {
             SectionHeader(stringResource(R.string.other))
-            SwitchRow(0, 2, stringResource(R.string.auto_check_update), s.autoCheckUpdate) { v -> set { it.copy(autoCheckUpdate = v) } }
-            SwitchRow(1, 2, stringResource(R.string.crash_reports), s.crashReports, stringResource(R.string.crash_reports_detail)) { v -> set { it.copy(crashReports = v) } }
+            SwitchRow(0, 1, stringResource(R.string.auto_check_update), s.autoCheckUpdate) { v -> set { it.copy(autoCheckUpdate = v) } }
         }
         item {
             SectionHeader(stringResource(R.string.external_control))
@@ -253,7 +252,7 @@ private fun ColorSheet(title: String, onAdd: (UInt) -> Unit) {
 fun LanguageScreen(vm: AppViewModel, onBack: () -> Unit) {
     val s by vm.appSettings.collectAsStateWithLifecycle()
     val activity = LocalActivity.current
-    val labels = mapOf(null to stringResource(R.string.follow_system), "zh-CN" to "简体中文", "en" to "English")
+    val system = stringResource(R.string.follow_system)
     ToolPage(stringResource(R.string.language), onBack) {
         item {
             Language.tags.forEachIndexed { index, tag ->
@@ -263,11 +262,10 @@ fun LanguageScreen(vm: AppViewModel, onBack: () -> Unit) {
                         activity?.let { Language.apply(it, tag) }
                     }
                 }) {
-                    Text(labels.getValue(tag), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    Text(languageLabel(tag) ?: system, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                     if (tag == s.language) Icon(LineIcons.Check, contentDescription = null, tint = apple.accent, modifier = Modifier.size(18.dp))
                 }
             }
-            SectionFooter(stringResource(R.string.language_detail))
         }
     }
 }
@@ -275,5 +273,7 @@ fun LanguageScreen(vm: AppViewModel, onBack: () -> Unit) {
 fun languageLabel(tag: String?): String? = when (tag) {
     "zh-CN" -> "简体中文"
     "en" -> "English"
+    "ja" -> "日本語"
+    "ru" -> "Русский"
     else -> null
 }

@@ -9,7 +9,7 @@ import android.os.LocaleList
 
 /** BCP 47 tags in the core's `language`; null follows the system. */
 object Language {
-    val tags = listOf(null, "zh-CN", "en")
+    val tags = listOf(null, "zh-CN", "en", "ja", "ru")
 
     fun apply(activity: Activity, tag: String?) {
         if (Build.VERSION.SDK_INT >= 33) {

@@ -61,7 +61,6 @@
     <string name="export_diagnostics_hint">把应用和引擎日志保存为文本文件</string>
     <string name="export_done">已导出诊断日志</string>
     <string name="about">关于</string>
-    <string name="version">版本</string>
 
     <string name="dashboard">仪表盘</string>
     <string name="proxies">代理</string>
@@ -98,8 +97,6 @@
     <string name="requests">请求</string>
     <string name="connections">连接</string>
     <string name="logs">日志</string>
-    <string name="coming_soon">即将推出</string>
-    <string name="coming_soon_body">原生版还没有这项功能，之后会补上。</string>
     <string name="clear">清空</string>
     <string name="close">断开</string>
     <string name="close_all">断开全部连接</string>
@@ -151,7 +148,6 @@
     <string name="background_location">始终允许定位</string>
     <string name="clear_selection">清空选择</string>
     <string name="collapse">收起</string>
-    <string name="coming_soon_short">稍后</string>
     <string name="config">配置</string>
     <string name="connect_first_short">连接后显示</string>
     <string name="connect_to_see_node">连接后显示当前节点</string>
@@ -229,7 +225,7 @@
     <string name="on_demand">按需连接</string>
     <string name="only_internet_apps">只显示联网应用</string>
     <string name="outbound_mode">出站模式</string>
-    <string name="override_script">覆写脚本</string>
+    <string name="override_script">脚本</string>
     <string name="paste_from_clipboard">用剪贴板替换</string>
     <string name="permissions">权限</string>
     <string name="permissions_detail">Android 只在「始终允许定位」时才让应用读取 Wi-Fi 名称；不忽略电池优化，系统可能会停掉 VPN。</string>
@@ -301,8 +297,6 @@
     <string name="check_certificate_detail">下载订阅时校验证书</string>
     <string name="close_on_switch">切换节点后断开连接</string>
     <string name="close_on_switch_detail">让旧连接立刻改走新节点</string>
-    <string name="crash_reports">崩溃保护</string>
-    <string name="crash_reports_detail">只保存在本机</string>
     <string name="density">疏密</string>
     <string name="density_loose">宽松</string>
     <string name="density_standard">标准</string>
@@ -312,7 +306,6 @@
     <string name="edit_dashboard">编辑仪表盘</string>
     <string name="hidden_cards">已隐藏</string>
     <string name="intranet_ip">内网 IP</string>
-    <string name="language_detail">日文和俄文等翻译完成后加入。</string>
     <string name="layout">布局</string>
     <string name="layout_list">列表</string>
     <string name="layout_tabs">标签</string>
@@ -364,4 +357,73 @@
     <string name="icon_standard">标准</string>
     <string name="icon_only">仅图标</string>
     <string name="icon_hidden">不显示</string>
+    <string name="override">覆写</string>
+    <string name="override_standard">标准</string>
+    <string name="override_custom">自定义</string>
+    <string name="override_standard_detail">在配置自带的规则前追加规则。</string>
+    <string name="override_script_detail">用脚本改写配置。</string>
+    <string name="override_custom_detail">用你自己的策略组和规则替换配置里的。</string>
+    <string name="saving">正在保存</string>
+    <string name="override_mode">模式</string>
+    <string name="match_target">MATCH 目标</string>
+    <string name="match_target_default">沿用配置</string>
+    <string name="override_rules_detail">每行一条，先于全局规则和配置自带的规则匹配。MATCH 目标是配置最后一条规则的去向。</string>
+    <string name="global_rules">全局规则</string>
+    <string name="no_global_rules">没有全局规则，可在 工具 › 高级 里添加。</string>
+    <string name="global_rules_detail">关掉的全局规则只对这个配置不生效。</string>
+    <string name="script">脚本</string>
+    <string name="edit_script">编辑脚本</string>
+    <string name="new_script">新建脚本</string>
+    <string name="script_main_detail">脚本的 main(config) 先于 po0-clash 的设置拿到配置，返回要使用的配置。脚本统一保存在 工具 › 高级。</string>
+    <string name="proxy_groups">策略组</string>
+    <string name="rules">规则</string>
+    <string name="override_custom_footer">策略组写成 YAML 列表，规则每行一条；留空则沿用配置自带的。</string>
+    <string name="replace">替换</string>
+    <string name="copy_from_profile">从配置复制</string>
+    <string name="copy_from_profile_confirm">用配置自带的策略组和规则替换？</string>
+    <string name="script_name">名称</string>
+    <string name="script_main_hint">main(config) 以对象形式拿到配置，返回要使用的配置。</string>
+    <string name="override_scripts">覆写脚本</string>
+    <string name="override_scripts_detail">在配置的覆写里选中脚本后才会运行。</string>
+    <string name="nodes">节点</string>
+    <string name="share_nodes_detail">点节点可改名或删除；最后一个节点只能随配置一起删除。</string>
+    <string name="rename">改名</string>
+    <string name="script_saved">脚本已保存</string>
+    <string name="crash_detected">检测到崩溃</string>
+    <string name="crash_detected_body">po0-clash 连续两次未能完成启动。为打断崩溃循环，已取消选中配置「%1$s」，并跳过本次自动连接，你可以随时重新选中它。</string>
+    <string name="launch_interrupted">启动未完成</string>
+    <string name="launch_interrupted_body">po0-clash 上次在启动过程中意外退出，本次已跳过自动连接。你可以手动连接重试。</string>
+    <string name="developer_mode_on">已开启开发者模式</string>
+    <string name="check_update">检查更新</string>
+    <string name="project">项目</string>
+    <string name="credits">开源致谢</string>
+    <string name="upstream_client">上游客户端</string>
+    <string name="upstream_contributors">上游贡献者</string>
+    <string name="licenses">开源许可</string>
+    <string name="about_detail">po0-clash 是跨平台的 ClashMeta 客户端，支持 po0 与 ggy 自动加白、分享链接导入节点和订阅管理。</string>
+    <string name="developer_mode">开发者模式</string>
+    <string name="developer_mode_detail">关闭后隐藏本页；在关于页连点版本号五次可重新打开。</string>
+    <string name="options">选项</string>
+    <string name="message_test">消息测试</string>
+    <string name="message_test_body">这是一条消息。</string>
+    <string name="logs_test">日志测试</string>
+    <string name="logs_test_detail">往活动页的日志里加 1000 行随机文本。</string>
+    <string name="logs_test_off">请先在「应用」里打开日志捕获。</string>
+    <string name="prune_cache">清理缓存</string>
+    <string name="clear_data">清除数据</string>
+    <string name="clear_data_confirm">所有配置、加白条目和设置都会被删除，然后 po0-clash 重启。此操作无法撤销。</string>
+    <string name="clear_data_detail">删除所有配置、加白条目和设置，然后重启 po0-clash。</string>
+    <string name="update_available">po0-clash %1$s 已发布</string>
+    <string name="open_download_page">打开下载页</string>
+    <string name="dont_remind">不再提醒</string>
+    <string name="up_to_date">已是最新版本</string>
+    <plurals name="line_count">
+        <item quantity="other">%d 行</item>
+    </plurals>
+    <plurals name="package_count">
+        <item quantity="other">%d 个组件</item>
+    </plurals>
+    <plurals name="pruned_files">
+        <item quantity="other">已删除 %d 个文件</item>
+    </plurals>
 </resources>

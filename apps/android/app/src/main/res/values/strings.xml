@@ -63,7 +63,6 @@
     <string name="export_diagnostics_hint">Saves the app and engine logs to a text file</string>
     <string name="export_done">Diagnostic log exported</string>
     <string name="about">About</string>
-    <string name="version">Version</string>
 
     <string name="dashboard">Dashboard</string>
     <string name="proxies">Proxies</string>
@@ -100,8 +99,6 @@
     <string name="requests">Requests</string>
     <string name="connections">Connections</string>
     <string name="logs">Logs</string>
-    <string name="coming_soon">Coming soon</string>
-    <string name="coming_soon_body">The native app does not have this yet. It is on the way.</string>
     <string name="clear">Clear</string>
     <string name="close">Close</string>
     <string name="close_all">Close all connections</string>
@@ -154,7 +151,6 @@
     <string name="background_location">Location all the time</string>
     <string name="clear_selection">Clear selection</string>
     <string name="collapse">Collapse</string>
-    <string name="coming_soon_short">Soon</string>
     <string name="config">Configuration</string>
     <string name="connect_first_short">Shown once connected</string>
     <string name="connect_to_see_node">Connect to see the node in use</string>
@@ -232,7 +228,7 @@
     <string name="on_demand">On demand</string>
     <string name="only_internet_apps">Only apps using the network</string>
     <string name="outbound_mode">Outbound mode</string>
-    <string name="override_script">Override script</string>
+    <string name="override_script">Script</string>
     <string name="paste_from_clipboard">Replace with clipboard</string>
     <string name="permissions">Permissions</string>
     <string name="permissions_detail">Android reads the Wi-Fi name only with location allowed all the time; without battery optimization exemption the system may stop the VPN.</string>
@@ -309,8 +305,6 @@
     <string name="check_certificate_detail">When downloading subscriptions</string>
     <string name="close_on_switch">Close connections on switch</string>
     <string name="close_on_switch_detail">Old connections move to the new node at once</string>
-    <string name="crash_reports">Crash protection</string>
-    <string name="crash_reports_detail">Kept on this device only</string>
     <string name="density">Density</string>
     <string name="density_loose">Loose</string>
     <string name="density_standard">Standard</string>
@@ -320,7 +314,6 @@
     <string name="edit_dashboard">Edit dashboard</string>
     <string name="hidden_cards">Hidden</string>
     <string name="intranet_ip">Intranet IP</string>
-    <string name="language_detail">Japanese and Russian arrive with their translations.</string>
     <string name="layout">Layout</string>
     <string name="layout_list">List</string>
     <string name="layout_tabs">Tabs</string>
@@ -372,4 +365,76 @@
     <string name="icon_standard">Standard</string>
     <string name="icon_only">Icon only</string>
     <string name="icon_hidden">None</string>
+    <string name="override">Override</string>
+    <string name="override_standard">Standard</string>
+    <string name="override_custom">Custom</string>
+    <string name="override_standard_detail">Adds rules in front of the profile\'s own.</string>
+    <string name="override_script_detail">Rewrites the profile\'s config with a script.</string>
+    <string name="override_custom_detail">Replaces the profile\'s proxy groups and rules with your own.</string>
+    <string name="saving">Saving</string>
+    <string name="override_mode">Mode</string>
+    <string name="match_target">MATCH target</string>
+    <string name="match_target_default">Profile\'s own</string>
+    <string name="override_rules_detail">One per line, matched before the global rules and the profile\'s own. The MATCH target is where the profile\'s final rule sends traffic.</string>
+    <string name="global_rules">Global rules</string>
+    <string name="no_global_rules">No global rules. Add them in Tools › Advanced.</string>
+    <string name="global_rules_detail">Turn a global rule off to skip it for this profile only.</string>
+    <string name="script">Script</string>
+    <string name="edit_script">Edit script</string>
+    <string name="new_script">New script</string>
+    <string name="script_main_detail">The script\'s main(config) gets the profile\'s config before po0-clash\'s settings and returns the config to use. Scripts are kept in Tools › Advanced.</string>
+    <string name="proxy_groups">Proxy groups</string>
+    <string name="rules">Rules</string>
+    <string name="override_custom_footer">Proxy groups are a YAML list, rules one per line. Left empty, the profile keeps its own.</string>
+    <string name="replace">Replace</string>
+    <string name="copy_from_profile">Copy from profile</string>
+    <string name="copy_from_profile_confirm">Replace with the profile\'s own groups and rules?</string>
+    <string name="script_name">Name</string>
+    <string name="script_main_hint">main(config) receives the profile\'s config as an object and returns the config to use.</string>
+    <string name="override_scripts">Override scripts</string>
+    <string name="override_scripts_detail">A profile runs a script once you choose it in the profile\'s override.</string>
+    <string name="nodes">Nodes</string>
+    <string name="share_nodes_detail">Tap a node to rename or delete it. The last node goes with its profile.</string>
+    <string name="rename">Rename</string>
+    <string name="script_saved">Script saved</string>
+    <string name="crash_detected">Crash detected</string>
+    <string name="crash_detected_body">po0-clash failed to finish starting twice in a row. To break the loop, it deselected the profile “%1$s” and did not connect automatically. You can select it again at any time.</string>
+    <string name="launch_interrupted">Launch did not finish</string>
+    <string name="launch_interrupted_body">po0-clash quit unexpectedly while starting last time, so it did not connect automatically. Connect manually to try again.</string>
+    <string name="developer_mode_on">Developer mode is on</string>
+    <string name="check_update">Check for updates</string>
+    <string name="project">Project</string>
+    <string name="credits">Open-source credits</string>
+    <string name="upstream_client">Upstream client</string>
+    <string name="upstream_contributors">Upstream contributors</string>
+    <string name="licenses">Open-source licenses</string>
+    <string name="about_detail">po0-clash is a cross-platform ClashMeta client with automatic po0 and ggy whitelisting, share-link node import, and subscription management.</string>
+    <string name="developer_mode">Developer mode</string>
+    <string name="developer_mode_detail">Turning this off hides this page. Tap the version in About five times to bring it back.</string>
+    <string name="options">Options</string>
+    <string name="message_test">Message test</string>
+    <string name="message_test_body">This is a message.</string>
+    <string name="logs_test">Logs test</string>
+    <string name="logs_test_detail">Adds 1,000 lines of random text to the logs in Activity.</string>
+    <string name="logs_test_off">Turn on Capture logs in Application first.</string>
+    <string name="prune_cache">Prune cache</string>
+    <string name="clear_data">Clear data</string>
+    <string name="clear_data_confirm">Every profile, whitelist entry and setting is removed and po0-clash restarts. This cannot be undone.</string>
+    <string name="clear_data_detail">Removes every profile, whitelist entry and setting, then restarts po0-clash.</string>
+    <string name="update_available">po0-clash %1$s is available</string>
+    <string name="open_download_page">Open download page</string>
+    <string name="dont_remind">Don\'t remind me</string>
+    <string name="up_to_date">po0-clash is up to date</string>
+    <plurals name="line_count">
+        <item quantity="one">%d line</item>
+        <item quantity="other">%d lines</item>
+    </plurals>
+    <plurals name="package_count">
+        <item quantity="one">%d package</item>
+        <item quantity="other">%d packages</item>
+    </plurals>
+    <plurals name="pruned_files">
+        <item quantity="one">Removed %d file</item>
+        <item quantity="other">Removed %d files</item>
+    </plurals>
 </resources>

@@ -1,7 +1,9 @@
 package io.github.yuuukicreation.po0clash.ui
 
 import android.app.Application
+import android.content.Intent
 import android.net.Uri
+import android.os.Process
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,8 +14,12 @@ import io.github.yuuukicreation.po0clash.core.Change
 import io.github.yuuukicreation.po0clash.core.EngineOptions
 import io.github.yuuukicreation.po0clash.core.Mode
 import io.github.yuuukicreation.po0clash.core.ProfileEdit
+import io.github.yuuukicreation.po0clash.core.ProfileOverride
 import io.github.yuuukicreation.po0clash.core.ProviderKind
+import io.github.yuuukicreation.po0clash.core.Release
 import io.github.yuuukicreation.po0clash.core.RestoreScope
+import io.github.yuuukicreation.po0clash.core.Script
+import io.github.yuuukicreation.po0clash.core.ShareNode
 import io.github.yuuukicreation.po0clash.engine
 import io.github.yuuukicreation.po0clash.userMessage
 import io.github.yuuukicreation.po0clash.vpn.Po0VpnService
@@ -25,6 +31,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 class AppViewModel(private val app: Application) : AndroidViewModel(app) {
@@ -40,6 +47,15 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     val androidSettings = engine.settings.state
     val appSettings = engine.appSettings
     private val optionWriter = Dispatchers.IO.limitedParallelism(1)
+    private val overrideWriter = Dispatchers.IO.limitedParallelism(1)
+    private val _scripts = MutableStateFlow(emptyList<Script>())
+    val scripts = _scripts.asStateFlow()
+    private val _shareNodes = MutableStateFlow(emptyList<ShareNode>())
+    val shareNodes = _shareNodes.asStateFlow()
+    private val _release = MutableStateFlow<Pair<Release, Boolean>?>(null)
+
+    /** A newer release to offer, and whether the automatic check found it. */
+    val release = _release.asStateFlow()
 
     private fun launch(key: String, block: () -> String?) {
         if (key in _busy.value) return
@@ -138,6 +154,7 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     private fun afterRestore(): String {
         engine.reloadAppSettings()
         _options.value = core.engineOptions()
+        _scripts.value = core.scripts()
         refresh(Change.PROFILES, Change.STATUS, Change.GROUPS, Change.WHITELIST)
         return app.getString(R.string.restore_done)
     }
@@ -237,6 +254,116 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
         null
     }
 
+    suspend fun profileOverride(id: String): ProfileOverride? = withContext(Dispatchers.IO) {
+        runCatching { core.profileOverride(id) }.onFailure { _messages.send(it.userMessage()) }.getOrNull()
+    }
+
+    /**
+     * Saves in order; the core keeps an override only if the profile still renders and mihomo accepts it, so a
+     * rejected one hands [revert] the saved override back.
+     */
+    fun setProfileOverride(id: String, next: ProfileOverride, revert: (ProfileOverride) -> Unit) {
+        val key = busyOverride(id)
+        _busy.update { it + key }
+        viewModelScope.launch(overrideWriter) {
+            try {
+                core.setProfileOverride(id, next)
+                refresh(Change.PROFILES, Change.STATUS, Change.GROUPS)
+            } catch (e: Exception) {
+                _messages.send(e.userMessage())
+                runCatching { core.profileOverride(id) }.getOrNull()?.let { withContext(Dispatchers.Main) { revert(it) } }
+            } finally {
+                _busy.update { it - key }
+            }
+        }
+    }
+
+    fun copyProfileParts(id: String, onParts: (groups: String, rules: List<String>) -> Unit) = launch(busyOverride(id)) {
+        val parts = core.profileGroupsAndRules(id)
+        viewModelScope.launch(Dispatchers.Main) { onParts(parts.groups, parts.rules) }
+        null
+    }
+
+    fun loadScripts() = launch("scripts") {
+        _scripts.value = core.scripts()
+        null
+    }
+
+    fun saveScript(script: Script, onSaved: (Script) -> Unit = {}) = launch(BUSY_SCRIPT) {
+        val saved = core.saveScript(script)
+        _scripts.value = core.scripts()
+        refresh(Change.PROFILES, Change.STATUS, Change.GROUPS)
+        viewModelScope.launch(Dispatchers.Main) { onSaved(saved) }
+        app.getString(R.string.script_saved)
+    }
+
+    fun removeScript(id: String) = launch(BUSY_SCRIPT) {
+        core.removeScript(id)
+        _scripts.value = core.scripts()
+        refresh(Change.PROFILES, Change.STATUS, Change.GROUPS)
+        null
+    }
+
+    fun loadShareNodes(id: String) = launch(busyProfile(id)) {
+        _shareNodes.value = core.shareNodes(id)
+        null
+    }
+
+    fun renameShareNode(id: String, name: String, newName: String) = launch(busyProfile(id)) {
+        core.renameShareNode(id, name, newName)
+        _shareNodes.value = core.shareNodes(id)
+        refresh(Change.PROFILES, Change.STATUS, Change.GROUPS)
+        null
+    }
+
+    fun removeShareNode(id: String, name: String) = launch(busyProfile(id)) {
+        core.removeShareNode(id, name)
+        _shareNodes.value = core.shareNodes(id)
+        refresh(Change.PROFILES, Change.STATUS, Change.GROUPS)
+        null
+    }
+
+    fun checkUpdate(userInitiated: Boolean) = launch(BUSY_UPDATE) {
+        val release = try {
+            core.checkUpdate()
+        } catch (e: Exception) {
+            if (userInitiated) throw e
+            return@launch null
+        }
+        when {
+            release != null -> {
+                _release.value = release to !userInitiated
+                null
+            }
+            userInitiated -> app.getString(R.string.up_to_date)
+            else -> null
+        }
+    }
+
+    fun dismissRelease() {
+        _release.value = null
+    }
+
+    fun addTestLogs() = launch("test-logs") {
+        core.addTestLogs()
+        null
+    }
+
+    fun pruneCache() = launch(BUSY_CACHE) {
+        val removed = core.pruneCache().toInt()
+        app.resources.getQuantityString(R.plurals.pruned_files, removed, removed)
+    }
+
+    /** The core clears its files on the next start, so the app restarts the way FlClash does. */
+    fun clearData() = launch("clear-data") {
+        Po0VpnService.stop(app)
+        core.clearData()
+        val restart = Intent.makeRestartActivityTask(checkNotNull(app.packageManager.getLaunchIntentForPackage(app.packageName)).component)
+        app.startActivity(restart)
+        Process.killProcess(Process.myPid())
+        null
+    }
+
     fun setWhitelistEnabled(enabled: Boolean) = launch(BUSY_WHITELIST) {
         core.setWhitelistEnabled(enabled)
         refresh(Change.WHITELIST)
@@ -282,9 +409,13 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
         const val BUSY_GEO = "geo"
         const val BUSY_BACKUP = "backup"
         const val BUSY_WEBDAV = "webdav"
+        const val BUSY_SCRIPT = "script"
+        const val BUSY_UPDATE = "update"
+        const val BUSY_CACHE = "cache"
         fun busyProvider(name: String) = "provider:$name"
         fun busyDelay(group: String) = "delay:$group"
         fun busyNodeDelay(node: String) = "node-delay:$node"
         fun busyProfile(id: String) = "profile:$id"
+        fun busyOverride(id: String) = "override:$id"
     }
 }

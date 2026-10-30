@@ -1,5 +1,7 @@
 package io.github.yuuukicreation.po0clash
 
+import android.app.ActivityManager
+import android.app.ApplicationExitInfo
 import android.app.Application
 import android.content.BroadcastReceiver
 import android.content.ComponentName
@@ -25,6 +27,9 @@ import io.github.yuuukicreation.po0clash.core.CoreListener
 import io.github.yuuukicreation.po0clash.core.CoreOptions
 import io.github.yuuukicreation.po0clash.core.EngineState
 import io.github.yuuukicreation.po0clash.core.ExitIp
+import io.github.yuuukicreation.po0clash.core.ExitKind
+import io.github.yuuukicreation.po0clash.core.LastExit
+import io.github.yuuukicreation.po0clash.core.LaunchRecovery
 import io.github.yuuukicreation.po0clash.core.Platform
 import io.github.yuuukicreation.po0clash.core.Po0Core
 import io.github.yuuukicreation.po0clash.core.ProxyGroup
@@ -41,12 +46,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 
 class Engine(private val app: Application) {
     val core = Po0Core(
@@ -59,6 +66,21 @@ class Engine(private val app: Application) {
             appVersion = BuildConfig.VERSION_NAME,
         ),
     )
+
+    /** FlClash's launch guard, taken before anything connects; not NORMAL means this run does not connect on its own. */
+    val launchCheck = core.launchStarted(lastExit(app))
+    private val _launchNotice = MutableStateFlow(launchCheck.takeIf { it.recovery != LaunchRecovery.NORMAL })
+    val launchNotice = _launchNotice.asStateFlow()
+
+    @Volatile
+    var autoConnectBlocked = launchCheck.recovery != LaunchRecovery.NORMAL
+        private set
+    private val launchDone = AtomicBoolean(false)
+    private val _screenOn = MutableStateFlow(true)
+    val screenOn = _screenOn.asStateFlow()
+
+    @Volatile
+    private var restoring = false
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val serial = Dispatchers.IO.limitedParallelism(1)
@@ -113,12 +135,39 @@ class Engine(private val app: Application) {
         watchNetwork()
         watchWifi()
         watchScreen()
+        watchLaunch()
         restoreConnection()
     }
 
     fun restoreConnection() {
-        if (vpnActive.value || !core.wasConnected() || VpnService.prepare(app) != null) return
-        runCatching { Po0VpnService.start(app) }
+        if (autoConnectBlocked || vpnActive.value || !core.wasConnected() || VpnService.prepare(app) != null) return
+        restoring = runCatching { Po0VpnService.start(app) }.isSuccess
+    }
+
+    /** The launch has finished once the engine comes up or gives up, or once the app decides not to connect. */
+    private fun watchLaunch() {
+        scope.launch {
+            combine(_status, vpnError) { status, error -> status.engine to error }.first { (state, error) ->
+                state == EngineState.Running || state is EngineState.Failed || error != null
+            }
+            autoConnectBlocked = false
+            finishLaunch()
+        }
+    }
+
+    fun finishLaunch() {
+        if (launchDone.compareAndSet(false, true)) core.launchFinished()
+    }
+
+    /** Whether the app opening may connect by itself; false also settles the launch when nothing else is starting. */
+    fun mayAutoConnect(): Boolean {
+        if (!autoConnectBlocked && appSettings.value.autoConnect && !vpnActive.value && profiles.value.any { it.selected }) return true
+        if (!restoring && !vpnActive.value) finishLaunch()
+        return false
+    }
+
+    fun dismissLaunchNotice() {
+        _launchNotice.value = null
     }
 
     fun refresh(change: Change) {
@@ -281,6 +330,7 @@ class Engine(private val app: Application) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 val on = intent.action == Intent.ACTION_SCREEN_ON
+                _screenOn.value = on
                 scope.launch { core.setActive(on) }
             }
         }
@@ -290,8 +340,38 @@ class Engine(private val app: Application) {
         }
         ContextCompat.registerReceiver(app, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         val interactive = app.getSystemService(PowerManager::class.java).isInteractive
+        _screenOn.value = interactive
         scope.launch { core.setActive(interactive) }
     }
 }
 
 fun Throwable.userMessage(): String = message?.takeIf(String::isNotBlank) ?: toString()
+
+/** How the previous run of the app ended, as the launch guard needs it; Android keeps this from API 30. */
+private fun lastExit(context: Context): LastExit? {
+    if (Build.VERSION.SDK_INT < 30) return null
+    val exit = context.getSystemService(ActivityManager::class.java)
+        .getHistoricalProcessExitReasons(context.packageName, 0, 1)
+        .firstOrNull() ?: return null
+    val kind = when (exit.reason) {
+        ApplicationExitInfo.REASON_CRASH,
+        ApplicationExitInfo.REASON_CRASH_NATIVE,
+        ApplicationExitInfo.REASON_ANR,
+        ApplicationExitInfo.REASON_INITIALIZATION_FAILURE,
+        -> ExitKind.CRASHED
+        ApplicationExitInfo.REASON_EXIT_SELF,
+        ApplicationExitInfo.REASON_SIGNALED,
+        ApplicationExitInfo.REASON_LOW_MEMORY,
+        ApplicationExitInfo.REASON_PERMISSION_CHANGE,
+        ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE,
+        ApplicationExitInfo.REASON_USER_REQUESTED,
+        ApplicationExitInfo.REASON_USER_STOPPED,
+        ApplicationExitInfo.REASON_DEPENDENCY_DIED,
+        ApplicationExitInfo.REASON_FREEZER,
+        ApplicationExitInfo.REASON_PACKAGE_STATE_CHANGE,
+        ApplicationExitInfo.REASON_PACKAGE_UPDATED,
+        -> ExitKind.STOPPED
+        else -> ExitKind.OTHER
+    }
+    return LastExit(kind, exit.timestamp)
+}

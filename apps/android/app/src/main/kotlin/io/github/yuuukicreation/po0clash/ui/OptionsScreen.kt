@@ -173,14 +173,6 @@ fun AdvancedOptionsScreen(vm: AppViewModel, onBack: () -> Unit) {
             }
             SectionFooter(stringResource(R.string.added_rules_detail))
         }
-        item {
-            SectionHeader(stringResource(R.string.override_script))
-            ComingSoonRow()
-        }
+        item { ScriptLibrary(vm) }
     }
-}
-
-@Composable
-fun ComingSoonRow() {
-    ValueRow(0, 1, stringResource(R.string.coming_soon), stringResource(R.string.coming_soon_short))
 }

@@ -54,10 +54,7 @@ class MainActivity : ComponentActivity() {
         }
         if (savedInstanceState == null) {
             handle(intent)
-            val engine = app.engine
-            if (engine != null && engine.appSettings.value.autoConnect && !engine.vpnActive.value && engine.profiles.value.any { it.selected }) {
-                connect()
-            }
+            if (app.engine?.mayAutoConnect() == true) connect()
         }
         app.engine?.let { engine ->
             lifecycleScope.launch {

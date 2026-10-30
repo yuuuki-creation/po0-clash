@@ -139,7 +139,7 @@ android {
     }
 
     androidResources {
-        localeFilters += listOf("en", "zh-rCN")
+        localeFilters += listOf("en", "zh-rCN", "ja", "ru")
     }
 
     compileOptions {
