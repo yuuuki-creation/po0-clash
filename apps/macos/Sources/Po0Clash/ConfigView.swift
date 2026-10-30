@@ -208,7 +208,7 @@ struct ResourcesView: View {
                 providerSection("Rule providers", items.filter { $0.kind == .rule })
             }
         }
-        .task { await reload() }
+        .task(id: model.isRunning) { await reload() }
     }
 
     @ViewBuilder

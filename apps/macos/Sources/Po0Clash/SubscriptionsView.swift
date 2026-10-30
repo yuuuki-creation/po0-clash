@@ -145,6 +145,7 @@ private struct ProfileRow: View {
                     }
                 }
                 .buttonStyle(.borderless)
+                .tint(Color.secondary)
                 .frame(width: 20)
                 .disabled(model.updating.contains(profile.id))
                 .help("Update")
@@ -156,6 +157,7 @@ private struct ProfileRow: View {
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
+            .tint(Color.secondary)
             .fixedSize()
             .help("More")
         }
