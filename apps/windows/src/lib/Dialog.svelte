@@ -1,13 +1,13 @@
 <script>
   import { t } from './i18n.js';
 
-  let { title, onclose, children, actions } = $props();
+  let { title, onclose, wide = false, children, actions } = $props();
 </script>
 
 <svelte:window onkeydown={(event) => event.key === 'Escape' && onclose()} />
 
 <div class="scrim" role="presentation" onclick={(event) => event.target === event.currentTarget && onclose()}>
-  <div class="dialog glass" role="dialog" aria-modal="true" aria-label={title}>
+  <div class="dialog glass" class:wide role="dialog" aria-modal="true" aria-label={title}>
     <h2>{title}</h2>
     {@render children?.()}
     <div class="actions">

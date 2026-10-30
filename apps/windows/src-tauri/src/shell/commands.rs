@@ -5,7 +5,8 @@ use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 use super::po0::{
-    Connection, Connections, Core, CoreError, ExitIp, ImportResult, LogEntry, Mode, Profile, ProxyGroup, RouteMode,
+    Connection, Connections, Core, CoreError, ExitIp, ImportResult, LogEntry, Mode, Profile, ProfileEdit, ProxyGroup,
+    RouteMode,
     Status, Traffic, WhitelistState,
 };
 use super::{Backdrop, autostart, locale_is_zh};
@@ -155,6 +156,41 @@ pub async fn select_profile(core: CoreState<'_>, id: String) -> Reply<()> {
 }
 
 #[tauri::command]
+pub async fn import_file(core: CoreState<'_>, name: String, content: String) -> Reply<Profile> {
+    blocking(&core, move |c| c.import_file(name, content)).await
+}
+
+#[tauri::command]
+pub async fn edit_profile(core: CoreState<'_>, id: String, edit: ProfileEdit) -> Reply<Profile> {
+    blocking(&core, move |c| c.edit_profile(id, edit)).await
+}
+
+#[tauri::command]
+pub async fn preview_config(core: CoreState<'_>, id: String) -> Reply<String> {
+    blocking(&core, move |c| c.preview_config(id)).await
+}
+
+#[tauri::command]
+pub async fn reorder_profiles(core: CoreState<'_>, ids: Vec<String>) -> Reply<()> {
+    blocking(&core, move |c| c.reorder_profiles(ids)).await
+}
+
+#[tauri::command]
+pub async fn export_profile(app: AppHandle, core: CoreState<'_>, id: String, name: String) -> Reply<Option<String>> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let content = core.profile_content(id).map_err(|e| e.to_string())?;
+        let Some(path) = save_dialog(&app, &format!("{name}.yaml"), "YAML", &["yaml", "yml", "txt"]) else {
+            return Ok(None);
+        };
+        std::fs::write(&path, content).map_err(|e| e.to_string())?;
+        Ok(Some(path.display().to_string()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 pub async fn import_links(core: CoreState<'_>, text: String) -> Reply<ImportResult> {
     blocking(&core, move |c| c.import_links(text)).await
 }
@@ -218,26 +254,25 @@ pub async fn set_autostart(enabled: bool) -> Reply<()> {
     tauri::async_runtime::spawn_blocking(move || autostart::set(enabled)).await.map_err(|e| e.to_string())?
 }
 
+fn save_dialog(app: &AppHandle, file_name: &str, filter: &str, extensions: &[&str]) -> Option<std::path::PathBuf> {
+    let mut dialog = app.dialog().file().set_file_name(file_name).add_filter(filter, extensions);
+    if let Some(window) = app.get_webview_window("main") {
+        dialog = dialog.set_parent(&window);
+    }
+    // An elevated process starts in System32, which is where the dialog would open otherwise.
+    if let Ok(desktop) = app.path().desktop_dir() {
+        dialog = dialog.set_directory(desktop);
+    }
+    dialog.blocking_save_file()?.into_path().ok()
+}
+
 #[tauri::command]
 pub async fn export_diagnostics(app: AppHandle, core: CoreState<'_>) -> Reply<Option<String>> {
     let core = Arc::clone(&core);
     tauri::async_runtime::spawn_blocking(move || {
-        let mut dialog = app
-            .dialog()
-            .file()
-            .set_file_name("po0-clash-diagnostics.txt")
-            .add_filter("Text", &["txt"]);
-        if let Some(window) = app.get_webview_window("main") {
-            dialog = dialog.set_parent(&window);
-        }
-        // An elevated process starts in System32, which is where the dialog would open otherwise.
-        if let Ok(desktop) = app.path().desktop_dir() {
-            dialog = dialog.set_directory(desktop);
-        }
-        let Some(picked) = dialog.blocking_save_file() else {
+        let Some(path) = save_dialog(&app, "po0-clash-diagnostics.txt", "Text", &["txt"]) else {
             return Ok(None);
         };
-        let path = picked.into_path().map_err(|e| e.to_string())?;
         core.export_diagnostics(path.clone()).map_err(|e| e.to_string())?;
         Ok(Some(path.display().to_string()))
     })

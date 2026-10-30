@@ -87,6 +87,43 @@
       </div>
     </Card>
 
+    <Card title={t('home.mode')} icon="branch">
+      <Segmented
+        label={t('home.mode')}
+        options={['rule', 'global', 'direct'].map((value) => ({ value, label: t(`mode.${value}`) }))}
+        value={app.status?.mode}
+        disabled={app.busy.mode || !app.status}
+        onchange={(mode) => act('mode', 'set_mode', { mode })}
+      />
+    </Card>
+
+    <Card title={t('home.node')} icon="nodes">
+      <button type="button" class="split link-row" onclick={() => (app.page = 'proxies')}>
+        <span class="grow">
+          <span class="big title">{node ?? '—'}</span>
+          {#if nodeDelay != null}<span class="sub tone-{delayTone(nodeDelay)}">{formatDelay(nodeDelay)}</span>{/if}
+        </span>
+        <span class="chevron"><Icon name="chevron" /></span>
+      </button>
+    </Card>
+
+    <Card title={t('home.route')} icon="route">
+      <Segmented
+        label={t('home.route')}
+        options={['systemProxy', 'tun'].map((value) => ({ value, label: t(`route.${value}`) }))}
+        value={app.status?.routeMode}
+        disabled={app.busy.route || !app.status}
+        onchange={(routeMode) => act('route', 'set_route_mode', { routeMode })}
+      />
+    </Card>
+
+    <Card title={t('home.total')} icon="updown">
+      <div class="rates">
+        <span><Icon name="up" />{totals ? formatBytes(totals.uploadTotal) : '—'}</span>
+        <span><Icon name="down" />{totals ? formatBytes(totals.downloadTotal) : '—'}</span>
+      </div>
+    </Card>
+
     <Card title={t('home.exitIp')} icon="network">
       <div class="split">
         <div class="grow">
@@ -102,36 +139,6 @@
           onclick={() => refreshExitIp()}><Icon name="refresh" /></button
         >
       </div>
-    </Card>
-
-    <Card title={t('home.node')} icon="nodes">
-      <button type="button" class="split link-row" onclick={() => (app.page = 'proxies')}>
-        <span class="grow">
-          <span class="big title">{node ?? '—'}</span>
-          {#if nodeDelay != null}<span class="sub tone-{delayTone(nodeDelay)}">{formatDelay(nodeDelay)}</span>{/if}
-        </span>
-        <span class="chevron"><Icon name="chevron" /></span>
-      </button>
-    </Card>
-
-    <Card title={t('home.mode')} icon="branch">
-      <Segmented
-        label={t('home.mode')}
-        options={['rule', 'global', 'direct'].map((value) => ({ value, label: t(`mode.${value}`) }))}
-        value={app.status?.mode}
-        disabled={app.busy.mode || !app.status}
-        onchange={(mode) => act('mode', 'set_mode', { mode })}
-      />
-    </Card>
-
-    <Card title={t('home.route')} icon="route">
-      <Segmented
-        label={t('home.route')}
-        options={['systemProxy', 'tun'].map((value) => ({ value, label: t(`route.${value}`) }))}
-        value={app.status?.routeMode}
-        disabled={app.busy.route || !app.status}
-        onchange={(routeMode) => act('route', 'set_route_mode', { routeMode })}
-      />
     </Card>
 
     <Card title={t('home.profile')} icon="stack">
@@ -152,11 +159,11 @@
       {/if}
     </Card>
 
-    <Card title={t('home.total')} icon="updown">
-      <div class="rates">
-        <span><Icon name="up" />{totals ? formatBytes(totals.uploadTotal) : '—'}</span>
-        <span><Icon name="down" />{totals ? formatBytes(totals.downloadTotal) : '—'}</span>
-      </div>
+    <Card title={t('home.connections')} icon="activity">
+      <button type="button" class="split link-row" onclick={() => (app.page = 'activity')}>
+        <span class="grow big mono">{totals ? totals.items.length : '—'}</span>
+        <span class="chevron"><Icon name="chevron" /></span>
+      </button>
     </Card>
 
     <Card title={t('home.memory')} icon="chip">

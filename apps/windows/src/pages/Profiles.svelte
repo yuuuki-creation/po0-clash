@@ -5,12 +5,18 @@
   import EmptyState from '../lib/EmptyState.svelte';
   import Icon from '../lib/Icon.svelte';
   import Page from '../lib/Page.svelte';
+  import Switch from '../lib/Switch.svelte';
   import UsageBar from '../lib/UsageBar.svelte';
 
   let dialog = $state(null);
   let removing = $state(null);
+  let editing = $state(null);
+  let preview = $state(null);
   let url = $state('');
   let links = $state('');
+  let picker;
+  let dragged = $state(null);
+  let target = $state(null);
 
   const title = (profile) => (profile.kind === 'links' ? t('profiles.links') : profile.name);
 
@@ -32,15 +38,73 @@
     }
   }
 
+  async function importFile(event) {
+    const file = event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    const profile = await act('importFile', 'import_file', { name: file.name, content: await file.text() });
+    if (profile) notify(t('profiles.importedFile', { name: profile.name }));
+  }
+
   function remove() {
     act(`remove:${removing.id}`, 'remove_profile', { id: removing.id });
     removing = null;
+  }
+
+  function edit(profile) {
+    editing = {
+      id: profile.id,
+      kind: profile.kind,
+      title: title(profile),
+      name: profile.name,
+      url: profile.url ?? '',
+      autoUpdate: profile.autoUpdate,
+      updateHours: profile.updateHours,
+    };
+  }
+
+  async function save(event) {
+    event.preventDefault();
+    const { id, kind, name, url: link, autoUpdate, updateHours } = editing;
+    if (kind === 'links') {
+      editing = null;
+      return;
+    }
+    const edit = { name, url: kind === 'subscription' ? link : null, autoUpdate, updateHours: Number(updateHours) };
+    if (await act('edit', 'edit_profile', { id, edit })) editing = null;
+  }
+
+  async function showPreview() {
+    const config = await act('preview', 'preview_config', { id: editing.id });
+    if (config !== undefined) preview = { title: editing.title, config };
+  }
+
+  async function exportProfile() {
+    const path = await act('export', 'export_profile', { id: editing.id, name: editing.title });
+    if (path) notify(t('profiles.exported', { path }));
+  }
+
+  function drop(over) {
+    const from = dragged;
+    dragged = target = null;
+    if (!from || from === over) return;
+    const ids = app.profiles.map((p) => p.id).filter((id) => id !== from);
+    ids.splice(ids.indexOf(over), 0, from);
+    app.profiles = ids.map((id) => app.profiles.find((p) => p.id === id));
+    act('reorder', 'reorder_profiles', { ids });
   }
 </script>
 
 <Page title={t('page.profiles')} fill={!app.profiles.length}>
   {#snippet actions()}
     <div class="group glass">
+      <button
+        type="button"
+        title={t('profiles.importFile')}
+        aria-label={t('profiles.importFile')}
+        disabled={app.busy.importFile}
+        onclick={() => picker.click()}><Icon name="doc" /></button
+      >
       <button
         type="button"
         title={t('profiles.importEllipsis')}
@@ -56,6 +120,8 @@
     </div>
   {/snippet}
 
+  <input bind:this={picker} type="file" accept=".yaml,.yml,.txt,.conf" hidden onchange={importFile} />
+
   {#if !app.profiles.length}
     <EmptyState icon="stack" title={t('profiles.empty')} detail={t('profiles.emptyHint')} />
   {:else}
@@ -63,7 +129,30 @@
       <h2 class="section-title">{t('profiles.section')}</h2>
       <div class="form-group">
         {#each app.profiles as profile (profile.id)}
-          <div class="form-row top">
+          <div
+            class="form-row top"
+            class:dragging={dragged === profile.id}
+            class:drop-target={target === profile.id && dragged !== profile.id}
+            role="listitem"
+            draggable={app.profiles.length > 1}
+            ondragstart={(event) => {
+              dragged = profile.id;
+              event.dataTransfer.effectAllowed = 'move';
+            }}
+            ondragover={(event) => {
+              if (!dragged) return;
+              event.preventDefault();
+              target = profile.id;
+            }}
+            ondrop={(event) => {
+              event.preventDefault();
+              drop(profile.id);
+            }}
+            ondragend={() => (dragged = target = null)}
+          >
+            {#if app.profiles.length > 1}
+              <span class="grip" title={t('profiles.reorder')}><Icon name="grip" /></span>
+            {/if}
             <button
               type="button"
               class="radio"
@@ -78,9 +167,11 @@
             <div class="grow stacked">
               <span class="title strong">{title(profile)}</span>
               {#if profile.usage}<UsageBar usage={profile.usage} />{/if}
-              {#if profile.updatedAt}
-                <span class="sub">{t('profiles.updated', { time: formatTime(profile.updatedAt) })}</span>
-              {/if}
+              <span class="sub">
+                {#if profile.updatedAt}{t('profiles.updated', { time: formatTime(profile.updatedAt) })}{/if}
+                {#if profile.kind === 'subscription' && profile.autoUpdate}
+                  · {t('profiles.autoUpdateEvery', { hours: profile.updateHours })}{/if}
+              </span>
             </div>
             {#if profile.kind === 'subscription'}
               <button
@@ -94,6 +185,13 @@
                 {#if app.busy[`update:${profile.id}`]}<span class="spinner"></span>{:else}<Icon name="refresh" />{/if}
               </button>
             {/if}
+            <button
+              type="button"
+              class="icon-button"
+              title={t('profiles.edit')}
+              aria-label={t('profiles.edit')}
+              onclick={() => edit(profile)}><Icon name="pencil" /></button
+            >
             <button
               type="button"
               class="icon-button"
@@ -140,6 +238,66 @@
         >{t('profiles.importButton')}</button
       >
     {/snippet}
+  </Dialog>
+{/if}
+
+{#if editing && !preview}
+  <Dialog title={t('profiles.editTitle')} onclose={() => (editing = null)}>
+    <form id="edit-profile" class="stack" onsubmit={save}>
+      {#if editing.kind !== 'links'}
+        <label class="field">
+          <span class="sub">{t('profiles.name')}</span>
+          <input bind:value={editing.name} spellcheck="false" />
+        </label>
+      {/if}
+      {#if editing.kind === 'subscription'}
+        <label class="field">
+          <span class="sub">{t('profiles.url')}</span>
+          <input type="url" bind:value={editing.url} spellcheck="false" />
+        </label>
+        <div class="split">
+          <span class="grow">{t('profiles.autoUpdate')}</span>
+          <label class="hours">
+            <span class="sub">{t('profiles.updateHours')}</span>
+            <input
+              type="number"
+              min="1"
+              max="720"
+              bind:value={editing.updateHours}
+              disabled={!editing.autoUpdate}
+              aria-label={t('profiles.updateHours')}
+            />
+          </label>
+          <Switch
+            label={t('profiles.autoUpdate')}
+            checked={editing.autoUpdate}
+            onchange={(on) => (editing.autoUpdate = on)}
+          />
+        </div>
+      {/if}
+      <div class="split">
+        <button type="button" class="pill plain" disabled={app.busy.preview} onclick={showPreview}
+          >{t('profiles.preview')}</button
+        >
+        <button type="button" class="pill plain" disabled={app.busy.export} onclick={exportProfile}
+          >{t('profiles.export')}</button
+        >
+      </div>
+    </form>
+    {#snippet actions()}
+      <button
+        type="submit"
+        form="edit-profile"
+        class="pill filled"
+        disabled={(editing.kind !== 'links' && !editing.name.trim()) || app.busy.edit}>{t('profiles.save')}</button
+      >
+    {/snippet}
+  </Dialog>
+{/if}
+
+{#if preview}
+  <Dialog title={t('profiles.previewTitle', { name: preview.title })} wide onclose={() => (preview = null)}>
+    <pre class="preview selectable">{preview.config}</pre>
   </Dialog>
 {/if}
 
