@@ -121,7 +121,10 @@
 "New entries appear here as they happen." = "有新内容时会出现在这里。";
 "Connect to see what the engine is doing." = "连接后可以在这里查看内核的活动。";
 "%lld requests" = "%lld 个请求";
-"%lld connections · ↑ %@ ↓ %@" = "%lld 个连接 · ↑ %@ ↓ %@";
+"%lld connections" = "%lld 个连接";
+"1 connection" = "1 个连接";
+"1 request" = "1 个请求";
+"1 log line" = "1 条日志";
 "%lld log lines" = "%lld 条日志";
 "Debug" = "调试";
 "Info" = "信息";

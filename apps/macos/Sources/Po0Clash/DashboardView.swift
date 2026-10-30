@@ -34,11 +34,11 @@ struct DashboardView: View {
                     LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
                         Group {
                             SpeedCard()
+                            ModeCard()
+                            CurrentNodeCard()
+                            RouteCard()
                             TrafficCard()
                             ExitIpCard()
-                            CurrentNodeCard()
-                            ModeCard()
-                            RouteCard()
                             SubscriptionCard()
                             ConnectionsCard()
                             MemoryCard()

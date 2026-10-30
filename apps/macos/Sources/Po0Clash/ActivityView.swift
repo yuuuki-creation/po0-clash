@@ -144,13 +144,17 @@ struct ActivityView: View {
     private var subtitle: String {
         switch tab {
         case .requests:
-            return String(localized: "\(activity.requests.count) requests")
+            let count = activity.requests.count
+            return count == 1 ? String(localized: "1 request") : String(localized: "\(count) requests")
         case .connections:
+            let count = activity.connections.items.count
             let up = Format.bytes(activity.connections.uploadTotal)
             let down = Format.bytes(activity.connections.downloadTotal)
-            return String(localized: "\(activity.connections.items.count) connections · ↑ \(up) ↓ \(down)")
+            let total = count == 1 ? String(localized: "1 connection") : String(localized: "\(count) connections")
+            return "\(total) · ↑ \(up) ↓ \(down)"
         case .logs:
-            return String(localized: "\(activity.logs.count) log lines")
+            let count = activity.logs.count
+            return count == 1 ? String(localized: "1 log line") : String(localized: "\(count) log lines")
         }
     }
 
@@ -186,25 +190,25 @@ private struct ConnectionTable: View {
             TableColumn("Host") { row in
                 Text(row.host).lineLimit(1).truncationMode(.middle).help(row.host)
             }
-            .width(min: 140, ideal: 240)
+            .width(min: 140, ideal: 200)
             TableColumn("Process") { row in
                 Text(row.process ?? "—").lineLimit(1).foregroundStyle(row.process == nil ? .secondary : .primary)
             }
-            .width(min: 60, ideal: 100)
+            .width(min: 60, ideal: 80)
             TableColumn("Rule") { row in
                 Text(row.rulePayload.isEmpty ? row.rule : "\(row.rule) · \(row.rulePayload)").lineLimit(1)
             }
-            .width(min: 80, ideal: 140)
+            .width(min: 80, ideal: 110)
             TableColumn("Chain") { row in
                 Text(row.chains.reversed().joined(separator: " → ")).lineLimit(1).truncationMode(.middle)
             }
-            .width(min: 80, ideal: 160)
+            .width(min: 80, ideal: 140)
             TableColumn("Traffic") { row in
                 Text(verbatim: "↑ \(Format.bytes(row.upload))  ↓ \(Format.bytes(row.download))")
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
-            .width(min: 120, ideal: 150)
+            .width(min: 110, ideal: 130)
         }
         .contextMenu(forSelectionType: String.self) { ids in
             Button("Copy Host") {
