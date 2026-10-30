@@ -301,6 +301,10 @@ private struct MenuActions: View {
         VStack(spacing: 0) {
             MenuRow("Open po0-clash", shortcut: "⌘O") { MainWindow.shared.show() }
                 .keyboardShortcut("o")
+            if model.isOn {
+                MenuRow("Restart Engine") { model.reconnect() }
+                    .disabled(model.busy)
+            }
             MenuRow("Show Speed in Menu Bar", checked: model.showsMenuBarSpeed) {
                 let shows = model.showsMenuBarSpeed
                 model.updateAppSettings { $0.traySpeed = !shows }

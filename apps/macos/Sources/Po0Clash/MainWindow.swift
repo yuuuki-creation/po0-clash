@@ -291,6 +291,10 @@ struct ConnectButton: View {
         .disabled(model.busy || model.status == nil)
         .help(model.isOn ? LocalizedStringKey("Disconnect") : LocalizedStringKey("Connect"))
         .keyboardShortcut(.return, modifiers: .command)
+        .contextMenu {
+            Button("Restart Engine") { model.reconnect() }
+                .disabled(!model.isOn || model.busy)
+        }
     }
 }
 
