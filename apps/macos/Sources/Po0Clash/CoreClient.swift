@@ -57,6 +57,8 @@ final class CoreClient: @unchecked Sendable {
     }
     func intranetIp() async throws -> IntranetIp? { try await work { $0.intranetIp() } }
     func wasConnected() async throws -> Bool { try await work { $0.wasConnected() } }
+    func launchStarted() async throws -> LaunchCheck { try await work { $0.launchStarted(lastExit: nil) } }
+    func launchFinished() async throws { try await work { $0.launchFinished() } }
     func appSettings() async throws -> AppSettings { try await work { $0.appSettings() } }
     func setAppSettings(_ settings: AppSettings) async throws {
         try await work { try $0.setAppSettings(settings: settings) }
@@ -158,6 +160,7 @@ final class CoreClient: @unchecked Sendable {
     /// Queued behind pending commands so a stop or route change in flight cannot run after it and leave a proxy set.
     func shutdown(then done: @escaping () -> Void) {
         controlQueue.async {
+            self.core.launchFinished()
             self.core.shutdown()
             onMainRunLoop(done)
         }

@@ -75,6 +75,7 @@ final class AppModel: ObservableObject {
                 let client = try await CoreClient.open(options, listener: forwarder)
                 self.client = client
                 logger.notice("core ready")
+                let launchCheck = try await client.launchStarted()
                 await refreshAll()
                 adoptLegacySettings()
                 AppLanguage.store(appSettings?.language)
@@ -95,7 +96,12 @@ final class AppModel: ObservableObject {
                     }
                 }
                 let resume = atLogin ? (try? await client.wasConnected()) == true : false
-                if resume || appSettings?.autoConnect == true { connect() }
+                if launchCheck.recovery != .normal {
+                    explain(launchCheck)
+                } else if resume || appSettings?.autoConnect == true {
+                    await connect()?.value
+                }
+                try? await client.launchFinished()
                 if appSettings?.autoCheckUpdate == true, !Showcase.isScripted { checkForUpdates(userInitiated: false) }
             } catch {
                 launchError = describe(error)
@@ -144,7 +150,8 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func connect() {
+    @discardableResult
+    private func connect() -> Task<Void, Never>? {
         command { client in
             try await self.prepareRoute(client)
             try await client.start()
@@ -463,6 +470,26 @@ final class AppModel: ObservableObject {
                 notice = describe(error)
             }
         }
+    }
+
+    /// FlClash's launch guard: the core saw the previous launch end while it was starting.
+    private func explain(_ check: LaunchCheck) {
+        logger.notice("previous launch did not finish: \(String(describing: check.recovery), privacy: .public)")
+        guard !Showcase.isScripted else { return }
+        let alert = NSAlert()
+        if check.recovery == .clearProfile, let name = check.profileName {
+            alert.messageText = String(localized: "Crash detected")
+            alert.informativeText = String(
+                localized: "po0-clash failed to finish starting twice in a row. To break the loop, it deselected the profile “\(name)” and did not connect automatically. You can select it again at any time."
+            )
+        } else {
+            alert.messageText = String(localized: "Launch did not finish")
+            alert.informativeText = String(
+                localized: "po0-clash quit unexpectedly while starting last time, so it did not connect automatically. Connect manually to try again."
+            )
+        }
+        activateApp()
+        alert.runModal()
     }
 
     /// FlClash asks once before the first start and quits when declined; the tools page shows it again.
@@ -854,11 +881,12 @@ final class AppModel: ObservableObject {
     // MARK: Helpers
 
     /// Engine and route changes: the connect controls stay disabled until the status has been re-read.
-    private func command(_ body: @escaping @MainActor (CoreClient) async throws -> Void) {
-        guard let client else { return }
+    @discardableResult
+    private func command(_ body: @escaping @MainActor (CoreClient) async throws -> Void) -> Task<Void, Never>? {
+        guard let client else { return nil }
         busyCount += 1
         busy = true
-        Task {
+        return Task {
             do { try await body(client) } catch { notice = describe(error) }
             await refreshStatus()
             busyCount -= 1

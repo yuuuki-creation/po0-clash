@@ -489,3 +489,9 @@
 "Open-source licenses" = "Лицензии открытого ПО";
 "Open-Source Licenses" = "Лицензии открытого ПО";
 "Show…" = "Показать…";
+
+/* Launch guard */
+"Crash detected" = "Обнаружен сбой";
+"po0-clash failed to finish starting twice in a row. To break the loop, it deselected the profile “%@” and did not connect automatically. You can select it again at any time." = "po0-clash два раза подряд не смог завершить запуск. Чтобы разорвать цикл, профиль «%@» снят с выбора, а автоподключение пропущено. Вы можете выбрать его снова в любой момент.";
+"Launch did not finish" = "Запуск не завершён";
+"po0-clash quit unexpectedly while starting last time, so it did not connect automatically. Connect manually to try again." = "В прошлый раз po0-clash неожиданно завершился во время запуска, поэтому автоподключение пропущено. Подключитесь вручную, чтобы попробовать снова.";

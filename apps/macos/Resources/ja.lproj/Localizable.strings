@@ -489,3 +489,9 @@
 "Open-source licenses" = "オープンソースライセンス";
 "Open-Source Licenses" = "オープンソースライセンス";
 "Show…" = "表示…";
+
+/* Launch guard */
+"Crash detected" = "クラッシュを検出しました";
+"po0-clash failed to finish starting twice in a row. To break the loop, it deselected the profile “%@” and did not connect automatically. You can select it again at any time." = "po0-clashの起動が2回連続で完了しませんでした。クラッシュループを断ち切るため、プロファイル「%@」の選択を解除し、今回の自動接続をスキップしました。いつでも選択し直せます。";
+"Launch did not finish" = "起動が完了しませんでした";
+"po0-clash quit unexpectedly while starting last time, so it did not connect automatically. Connect manually to try again." = "前回、po0-clashは起動中に予期せず終了したため、今回は自動接続をスキップしました。手動で接続して再試行できます。";

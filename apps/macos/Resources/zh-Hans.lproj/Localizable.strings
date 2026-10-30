@@ -489,3 +489,9 @@
 "Open-source licenses" = "开源许可";
 "Open-Source Licenses" = "开源许可";
 "Show…" = "查看…";
+
+/* Launch guard */
+"Crash detected" = "检测到崩溃";
+"po0-clash failed to finish starting twice in a row. To break the loop, it deselected the profile “%@” and did not connect automatically. You can select it again at any time." = "po0-clash 连续两次未能完成启动。为打断崩溃循环，已取消选中配置「%@」，并跳过本次自动连接，你可以随时重新选中它。";
+"Launch did not finish" = "启动未完成";
+"po0-clash quit unexpectedly while starting last time, so it did not connect automatically. Connect manually to try again." = "po0-clash 上次在启动过程中意外退出，本次已跳过自动连接。你可以手动连接重试。";
