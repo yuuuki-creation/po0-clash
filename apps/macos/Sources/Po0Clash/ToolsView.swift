@@ -50,6 +50,7 @@ struct ToolsView: View {
                     }
                 }
                 .formStyle(.grouped)
+                .scrollContentBackground(.hidden)
             }
         }
     }
@@ -99,6 +100,7 @@ private struct ApplicationView: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
         .onAppear(perform: reloadLaunchAtLogin)
     }
 
@@ -125,5 +127,6 @@ private struct AboutView: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
     }
 }

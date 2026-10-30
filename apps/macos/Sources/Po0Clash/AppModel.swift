@@ -14,6 +14,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var memory: UInt64 = 0
     @Published private(set) var connectionSummary = ConnectionSummary()
     @Published private(set) var exitIp: ExitIp?
+    @Published private(set) var intranetIp: IntranetIp?
     @Published private(set) var profiles: [Profile] = []
     @Published private(set) var groups: [ProxyGroup] = []
     @Published private(set) var whitelist: WhitelistState?
@@ -62,7 +63,12 @@ final class AppModel: ObservableObject {
                 logger.notice("core ready")
                 await refreshAll()
                 await adoptInstalledTunEngine()
-                network.start { Task { try? await client.networkChanged() } }
+                network.start {
+                    Task {
+                        try? await client.networkChanged()
+                        await AppModel.shared.refreshIntranetIp()
+                    }
+                }
                 if atLogin, (try? await client.wasConnected()) == true { connect() }
             } catch {
                 launchError = describe(error)
@@ -226,6 +232,28 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func testNodeDelay(_ node: String) {
+        guard let client, !testing.contains(node) else { return }
+        testing.insert(node)
+        Task {
+            defer { testing.remove(node) }
+            do {
+                let delay = try await client.testNodeDelay(node)
+                groups = groups.map { group in
+                    ProxyGroup(
+                        name: group.name,
+                        kind: group.kind,
+                        selectable: group.selectable,
+                        now: group.now,
+                        nodes: group.nodes.map { $0.name == node ? Node(name: $0.name, kind: $0.kind, delay: delay) : $0 }
+                    )
+                }
+            } catch {
+                notice = describe(error)
+            }
+        }
+    }
+
     // MARK: Whitelist
 
     func setWhitelistEnabled(_ enabled: Bool) {
@@ -285,6 +313,7 @@ final class AppModel: ObservableObject {
             visibleSurfaces.insert(surface)
             if surface == .menu { logger.notice("menu panel shown") }
             Task { await refreshGroups() }
+            if surface == .dashboard { Task { await refreshIntranetIp() } }
             if surface != .proxies, exitIpFetchedAt.map({ Date().timeIntervalSince($0) > 60 }) ?? true {
                 refreshExitIp()
             }
@@ -296,6 +325,7 @@ final class AppModel: ObservableObject {
 
     func refreshExitIpNow() {
         refreshExitIp()
+        Task { await refreshIntranetIp() }
     }
 
     // MARK: Refresh
@@ -354,6 +384,11 @@ final class AppModel: ObservableObject {
     private func refreshWhitelist() async {
         guard let client, let next = try? await client.whitelist() else { return }
         whitelist = next
+    }
+
+    private func refreshIntranetIp() async {
+        guard let client else { return }
+        intranetIp = try? await client.intranetIp()
     }
 
     private func refreshExitIp() {

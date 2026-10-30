@@ -242,6 +242,11 @@ jobs:
             "$bin" "$@" > /dev/null 2>&1 &
             local pid=$!
             sleep "$seconds"
+            # A process started from the runner's shell is not allowed to make itself active; Launch Services is.
+            if [[ " $* " == *" -showWindow "* ]]; then
+              open -b io.github.yuuukicreation.po0clash
+              sleep 1
+            fi
             scutil --proxy > "$RUNNER_TEMP/$name-proxy.txt"
             screencapture -x "shots/$name.png" || true
             kill -TERM "$pid" 2>/dev/null || true
@@ -256,6 +261,7 @@ jobs:
           shoot menu-zh 15 "${login[@]}" -AppleLanguages '(zh-Hans)'
           connected=(-launchedAtLogin YES -testDelays YES)
           for page in dashboard proxies; do shoot "window-$page" 15 "${connected[@]}" -showWindow "$page"; done
+          shoot window-proxies-tabs 15 "${connected[@]}" -showWindow proxies -proxiesArrangement tabs -proxiesTileStyle compact
           for page in profiles whitelist tools; do shoot "window-$page" 6 -showWindow "$page"; done
           for tab in requests connections logs; do
             shoot "window-activity-$tab" 15 "${connected[@]}" -showWindow activity -activityTab "$tab"

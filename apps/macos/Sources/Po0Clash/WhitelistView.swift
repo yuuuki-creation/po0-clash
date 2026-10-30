@@ -39,6 +39,7 @@ struct WhitelistView: View {
                 }
             }
             .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
         }
         .sheet(isPresented: $adding) {
             AddEntriesSheet().environmentObject(model)

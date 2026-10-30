@@ -68,7 +68,7 @@ final class MainWindow: NSObject, NSWindowDelegate {
         window.tabbingMode = .disallowed
         window.isReleasedWhenClosed = false
         window.contentMinSize = NSSize(width: 760, height: 520)
-        window.setContentSize(NSSize(width: 960, height: 640))
+        window.setContentSize(NSSize(width: 1180, height: 760))
         window.center()
         window.setFrameAutosaveName("main")
         window.delegate = self
@@ -147,11 +147,10 @@ struct PageScaffold<Actions: View, Content: View>: View {
     private var page: some View {
         if #available(macOS 14, *) {
             content
+                .background(Color.pageBackground)
                 .navigationTitle(title)
                 .navigationSubtitle(subtitle ?? "")
-                .toolbar {
-                    ToolbarItemGroup(placement: .primaryAction) { actions }
-                }
+                .modifier(PageToolbar(actions: actions))
         } else {
             VStack(spacing: 0) {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -159,42 +158,84 @@ struct PageScaffold<Actions: View, Content: View>: View {
                     if let subtitle { Text(subtitle).foregroundStyle(.secondary) }
                     Spacer()
                     ControlBar { actions }
+                    ConnectButton()
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
                 content
             }
+            .background(Color.pageBackground)
         }
+    }
+}
+
+/// The page's own actions share one glass group; the connect button, on every page, gets its own after a gap.
+private struct PageToolbar<Actions: View>: ViewModifier {
+    let actions: Actions
+
+    func body(content: Content) -> some View {
+        #if compiler(>=6.2)
+        if #available(macOS 26, *) {
+            content.toolbar {
+                ToolbarItemGroup(placement: .primaryAction) { actions }
+                ToolbarSpacer(.fixed, placement: .primaryAction)
+                ToolbarItem(placement: .primaryAction) { ConnectButton() }
+            }
+        } else {
+            content.toolbar {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    actions
+                    ConnectButton()
+                }
+            }
+        }
+        #else
+        content.toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                actions
+                ConnectButton()
+            }
+        }
+        #endif
+    }
+}
+
+/// FlClash's start button, moved into the toolbar so it never covers content: the elapsed time while connected.
+struct ConnectButton: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        Button {
+            model.setConnected(!model.isOn)
+        } label: {
+            HStack(spacing: 6) {
+                if model.busy || (model.isOn && !model.isRunning) {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: model.isOn ? "stop.fill" : "play.fill")
+                }
+                if let since = model.connectedAt {
+                    TimelineView(.periodic(from: since, by: 1)) { context in
+                        Text(Format.elapsed(since, now: context.date)).monospacedDigit()
+                    }
+                } else {
+                    Text(model.isOn ? LocalizedStringKey("Connecting…") : LocalizedStringKey("Connect"))
+                }
+            }
+            .font(.system(size: 13, weight: .semibold))
+            .padding(.horizontal, 4)
+        }
+        .glassButton(prominent: true)
+        .buttonBorderShapeCapsule()
+        .disabled(model.busy || model.status == nil)
+        .help(model.isOn ? LocalizedStringKey("Disconnect") : LocalizedStringKey("Connect"))
+        .keyboardShortcut(.return, modifiers: .command)
     }
 }
 
 extension PageScaffold where Actions == EmptyView {
     init(_ title: LocalizedStringKey, subtitle: String? = nil, @ViewBuilder content: () -> Content) {
         self.init(title, subtitle: subtitle, actions: { EmptyView() }, content: content)
-    }
-}
-
-struct Card<Content: View>: View {
-    let title: LocalizedStringKey
-    let symbol: String
-    private let content: Content
-
-    init(_ title: LocalizedStringKey, symbol: String, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.symbol = symbol
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(title, systemImage: symbol)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            content
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(14)
-        .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

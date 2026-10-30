@@ -41,6 +41,7 @@ struct SubscriptionsView: View {
                     }
                 }
                 .formStyle(.grouped)
+                .scrollContentBackground(.hidden)
             }
         }
         .sheet(item: $sheet) { sheet in
