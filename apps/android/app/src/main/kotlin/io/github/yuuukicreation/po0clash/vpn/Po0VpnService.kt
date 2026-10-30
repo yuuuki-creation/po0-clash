@@ -8,27 +8,37 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.net.IpPrefix
+import android.net.ProxyInfo
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.system.Os
+import android.text.format.Formatter
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import io.github.yuuukicreation.po0clash.AccessMode
+import io.github.yuuukicreation.po0clash.AndroidSettings
 import io.github.yuuukicreation.po0clash.Engine
+import io.github.yuuukicreation.po0clash.accessMode
 import io.github.yuuukicreation.po0clash.MainActivity
 import io.github.yuuukicreation.po0clash.R
 import io.github.yuuukicreation.po0clash.core.EngineState
 import io.github.yuuukicreation.po0clash.core.Status
+import io.github.yuuukicreation.po0clash.core.Traffic
 import io.github.yuuukicreation.po0clash.engine
+import io.github.yuuukicreation.po0clash.selected
 import io.github.yuuukicreation.po0clash.userMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.net.InetAddress
 
 class Po0VpnService : VpnService() {
@@ -46,8 +56,16 @@ class Po0VpnService : VpnService() {
         super.onCreate()
         val engine = engine ?: return
         scope.launch {
-            engine.status.collectLatest { status ->
-                if (foreground) notificationManager().notify(NOTIFICATION_ID, notification(status))
+            combine(engine.status, engine.appSettings, engine.screenOn) { status, _, on -> status to on }.collectLatest { (status, on) ->
+                if (status.engine != EngineState.Running || !on) {
+                    if (foreground) notificationManager().notify(NOTIFICATION_ID, notification(status))
+                    return@collectLatest
+                }
+                while (true) {
+                    val speed = withContext(Dispatchers.IO) { engine.core.traffic() }
+                    if (foreground) notificationManager().notify(NOTIFICATION_ID, notification(status, speed))
+                    delay(1000)
+                }
             }
         }
     }
@@ -141,7 +159,7 @@ class Po0VpnService : VpnService() {
         setSession(getString(R.string.app_name))
         setMtu(VpnRoutes.MTU)
         addAddress(VpnRoutes.ADDRESS4, VpnRoutes.PREFIX4)
-        addAddress(VpnRoutes.ADDRESS6, VpnRoutes.PREFIX6)
+        if (engine?.settings?.state?.value?.ipv6 != false) addAddress(VpnRoutes.ADDRESS6, VpnRoutes.PREFIX6)
         addDnsServer(VpnRoutes.DNS)
         if (Build.VERSION.SDK_INT >= 33) {
             addRoute("0.0.0.0", 0)
@@ -149,8 +167,21 @@ class Po0VpnService : VpnService() {
         } else {
             VpnRoutes.ipv4Excluding(VpnRoutes.PO0_API).forEach { addRoute(it.address, it.prefix) }
         }
-        addRoute("::", 0)
-        addDisallowedApplication(packageName)
+        val settings = engine?.settings?.state?.value ?: AndroidSettings()
+        if (settings.ipv6) addRoute("::", 0)
+        val access = engine?.appSettings?.value?.accessControl
+        val mode = access?.accessMode ?: AccessMode.OFF
+        val others = access?.selected.orEmpty() - packageName
+        if (mode == AccessMode.ALLOW && others.isNotEmpty()) {
+            others.forEach { runCatching { addAllowedApplication(it) } }
+        } else {
+            addDisallowedApplication(packageName)
+            if (mode == AccessMode.DENY) others.forEach { runCatching { addDisallowedApplication(it) } }
+        }
+        if (settings.allowBypass) allowBypass()
+        if (settings.systemProxy && Build.VERSION.SDK_INT >= 29) {
+            engine?.let { setHttpProxy(ProxyInfo.buildDirectProxy("127.0.0.1", it.core.engineOptions().mixedPort.toInt())) }
+        }
         if (Build.VERSION.SDK_INT >= 29) setMetered(false)
         setConfigureIntent(openAppIntent())
     }
@@ -187,11 +218,14 @@ class Po0VpnService : VpnService() {
         return manager
     }
 
-    private fun notification(status: Status): Notification {
+    /** FlClash's ongoing notification; [speed] adds the current rates while the screen is on. */
+    private fun notification(status: Status, speed: Traffic? = null): Notification {
         notificationManager()
         val text = when (val state = status.engine) {
-            EngineState.Running -> status.currentNode?.let { getString(R.string.notification_running, it) }
-                ?: getString(R.string.state_running)
+            EngineState.Running -> listOfNotNull(
+                status.currentNode?.let { getString(R.string.notification_running, it) } ?: getString(R.string.state_running),
+                speed?.let { "↑ ${rate(it.up)} ↓ ${rate(it.down)}" },
+            ).joinToString(" · ")
             EngineState.Starting, EngineState.Stopped -> getString(R.string.state_starting)
             is EngineState.Failed -> state.message
         }
@@ -206,10 +240,12 @@ class Po0VpnService : VpnService() {
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setContentIntent(openAppIntent())
-            .addAction(0, getString(R.string.disconnect), stop)
+            .apply { if (engine?.appSettings?.value?.notificationStopButton != false) addAction(0, getString(R.string.disconnect), stop) }
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
+
+    private fun rate(bytes: ULong) = Formatter.formatShortFileSize(this, bytes.toLong()) + "/s"
 
     private fun failureNotification(message: String): Notification = NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
         .setSmallIcon(R.drawable.ic_stat_po0)

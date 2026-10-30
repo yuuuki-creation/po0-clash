@@ -139,7 +139,7 @@ android {
     }
 
     androidResources {
-        localeFilters += listOf("en", "zh-rCN")
+        localeFilters += listOf("en", "zh-rCN", "ja", "ru")
     }
 
     compileOptions {
@@ -178,6 +178,7 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons)
     implementation(libs.haze)
+    implementation(libs.androidsvg)
     implementation(libs.kotlinx.coroutines.android)
     implementation("${libs.jna.get()}@aar")
     testImplementation(libs.junit)

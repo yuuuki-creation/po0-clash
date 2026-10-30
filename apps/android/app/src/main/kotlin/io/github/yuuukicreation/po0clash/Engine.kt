@@ -1,5 +1,7 @@
 package io.github.yuuukicreation.po0clash
 
+import android.app.ActivityManager
+import android.app.ApplicationExitInfo
 import android.app.Application
 import android.content.BroadcastReceiver
 import android.content.ComponentName
@@ -11,18 +13,26 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.VpnService
+import android.net.wifi.WifiInfo
+import android.net.wifi.WifiManager
+import android.os.Build
 import android.os.PowerManager
+import android.os.SystemClock
 import android.service.quicksettings.TileService
+import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
+import io.github.yuuukicreation.po0clash.core.AppSettings
 import io.github.yuuukicreation.po0clash.core.Change
 import io.github.yuuukicreation.po0clash.core.CoreListener
 import io.github.yuuukicreation.po0clash.core.CoreOptions
 import io.github.yuuukicreation.po0clash.core.EngineState
 import io.github.yuuukicreation.po0clash.core.ExitIp
+import io.github.yuuukicreation.po0clash.core.ExitKind
+import io.github.yuuukicreation.po0clash.core.LastExit
+import io.github.yuuukicreation.po0clash.core.LaunchRecovery
 import io.github.yuuukicreation.po0clash.core.Platform
 import io.github.yuuukicreation.po0clash.core.Po0Core
 import io.github.yuuukicreation.po0clash.core.ProxyGroup
-import io.github.yuuukicreation.po0clash.core.Traffic
 import io.github.yuuukicreation.po0clash.vpn.Po0VpnService
 import io.github.yuuukicreation.po0clash.vpn.VpnTileService
 import kotlinx.coroutines.CoroutineScope
@@ -34,11 +44,16 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 
 class Engine(private val app: Application) {
     val core = Po0Core(
@@ -51,6 +66,21 @@ class Engine(private val app: Application) {
             appVersion = BuildConfig.VERSION_NAME,
         ),
     )
+
+    /** FlClash's launch guard, taken before anything connects; not NORMAL means this run does not connect on its own. */
+    val launchCheck = core.launchStarted(lastExit(app))
+    private val _launchNotice = MutableStateFlow(launchCheck.takeIf { it.recovery != LaunchRecovery.NORMAL })
+    val launchNotice = _launchNotice.asStateFlow()
+
+    @Volatile
+    var autoConnectBlocked = launchCheck.recovery != LaunchRecovery.NORMAL
+        private set
+    private val launchDone = AtomicBoolean(false)
+    private val _screenOn = MutableStateFlow(true)
+    val screenOn = _screenOn.asStateFlow()
+
+    @Volatile
+    private var restoring = false
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val serial = Dispatchers.IO.limitedParallelism(1)
@@ -69,13 +99,28 @@ class Engine(private val app: Application) {
     val whitelist = _whitelist.asStateFlow()
     private val _exitIp = MutableStateFlow<ExitIp?>(null)
     val exitIp = _exitIp.asStateFlow()
+    private val _connectedAt = MutableStateFlow<Long?>(null)
+
+    /** [SystemClock.elapsedRealtime] when the engine last reached Running, or null while it is not running. */
+    val connectedAt = _connectedAt.asStateFlow()
 
     val vpnActive = MutableStateFlow(false)
     val vpnError = MutableStateFlow<String?>(null)
+    val settings = AndroidSettingsStore(app)
+    private val _appSettings = MutableStateFlow(core.appSettings())
+    val appSettings = _appSettings.asStateFlow()
+    private val appWriter = Dispatchers.IO.limitedParallelism(1)
+    private val _ssid = MutableStateFlow<String?>(null)
 
-    val traffic: Flow<Traffic> = flow {
+    /** The Wi-Fi the device is on, when location permission lets us read its name. */
+    val ssid = _ssid.asStateFlow()
+    private var wifi: Network? = null
+    private var pausedOnWifi = false
+
+    /** Reads [read] once a second while collected; the engine's monitor refreshes at that pace while the screen is on. */
+    fun <T> poll(read: Po0Core.() -> T): Flow<T> = flow {
         while (true) {
-            emit(core.traffic())
+            emit(core.read())
             delay(1000)
         }
     }.flowOn(Dispatchers.IO)
@@ -88,13 +133,41 @@ class Engine(private val app: Application) {
         })
         scheduleExitIp(0)
         watchNetwork()
+        watchWifi()
         watchScreen()
+        watchLaunch()
         restoreConnection()
     }
 
     fun restoreConnection() {
-        if (vpnActive.value || !core.wasConnected() || VpnService.prepare(app) != null) return
-        runCatching { Po0VpnService.start(app) }
+        if (autoConnectBlocked || vpnActive.value || !core.wasConnected() || VpnService.prepare(app) != null) return
+        restoring = runCatching { Po0VpnService.start(app) }.isSuccess
+    }
+
+    /** The launch has finished once the engine comes up or gives up, or once the app decides not to connect. */
+    private fun watchLaunch() {
+        scope.launch {
+            combine(_status, vpnError) { status, error -> status.engine to error }.first { (state, error) ->
+                state == EngineState.Running || state is EngineState.Failed || error != null
+            }
+            autoConnectBlocked = false
+            finishLaunch()
+        }
+    }
+
+    fun finishLaunch() {
+        if (launchDone.compareAndSet(false, true)) core.launchFinished()
+    }
+
+    /** Whether the app opening may connect by itself; false also settles the launch when nothing else is starting. */
+    fun mayAutoConnect(): Boolean {
+        if (!autoConnectBlocked && appSettings.value.autoConnect && !vpnActive.value && profiles.value.any { it.selected }) return true
+        if (!restoring && !vpnActive.value) finishLaunch()
+        return false
+    }
+
+    fun dismissLaunchNotice() {
+        _launchNotice.value = null
     }
 
     fun refresh(change: Change) {
@@ -103,6 +176,11 @@ class Engine(private val app: Application) {
                 val old = _status.value
                 val new = core.status()
                 _status.value = new
+                if (new.engine != EngineState.Running) {
+                    _connectedAt.value = null
+                } else if (_connectedAt.value == null) {
+                    _connectedAt.value = SystemClock.elapsedRealtime()
+                }
                 if (old.engine != new.engine || old.currentNode != new.currentNode || old.mode != new.mode) {
                     scheduleExitIp()
                     updateTile()
@@ -124,6 +202,32 @@ class Engine(private val app: Application) {
 
     fun updateTile() {
         runCatching { TileService.requestListeningState(app, ComponentName(app, VpnTileService::class.java)) }
+    }
+
+    fun refreshExitIp() = scheduleExitIp(0)
+
+    /** Shows at once; the core gets only the latest settings when several changes queue up. */
+    fun setAppSettings(change: (AppSettings) -> AppSettings, onError: (Exception) -> Unit) {
+        val next = _appSettings.updateAndGet(change)
+        scope.launch(appWriter) {
+            if (_appSettings.value != next) return@launch
+            try {
+                core.setAppSettings(next)
+            } catch (e: Exception) {
+                _appSettings.value = core.appSettings()
+                onError(e)
+            }
+        }
+    }
+
+    fun reloadAppSettings() {
+        _appSettings.value = core.appSettings()
+    }
+
+    fun setNodeDelay(node: String, delay: UInt) {
+        _groups.update { groups ->
+            groups.map { group -> group.copy(nodes = group.nodes.map { if (it.name == node) it.copy(delay = delay) else it }) }
+        }
     }
 
     private fun scheduleExitIp(delayMillis: Long = 1000) {
@@ -152,6 +256,60 @@ class Engine(private val app: Application) {
         )
     }
 
+    // Since API 31 a callback sees the SSID only when it asks for location info; before that WifiManager still has it.
+    private inner class WifiCallback : ConnectivityManager.NetworkCallback {
+        constructor() : super()
+
+        @RequiresApi(31)
+        constructor(flags: Int) : super(flags)
+
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+            wifi = network
+            val info = if (Build.VERSION.SDK_INT >= 31) caps.transportInfo as? WifiInfo else null
+            wifiChanged(info?.ssid ?: legacySsid())
+        }
+
+        override fun onLost(network: Network) {
+            if (wifi == network) wifiChanged(null)
+        }
+    }
+
+    private fun watchWifi() {
+        val request = NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI).build()
+        val callback = if (Build.VERSION.SDK_INT >= 31) {
+            WifiCallback(ConnectivityManager.NetworkCallback.FLAG_INCLUDE_LOCATION_INFO)
+        } else {
+            WifiCallback()
+        }
+        app.getSystemService(ConnectivityManager::class.java).registerNetworkCallback(request, callback)
+        scope.launch {
+            combine(_ssid, appSettings) { ssid, settings -> ssid != null && ssid in settings.excludedSsids }
+                .distinctUntilChanged()
+                .collect(::onExcludedWifi)
+        }
+    }
+
+    fun refreshSsid() {
+        if (wifi != null && Build.VERSION.SDK_INT < 31) wifiChanged(legacySsid())
+    }
+
+    @Suppress("DEPRECATION")
+    private fun legacySsid(): String? = app.getSystemService(WifiManager::class.java)?.connectionInfo?.ssid
+
+    private fun wifiChanged(raw: String?) {
+        _ssid.value = raw?.removeSurrounding("\"")?.takeUnless { it.isBlank() || it == WifiManager.UNKNOWN_SSID }
+    }
+
+    private fun onExcludedWifi(excluded: Boolean) {
+        if (excluded && vpnActive.value) {
+            pausedOnWifi = true
+            Po0VpnService.stop(app)
+        } else if (!excluded && pausedOnWifi) {
+            pausedOnWifi = false
+            if (VpnService.prepare(app) == null) runCatching { Po0VpnService.start(app) }
+        }
+    }
+
     private fun physicalChanged(edit: MutableSet<Network>.() -> Unit) {
         val current = synchronized(physical) { physical.edit(); physical.toSet() }
         networkJob?.cancel()
@@ -172,6 +330,7 @@ class Engine(private val app: Application) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 val on = intent.action == Intent.ACTION_SCREEN_ON
+                _screenOn.value = on
                 scope.launch { core.setActive(on) }
             }
         }
@@ -181,8 +340,38 @@ class Engine(private val app: Application) {
         }
         ContextCompat.registerReceiver(app, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         val interactive = app.getSystemService(PowerManager::class.java).isInteractive
+        _screenOn.value = interactive
         scope.launch { core.setActive(interactive) }
     }
 }
 
 fun Throwable.userMessage(): String = message?.takeIf(String::isNotBlank) ?: toString()
+
+/** How the previous run of the app ended, as the launch guard needs it; Android keeps this from API 30. */
+private fun lastExit(context: Context): LastExit? {
+    if (Build.VERSION.SDK_INT < 30) return null
+    val exit = context.getSystemService(ActivityManager::class.java)
+        .getHistoricalProcessExitReasons(context.packageName, 0, 1)
+        .firstOrNull() ?: return null
+    val kind = when (exit.reason) {
+        ApplicationExitInfo.REASON_CRASH,
+        ApplicationExitInfo.REASON_CRASH_NATIVE,
+        ApplicationExitInfo.REASON_ANR,
+        ApplicationExitInfo.REASON_INITIALIZATION_FAILURE,
+        -> ExitKind.CRASHED
+        ApplicationExitInfo.REASON_EXIT_SELF,
+        ApplicationExitInfo.REASON_SIGNALED,
+        ApplicationExitInfo.REASON_LOW_MEMORY,
+        ApplicationExitInfo.REASON_PERMISSION_CHANGE,
+        ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE,
+        ApplicationExitInfo.REASON_USER_REQUESTED,
+        ApplicationExitInfo.REASON_USER_STOPPED,
+        ApplicationExitInfo.REASON_DEPENDENCY_DIED,
+        ApplicationExitInfo.REASON_FREEZER,
+        ApplicationExitInfo.REASON_PACKAGE_STATE_CHANGE,
+        ApplicationExitInfo.REASON_PACKAGE_UPDATED,
+        -> ExitKind.STOPPED
+        else -> ExitKind.OTHER
+    }
+    return LastExit(kind, exit.timestamp)
+}
