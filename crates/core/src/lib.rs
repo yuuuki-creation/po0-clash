@@ -3,6 +3,7 @@ mod backup;
 mod config;
 mod engine;
 mod error;
+mod flutter_backup;
 mod ip_quality;
 mod legacy;
 mod links;
@@ -1761,13 +1762,18 @@ impl Core {
             .iter()
             .filter_map(|profile| Some((profile.id.clone(), self.stored_content(&profile.id)?)))
             .collect();
-        Backup { settings, files }.to_zip(&self.app_version)
+        Backup {
+            settings,
+            files,
+            flutter: false,
+        }
+        .to_zip(&self.app_version)
     }
 
     /// Merges or replaces the profiles as the restore strategy setting says, and the engine, if it runs,
     /// moves onto the result.
     pub fn restore(&self, data: Vec<u8>, scope: RestoreScope) -> Result<()> {
-        let backup = Backup::from_zip(&data)?;
+        let backup = Backup::from_zip(&data, &self.paths.run)?;
         let count = backup.files.len();
         for (id, content) in &backup.files {
             self.store_content(id, content)?;

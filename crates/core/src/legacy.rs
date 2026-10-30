@@ -87,7 +87,7 @@ fn unescape_xml(text: &str) -> String {
     out
 }
 
-fn read_config(config: &Value, legacy: &mut Legacy) {
+pub fn read_config(config: &Value, legacy: &mut Legacy) {
     legacy.current = config.get("currentProfileId").map(|id| match id {
         Value::String(id) => id.clone(),
         other => other.to_string(),
