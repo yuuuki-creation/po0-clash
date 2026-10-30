@@ -37,7 +37,7 @@ rules:
   - MATCH,Proxy
 EOF
 nohup python3 -c '
-import http.server, sys, time
+import http.server, socketserver, sys, time
 port, body = int(sys.argv[1]), open(sys.argv[2], "rb").read()
 expire = int(time.time()) + 40 * 86400
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -50,7 +50,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
     def log_message(self, *args):
         pass
-http.server.HTTPServer(("127.0.0.1", port), Handler).serve_forever()
+# HTTPServer looks up the host name on bind, which makes macOS 26 ask for local-network access over later screenshots.
+socketserver.TCPServer(("127.0.0.1", port), Handler).serve_forever()
 ' "$sub_port" "$work/subscription.yaml" > "$work/subscription.log" 2>&1 &
 
 for _ in $(seq 50); do

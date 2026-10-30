@@ -147,15 +147,16 @@ jobs:
           native='{"tag_name":"native-v7.0.0-beta.1","draft":false,"prerelease":true,"assets":[{"name":"po0-clash-macos.zip","url":"http://127.0.0.1:18400/po0-clash-macos.zip","digest":"sha256:'"$digest"'"}]}'
           echo '[{"tag_name":"native-v7.0.0-beta.2","draft":true,"assets":[]},{"tag_name":"v6.4.4","draft":false,"assets":[]},'"$native"']' > "$releases/index.html"
           echo "$native" > "$releases/tags/native-v7.0.0-beta.1"
-          # `python3 -m http.server` makes macOS 26 ask for local-network access, which covers the screenshots.
+          # HTTPServer looks up the host name on bind, which makes macOS 26 ask for local-network access over the
+          # screenshots; a plain TCPServer does not.
           python3 -c '
-          import http.server, sys
+          import http.server, socketserver, sys
           class Files(http.server.SimpleHTTPRequestHandler):
               def __init__(self, *args, **kwargs):
                   super().__init__(*args, directory=sys.argv[2], **kwargs)
               def log_message(self, *args):
                   pass
-          http.server.HTTPServer(("127.0.0.1", int(sys.argv[1])), Files).serve_forever()
+          socketserver.TCPServer(("127.0.0.1", int(sys.argv[1])), Files).serve_forever()
           ' 18400 "$api" > /dev/null 2>&1 &
           for _ in $(seq 20); do nc -z 127.0.0.1 18400 && break; sleep 0.2; done
 
@@ -246,9 +247,6 @@ jobs:
             kill -TERM "$pid" 2>/dev/null || true
             wait "$pid" || true
           }
-          # The test servers are done by now, and their local-network prompt would cover every shot.
-          pkill -f 'http.server' || true
-          sleep 2
           login=(-launchedAtLogin YES -testDelays YES -showMenu YES)
           shoot menu 15 "${login[@]}"
           if ! grep -q "HTTPEnable : 1" "$RUNNER_TEMP/menu-proxy.txt"; then

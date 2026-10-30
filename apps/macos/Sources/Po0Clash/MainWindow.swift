@@ -88,13 +88,16 @@ struct MainView: View {
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
         } detail: {
-            switch navigation.page {
-            case .dashboard: DashboardView()
-            case .proxies: ProxiesView()
-            case .subscriptions: SubscriptionsView()
-            case .whitelist: WhitelistView()
-            case .settings: SettingsView()
+            Group {
+                switch navigation.page {
+                case .dashboard: DashboardView()
+                case .proxies: ProxiesView()
+                case .subscriptions: SubscriptionsView()
+                case .whitelist: WhitelistView()
+                case .settings: SettingsView()
+                }
             }
+            .navigationTitle(navigation.page.title)
         }
         // macOS 13 gets no toolbar, so nothing could bring a collapsed sidebar back.
         .onChange(of: columns) { visibility in
@@ -139,7 +142,6 @@ struct PageScaffold<Actions: View, Content: View>: View {
     private var page: some View {
         if #available(macOS 14, *) {
             content
-                .navigationTitle(title)
                 .navigationSubtitle(subtitle ?? "")
                 .toolbar {
                     ToolbarItemGroup(placement: .primaryAction) { actions }

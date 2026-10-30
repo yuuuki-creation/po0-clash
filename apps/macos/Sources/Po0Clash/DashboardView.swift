@@ -8,6 +8,13 @@ struct DashboardView: View {
 
     var body: some View {
         PageScaffold("Dashboard", subtitle: model.stateTitle) {
+            Button {
+                model.refreshExitIpNow()
+            } label: {
+                Label("Refresh", systemImage: "arrow.clockwise")
+            }
+            .help("Refresh")
+        } content: {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     if let error = model.launchError {

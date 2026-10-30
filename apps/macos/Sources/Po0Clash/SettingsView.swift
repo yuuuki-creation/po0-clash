@@ -7,6 +7,14 @@ struct SettingsView: View {
 
     var body: some View {
         PageScaffold("Settings") {
+            Button {
+                model.exportDiagnostics()
+            } label: {
+                Label("Export…", systemImage: "square.and.arrow.up")
+            }
+            .help("Diagnostic log")
+            .disabled(model.launchError != nil)
+        } content: {
             Form {
                 Section {
                     Toggle("Launch at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
