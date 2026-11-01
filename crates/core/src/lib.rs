@@ -615,6 +615,7 @@ impl Core {
         config::render(
             &base,
             &config::Params {
+                profile_id: &profile.id,
                 platform: self.platform,
                 mode: settings.mode,
                 route_mode: settings.route_mode,
@@ -1195,15 +1196,12 @@ impl Core {
         config::render(
             &base,
             &config::Params {
+                profile_id: &profile.id,
                 platform: self.platform,
                 mode: settings.mode,
                 route_mode: settings.route_mode,
                 tun_fd: session.as_ref().and_then(|session| session.runtime.tun_fd),
-                mixed_port: session
-                    .as_ref()
-                    .map_or(settings.options.mixed_port, |session| {
-                        session.runtime.mixed_port
-                    }),
+                mixed_port: self.mixed_proxy_port(),
                 controller,
                 secret: hidden,
                 direct: &direct,

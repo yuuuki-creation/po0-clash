@@ -1,4 +1,5 @@
 use serde_yaml::{Mapping, Value};
+use sha2::{Digest, Sha256};
 
 use crate::error::{CoreError, Result};
 use crate::model::{Mode, OverrideMode, Platform, ProfileOverride, RouteMode};
@@ -72,6 +73,7 @@ impl DirectListener {
 }
 
 pub struct Params<'a> {
+    pub profile_id: &'a str,
     pub platform: Platform,
     pub mode: Mode,
     pub route_mode: RouteMode,
@@ -166,6 +168,7 @@ pub fn render(base: &str, params: &Params) -> Result<String> {
     for name in OVERRIDDEN {
         root.remove(*name);
     }
+    isolate_provider_caches(&mut root, params.profile_id);
     let set = |root: &mut Mapping, name: &str, value: Value| {
         root.insert(key(name), value);
     };
@@ -342,6 +345,32 @@ pub fn render(base: &str, params: &Params) -> Result<String> {
 }
 
 /// As in FlClash, global added rules apply only to profiles in standard mode.
+fn isolate_provider_caches(root: &mut Mapping, profile_id: &str) {
+    for kind in ["proxy-providers", "rule-providers"] {
+        let Some(providers) = root.get_mut(kind).and_then(Value::as_mapping_mut) else {
+            continue;
+        };
+        for (name, provider) in providers {
+            let Some(provider) = provider.as_mapping_mut() else {
+                continue;
+            };
+            if provider.get("type").and_then(Value::as_str) != Some("http") {
+                continue;
+            }
+            let identity = serde_yaml::to_string(&(
+                profile_id,
+                kind,
+                name,
+                provider.get("url"),
+                provider.get("header"),
+            ))
+            .expect("provider identity serializes");
+            let digest = Sha256::digest(identity.as_bytes());
+            provider.insert(key("path"), key(&format!("./providers/po0-{digest:x}.cache")));
+        }
+    }
+}
+
 fn profile_rules(overrides: &ProfileOverride, global: &[String], theirs: Vec<Value>) -> Vec<Value> {
     let lines = |rules: &'_ [String]| {
         rules
@@ -605,13 +634,23 @@ mod tests {
 
     fn render_options(
         base: &str,
+        target: (Platform, RouteMode, Option<i32>),
+        options: &EngineOptions,
+    ) -> Value {
+        render_profile(base, target, options, "test")
+    }
+
+    fn render_profile(
+        base: &str,
         (platform, route_mode, tun_fd): (Platform, RouteMode, Option<i32>),
         options: &EngineOptions,
+        profile_id: &str,
     ) -> Value {
         let direct = direct();
         let text = render(
             base,
             &Params {
+                profile_id,
                 platform,
                 mode: Mode::Global,
                 route_mode,
@@ -647,10 +686,32 @@ rules:
 ";
 
     #[test]
+    fn http_provider_caches_follow_profile_and_source_identity() {
+        let base = "proxy-providers:\n  p: {type: http, url: https://example.test/a, path: ./same.yaml}\n  local: {type: file, path: ./local.yaml}\nrule-providers:\n  p: {type: http, url: https://example.test/a, path: ./same.yaml, behavior: domain}\n";
+        let rendered = |id: &str, content: &str| {
+            render_profile(content, params(Platform::Windows, RouteMode::SystemProxy, None), &EngineOptions::default(), id)
+        };
+        let a = rendered("a", base);
+        let b = rendered("b", base);
+        let new_url = rendered("a", &base.replace("example.test/a", "example.test/b"));
+        assert_eq!(a, rendered("a", base));
+        for kind in ["proxy-providers", "rule-providers"] {
+            let path = &a[kind]["p"]["path"];
+            assert_ne!(path, &b[kind]["p"]["path"]);
+            assert_ne!(path, &new_url[kind]["p"]["path"]);
+            assert!(path.as_str().unwrap().starts_with("./providers/po0-"));
+            assert_eq!(a[kind]["p"]["url"], "https://example.test/a");
+        }
+        assert_ne!(a["proxy-providers"]["p"]["path"], a["rule-providers"]["p"]["path"]);
+        assert_eq!(a["proxy-providers"]["local"]["path"], "./local.yaml");
+    }
+
+    #[test]
     fn bootstrap_keeps_only_the_controller() {
         let rendered = render(
             SUBSCRIPTION,
             &Params {
+                profile_id: "test",
                 platform: Platform::Windows,
                 mode: Mode::Rule,
                 route_mode: RouteMode::Tun,
@@ -766,6 +827,7 @@ rules:
         let result = render(
             "- a\n",
             &Params {
+                profile_id: "test",
                 platform: Platform::MacOs,
                 mode: Mode::Rule,
                 route_mode: RouteMode::SystemProxy,
@@ -883,6 +945,7 @@ rules:
         let text = render(
             base,
             &Params {
+                profile_id: "test",
                 platform: Platform::MacOs,
                 mode: Mode::Rule,
                 route_mode: RouteMode::SystemProxy,

@@ -920,6 +920,53 @@ fn engine_rejects_invalid_profile_without_changing_selection() {
 #[cfg(unix)]
 #[test]
 #[ignore = "needs MIHOMO_BIN on Linux"]
+fn engine_does_not_reuse_another_profiles_provider_cache() {
+    assert_eq!(std::env::consts::OS, "linux");
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    core.set_engine_options(EngineOptions { mixed_port: unused_port(), ..core.engine_options() }).unwrap();
+    let server = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = server.local_addr().unwrap().port();
+    let requested = Arc::new(Mutex::new(Vec::new()));
+    let requests = requested.clone();
+    thread::spawn(move || {
+        for mut stream in server.incoming().flatten() {
+            let mut buffer = [0; 4096];
+            let length = stream.read(&mut buffer).unwrap();
+            let request = String::from_utf8_lossy(&buffer[..length]);
+            let path = request.split_whitespace().nth(1).unwrap().to_owned();
+            let body = match path.as_str() {
+                "/proxy-a" => "proxies: [{name: nodeA, type: ss, server: 127.0.0.1, port: 1, cipher: aes-128-gcm, password: fixture}]\n",
+                "/proxy-b" => "proxies: [{name: nodeB, type: ss, server: 127.0.0.1, port: 1, cipher: aes-128-gcm, password: fixture}]\n",
+                "/rule-a" => "payload: ['a.invalid']\n",
+                "/rule-b" => "payload: ['b.invalid', 'c.invalid']\n",
+                _ => panic!("unexpected provider {path}"),
+            };
+            lock(&requests).push(path);
+            write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+        }
+    });
+    let config = |suffix: &str| format!(
+        "proxy-providers:\n  p: {{type: http, url: http://127.0.0.1:{port}/proxy-{suffix}, path: ./same.yaml, interval: 3600, health-check: {{enable: false}}}}\nrule-providers:\n  r: {{type: http, behavior: domain, url: http://127.0.0.1:{port}/rule-{suffix}, path: ./same-rules.yaml, interval: 3600}}\nproxy-groups: [{{name: PROXY, type: select, use: [p]}}]\nrules: ['RULE-SET,r,DIRECT', 'MATCH,DIRECT']\n"
+    );
+    core.import_file("a.yaml".into(), config("a")).unwrap();
+    let b = core.import_file("b.yaml".into(), config("b")).unwrap();
+    core.start(None).unwrap();
+    core.select_profile(b.id).unwrap();
+    let group = core.groups().unwrap().into_iter().find(|group| group.name == "PROXY").unwrap();
+    assert_eq!(group.nodes.into_iter().map(|node| node.name).collect::<Vec<_>>(), ["nodeB"]);
+    let rule = core.providers().unwrap().into_iter().find(|provider| provider.kind == ProviderKind::Rule && provider.name == "r").unwrap();
+    assert_eq!(rule.count, 2);
+    let mut paths = lock(&requested).clone();
+    paths.sort();
+    assert_eq!(paths, ["/proxy-a", "/proxy-b", "/rule-a", "/rule-b"]);
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+#[ignore = "needs MIHOMO_BIN on Linux"]
 fn engine_android_port_changes_require_disconnect_before_settings_or_restore() {
     assert_eq!(std::env::consts::OS, "linux");
     let dir = temp_dir();
