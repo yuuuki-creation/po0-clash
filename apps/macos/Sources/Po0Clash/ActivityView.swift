@@ -240,8 +240,7 @@ private struct ConnectionTable: View {
     private func details(_ row: Connection) -> String {
         [row.host, row.processPath, "↑ \(Format.bytes(row.upload))  ↓ \(Format.bytes(row.download))"]
             .compactMap { $0 }
-            .joined(separator: "
-")
+            .joined(separator: "\n")
     }
 
     /// ⌘ adds a row and ⇧ extends from the last one clicked, as a table on macOS does.
