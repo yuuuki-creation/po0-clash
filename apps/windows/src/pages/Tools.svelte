@@ -105,7 +105,7 @@
 
   async function setLanguage(language) {
     if (language === s.language) return;
-    await updateSettings({ language });
+    if (!(await updateSettings({ language }))) return;
     location.reload();
   }
 
@@ -115,7 +115,10 @@
   let versionClicks = 0;
   async function clickVersion() {
     if (++versionClicks !== 5 || s.developerMode) return;
-    await updateSettings({ developerMode: true });
+    if (!(await updateSettings({ developerMode: true }))) {
+      versionClicks = 0;
+      return;
+    }
     notify(t('dev.enabled'));
   }
   const Sub = $derived(pages[app.tool]);

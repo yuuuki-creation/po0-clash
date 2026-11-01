@@ -50,8 +50,7 @@
     hint={t('dev.modeHint')}
     checked={settings.value.developerMode}
     onchange={async (on) => {
-      await updateSettings({ developerMode: on });
-      if (!on) navigate('tools', null, 'back');
+      if ((await updateSettings({ developerMode: on })) && !on) navigate('tools', null, 'back');
     }}
   />
 </div>

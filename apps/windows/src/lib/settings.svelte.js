@@ -1,19 +1,16 @@
 import { invoke } from '@tauri-apps/api/core';
 import { notify } from './core.svelte.js';
+import { createSettingsQueue } from './settings-queue.js';
 
 export const settings = $state({ value: null });
 
-export async function loadSettings() {
-  settings.value = await invoke('app_settings');
-}
+const queue = createSettingsQueue({
+  read: () => invoke('app_settings'),
+  write: (value) => invoke('set_app_settings', { settings: value }),
+  publish: (value) => (settings.value = value),
+  onError: notify,
+});
 
-export async function updateSettings(patch) {
-  const next = { ...$state.snapshot(settings.value), ...patch };
-  settings.value = next;
-  try {
-    await invoke('set_app_settings', { settings: next });
-  } catch (e) {
-    notify(e);
-  }
-  await loadSettings();
-}
+export const loadSettings = () => queue.load();
+
+export const updateSettings = (patch) => queue.update($state.snapshot(patch));
