@@ -183,26 +183,23 @@ struct HotkeysView: View {
     @ObservedObject private var hotkeys = Hotkeys.shared
 
     var body: some View {
-        Form {
-            Section {
+        PageScroll {
+            RowGroup {
                 ForEach(HotkeyAction.all, id: \.self) { action in
-                    LabeledContent {
-                        ShortcutRecorder(action: action)
-                    } label: {
-                        Text(action.title)
-                        if hotkeys.failed.contains(action) {
-                            Text("Not registered; another app may be using it.").foregroundStyle(.red)
+                    Row {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(action.title)
+                            if hotkeys.failed.contains(action) {
+                                Text("Not registered; another app may be using it.").foregroundStyle(Color.bad)
+                            }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        ShortcutRecorder(action: action)
                     }
                 }
-            } footer: {
-                Text("Global hotkeys work even while the window is hidden. Click a shortcut to record a new one; while recording, Delete clears it and Esc cancels.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
+            .disabled(model.appSettings == nil)
         }
-        .formStyle(.grouped)
-        .disabled(model.appSettings == nil)
     }
 }
 
@@ -217,7 +214,7 @@ private struct ShortcutRecorder: View {
     var body: some View {
         HStack(spacing: 8) {
             if needsModifier, monitor != nil {
-                Text("Include ⌃, ⌥ or ⌘").font(.caption).foregroundStyle(.secondary)
+                Text("Include ⌃, ⌥ or ⌘").foregroundStyle(Color.warn)
             }
             Button(action: monitor == nil ? start : stop) {
                 Group {
@@ -226,7 +223,7 @@ private struct ShortcutRecorder: View {
                     } else if let current {
                         Text(verbatim: Shortcut.display(current))
                     } else {
-                        Text("Not set").foregroundStyle(.secondary)
+                        Text("Not set").foregroundStyle(Color.ink2)
                     }
                 }
                 .frame(minWidth: 120)

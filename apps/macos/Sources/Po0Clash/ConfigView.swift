@@ -5,131 +5,103 @@ import SwiftUI
 struct BasicConfigView: View {
     var body: some View {
         EngineOptionsForm { $options in
-            Section("General") {
-                Picker("Log level", selection: $options.logLevel) {
-                    Text("Debug").tag(LogLevel.debug)
-                    Text("Info").tag(LogLevel.info)
-                    Text("Warning").tag(LogLevel.warning)
-                    Text("Error").tag(LogLevel.error)
-                    Text("Silent").tag(LogLevel.silent)
+            SettingsSection("General") {
+                OptionRow("Log level", selection: $options.logLevel, options: [
+                    Option(LogLevel.debug, String(localized: "Debug")),
+                    Option(LogLevel.info, String(localized: "Info")),
+                    Option(LogLevel.warning, String(localized: "Warning")),
+                    Option(LogLevel.error, String(localized: "Error")),
+                    Option(LogLevel.silent, String(localized: "Silent")),
+                ])
+                FieldRow("UA") { TextField("UA", text: $options.userAgent, prompt: Text("Default")) }
+                FieldRow("Test URL") { TextField("Test URL", text: $options.testUrl) }
+                FieldRow("TCP keep-alive interval (seconds)") {
+                    TextField("TCP keep-alive interval (seconds)", value: $options.keepAliveInterval, format: .number)
                 }
-                TextField("UA", text: $options.userAgent, prompt: Text("Default"))
-                TextField("Test URL", text: $options.testUrl)
-                TextField("TCP keep-alive interval (seconds)", value: $options.keepAliveInterval, format: .number)
-                Picker(selection: $options.findProcessMode) {
-                    Text("Off").tag(FindProcessMode.off)
-                    Text("Strict").tag(FindProcessMode.strict)
-                    Text("Always").tag(FindProcessMode.always)
-                } label: {
-                    Text("Find process")
-                    Text("Enabling causes some performance loss")
-                }
-                Toggle(isOn: $options.unifiedDelay) {
-                    Text("Unified delay")
-                    Text("Remove extra delays such as handshakes")
-                }
-                Toggle(isOn: $options.tcpConcurrent) {
-                    Text("TCP concurrent")
-                    Text("Allow concurrent TCP connections")
-                }
-                Toggle(isOn: $options.externalController) {
-                    Text("External controller")
-                    Text("Panels such as metacubexd can control the engine on port 9090")
-                }
+                OptionRow("Find process", selection: $options.findProcessMode, options: [
+                    Option(FindProcessMode.off, String(localized: "Off")),
+                    Option(FindProcessMode.strict, String(localized: "Strict")),
+                    Option(FindProcessMode.always, String(localized: "Always")),
+                ])
+                ToggleRow("Unified delay", isOn: $options.unifiedDelay)
+                ToggleRow("TCP concurrent", isOn: $options.tcpConcurrent)
+                ToggleRow("External controller", isOn: $options.externalController)
             }
-            Section("Inbound") {
-                TextField("Mixed port", value: $options.mixedPort, format: .number.grouping(.never))
-                TextField(
-                    "SOCKS port",
-                    value: $options.socksPort.offWhenZero,
-                    format: .number.grouping(.never),
-                    prompt: Text("Off")
-                )
-                TextField(
-                    "HTTP port",
-                    value: $options.httpPort.offWhenZero,
-                    format: .number.grouping(.never),
-                    prompt: Text("Off")
-                )
-                Toggle(isOn: $options.allowLan) {
-                    Text("Allow LAN")
-                    Text("Allow proxy access over the LAN")
+            SettingsSection("Inbound") {
+                FieldRow("Mixed port") {
+                    TextField("Mixed port", value: $options.mixedPort, format: .number.grouping(.never))
                 }
-                Toggle(isOn: $options.ipv6) {
-                    Text(verbatim: "IPv6")
-                    Text("When enabled, IPv6 traffic can be received")
+                FieldRow("SOCKS port") {
+                    TextField(
+                        "SOCKS port",
+                        value: $options.socksPort.offWhenZero,
+                        format: .number.grouping(.never),
+                        prompt: Text("Off")
+                    )
                 }
-                LinesEditor("Authentication", detail: "user:password, one per line", lines: $options.authentication)
+                FieldRow("HTTP port") {
+                    TextField(
+                        "HTTP port",
+                        value: $options.httpPort.offWhenZero,
+                        format: .number.grouping(.never),
+                        prompt: Text("Off")
+                    )
+                }
+                ToggleRow("Allow LAN", isOn: $options.allowLan)
+                ToggleRow(verbatim: "IPv6", isOn: $options.ipv6)
+                LinesEditor("Authentication", lines: $options.authentication)
             }
-            Section("System proxy") {
-                LinesEditor(
-                    "Bypass domain",
-                    detail: "Only takes effect when the system proxy is enabled; one per line",
-                    lines: $options.bypassDomains
-                )
+            SettingsSection("System proxy") {
+                LinesEditor("Bypass domain", lines: $options.bypassDomains)
             }
-            Section("Virtual network card") {
-                Picker("Stack mode", selection: $options.tunStack) {
-                    Text("Default").tag(TunStack?.none)
-                    Text(verbatim: "System").tag(TunStack?.some(.system))
-                    Text(verbatim: "gVisor").tag(TunStack?.some(.gvisor))
-                    Text(verbatim: "Mixed").tag(TunStack?.some(.mixed))
+            SettingsSection("Virtual network card") {
+                OptionRow("Stack mode", selection: $options.tunStack, options: [
+                    Option<TunStack?>(nil, String(localized: "Default")),
+                    Option<TunStack?>(.system, "System"),
+                    Option<TunStack?>(.gvisor, "gVisor"),
+                    Option<TunStack?>(.mixed, "Mixed"),
+                ])
+                FieldRow("Interface name") {
+                    TextField("Interface name", text: $options.interfaceName, prompt: Text("Automatic"))
                 }
-                TextField("Interface name", text: $options.interfaceName, prompt: Text("Automatic"))
-                LinesEditor("Route addresses", detail: "CIDR, one per line", lines: $options.tunRouteAddress)
-                LinesEditor("DNS hijacking", detail: "such as any:53, one per line", lines: $options.tunDnsHijack)
-                Toggle(isOn: $options.autoSetSystemDns) {
-                    Text("Auto-set system DNS")
-                    Text("While TUN is on, adds 223.5.5.5 to the network's DNS servers so lookups pass through TUN. The original servers come back when you disconnect.")
-                }
+                LinesEditor("Route addresses", lines: $options.tunRouteAddress)
+                LinesEditor("DNS hijacking", lines: $options.tunDnsHijack)
+                ToggleRow("Auto-set system DNS", isOn: $options.autoSetSystemDns)
             }
-            Section {
-                PairsEditor("Hosts", detail: "domain = address, one per line", pairs: $options.hosts)
+            SettingsSection {
+                PairsEditor("Hosts", pairs: $options.hosts)
             }
-            Section("DNS") {
-                Toggle(isOn: $options.overrideDns) {
-                    Text("Override DNS")
-                    Text("When enabled, the DNS options in the profile are overridden")
-                }
-                Toggle(isOn: $options.appendSystemDns) {
-                    Text("Append system DNS")
-                    Text("Force-append the system DNS to the configuration")
-                }
+            SettingsSection("DNS") {
+                ToggleRow("Override DNS", isOn: $options.overrideDns)
+                ToggleRow("Append system DNS", isOn: $options.appendSystemDns)
                 if options.overrideDns {
-                    Toggle("Enable", isOn: $options.dns.enable)
-                    TextField("Listen", text: $options.dns.listen, prompt: Text("Off"))
-                    Picker("DNS mode", selection: $options.dns.enhancedMode) {
-                        Text("Normal").tag(DnsMode.normal)
-                        Text(verbatim: "Fake-IP").tag(DnsMode.fakeIp)
-                        Text(verbatim: "Redir-host").tag(DnsMode.redirHost)
-                    }
-                    TextField("Fake-IP range", text: $options.dns.fakeIpRange)
-                    Toggle(isOn: $options.dns.ipv6) { Text(verbatim: "IPv6") }
-                    Toggle("Prefer HTTP/3 for DoH", isOn: $options.dns.preferH3)
-                    Toggle("Use hosts", isOn: $options.dns.useHosts)
-                    Toggle("Use system hosts", isOn: $options.dns.useSystemHosts)
-                    Toggle(isOn: $options.dns.respectRules) {
-                        Text("Respect rules")
-                        Text("DNS connections follow rules; requires proxy-server-nameserver")
-                    }
+                    ToggleRow("Enable", isOn: $options.dns.enable)
+                    FieldRow("Listen") { TextField("Listen", text: $options.dns.listen, prompt: Text("Off")) }
+                    OptionRow("DNS mode", selection: $options.dns.enhancedMode, options: [
+                        Option(DnsMode.normal, String(localized: "Normal")),
+                        Option(DnsMode.fakeIp, "Fake-IP"),
+                        Option(DnsMode.redirHost, "Redir-host"),
+                    ])
+                    FieldRow("Fake-IP range") { TextField("Fake-IP range", text: $options.dns.fakeIpRange) }
+                    ToggleRow(verbatim: "IPv6", isOn: $options.dns.ipv6)
+                    ToggleRow("Prefer HTTP/3 for DoH", isOn: $options.dns.preferH3)
+                    ToggleRow("Use hosts", isOn: $options.dns.useHosts)
+                    ToggleRow("Use system hosts", isOn: $options.dns.useSystemHosts)
+                    ToggleRow("Respect rules", isOn: $options.dns.respectRules)
                 }
             }
             if options.overrideDns {
-                Section("Nameserver") {
+                SettingsSection("Nameserver") {
                     LinesEditor("Default nameserver", lines: $options.dns.defaultNameserver)
                     LinesEditor("Nameserver", lines: $options.dns.nameserver)
                     LinesEditor("Fallback", lines: $options.dns.fallback)
                     LinesEditor("Proxy nameserver", lines: $options.dns.proxyServerNameserver)
-                    PairsEditor(
-                        "Nameserver policy",
-                        detail: "domain = server, one per line",
-                        pairs: $options.dns.nameserverPolicy
-                    )
+                    PairsEditor("Nameserver policy", pairs: $options.dns.nameserverPolicy)
                     LinesEditor("Fake-IP filter", lines: $options.dns.fakeIpFilter)
                 }
-                Section("Fallback filter") {
-                    Toggle(isOn: $options.dns.fallbackFilter.geoip) { Text(verbatim: "GeoIP") }
-                    TextField("GeoIP code", text: $options.dns.fallbackFilter.geoipCode)
+                SettingsSection("Fallback filter") {
+                    ToggleRow(verbatim: "GeoIP", isOn: $options.dns.fallbackFilter.geoip)
+                    FieldRow("GeoIP code") { TextField("GeoIP code", text: $options.dns.fallbackFilter.geoipCode) }
                     LinesEditor("GeoSite", lines: $options.dns.fallbackFilter.geosite)
                     LinesEditor("IP/CIDR", lines: $options.dns.fallbackFilter.ipcidr)
                     LinesEditor("Domain", lines: $options.dns.fallbackFilter.domain)
@@ -148,33 +120,25 @@ struct AdvancedConfigView: View {
 
     var body: some View {
         EngineOptionsForm { $options in
-            Section {
-                LinesEditor(
-                    "Added rules",
-                    detail: "Matched before the profile's own rules, one per line, such as DOMAIN,example.com,DIRECT",
-                    lines: $options.addedRules
-                )
+            SettingsSection {
+                LinesEditor("Added rules", lines: $options.addedRules)
             }
             ScriptsSection(scripts: scripts, edit: { editing = $0 }, remove: { pendingRemoval = $0 })
         }
-        .sheet(item: $editing) { sheet in
-            ScriptEditorSheet(script: sheet.script) { _ in Task { scripts = await model.scripts() } }
-                .environmentObject(model)
+        .dialog(item: $editing) { sheet in
+            ScriptEditorDialog(script: sheet.script) { _ in Task { scripts = await model.scripts() } }
         }
-        .alert(
-            String(localized: "Delete \(pendingRemoval?.name ?? "")?"),
-            isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } }),
-            presenting: pendingRemoval
-        ) { script in
-            Button("Delete", role: .destructive) {
+        .dialog(item: $pendingRemoval, closesOnScrimClick: true) { script in
+            ConfirmDialog(
+                title: String(localized: "Delete \(script.name)?"),
+                message: "Profiles that use it go back to their own config.",
+                confirm: "Delete"
+            ) {
                 Task {
                     if let error = await model.removeScript(script.id) { model.notice = error }
                     scripts = await model.scripts()
                 }
             }
-            Button("Cancel", role: .cancel) {}
-        } message: { _ in
-            Text("Profiles that use it go back to their own config.")
         }
         .task { scripts = await model.scripts() }
     }
@@ -189,44 +153,41 @@ struct ResourcesView: View {
 
     var body: some View {
         EngineOptionsForm { $options in
-            Section("Geo resources") {
+            SettingsSection("Geo resources") {
                 ForEach(files, id: \.name) { file in
-                    LabeledContent(file.name) {
-                        Text(verbatim: describe(file)).foregroundStyle(.secondary)
+                    ValueRow(Text(verbatim: file.name)) {
+                        Text(verbatim: describe(file))
                     }
                 }
-                LabeledContent {
+                Row {
+                    Text("Update now").frame(maxWidth: .infinity, alignment: .leading)
                     updateButton(id: "geo") { await model.updateGeo() }
-                } label: {
-                    Text("Update now")
-                    Text("Downloads all four databases again.")
                 }
-                Toggle(isOn: Binding(
+                ToggleRow("Geo low-memory mode", isOn: Binding(
                     get: { options.geodataLoader == .memconservative },
                     set: { options.geodataLoader = $0 ? .memconservative : .standard }
-                )) {
-                    Text("Geo low-memory mode")
-                    Text("Use the low-memory Geo loader")
-                }
-                Toggle("Auto update", isOn: $options.geoAutoUpdate)
+                ))
+                ToggleRow("Auto update", isOn: $options.geoAutoUpdate)
                 if options.geoAutoUpdate {
-                    TextField("Auto-update interval (hours)", value: $options.geoUpdateInterval, format: .number)
+                    FieldRow("Auto-update interval (hours)") {
+                        TextField("Auto-update interval (hours)", value: $options.geoUpdateInterval, format: .number)
+                    }
                 }
             }
-            Section("Download addresses") {
-                TextField(text: $options.geoxUrl.geoip) { Text(verbatim: "GeoIP") }
-                TextField(text: $options.geoxUrl.geosite) { Text(verbatim: "GeoSite") }
-                TextField(text: $options.geoxUrl.mmdb) { Text(verbatim: "MMDB") }
-                TextField(text: $options.geoxUrl.asn) { Text(verbatim: "ASN") }
+            SettingsSection("Download addresses") {
+                FieldRow(verbatim: "GeoIP") { TextField(text: $options.geoxUrl.geoip) { Text(verbatim: "GeoIP") } }
+                FieldRow(verbatim: "GeoSite") { TextField(text: $options.geoxUrl.geosite) { Text(verbatim: "GeoSite") } }
+                FieldRow(verbatim: "MMDB") { TextField(text: $options.geoxUrl.mmdb) { Text(verbatim: "MMDB") } }
+                FieldRow(verbatim: "ASN") { TextField(text: $options.geoxUrl.asn) { Text(verbatim: "ASN") } }
             }
             switch providers {
             case .failure:
-                Section("External resources") {
-                    Text("Connect to see the profile's external resources.").foregroundStyle(.secondary)
+                SettingsSection("External resources") {
+                    Row { Text("Connect to see the profile's external resources.").foregroundStyle(Color.ink2) }
                 }
             case .success(let items) where items.isEmpty:
-                Section("External resources") {
-                    Text("The profile has no external resources.").foregroundStyle(.secondary)
+                SettingsSection("External resources") {
+                    Row { Text("The profile has no external resources.").foregroundStyle(Color.ink2) }
                 }
             case .success(let items):
                 providerSection("Proxy providers", items.filter { $0.kind == .proxy })
@@ -239,13 +200,12 @@ struct ResourcesView: View {
     @ViewBuilder
     private func providerSection(_ title: LocalizedStringKey, _ items: [Provider]) -> some View {
         if !items.isEmpty {
-            Section(title) {
+            SettingsSection(title) {
                 ForEach(items, id: \.name) { provider in
-                    LabeledContent {
+                    Row {
+                        Text(verbatim: provider.name).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                        Text(verbatim: summary(provider)).foregroundStyle(Color.ink2).lineLimit(1)
                         updateButton(id: "\(provider.kind)/\(provider.name)") { await model.updateProvider(provider) }
-                    } label: {
-                        Text(verbatim: provider.name)
-                        Text(verbatim: summary(provider))
                     }
                 }
             }
@@ -294,26 +254,28 @@ private struct EngineOptionsForm<Content: View>: View {
 
     var body: some View {
         if let saved = model.engineOptions {
-            Form {
+            PageScroll {
                 content(Binding(get: { draft ?? saved }, set: { draft = $0 }))
             }
-            .formStyle(.grouped)
             .safeAreaInset(edge: .bottom) {
                 if let draft, draft.tidied != saved.tidied {
-                    HStack {
-                        Text("The engine reloads when you apply.").font(.caption).foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
                         Spacer()
                         Button("Revert") { self.draft = nil }
                         Button("Apply") { apply(draft) }
+                            .buttonStyle(ActionButtonStyle(primary: true))
                             .disabled(applying || draft.mixedPort == 0)
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, Ui.pageInset)
                     .padding(.vertical, 10)
-                    .background(.bar)
+                    .background(Color.page)
+                    .overlay(alignment: .top) {
+                        Rectangle().fill(Color.line).frame(height: 1)
+                    }
                 }
             }
         } else {
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            Ring().frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -329,17 +291,15 @@ private struct EngineOptionsForm<Content: View>: View {
 /// One entry per line; blank lines and stray spaces go when the options are applied.
 private struct LinesEditor: View {
     let title: LocalizedStringKey
-    var detail: LocalizedStringKey?
     @Binding var lines: [String]
 
-    init(_ title: LocalizedStringKey, detail: LocalizedStringKey? = nil, lines: Binding<[String]>) {
+    init(_ title: LocalizedStringKey, lines: Binding<[String]>) {
         self.title = title
-        self.detail = detail
         _lines = lines
     }
 
     var body: some View {
-        TextBlock(title: title, detail: detail, text: Binding(
+        TextBlock(title: title, text: Binding(
             get: { lines.joined(separator: "\n") },
             set: { lines = $0.components(separatedBy: "\n") }
         ))
@@ -349,18 +309,16 @@ private struct LinesEditor: View {
 /// `key = value` lines; the text is kept as typed so a half-written line does not vanish.
 private struct PairsEditor: View {
     let title: LocalizedStringKey
-    let detail: LocalizedStringKey
     @Binding var pairs: [String: String]
     @State private var text = ""
 
-    init(_ title: LocalizedStringKey, detail: LocalizedStringKey, pairs: Binding<[String: String]>) {
+    init(_ title: LocalizedStringKey, pairs: Binding<[String: String]>) {
         self.title = title
-        self.detail = detail
         _pairs = pairs
     }
 
     var body: some View {
-        TextBlock(title: title, detail: detail, text: $text)
+        TextBlock(title: title, text: $text)
             .onAppear { text = Self.render(pairs) }
             .onChange(of: text) { text in
                 let parsed = Self.parse(text)
@@ -387,24 +345,22 @@ private struct PairsEditor: View {
 
 private struct TextBlock: View {
     let title: LocalizedStringKey
-    let detail: LocalizedStringKey?
     @Binding var text: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
-            if let detail {
-                Text(detail).font(.caption).foregroundStyle(.secondary)
-            }
             TextEditor(text: $text)
-                .font(.system(size: 12, design: .monospaced))
+                .font(Ui.codeFont)
                 .scrollContentBackground(.hidden)
                 .frame(minHeight: 56, maxHeight: 160)
                 .padding(4)
-                .background(Color.tileBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.cardEdge))
+                .editorChrome()
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, Ui.padding)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .hairlineAbove()
     }
 }
 

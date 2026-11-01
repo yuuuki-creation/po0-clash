@@ -21,21 +21,6 @@ enum ToolsPage: String, Hashable {
         }
     }
 
-    var symbol: String {
-        switch self {
-        case .language: return "character.bubble"
-        case .appearance: return "circle.lefthalf.filled"
-        case .application: return "macwindow"
-        case .hotkeys: return "command"
-        case .basic: return "slider.horizontal.3"
-        case .advanced: return "gearshape.2"
-        case .resources: return "shippingbox"
-        case .backup: return "externaldrive"
-        case .developer: return "hammer"
-        case .about: return "info.circle"
-        }
-    }
-
     @MainActor @ViewBuilder
     var destination: some View {
         switch self {
@@ -56,75 +41,75 @@ enum ToolsPage: String, Hashable {
 struct ToolsView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var navigation: Navigation
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Entering or leaving a sub page fades the new one in over the old, which goes at once.
+    private var pageTransition: AnyTransition {
+        guard !reduceMotion, model.appSettings?.pageAnimation ?? true else { return .identity }
+        return .asymmetric(insertion: AnyTransition.opacity.animation(Motion.subpage), removal: .identity)
+    }
 
     var body: some View {
-        NavigationStack(path: $navigation.tools) {
-            PageScaffold("Tools") {
-                Form {
-                    Section("Settings") {
-                        entry(.language)
-                        entry(.appearance)
-                        entry(.application)
-                        entry(.hotkeys)
+        ZStack {
+            if let page = navigation.tools.last {
+                PageScaffold(page.title, back: { navigation.tools = Array(navigation.tools.dropLast()) }) {
+                    page.destination
+                }
+                .id(page)
+                .transition(pageTransition)
+            } else {
+                root.transition(pageTransition)
+            }
+        }
+    }
+
+    private var root: some View {
+        PageScaffold("Tools") {
+            PageScroll {
+                TwoColumns() {
+                    VStack(alignment: .leading, spacing: Ui.block) {
+                        SettingsSection("Settings") {
+                            languageEntry
+                            entry(.appearance)
+                            entry(.application)
+                            entry(.hotkeys)
+                        }
+                        SettingsSection("Other") {
+                            entry(.backup)
+                            LinkRow(Text("Diagnostic log")) { model.exportDiagnostics() }
+                                .disabled(model.launchError != nil)
+                            LinkRow(Text("Disclaimer")) {
+                                if !model.confirmDisclaimer() { NSApp.terminate(nil) }
+                            }
+                            if model.appSettings?.developerMode == true { entry(.developer) }
+                            entry(.about)
+                        }
                     }
-                    Section("Network and core") {
+                    SettingsSection("Network and core") {
                         entry(.basic)
                         entry(.advanced)
                         entry(.resources)
                     }
-                    Section("Other") {
-                        entry(.backup)
-                        LabeledContent {
-                            Button("Export…") { model.exportDiagnostics() }
-                                .disabled(model.launchError != nil)
-                        } label: {
-                            Label {
-                                Text("Diagnostic log")
-                                Text("Saves the app, core and engine logs to a text file for troubleshooting.")
-                            } icon: {
-                                ToolsIcon(symbol: "doc.text.magnifyingglass")
-                            }
-                        }
-                        LabeledContent {
-                            Button("View…") { if !model.confirmDisclaimer() { NSApp.terminate(nil) } }
-                        } label: {
-                            Label {
-                                Text("Disclaimer")
-                            } icon: {
-                                ToolsIcon(symbol: "checkmark.shield")
-                            }
-                        }
-                        if model.appSettings?.developerMode == true { entry(.developer) }
-                        entry(.about)
-                    }
                 }
-                .formStyle(.grouped)
             }
-            .navigationDestination(for: ToolsPage.self) { page in
-                PageScaffold(page.title, back: { navigation.tools = Array(navigation.tools.dropLast()) }) {
-                    page.destination
-                }
+        }
+    }
+
+    private var languageEntry: some View {
+        LinkRow(Text(ToolsPage.language.title)) {
+            navigation.tools.append(.language)
+        } value: {
+            if let code = model.appSettings?.language,
+               let choice = AppLanguage.choices.first(where: { $0.id == code }) {
+                Text(verbatim: choice.name)
+            } else {
+                Text("Follow system")
             }
         }
     }
 
     private func entry(_ page: ToolsPage) -> some View {
-        NavigationLink(value: page) {
-            Label {
-                Text(page.title)
-            } icon: {
-                ToolsIcon(symbol: page.symbol)
-            }
-        }
-    }
-}
-
-/// SF Symbols differ in width, so each gets the same slot and the titles line up.
-private struct ToolsIcon: View {
-    let symbol: String
-
-    var body: some View {
-        Image(systemName: symbol).frame(width: 20)
+        LinkRow(Text(page.title)) { navigation.tools.append(page) }
     }
 }
 
@@ -134,73 +119,45 @@ private struct ApplicationView: View {
     @State private var needsApproval = LaunchAtLogin.needsApproval
 
     var body: some View {
-        Form {
-            Section("Startup") {
-                Toggle(isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin)) {
-                    Text("Launch at login")
-                    Text("Opens po0-clash when you log in, and reconnects if it was connected before.")
-                }
+        PageScroll {
+            SettingsSection("Startup") {
+                ToggleRow("Launch at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
                 if needsApproval {
-                    LabeledContent {
-                        Button("Open Login Items") { LaunchAtLogin.openSystemSettings() }
-                    } label: {
+                    Row {
                         Text("Allow po0-clash in Login Items to finish turning this on.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.warn)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button("Open Login Items") { LaunchAtLogin.openSystemSettings() }
                     }
                 }
-                toggle(\.silentLaunch, or: false, "Silent launch", "Opens only in the menu bar, without the main window.")
-                toggle(\.autoConnect, or: false, "Auto connect", "Connects whenever po0-clash opens.")
+                toggle(\.silentLaunch, or: false, "Silent launch")
+                toggle(\.autoConnect, or: false, "Auto connect")
             }
-            Section("Window") {
-                toggle(
-                    \.minimizeOnClose, or: true, "Keep running when closed",
-                    "Closing the window leaves po0-clash in the menu bar. Turn this off to quit instead."
-                )
-                toggle(\.pageAnimation, or: true, "Page animation", "Fades each page in as you switch to it.")
-                toggle(
-                    \.traySpeed, or: true, "Show speed in the menu bar",
-                    "Shows the upload and download rates beside the menu bar icon while connected."
-                )
+            SettingsSection("Window") {
+                toggle(\.minimizeOnClose, or: true, "Keep running when closed")
+                toggle(\.pageAnimation, or: true, "Page animation")
+                toggle(\.traySpeed, or: true, "Show speed in the menu bar")
             }
-            Section("Connections") {
-                toggle(
-                    \.closeConnectionsOnSwitch, or: true, "Close connections on switch",
-                    "Closes open connections after you switch nodes, so they reconnect through the new one."
-                )
-                toggle(
-                    \.onlyProxyTraffic, or: false, "Only count proxy traffic",
-                    "Leaves direct connections out of the traffic statistics."
-                )
-                toggle(
-                    \.checkCertificate, or: true, "Verify TLS certificates",
-                    "Rejects untrusted certificates. Turning this off exposes subscriptions and backups to man-in-the-middle attacks."
-                )
+            SettingsSection("Connections") {
+                toggle(\.closeConnectionsOnSwitch, or: true, "Close connections on switch")
+                toggle(\.onlyProxyTraffic, or: false, "Only count proxy traffic")
+                toggle(\.checkCertificate, or: true, "Verify TLS certificates")
             }
-            Section("Other") {
-                toggle(\.captureLogs, or: false, "Capture logs", "Shows the engine log in Activity. Turning this off hides the Logs tab.")
-                toggle(
-                    \.autoCheckUpdate, or: true, "Check for updates automatically",
-                    "Looks for a new version when po0-clash opens."
-                )
+            SettingsSection("Other") {
+                toggle(\.captureLogs, or: false, "Capture logs")
+                toggle(\.autoCheckUpdate, or: true, "Check for updates automatically")
             }
         }
-        .formStyle(.grouped)
-        .toggleStyle(.themedSwitch)
         .onAppear(perform: reloadLaunchAtLogin)
     }
 
     private func toggle(
         _ key: WritableKeyPath<AppSettings, Bool>,
         or fallback: Bool,
-        _ title: LocalizedStringKey,
-        _ detail: LocalizedStringKey
+        _ title: LocalizedStringKey
     ) -> some View {
-        Toggle(isOn: model.setting(key, or: fallback)) {
-            Text(title)
-            Text(detail)
-        }
-        .disabled(model.appSettings == nil)
+        ToggleRow(title, isOn: model.setting(key, or: fallback))
+            .disabled(model.appSettings == nil)
     }
 
     private func setLaunchAtLogin(_ enabled: Bool) {
@@ -223,26 +180,19 @@ private struct LanguageView: View {
     @State private var asksRestart = false
 
     var body: some View {
-        Form {
-            Section {
-                Picker("Language", selection: Binding(get: { model.appSettings?.language }, set: choose)) {
-                    Text("Follow system").tag(String?.none)
-                    ForEach(AppLanguage.choices) { choice in
-                        Text(verbatim: choice.name).tag(String?.some(choice.id))
+        PageScroll {
+            RowGroup {
+                CheckRow(Text("Follow system"), checked: model.appSettings?.language == nil) { choose(nil) }
+                ForEach(AppLanguage.choices) { choice in
+                    CheckRow(Text(verbatim: choice.name), checked: model.appSettings?.language == choice.id) {
+                        choose(choice.id)
                     }
                 }
-                .pickerStyle(.radioGroup)
-            } footer: {
-                Text("The new language applies after po0-clash restarts.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
+            .disabled(model.appSettings == nil)
         }
-        .formStyle(.grouped)
-        .disabled(model.appSettings == nil)
-        .alert("Restart po0-clash now to use the new language?", isPresented: $asksRestart) {
-            Button("Restart Now") { AppLanguage.relaunch() }
-            Button("Later", role: .cancel) {}
+        .dialog(isPresented: $asksRestart) {
+            RestartDialog()
         }
     }
 
@@ -251,6 +201,24 @@ private struct LanguageView: View {
         model.updateAppSettings { $0.language = code }
         AppLanguage.store(code)
         asksRestart = true
+    }
+}
+
+private struct RestartDialog: View {
+    @Environment(\.dismissDialog) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Restart po0-clash now to use the new language?").font(.system(size: 15, weight: .semibold))
+            DialogActions {
+                Button("Later") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Restart Now") { AppLanguage.relaunch() }
+                    .buttonStyle(ActionButtonStyle(primary: true))
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .frame(maxWidth: 440)
     }
 }
 
@@ -295,36 +263,33 @@ private struct AppearanceView: View {
     @State private var custom = Color.accentColor
 
     var body: some View {
-        Form {
-            Section {
-                Picker("Theme", selection: model.setting(\.themeMode, or: .system)) {
-                    Text("System").tag(ThemeMode.system)
-                    Text("Light").tag(ThemeMode.light)
-                    Text("Dark").tag(ThemeMode.dark)
+        PageScroll {
+            RowGroup {
+                ControlRow(Text("Theme")) {
+                    SegmentedControl(
+                        selection: model.setting(\.themeMode, or: .system),
+                        segments: [
+                            Segment(ThemeMode.system, "System"), Segment(ThemeMode.light, "Light"),
+                            Segment(ThemeMode.dark, "Dark"),
+                        ]
+                    )
                 }
-                .themedSegments()
-                Toggle(isOn: model.setting(\.pureBlack, or: false)) {
-                    Text("Pure black")
-                    Text("Uses black instead of dark grey behind the content in dark mode.")
-                }
-                .toggleStyle(.themedSwitch)
+                ToggleRow("Pure black", isOn: model.setting(\.pureBlack, or: false))
             }
-            Section("Theme color") {
+            SettingsSection("Theme color") {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 34), spacing: 8)], alignment: .leading, spacing: 8) {
                     ForEach(model.appSettings?.themeColors ?? Theme.presets, id: \.self) { argb in
                         swatch(argb)
                     }
                 }
-                .padding(.vertical, 4)
-                LabeledContent("Add a color") {
-                    HStack {
-                        ColorPicker("Color", selection: $custom, supportsOpacity: false).labelsHidden()
-                        Button("Add", action: add)
-                    }
+                .padding(Ui.padding)
+                Row {
+                    Text("Add a color").frame(maxWidth: .infinity, alignment: .leading)
+                    ColorPicker("Color", selection: $custom, supportsOpacity: false).labelsHidden()
+                    Button("Add", action: add)
                 }
             }
         }
-        .formStyle(.grouped)
         .disabled(model.appSettings == nil)
     }
 
@@ -338,7 +303,9 @@ private struct AppearanceView: View {
                 .frame(width: 26, height: 26)
                 .overlay {
                     if selected {
-                        Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Theme.onAccent(argb))
                     }
                 }
                 .padding(3)
@@ -375,53 +342,59 @@ private struct AboutView: View {
     @State private var showsLicenses = false
 
     var body: some View {
-        Form {
-            Section {
+        PageScroll {
+            RowGroup {
                 HStack(spacing: 14) {
                     Image(nsImage: NSApp.applicationIconImage)
                         .resizable()
                         .frame(width: 64, height: 64)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(verbatim: "po0-clash").font(.title2.weight(.semibold))
+                        Text(verbatim: "po0-clash").font(.system(size: 16, weight: .semibold))
                         Text(verbatim: AppPaths.version)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.ink2)
                             .onTapGesture(perform: countVersionClick)
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(Ui.padding)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 Text("po0-clash is a cross-platform ClashMeta client with automatic po0 and ggy whitelisting, share-link node import, and subscription management.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.ink2)
+                    .padding(Ui.padding)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .hairlineAbove()
             }
-            Section("More") {
-                LabeledContent("Check for updates") {
+            SettingsSection("More") {
+                Row {
+                    Text("Check for updates").frame(maxWidth: .infinity, alignment: .leading)
                     Button("Check Now") { model.checkForUpdates(userInitiated: true) }
                         .disabled(model.core == nil)
                 }
                 link("Project", detail: "yuuuki-creation/po0-clash", to: "https://github.com/yuuuki-creation/po0-clash")
             }
-            Section("Open-source credits") {
+            SettingsSection("Open-source credits") {
                 link("Upstream client", detail: "chen08209/FlClash", to: "https://github.com/chen08209/FlClash")
                 link("Core", detail: "mihomo", to: "https://github.com/MetaCubeX/mihomo")
-                LabeledContent("Upstream contributors") { Text(verbatim: "June2 · Arue") }
-                LabeledContent("Open-source licenses") {
+                ValueRow(Text("Upstream contributors")) { Text(verbatim: "June2 · Arue") }
+                Row {
+                    Text("Open-source licenses").frame(maxWidth: .infinity, alignment: .leading)
                     Button("Show…") { showsLicenses = true }
                 }
             }
         }
-        .formStyle(.grouped)
-        .sheet(isPresented: $showsLicenses) { LicensesSheet().environmentObject(model) }
+        .dialog(isPresented: $showsLicenses) { LicensesDialog() }
     }
 
     private func link(_ title: LocalizedStringKey, detail: String, to address: String) -> some View {
-        LabeledContent(title) {
+        Row {
+            Text(title).frame(maxWidth: .infinity, alignment: .leading)
             Link(destination: URL(string: address)!) {
-                Label {
+                HStack(spacing: 4) {
                     Text(verbatim: detail)
-                } icon: {
                     Image(systemName: "arrow.up.right.square")
                 }
-                .labelStyle(.titleAndIcon)
+                .foregroundStyle(Color.accentColor)
             }
+            .buttonStyle(.plain)
         }
     }
 
@@ -434,9 +407,9 @@ private struct AboutView: View {
     }
 }
 
-private struct LicensesSheet: View {
+private struct LicensesDialog: View {
     @EnvironmentObject private var model: AppModel
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismissDialog) private var dismiss
     @State private var licenses: [License] = []
     @State private var query = ""
 
@@ -447,36 +420,39 @@ private struct LicensesSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("Open-Source Licenses").font(.headline)
-                Spacer()
-                TextField("Search", text: $query)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 180)
+                DialogTitle(title: "Open-Source Licenses")
+                SearchField(text: $query)
             }
-            List(shown) { license in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(verbatim: license.version.isEmpty ? license.name : "\(license.name) \(license.version)")
-                        Text(verbatim: license.license).font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if !license.url.isEmpty, let url = URL(string: license.url) {
-                        Link(destination: url) { Image(systemName: "arrow.up.right.square") }
-                            .help(license.url)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(shown.enumerated()), id: \.element.id) { index, license in
+                        HStack(spacing: 12) {
+                            Text(verbatim: license.version.isEmpty ? license.name : "\(license.name) \(license.version)")
+                                .lineLimit(1)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text(verbatim: license.license).foregroundStyle(Color.ink2).lineLimit(1)
+                            if !license.url.isEmpty, let url = URL(string: license.url) {
+                                Link(destination: url) {
+                                    Image(systemName: "arrow.up.right.square").foregroundStyle(Color.accentColor)
+                                }
+                                .buttonStyle(.plain)
+                                .help(license.url)
+                            }
+                        }
+                        .tableRow(zebra: index % 2 == 1)
                     }
                 }
             }
-            .listStyle(.inset(alternatesRowBackgrounds: true))
-            HStack {
-                Spacer()
+            .cardSurface()
+            DialogActions {
                 Button("Done") { dismiss() }
+                    .buttonStyle(ActionButtonStyle(primary: true))
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(20)
-        .frame(width: 520, height: 560)
+        .frame(maxWidth: 520, maxHeight: 560)
         .task { licenses = await model.licenses() }
     }
 }
@@ -494,67 +470,48 @@ private struct DeveloperView: View {
     private var captureLogs: Bool { model.appSettings?.captureLogs == true }
 
     var body: some View {
-        Form {
-            Section {
-                Toggle(isOn: model.setting(\.developerMode, or: false)) {
-                    Text("Developer mode")
-                    Text("Turning this off hides this page. Click the version in About five times to bring it back.")
-                }
-                .disabled(model.appSettings == nil)
+        PageScroll {
+            RowGroup {
+                ToggleRow("Developer mode", isOn: model.setting(\.developerMode, or: false))
+                    .disabled(model.appSettings == nil)
             }
-            Section("Options") {
-                row("Message test", "Shows a sample message.", button: "Show") {
+            SettingsSection("Options") {
+                row("Message test", button: "Show") {
                     model.notice = String(localized: "This is a message.")
                 }
-                row(
-                    "Logs test",
-                    captureLogs ? "Adds 1,000 lines of random text to the logs in Activity." : "Turn on Capture logs in Application first.",
-                    button: "Add"
-                ) { model.addTestLogs() }
-                .disabled(!captureLogs)
-                row(
-                    "Crash test",
-                    model.isRunning ? "Ends the engine the way a crash would." : "Available while connected.",
-                    button: "Crash…"
-                ) { confirmingCrash = true }
-                .disabled(!model.isRunning)
-                row(
-                    "Clear data", "Removes every profile, whitelist entry and setting, then restarts po0-clash.",
-                    button: "Clear…"
-                ) { confirmingClear = true }
-                row("Prune cache", "Deletes files left behind by removed profiles.", button: "Prune") {
-                    model.pruneCache()
-                }
+                row("Logs test", button: "Add") { model.addTestLogs() }
+                    .disabled(!captureLogs)
+                row("Crash test", button: "Crash…") { confirmingCrash = true }
+                    .disabled(!model.isRunning)
+                row("Clear data", button: "Clear…") { confirmingClear = true }
+                row("Prune cache", button: "Prune") { model.pruneCache() }
             }
             .disabled(model.core == nil)
         }
-        .formStyle(.grouped)
-        .toggleStyle(.themedSwitch)
-        .alert("Crash the engine?", isPresented: $confirmingCrash) {
-            Button("Crash", role: .destructive) { model.crashEngine() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("The connection drops until you connect again.")
+        .dialog(isPresented: $confirmingCrash, closesOnScrimClick: true) {
+            ConfirmDialog(
+                title: String(localized: "Crash the engine?"),
+                message: "The connection drops until you connect again.",
+                confirm: "Crash"
+            ) { model.crashEngine() }
         }
-        .alert("Clear all data?", isPresented: $confirmingClear) {
-            Button("Clear Data", role: .destructive) { model.clearData() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Every profile, whitelist entry and setting is removed and po0-clash restarts. This cannot be undone.")
+        .dialog(isPresented: $confirmingClear, closesOnScrimClick: true) {
+            ConfirmDialog(
+                title: String(localized: "Clear all data?"),
+                message: "Every profile, whitelist entry and setting is removed and po0-clash restarts. This cannot be undone.",
+                confirm: "Clear Data"
+            ) { model.clearData() }
         }
     }
 
     private func row(
         _ title: LocalizedStringKey,
-        _ detail: LocalizedStringKey,
         button: LocalizedStringKey,
         action: @escaping () -> Void
     ) -> some View {
-        LabeledContent {
+        Row {
+            Text(title).frame(maxWidth: .infinity, alignment: .leading)
             Button(button, action: action)
-        } label: {
-            Text(title)
-            Text(detail)
         }
     }
 }

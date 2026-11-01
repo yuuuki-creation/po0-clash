@@ -1,40 +1,29 @@
 import SwiftUI
 
-/// One spring for every state change, so controls settle alike; with Reduce Motion nothing moves, only content swaps.
+/// The macOS column of docs/design/native-ui: durations in seconds, with Reduce Motion everything lands at once.
 enum Motion {
-    static let spring = Animation.spring(response: 0.32, dampingFraction: 0.86)
-    static let quick = Animation.spring(response: 0.22, dampingFraction: 0.9)
+    static let control = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.2)
+    static let sidebar = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.25)
+    static let press = Animation.easeOut(duration: 0.12)
+    static let fill = Animation.linear(duration: 0.2)
+    static let dot = Animation.easeInOut(duration: 0.2)
+    static let bar = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.3)
+    static let hairline = Animation.linear(duration: 0.15)
+    static let focus = Animation.linear(duration: 0.12)
+    static let subpage = Animation.linear(duration: 0.12)
+    static let dialogIn = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.2)
+    static let dialogOut = Animation.timingCurve(0.4, 0, 1, 1, duration: 0.15)
+    static let rowIn = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.25)
+    static let rowOut = Animation.timingCurve(0.4, 0, 1, 1, duration: 0.2)
 }
 
 extension View {
-    func motion<Value: Equatable>(_ animation: Animation = Motion.spring, value: Value) -> some View {
+    func motion<Value: Equatable>(_ animation: Animation, value: Value) -> some View {
         modifier(MotionModifier(animation: animation, value: value))
     }
 
-    func rollingDigits() -> some View {
-        contentTransition(.numericText())
-    }
-
-    @ViewBuilder
-    func replacingSymbol() -> some View {
-        if #available(macOS 14, *) {
-            contentTransition(.symbolEffect(.replace))
-        } else {
-            self
-        }
-    }
-
-    @ViewBuilder
-    func pulsing(_ active: Bool) -> some View {
-        if #available(macOS 14, *) {
-            symbolEffect(.pulse, isActive: active)
-        } else {
-            self
-        }
-    }
-
-    func hoverHighlight<S: InsettableShape>(_ shape: S) -> some View {
-        modifier(HoverHighlight(shape: shape))
+    func rowListMotion<ID: Equatable>(ids: [ID]) -> some View {
+        modifier(RowListMotion(ids: ids))
     }
 }
 
@@ -48,85 +37,33 @@ private struct MotionModifier<Value: Equatable>: ViewModifier {
     }
 }
 
-private struct HoverHighlight<S: InsettableShape>: ViewModifier {
-    let shape: S
-    @State private var hovering = false
-
-    func body(content: Content) -> some View {
-        content
-            .overlay(shape.fill(Color.primary.opacity(hovering ? 0.05 : 0)).allowsHitTesting(false))
-            .onHover { hovering = $0 }
-            .motion(Motion.quick, value: hovering)
-    }
-}
-
-/// Plain buttons give no feedback of their own; this one dips slightly while held.
-struct PressableStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.96 : 1)
-            .opacity(configuration.isPressed ? 0.85 : 1)
-            .motion(Motion.quick, value: configuration.isPressed)
-    }
-}
-
-extension ButtonStyle where Self == PressableStyle {
-    static var pressable: PressableStyle { PressableStyle() }
-}
-
-/// The page that comes in rises a little as it fades in; the one leaving goes at once.
-struct PageEntrance: ViewModifier {
-    let enabled: Bool
+private struct RowListMotion<ID: Equatable>: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var shown = false
+    let ids: [ID]
+    @State private var shownCount: Int?
 
     func body(content: Content) -> some View {
+        let grew = ids.count >= (shownCount ?? ids.count)
         content
-            .opacity(shown || !enabled ? 1 : 0)
-            .offset(y: shown || !enabled || reduceMotion ? 0 : 10)
-            .onAppear { withAnimation(.spring(response: 0.36, dampingFraction: 0.9)) { shown = true } }
+            .animation(reduceMotion ? nil : grew ? Motion.rowIn : Motion.rowOut, value: ids)
+            .onAppear { shownCount = ids.count }
+            .onChange(of: ids.count) { count in shownCount = count }
     }
 }
 
-extension View {
-    /// macOS 26 floats navigation controls on Liquid Glass over the content; earlier systems get a plain fill.
-    @ViewBuilder
-    func liquidGlass<S: Shape>(in shape: S) -> some View {
-        #if compiler(>=6.2)
-        if #available(macOS 26, *) {
-            glassEffect(.regular, in: shape)
-        } else {
-            self
-        }
-        #else
-        self
-        #endif
-    }
+private struct RowFold: ViewModifier {
+    let folded: Bool
 
-    @ViewBuilder
-    func floatingGlass<S: Shape>(in shape: S) -> some View {
-        #if compiler(>=6.2)
-        if #available(macOS 26, *) {
-            glassEffect(.regular, in: shape)
-        } else {
-            background(Color.controlFill, in: shape)
-        }
-        #else
-        background(Color.controlFill, in: shape)
-        #endif
+    func body(content: Content) -> some View {
+        content
+            .frame(height: folded ? 0 : nil, alignment: .top)
+            .clipped()
+            .opacity(folded ? 0 : 1)
     }
+}
 
-    /// On macOS 26 a pinned header lets the content scroll under its glass, as the toolbar does; before, it stays opaque.
-    @ViewBuilder
-    func pinnedHeaderBackground() -> some View {
-        #if compiler(>=6.2)
-        if #available(macOS 26, *) {
-            self
-        } else {
-            background(Color.pageBackground)
-        }
-        #else
-        background(Color.pageBackground)
-        #endif
+extension AnyTransition {
+    static var rowFold: AnyTransition {
+        .modifier(active: RowFold(folded: true), identity: RowFold(folded: false))
     }
 }

@@ -23,6 +23,12 @@ final class ActivityModel: ObservableObject {
     @Published private(set) var logs: [LogEntry] = []
 
     func refresh(_ tab: ActivityTab, core: CoreClient?) async {
+        if let sample = Showcase.sample {
+            requests = sample.connections.items
+            connections = sample.connections
+            logs = sample.logs
+            return
+        }
         guard let core else { return }
         switch tab {
         case .requests: requests = (try? await core.requests()) ?? []
@@ -39,7 +45,6 @@ struct ActivityView: View {
     @StateObject private var activity = ActivityModel()
     @AppStorage("activityTab") private var storedTab = ActivityTab.requests
     @State private var search = ""
-    @State private var searching = false
     @State private var minimumLevel = LogLevel.debug
 
     private var tabs: [ActivityTab] {
@@ -49,30 +54,21 @@ struct ActivityView: View {
     private var tab: ActivityTab { tabs.contains(storedTab) ? storedTab : .requests }
 
     var body: some View {
-        PageScaffold("Activity", subtitle: subtitle) {
-            Picker("Activity", selection: Binding(get: { tab }, set: { storedTab = $0 })) {
-                ForEach(tabs, id: \.self) { Text($0.title).tag($0) }
-            }
-            .themedSegments()
-            .labelsHidden()
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) { searching.toggle() }
-                if !searching { search = "" }
-            } label: {
-                Label("Search", systemImage: "magnifyingglass")
-            }
-            .help("Search")
-            .keyboardShortcut("f")
+        PageScaffold("Activity", capped: false) {
             actions
         } content: {
-            VStack(spacing: 0) {
-                if searching {
-                    SearchField(text: $search, prompt: "Search")
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 6)
+            VStack(alignment: .leading, spacing: Ui.block) {
+                HStack(spacing: 12) {
+                    SegmentedControl(
+                        selection: Binding(get: { tab }, set: { storedTab = $0 }),
+                        segments: tabs.map { Segment($0, $0.title) }
+                    )
+                    Spacer(minLength: 8)
+                    SearchField(text: $search)
                 }
                 content
             }
+            .pagePadding()
         }
         .task(id: tab) {
             while !Task.isCancelled {
@@ -86,40 +82,35 @@ struct ActivityView: View {
     private var actions: some View {
         switch tab {
         case .requests:
-            Button {
+            Button("Clear") {
                 run { try await $0.clearRequests() }
-            } label: {
-                Label("Clear", systemImage: "trash")
             }
-            .help("Clear")
             .disabled(activity.requests.isEmpty)
         case .connections:
-            Button {
+            Button("Close all") {
                 run { try await $0.closeAllConnections() }
-            } label: {
-                Label("Close all", systemImage: "xmark.circle")
             }
-            .help("Close all")
             .disabled(activity.connections.items.isEmpty)
         case .logs:
-            Menu {
-                Picker("Level", selection: $minimumLevel) {
-                    ForEach([LogLevel.debug, .info, .warning, .error], id: \.self) { level in
-                        Text(level.label).tag(level)
-                    }
+            MenuButton(placement: .belowTrailing) {
+                HStack(spacing: 8) {
+                    Text("Level")
+                    DownChevron()
                 }
-                .pickerStyle(.inline)
-            } label: {
-                Label("Level", systemImage: "line.3.horizontal.decrease.circle")
+            } entries: {
+                levelEntries
             }
-            .help("Level")
-            Button {
+            Button("Clear") {
                 run { try await $0.clearLogs() }
-            } label: {
-                Label("Clear", systemImage: "trash")
             }
-            .help("Clear")
             .disabled(activity.logs.isEmpty)
+        }
+    }
+
+    private var levelEntries: [MenuEntry] {
+        let levels: [LogLevel] = [.debug, .info, .warning, .error]
+        return levels.map { level in
+            MenuEntry.action(level.name, checked: level == minimumLevel, perform: { minimumLevel = level })
         }
     }
 
@@ -128,13 +119,13 @@ struct ActivityView: View {
         switch tab {
         case .requests:
             if activity.requests.isEmpty {
-                empty("No requests", symbol: "arrow.left.arrow.right")
+                EmptyState(title: "No requests", symbol: "arrow.left.arrow.right")
             } else {
                 ConnectionTable(rows: activity.requests.reversed().filter(matches), close: nil)
             }
         case .connections:
             if activity.connections.items.isEmpty {
-                empty("No connections", symbol: "point.3.connected.trianglepath.dotted")
+                EmptyState(title: "No connections", symbol: "point.3.connected.trianglepath.dotted")
             } else {
                 ConnectionTable(
                     rows: activity.connections.items.sorted { $0.start > $1.start }.filter(matches),
@@ -143,40 +134,13 @@ struct ActivityView: View {
             }
         case .logs:
             if activity.logs.isEmpty {
-                empty("No logs", symbol: "doc.plaintext")
+                EmptyState(title: "No logs", symbol: "doc.plaintext")
             } else {
-                LogList(entries: activity.logs.reversed().filter { entry in
+                LogTable(entries: activity.logs.reversed().filter { entry in
                     entry.level.rank >= minimumLevel.rank
                         && (query.isEmpty || entry.message.localizedCaseInsensitiveContains(query))
                 })
             }
-        }
-    }
-
-    private func empty(_ title: LocalizedStringKey, symbol: String) -> some View {
-        EmptyState(
-            title: title,
-            symbol: symbol,
-            detail: model.isRunning
-                ? LocalizedStringKey("New entries appear here as they happen.")
-                : LocalizedStringKey("Connect to see what the engine is doing.")
-        )
-    }
-
-    private var subtitle: String {
-        switch tab {
-        case .requests:
-            let count = activity.requests.count
-            return count == 1 ? String(localized: "1 request") : String(localized: "\(count) requests")
-        case .connections:
-            let count = activity.connections.items.count
-            let up = Format.bytes(activity.connections.uploadTotal)
-            let down = Format.bytes(activity.connections.downloadTotal)
-            let total = count == 1 ? String(localized: "1 connection") : String(localized: "\(count) connections")
-            return "\(total) · ↑ \(up) ↓ \(down)"
-        case .logs:
-            let count = activity.logs.count
-            return count == 1 ? String(localized: "1 log line") : String(localized: "\(count) log lines")
         }
     }
 
@@ -199,76 +163,142 @@ struct ActivityView: View {
 }
 
 private struct ConnectionTable: View {
+    @Environment(\.compactContent) private var compact
     let rows: [Connection]
     let close: ((String) -> Void)?
     @State private var selection = Set<String>()
+    @State private var anchor: String?
+
+    private var columns: [ColumnWidth] {
+        compact
+            ? [.flex(1.6), .flex(1.6), .fixed(84)]
+            : [.fixed(72), .flex(2), .flex(1.1), .flex(1.1), .flex(1.8), .fixed(84)]
+    }
 
     var body: some View {
-        Table(rows, selection: $selection) {
-            TableColumn("Time") { row in
-                Text(Format.date(row.start), format: .dateTime.hour().minute().second()).monospacedDigit()
-            }
-            .width(min: 86, ideal: 92, max: 110)
-            TableColumn("Host") { row in
-                Text(row.host).lineLimit(1).truncationMode(.middle).help(row.host)
-            }
-            .width(min: 140, ideal: 200)
-            TableColumn("Process") { row in
-                HStack(spacing: 6) {
-                    if let icon = ProcessIcon.image(row.processPath) {
-                        Image(nsImage: icon).resizable().frame(width: 16, height: 16)
-                    }
-                    Text(row.process ?? "—").lineLimit(1).foregroundStyle(row.process == nil ? .secondary : .primary)
+        ScrollingTable {
+            ColumnsLayout(columns: columns) {
+                if !compact { Text("Time") }
+                Text("Host")
+                if !compact {
+                    Text("Process")
+                    Text("Rule")
                 }
-                .help(row.processPath ?? "")
+                Text("Chain")
+                Text("Traffic").frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .width(min: 80, ideal: 120)
-            TableColumn("Rule") { row in
-                Text(row.rulePayload.isEmpty ? row.rule : "\(row.rule) · \(row.rulePayload)").lineLimit(1)
-            }
-            .width(min: 80, ideal: 110)
-            TableColumn("Chain") { row in
-                Text(row.chains.reversed().joined(separator: " → ")).lineLimit(1).truncationMode(.middle)
-            }
-            .width(min: 80, ideal: 140)
-            TableColumn("Traffic") { row in
-                Text(verbatim: "↑ \(Format.bytes(row.upload))  ↓ \(Format.bytes(row.download))")
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-            }
-            .width(min: 110, ideal: 130)
-        }
-        .contextMenu(forSelectionType: String.self) { ids in
-            Button("Copy Host") {
-                let hosts = rows.filter { ids.contains($0.id) }.map(\.host)
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(hosts.joined(separator: "\n"), forType: .string)
-            }
-            if let close {
-                Button("Close Connection") { ids.forEach(close) }
+            .tableHeader()
+        } rows: {
+            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                ColumnsLayout(columns: columns) {
+                    if !compact {
+                        Text(Format.date(row.start), format: .dateTime.hour().minute().second())
+                            .foregroundStyle(Color.ink2)
+                            .lineLimit(1)
+                    }
+                    Text(verbatim: row.host).lineLimit(1).truncationMode(.middle)
+                    if !compact {
+                        process(row)
+                        Text(verbatim: row.rulePayload.isEmpty ? row.rule : "\(row.rule) · \(row.rulePayload)")
+                            .foregroundStyle(Color.ink2)
+                            .lineLimit(1)
+                    }
+                    Text(verbatim: row.chains.reversed().joined(separator: " › "))
+                        .foregroundStyle(Color.ink2)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text(verbatim: Format.bytes(row.upload + row.download))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .allowsHitTesting(false)
+                .tableRow(zebra: index % 2 == 0, hit: { click(row.id) })
+                .overlay(Color.listSelection.opacity(selection.contains(row.id) ? 1 : 0).allowsHitTesting(false))
+                .help(details(row))
+                .contextMenu {
+                    Button("Copy Host") { copyHosts(from: row.id) }
+                    if let close {
+                        Button("Close Connection") { targets(of: row.id).forEach(close) }
+                    }
+                }
             }
         }
     }
+
+    private func process(_ row: Connection) -> some View {
+        HStack(spacing: 6) {
+            if let icon = ProcessIcon.image(row.processPath) {
+                Image(nsImage: icon).resizable().frame(width: 16, height: 16)
+            }
+            Text(verbatim: row.process ?? "—")
+                .foregroundStyle(row.process == nil ? Color.ink2 : Color.ink)
+                .lineLimit(1)
+        }
+    }
+
+    /// The cells pass their clicks to the row, so the row carries what a narrow column cuts off.
+    private func details(_ row: Connection) -> String {
+        [row.host, row.processPath, "↑ \(Format.bytes(row.upload))  ↓ \(Format.bytes(row.download))"]
+            .compactMap { $0 }
+            .joined(separator: "
+")
+    }
+
+    /// ⌘ adds a row and ⇧ extends from the last one clicked, as a table on macOS does.
+    private func click(_ id: String) {
+        let flags = NSEvent.modifierFlags
+        if flags.contains(.command) {
+            if selection.contains(id) { selection.remove(id) } else { selection.insert(id) }
+            anchor = id
+        } else if flags.contains(.shift), let anchor,
+                  let from = rows.firstIndex(where: { $0.id == anchor }),
+                  let to = rows.firstIndex(where: { $0.id == id }) {
+            selection = Set(rows[min(from, to)...max(from, to)].map(\.id))
+        } else {
+            selection = [id]
+            anchor = id
+        }
+    }
+
+    private func targets(of id: String) -> [String] {
+        selection.contains(id) ? Array(selection) : [id]
+    }
+
+    private func copyHosts(from id: String) {
+        let ids = targets(of: id)
+        let hosts = rows.filter { ids.contains($0.id) }.map(\.host)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(hosts.joined(separator: "\n"), forType: .string)
+    }
 }
 
-private struct LogList: View {
+private struct LogTable: View {
     let entries: [LogEntry]
 
     var body: some View {
-        List(Array(entries.enumerated()), id: \.offset) { _, entry in
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(Format.date(entry.at), format: .dateTime.hour().minute().second())
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                Text(entry.level.label)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(entry.level.tint)
-                    .frame(width: 52, alignment: .leading)
-                Text(entry.message)
-                    .font(.system(.callout, design: .monospaced))
-                    .textSelection(.enabled)
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(Format.date(entry.at), format: .dateTime.hour().minute().second())
+                            .foregroundStyle(Color.ink2)
+                            .lineLimit(1)
+                            .frame(width: 72, alignment: .leading)
+                        Text(entry.level.label)
+                            .foregroundStyle(entry.level.tint)
+                            .lineLimit(1)
+                            .frame(width: 60, alignment: .leading)
+                        Text(verbatim: entry.message)
+                            .font(Ui.codeFont)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.vertical, 6)
+                    .tableRow(zebra: index % 2 == 1)
+                }
             }
         }
+        .cardSurface()
     }
 }
 
@@ -283,12 +313,23 @@ extension LogLevel {
         }
     }
 
+    /// For AppKit menus, which cannot take a `LocalizedStringKey`.
+    var name: String {
+        switch self {
+        case .debug: return String(localized: "Debug")
+        case .info: return String(localized: "Info")
+        case .warning: return String(localized: "Warning")
+        case .error: return String(localized: "Error")
+        case .silent: return String(localized: "Silent")
+        }
+    }
+
     var tint: Color {
         switch self {
-        case .debug, .silent: return .secondary
+        case .debug, .silent: return .ink2
         case .info: return .accentColor
-        case .warning: return .orange
-        case .error: return .red
+        case .warning: return .warn
+        case .error: return .bad
         }
     }
 
