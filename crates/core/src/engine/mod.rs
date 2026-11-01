@@ -385,6 +385,10 @@ pub fn recover(run_dir: &Path) {
 }
 
 pub fn is_privileged(binary: &Path) -> bool {
+    #[cfg(target_os = "macos")]
+    if process::is_tun_runner(binary) {
+        return true;
+    }
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;

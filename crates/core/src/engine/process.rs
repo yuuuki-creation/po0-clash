@@ -10,6 +10,8 @@ use crate::logfile::LogFile;
 
 pub struct Process {
     child: Mutex<Child>,
+    #[cfg(target_os = "macos")]
+    tun_runner: bool,
     #[cfg(windows)]
     _job: job::Job,
 }
@@ -47,6 +49,8 @@ impl Process {
         }
         Ok(Self {
             child: Mutex::new(child),
+            #[cfg(target_os = "macos")]
+            tun_runner: is_tun_runner(binary),
             #[cfg(windows)]
             _job: job,
         })
@@ -59,12 +63,13 @@ impl Process {
             .id()
     }
 
-    pub fn kill(&self) {
-        let _ = self
-            .child
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .kill();
+    pub fn kill(&self) -> std::io::Result<()> {
+        let mut child = self.child.lock().unwrap_or_else(PoisonError::into_inner);
+        #[cfg(target_os = "macos")]
+        if self.tun_runner {
+            return stop_tun_runner(&mut child, libc::SIGUSR1);
+        }
+        child.kill()
     }
 
     pub fn exited(&self) -> Option<String> {
@@ -77,10 +82,14 @@ impl Process {
     }
 
     /// SIGTERM first so mihomo removes its routes and TUN device; Windows has no such signal.
-    pub fn stop(&self) {
+    pub fn stop(&self) -> std::io::Result<()> {
         let mut child = self.child.lock().unwrap_or_else(PoisonError::into_inner);
-        if matches!(child.try_wait(), Ok(Some(_))) {
-            return;
+        #[cfg(target_os = "macos")]
+        if self.tun_runner {
+            return stop_tun_runner(&mut child, libc::SIGTERM);
+        }
+        if child.try_wait()?.is_some() {
+            return Ok(());
         }
         #[cfg(unix)]
         {
@@ -89,14 +98,52 @@ impl Process {
             }
             let deadline = Instant::now() + Duration::from_secs(3);
             while Instant::now() < deadline {
-                if matches!(child.try_wait(), Ok(Some(_))) {
-                    return;
+                if child.try_wait()?.is_some() {
+                    return Ok(());
                 }
                 thread::sleep(Duration::from_millis(50));
             }
         }
-        let _ = child.kill();
-        let _ = child.wait();
+        child.kill()?;
+        child.wait()?;
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub(super) fn is_tun_runner(binary: &Path) -> bool {
+    binary.file_name().is_some_and(|name| name == "po0-tun-runner")
+}
+
+#[cfg(target_os = "macos")]
+fn stop_tun_runner(child: &mut Child, signal: i32) -> std::io::Result<()> {
+    use std::os::unix::process::ExitStatusExt;
+
+    let deadline = Instant::now() + Duration::from_secs(8);
+    if child.try_wait()?.is_none() {
+        let pid = i32::try_from(child.id()).map_err(std::io::Error::other)?;
+        if unsafe { libc::kill(pid, signal) } != 0 {
+            let error = std::io::Error::last_os_error();
+            if error.raw_os_error() != Some(libc::ESRCH) {
+                return Err(error);
+            }
+        }
+    }
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return if status.code() == Some(70) || status.signal().is_some() {
+                Err(std::io::Error::other("TUN root engine exit was not confirmed"))
+            } else {
+                Ok(())
+            };
+        }
+        if Instant::now() >= deadline {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "TUN root engine has not confirmed shutdown",
+            ));
+        }
+        thread::sleep(Duration::from_millis(20));
     }
 }
 
