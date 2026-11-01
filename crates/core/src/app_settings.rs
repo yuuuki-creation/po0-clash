@@ -2,11 +2,14 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::error::{CoreError, Result};
 
-pub const DEFAULT_THEME_COLOR: u32 = 0xFF00_7AFF;
+pub const DEFAULT_THEME_COLOR: u32 = 0xFF24_694C;
 
-/// The Flutter app's presets, system blue first.
-pub const THEME_COLOR_PRESETS: [u32; 8] = [
+/// The default before ADR 0021. Settings files save it even when nobody chose it.
+const LEGACY_DEFAULT_THEME_COLOR: u32 = 0xFF00_7AFF;
+
+pub const THEME_COLOR_PRESETS: [u32; 9] = [
     DEFAULT_THEME_COLOR,
+    LEGACY_DEFAULT_THEME_COLOR,
     0xFF58_56D6,
     0xFFAF_52DE,
     0xFFFF_2D55,
@@ -369,7 +372,21 @@ pub(crate) fn lenient<'de, D: Deserializer<'de>>(
     deserializer: D,
 ) -> std::result::Result<AppSettings, D::Error> {
     let value = serde_json::Value::deserialize(deserializer)?;
-    Ok(AppSettings::deserialize(value).unwrap_or_default())
+    Ok(AppSettings::deserialize(value)
+        .map(adopt_default_theme_color)
+        .unwrap_or_default())
+}
+
+/// A list led by the old default predates ADR 0021; choosing blue later leaves the new default first.
+fn adopt_default_theme_color(mut settings: AppSettings) -> AppSettings {
+    if settings.theme_colors.first() == Some(&LEGACY_DEFAULT_THEME_COLOR) {
+        settings.theme_colors.insert(0, DEFAULT_THEME_COLOR);
+        dedup(&mut settings.theme_colors);
+        if settings.theme_color == LEGACY_DEFAULT_THEME_COLOR {
+            settings.theme_color = DEFAULT_THEME_COLOR;
+        }
+    }
+    settings
 }
 
 #[cfg(test)]
@@ -409,6 +426,36 @@ mod tests {
         let file: File = serde_json::from_str(r#"{"app":{"themeMode":"sepia"},"kept":7}"#).unwrap();
         assert_eq!(file.app, AppSettings::default());
         assert_eq!(file.kept, 7);
+    }
+
+    fn from_file(json: &str) -> AppSettings {
+        let mut deserializer = serde_json::Deserializer::from_str(json);
+        lenient(&mut deserializer).unwrap()
+    }
+
+    #[test]
+    fn a_file_saved_with_the_old_default_moves_to_the_new_one_once() {
+        let old = r#"{"themeColor":4278221567,"themeColors":[4278221567,4284896982,4294932480]}"#;
+        let moved = from_file(old);
+        assert_eq!(moved.theme_color, DEFAULT_THEME_COLOR);
+        assert_eq!(
+            moved.theme_colors,
+            [DEFAULT_THEME_COLOR, LEGACY_DEFAULT_THEME_COLOR, 0xFF66_56D6, 0xFFFF_7800]
+        );
+
+        let chose_blue = AppSettings {
+            theme_color: LEGACY_DEFAULT_THEME_COLOR,
+            ..moved
+        };
+        let reloaded = from_file(&serde_json::to_string(&chose_blue).unwrap());
+        assert_eq!(reloaded, chose_blue);
+    }
+
+    #[test]
+    fn a_chosen_colour_survives_the_move_to_the_new_default() {
+        let moved = from_file(r#"{"themeColor":4294932480,"themeColors":[4278221567,4294932480]}"#);
+        assert_eq!(moved.theme_color, 0xFFFF_7800);
+        assert_eq!(moved.theme_colors[0], DEFAULT_THEME_COLOR);
     }
 
     #[test]
