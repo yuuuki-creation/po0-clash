@@ -1,0 +1,52 @@
+.delay-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.delay-button:hover:not(:disabled) {
+  background: var(--fill);
+}
+
+.delay-button.testing {
+  opacity: 1;
+  color: var(--secondary);
+}
+
+.delay-button > span {
+  display: inline-flex;
+  align-items: center;
+}
+
+.delay-button .icon,
+.delay-button .spinner {
+  width: 12px;
+  height: 12px;
+}
+
+.delay-result {
+  animation: delay-arrive 0.4s var(--ease);
+}
+
+@keyframes delay-arrive {
+  from { opacity: 0.3; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .delay-result {
+    animation: none;
+  }
+}

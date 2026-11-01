@@ -1,0 +1,106 @@
+main {
+  container: workspace / inline-size;
+  overflow-x: hidden;
+}
+
+.content,
+.toolbar .actions,
+.search input {
+  min-width: 0;
+}
+
+.table {
+  overflow-x: auto;
+}
+
+.table-row {
+  min-width: 760px;
+}
+
+.logs .table-row {
+  min-width: 0;
+}
+
+@media (max-width: 1050px) {
+  :root {
+    --sidebar: 64px;
+  }
+
+  .sidebar {
+    padding: 14px 6px;
+  }
+
+  .sidebar .nav-item span,
+  .sidebar .sidebar-head > span {
+    display: none;
+  }
+
+  .sidebar .nav-item,
+  .sidebar .sidebar-head {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .sidebar .sidebar-head .plain-button {
+    margin: 0;
+  }
+}
+
+@container workspace (max-width: 800px) {
+  .toolbar.has-actions {
+    height: 96px;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 0 10px;
+  }
+
+  .toolbar.has-actions > .heading,
+  .toolbar.has-actions > .window-controls {
+    height: 52px;
+  }
+
+  .toolbar.has-actions > .start,
+  .toolbar.has-actions > .round-glass {
+    margin-block: 9px;
+  }
+
+  .toolbar.has-actions .actions {
+    order: 5;
+    flex: 1 0 100%;
+    padding-right: 14px;
+    gap: 8px;
+  }
+
+  .toolbar.has-actions .actions .search {
+    flex: 1;
+    width: auto;
+  }
+
+  .content.with-actions {
+    padding-top: 102px;
+  }
+
+  .scroll-edge.with-actions {
+    height: 112px;
+  }
+
+  .content {
+    padding-inline: 14px;
+  }
+}
+
+@container workspace (max-width: 600px) {
+  .row input:not([type='range']) {
+    width: min(200px, 40%);
+  }
+
+  .window-controls button {
+    width: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none !important;
+  }
+}

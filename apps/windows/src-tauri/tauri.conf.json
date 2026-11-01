@@ -15,12 +15,13 @@
         "title": "po0-clash",
         "width": 1200,
         "height": 720,
-        "minWidth": 900,
+        "minWidth": 720,
         "minHeight": 560,
         "center": true,
         "decorations": false,
         "shadow": true,
         "transparent": true,
+        "dragDropEnabled": false,
         "visible": false
       }
     ],

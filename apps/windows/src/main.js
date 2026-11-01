@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { mount } from 'svelte';
 import App from './App.svelte';
 import './app.css';
+import './styles/workspace.css';
 import { app, init } from './lib/core.svelte.js';
 import { watchGlass } from './lib/glass.js';
 import { setLanguage } from './lib/i18n.js';

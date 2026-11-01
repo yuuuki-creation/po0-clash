@@ -8,7 +8,7 @@
   let { title, subtitle = '', onback, fill = false, form = false, actions, children } = $props();
 </script>
 
-<header class="toolbar" data-tauri-drag-region>
+<header class="toolbar" class:has-actions={!!actions} data-tauri-drag-region>
   {#if !app.sidebar}
     <button
       type="button"
@@ -31,8 +31,8 @@
   <StartButton />
   <WindowControls />
 </header>
-<div class="scroll-edge" aria-hidden="true"></div>
+<div class="scroll-edge" class:with-actions={!!actions} aria-hidden="true"></div>
 
-<div class="content" class:fill class:form>
+<div class="content" class:fill class:form class:with-actions={!!actions}>
   {@render children()}
 </div>

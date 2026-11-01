@@ -1,0 +1,94 @@
+.dash {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+
+.dash-item {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+.dash-item > .card {
+  flex: 1;
+}
+
+.dash.editing .dash-item > .card {
+  padding-top: 42px;
+  box-shadow: var(--card-shadow), 0 0 0 1.5px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.dash-item.dragging {
+  opacity: 0.4;
+}
+
+.dash-item.drop-target > .card {
+  box-shadow: var(--card-shadow), 0 0 0 2px var(--accent);
+}
+
+.drag-card,
+.remove-card {
+  position: absolute;
+  top: 8px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: var(--fill);
+  color: var(--secondary);
+}
+
+.drag-card {
+  right: 8px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.drag-card:active {
+  cursor: grabbing;
+}
+
+.remove-card {
+  left: 8px;
+}
+
+.drag-card:hover,
+.remove-card:hover {
+  background: var(--hover);
+  color: var(--label);
+}
+
+.add-cards {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+@container workspace (min-width: 850px) {
+  .dash {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@container workspace (min-width: 1400px) {
+  .dash {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@container workspace (max-width: 520px) {
+  .dash {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dash-item.span2 {
+    grid-column: auto;
+  }
+}

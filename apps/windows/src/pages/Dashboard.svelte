@@ -4,9 +4,10 @@
 
 <script>
   import { flip } from 'svelte/animate';
-  import { act, app, refreshExitIp, testDelay, testNode } from '../lib/core.svelte.js';
+  import { act, app, refreshExitIp, testDelay } from '../lib/core.svelte.js';
   import { delayTone, formatAgo, formatBytes, formatDate, formatDelay, formatRate, t } from '../lib/i18n.js';
   import Card from '../lib/Card.svelte';
+  import DelayButton from '../lib/DelayButton.svelte';
   import Icon from '../lib/Icon.svelte';
   import Menu from '../lib/Menu.svelte';
   import { motion, navigate, pop } from '../lib/motion.svelte.js';
@@ -16,6 +17,8 @@
   import Switch from '../lib/Switch.svelte';
   import Value from '../lib/Value.svelte';
   import { settings, updateSettings } from '../lib/settings.svelte.js';
+  import { moveCard } from '../lib/dashboard-cards.js';
+  import '../styles/dashboard.css';
 
   const engine = $derived(app.status?.engine.state ?? 'stopped');
   const running = $derived(engine === 'running');
@@ -99,9 +102,15 @@
     const from = dragged;
     dragged = target = null;
     if (!from || from === over) return;
-    const order = cards.filter((id) => id !== from);
-    order.splice(order.indexOf(over), 0, from);
-    saveCards(order);
+    saveCards(moveCard(cards, from, over));
+  }
+
+  function moveWithKeyboard(event, id) {
+    const direction = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[event.key];
+    if (!direction) return;
+    event.preventDefault();
+    const over = cards[cards.indexOf(id) + direction];
+    if (over) saveCards(moveCard(cards, id, over));
   }
 </script>
 
@@ -112,7 +121,7 @@
         type="button"
         title={t('home.test')}
         aria-label={t('home.test')}
-        disabled={!group || app.busy[`delay:${group?.name}`]}
+        disabled={!group || app.busy[`delay:${group?.name}`] || group.nodes.some((node) => app.busy[`node:${node.name}`])}
         onclick={() => testDelay(group.name)}
       >
         {#if group && app.busy[`delay:${group.name}`]}<span class="spinner"></span>{:else}<Icon name="bolt" />{/if}
@@ -141,7 +150,7 @@
     </div>
   {/if}
 
-  <div class="dash" class:editing>
+  <div class="dash" class:editing role="list" aria-label={t('page.dashboard')}>
     {#each cards as id (id)}
       <div
         animate:flip={{ duration: motion(300) }}
@@ -151,23 +160,34 @@
         class:dragging={dragged === id}
         class:drop-target={target === id && dragged !== id}
         role="listitem"
-        draggable={editing}
-        ondragstart={(event) => {
-          dragged = id;
-          event.dataTransfer.effectAllowed = 'move';
-        }}
+        data-card={id}
         ondragover={(event) => {
-          if (!dragged) return;
+          if (!editing || !dragged) return;
           event.preventDefault();
+          event.dataTransfer.dropEffect = 'move';
           target = id;
         }}
         ondrop={(event) => {
+          if (!editing || !dragged) return;
           event.preventDefault();
           drop(id);
         }}
-        ondragend={() => (dragged = target = null)}
       >
         {#if editing}
+          <button
+            type="button"
+            class="drag-card"
+            draggable="true"
+            title={t('home.reorderCard', { name: t(titles[id]) })}
+            aria-label={t('home.reorderCard', { name: t(titles[id]) })}
+            onkeydown={(event) => moveWithKeyboard(event, id)}
+            ondragstart={(event) => {
+              dragged = id;
+              event.dataTransfer.setData('text/plain', id);
+              event.dataTransfer.effectAllowed = 'move';
+            }}
+            ondragend={() => (dragged = target = null)}><Icon name="grip" /></button
+          >
           <button
             type="button"
             class="remove-card"
@@ -218,23 +238,7 @@
         </span>
       </div>
       {#if node}
-        <div class="split">
-          {#if node.delay != null}
-            <span class="caption strong tone-{delayTone(node.delay)}" style:font-size="15px"
-              ><span class="dot {delayTone(node.delay)}"></span>{formatDelay(node.delay)}</span
-            >
-          {/if}
-          <button
-            type="button"
-            class="round"
-            title={t('home.testNode')}
-            aria-label={t('home.testNode')}
-            disabled={app.busy[`node:${node.name}`]}
-            onclick={() => testNode(node.name)}
-          >
-            {#if app.busy[`node:${node.name}`]}<span class="spinner"></span>{:else}<Icon name="bolt" />{/if}
-          </button>
-        </div>
+        <DelayButton {node} />
       {/if}
     </div>
     {#if alternatives.length}

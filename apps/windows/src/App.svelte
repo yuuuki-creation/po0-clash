@@ -70,6 +70,7 @@
       type="button"
       class="nav-item"
       class:active={app.page === page.id}
+      title={t(`page.${page.id}`)}
       aria-current={app.page === page.id ? 'page' : undefined}
       onclick={() => open(page.id)}
     >
