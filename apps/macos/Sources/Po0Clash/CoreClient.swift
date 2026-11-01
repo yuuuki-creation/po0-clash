@@ -49,6 +49,7 @@ final class CoreClient: @unchecked Sendable {
     }
 
     func status() async throws -> Status { try await work { $0.status() } }
+    func mixedProxyPort() async throws -> UInt16 { try await work { $0.mixedProxyPort() } }
     func traffic() async throws -> Traffic { try await work { $0.traffic() } }
     func exitIp() async throws -> ExitIp { try await work { try $0.exitIp() } }
     func checkUpdate() async throws -> Release? { try await work { try $0.checkUpdate() } }

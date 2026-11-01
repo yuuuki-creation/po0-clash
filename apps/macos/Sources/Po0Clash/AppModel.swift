@@ -27,18 +27,19 @@ final class AppModel: ObservableObject {
     @Published private(set) var profiles: [Profile] = []
     @Published private(set) var groups: [ProxyGroup] = []
     @Published private(set) var whitelist: WhitelistState?
-    @Published private(set) var testing: Set<String> = []
+    @Published private(set) var testingGroups: Set<String> = []
+    @Published private(set) var testingNodes: Set<String> = []
     @Published private(set) var updating: Set<String> = []
     @Published private(set) var busy = false
     @Published private(set) var connectedAt: Date?
     @Published private(set) var launchError: String?
     @Published var notice: String?
+    @Published private var proxyPort: UInt16?
+    var testing: Set<String> { testingGroups.union(testingNodes) }
     var showsMenuBarSpeed: Bool { appSettings?.traySpeed ?? true }
 
     var proxyCommand: String? {
-        guard let options = engineOptions else { return nil }
-        let port = options.mixedPort != 0 ? options.mixedPort : options.httpPort
-        guard port != 0 else { return nil }
+        guard let port = proxyPort, port != 0 else { return nil }
         let proxy = "http://127.0.0.1:\(port)"
         return "export https_proxy=\(proxy) http_proxy=\(proxy) all_proxy=\(proxy)"
     }
@@ -50,6 +51,10 @@ final class AppModel: ObservableObject {
     private var exitIpFetchedAt: Date?
     private var visibleSurfaces: Set<Surface> = []
     private var busyCount = 0
+    private var settingsSaveTask: Task<Void, Never>?
+    private var pendingSettings: AppSettings?
+    private var settingsRevision: UInt64 = 0
+    private var measuredDelays: [String: UInt32] = [:]
     private var acceptsLinks = false
     private var pendingLinks: [URL] = []
 
@@ -439,13 +444,20 @@ final class AppModel: ObservableObject {
     }
 
     func testDelay(_ group: String) {
-        guard let client, !testing.contains(group) else { return }
-        testing.insert(group)
+        guard let client, !testingGroups.contains(group) else { return }
+        let profile = status?.profileId
+        testingGroups.insert(group)
         Task {
-            defer { testing.remove(group) }
+            defer { testingGroups.remove(group) }
             do {
                 let tested = try await client.testDelay(group)
-                if let index = groups.firstIndex(where: { $0.name == group }) { groups[index] = tested }
+                guard profile == status?.profileId else { return }
+                for node in tested.nodes {
+                    if let delay = node.delay { measuredDelays[node.name] = delay }
+                }
+                groups = groups.map { current in
+                    withMeasuredDelays(current.name == group ? tested : current)
+                }
             } catch {
                 notice = describe(error)
             }
@@ -453,19 +465,17 @@ final class AppModel: ObservableObject {
     }
 
     func testNodeDelay(_ node: String) {
-        guard let client, !testing.contains(node) else { return }
-        testing.insert(node)
+        guard let client, !testingNodes.contains(node),
+              !groups.contains(where: { testingGroups.contains($0.name) && $0.nodes.contains(where: { $0.name == node }) }) else { return }
+        let profile = status?.profileId
+        testingNodes.insert(node)
         Task {
-            defer { testing.remove(node) }
+            defer { testingNodes.remove(node) }
             do {
                 let delay = try await client.testNodeDelay(node)
-                groups = groups.map { group in
-                    var group = group
-                    for index in group.nodes.indices where group.nodes[index].name == node {
-                        group.nodes[index].delay = delay
-                    }
-                    return group
-                }
+                guard profile == status?.profileId else { return }
+                measuredDelays[node] = delay
+                groups = groups.map(withMeasuredDelays)
             } catch {
                 notice = describe(error)
             }
@@ -554,19 +564,42 @@ final class AppModel: ObservableObject {
     }
 
     func updateAppSettings(_ change: (inout AppSettings) -> Void) {
-        guard let client, var next = appSettings else { return }
+        guard client != nil, var next = appSettings else { return }
         change(&next)
         appSettings = next
-        Task {
-            do { try await client.setAppSettings(next) } catch { notice = describe(error) }
-            await refreshAppSettings()
+        settingsRevision += 1
+        pendingSettings = next
+        guard settingsSaveTask == nil else { return }
+        settingsSaveTask = Task { await saveAppSettings() }
+    }
+
+    private func saveAppSettings() async {
+        defer { settingsSaveTask = nil }
+        guard let client else { return }
+        while let next = pendingSettings {
+            pendingSettings = nil
+            let revision = settingsRevision
+            do {
+                try await client.setAppSettings(next)
+            } catch {
+                notice = describe(error)
+            }
+            if pendingSettings == nil, let actual = try? await client.appSettings(), revision == settingsRevision {
+                appSettings = actual
+            }
         }
     }
 
     private func refreshAppSettings() async {
+        guard settingsSaveTask == nil else { return }
+        let revision = settingsRevision
         guard let client, let next = try? await client.appSettings() else { return }
+        let options = try? await client.engineOptions()
+        let port = try? await client.mixedProxyPort()
+        guard revision == settingsRevision else { return }
         appSettings = next
-        engineOptions = try? await client.engineOptions()
+        engineOptions = options
+        proxyPort = port
     }
 
     /// Every apply reloads the engine, so pages send the options in one go rather than per keystroke.
@@ -665,6 +698,7 @@ final class AppModel: ObservableObject {
 
     func backupToWebDav() async {
         guard let client else { return }
+        await settingsSaveTask?.value
         do {
             try await client.backupToWebDav()
             notice = String(localized: "Backup successful")
@@ -680,6 +714,7 @@ final class AppModel: ObservableObject {
         panel.nameFieldStringValue = "po0-clash-backup-\(Self.stamp.string(from: Date())).zip"
         activateApp()
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        await settingsSaveTask?.value
         do {
             try await client.backup().write(to: url, options: .atomic)
             NSWorkspace.shared.activateFileViewerSelecting([url])
@@ -697,6 +732,7 @@ final class AppModel: ObservableObject {
 
     func restore(from source: BackupSource, scope: RestoreScope) async {
         guard let client else { return }
+        await settingsSaveTask?.value
         do {
             switch source {
             case .webDav: try await client.restoreFromWebDav(scope: scope)
@@ -764,11 +800,13 @@ final class AppModel: ObservableObject {
 
     private func refreshStatus() async {
         guard let client, let next = try? await client.status() else { return }
+        if status?.profileId != next.profileId { measuredDelays.removeAll() }
         let changed = status.map { old in
             Self.engineKey(old.engine) != Self.engineKey(next.engine) || old.mode != next.mode
                 || old.currentNode != next.currentNode || old.profileId != next.profileId
         } ?? true
         status = next
+        proxyPort = try? await client.mixedProxyPort()
         if !isRunning {
             connectedAt = nil
         } else if connectedAt == nil {
@@ -794,7 +832,17 @@ final class AppModel: ObservableObject {
 
     private func refreshGroups() async {
         guard let client else { return }
-        groups = (try? await client.groups()) ?? []
+        groups = ((try? await client.groups()) ?? []).map(withMeasuredDelays)
+    }
+
+    private func withMeasuredDelays(_ source: ProxyGroup) -> ProxyGroup {
+        var group = source
+        group.nodes = group.nodes.map { source in
+            var node = source
+            node.delay = measuredDelays[node.name] ?? node.delay
+            return node
+        }
+        return group
     }
 
     private func refreshWhitelist() async {

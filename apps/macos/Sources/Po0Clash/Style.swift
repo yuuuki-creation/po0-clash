@@ -256,6 +256,7 @@ struct Metric: View {
 }
 
 struct CircleButton: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let symbol: String
     let help: LocalizedStringKey
     var size: CGFloat = 24
@@ -266,7 +267,11 @@ struct CircleButton: View {
         Button(action: action) {
             Group {
                 if busy {
-                    ProgressView().controlSize(.mini).transition(.opacity)
+                    if reduceMotion {
+                        Image(systemName: "ellipsis")
+                    } else {
+                        ProgressView().controlSize(.mini).transition(.opacity)
+                    }
                 } else {
                     Image(systemName: symbol)
                         .font(.system(size: size * 0.46, weight: .semibold))
@@ -281,6 +286,7 @@ struct CircleButton: View {
             .motion(Motion.quick, value: busy)
         }
         .buttonStyle(.pressable)
+        .disabled(busy)
         .help(help)
         .accessibilityLabel(Text(help))
     }

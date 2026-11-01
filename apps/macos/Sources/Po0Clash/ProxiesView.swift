@@ -18,13 +18,22 @@ struct ProxiesView: View {
     @State private var query = ""
     @State private var searching = false
     @State private var locateRequest = 0
-    @Namespace private var tabPill
 
     var body: some View {
         PageScaffold("Proxies", subtitle: model.status?.currentNode) {
+            Picker("Mode", selection: Binding(
+                get: { model.status?.mode ?? .rule },
+                set: model.setMode
+            )) {
+                Text("Rule").tag(Mode.rule)
+                Text("Global").tag(Mode.global)
+                Text("Direct").tag(Mode.direct)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 190)
             Button {
                 withAnimation(Motion.spring) { searching.toggle() }
-                if !searching { query = "" }
             } label: {
                 Label("Search", systemImage: "magnifyingglass")
             }
@@ -60,22 +69,25 @@ struct ProxiesView: View {
                 )
             } else {
                 ScrollViewReader { proxy in
-                    // The search field and tabs ride in the scroll view: macOS 26 draws the old opaque toolbar over
-                    // any page whose top edge is not a vertical scroll view.
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                             Section {
                                 groupCards
                             } header: {
                                 VStack(spacing: 0) {
-                                    if searching {
-                                        SearchField(text: $query, prompt: "Search nodes")
-                                            .liquidGlass(in: Capsule())
-                                            .padding(.horizontal, 20)
-                                            .padding(.vertical, 6)
-                                            .transition(.move(edge: .top).combined(with: .opacity))
-                                    }
                                     if arrangement == .tabs { tabBar }
+                                    HStack(spacing: 12) {
+                                        SearchField(text: $query, prompt: "Search nodes").id(searching)
+                                        Picker("Sort by", selection: model.setting(\.proxiesSort, or: .profile)) {
+                                            Text("Profile order").tag(ProxiesSort.profile)
+                                            Text("Delay").tag(ProxiesSort.delay)
+                                            Text("Name").tag(ProxiesSort.name)
+                                        }
+                                        .labelsHidden()
+                                        .frame(width: 140)
+                                    }
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 8)
                                 }
                                 .pinnedHeaderBackground()
                             }
@@ -153,33 +165,41 @@ struct ProxiesView: View {
 
     private var tabBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 ForEach(model.groups, id: \.name) { group in
                     let selected = group.name == currentTab?.name
                     Button {
                         tab = group.name
                     } label: {
-                        Text(verbatim: group.name)
-                            .font(.system(size: 13, weight: selected ? .semibold : .medium))
-                            .foregroundStyle(selected ? Color.accentColor : Color.primary)
-                            .lineLimit(1)
-                            .padding(.horizontal, 12)
-                            .frame(height: 28)
-                            .background {
-                                if selected {
-                                    Capsule()
-                                        .fill(Color.accentColor.opacity(0.14))
-                                        .matchedGeometryEffect(id: "pill", in: tabPill)
-                                }
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack(spacing: 8) {
+                                Text(verbatim: group.name).font(.system(size: 13, weight: .semibold))
+                                Spacer(minLength: 8)
+                                Text(verbatim: "\(group.nodes.count)")
+                                    .font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
                             }
-                            .hoverHighlight(Capsule())
-                            .contentShape(Capsule())
+                            Text(verbatim: group.now ?? group.kind)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                        .lineLimit(1)
+                        .frame(width: 160, alignment: .leading)
+                        .padding(12)
+                        .background {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(selected ? Color.accentColor.opacity(0.08) : Color.cardBackground)
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 10)
+                                .strokeBorder(selected ? Color.accentColor : Color.cardEdge, lineWidth: selected ? 1.5 : 0.5)
+                        }
+                        .foregroundStyle(selected ? Color.accentColor : Color.primary)
+                        .hoverHighlight(RoundedRectangle(cornerRadius: 10))
+                        .contentShape(RoundedRectangle(cornerRadius: 10))
                     }
                     .buttonStyle(.pressable)
                 }
             }
-            .padding(3)
-            .floatingGlass(in: Capsule())
             .motion(value: currentTab?.name)
             .padding(.horizontal, 20)
             .padding(.vertical, 6)
@@ -272,7 +292,13 @@ private struct GroupCard: View {
             if expanded {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: density.tileWidth), spacing: 8)], spacing: 8) {
                     ForEach(nodes, id: \.name) { node in
-                        NodeTile(node: node, selected: node.name == group.now, style: tileStyle) {
+                        NodeTile(
+                            node: node,
+                            selected: node.name == group.now,
+                            style: tileStyle,
+                            selectable: group.selectable,
+                            testingGroup: model.testingGroups.contains(group.name)
+                        ) {
                             if group.selectable { model.selectNode(group: group.name, node: node.name) }
                         }
                         .id(NodeAnchor(group: group.name, node: node.name))
@@ -308,7 +334,10 @@ private struct GroupCard: View {
                     .truncationMode(.middle)
             }
             Spacer(minLength: 8)
-            CircleButton(symbol: "bolt", help: "Test delay", size: 28, busy: model.testing.contains(group.name)) {
+            if model.testingGroups.contains(group.name) {
+                Text("Testing…").font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+            CircleButton(symbol: "bolt", help: "Test delay", size: 28, busy: model.testingGroups.contains(group.name)) {
                 model.testDelay(group.name)
             }
             if collapsible {
@@ -349,24 +378,31 @@ private struct NodeTile: View {
     let node: Node
     let selected: Bool
     let style: ProxyTileStyle
+    let selectable: Bool
+    let testingGroup: Bool
     let select: () -> Void
 
     private let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
 
     var body: some View {
-        Button(action: select) {
-            content
-                .font(.system(size: 13, weight: .medium))
-                .padding(.horizontal, 10)
-                .padding(.vertical, style == .detailed ? 9 : 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(selected ? Color.accentColor.opacity(0.08) : Color.tileBackground, in: shape)
-                .overlay(shape.strokeBorder(selected ? Color.accentColor : Color.cardEdge, lineWidth: selected ? 1.5 : 0.5))
-                .hoverHighlight(shape)
-                .contentShape(shape)
-                .motion(value: selected)
+        HStack(spacing: 8) {
+            Button(action: select) {
+                content
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!selectable)
+            DelayButton(node: node, testingGroup: testingGroup)
         }
-        .buttonStyle(.pressable)
+        .padding(.horizontal, 12)
+        .padding(.vertical, style == .detailed ? 12 : 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(selected ? Color.accentColor.opacity(0.08) : Color.tileBackground, in: shape)
+        .overlay(shape.strokeBorder(selected ? Color.accentColor : Color.cardEdge, lineWidth: selected ? 1.5 : 0.5))
+        .hoverHighlight(shape)
+        .motion(value: selected)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
@@ -383,14 +419,12 @@ private struct NodeTile: View {
                 HStack(spacing: 6) {
                     Text(verbatim: node.kind).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
                     Spacer(minLength: 0)
-                    DelayButton(node: node)
                 }
             }
         case .compact:
             HStack(spacing: 6) {
                 name
                 Spacer(minLength: 0)
-                DelayButton(node: node)
                 check
             }
         case .minimal:
@@ -418,18 +452,25 @@ private struct NodeTile: View {
     }
 }
 
-/// FlClash tests a single node when its delay is clicked.
 private struct DelayButton: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let node: Node
+    let testingGroup: Bool
+
+    private var busy: Bool { testingGroup || model.testingNodes.contains(node.name) }
 
     var body: some View {
         Button {
             model.testNodeDelay(node.name)
         } label: {
             Group {
-                if model.testing.contains(node.name) {
-                    ProgressView().controlSize(.mini).transition(.opacity)
+                if busy {
+                    if reduceMotion {
+                        Image(systemName: "ellipsis")
+                    } else {
+                        ProgressView().controlSize(.mini).transition(.opacity)
+                    }
                 } else if let delay = Format.delay(node) {
                     Text(verbatim: delay)
                         .foregroundStyle(Format.delayTint(node.delay))
@@ -441,11 +482,13 @@ private struct DelayButton: View {
             }
             .font(.system(size: 11, weight: .semibold))
             .monospacedDigit()
-            .frame(minWidth: 16, minHeight: 16)
+            .frame(minWidth: 38, minHeight: 28)
             .contentShape(Rectangle())
-            .motion(Motion.quick, value: DelayPhase(testing: model.testing.contains(node.name), delay: node.delay))
+            .motion(Motion.quick, value: DelayPhase(testing: busy, delay: node.delay))
         }
         .buttonStyle(.pressable)
+        .disabled(busy)
+        .accessibilityLabel(busy ? Text("Testing…") : Text("Test delay"))
         .help("Test delay")
     }
 }

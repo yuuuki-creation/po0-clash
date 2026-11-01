@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-/// AppKit's source list, since a SwiftUI sidebar draws its selection in the system accent whatever the tint. The
-/// selection is painted as the row background because macOS 14 and 15 never call a source list's selection drawing.
 struct Sidebar: NSViewRepresentable {
     @Binding var page: Page
     let accent: NSColor
@@ -13,7 +11,7 @@ struct Sidebar: NSViewRepresentable {
         let table = SidebarTable()
         table.style = .sourceList
         table.rowSizeStyle = .default
-        table.selectionHighlightStyle = .none
+        table.selectionHighlightStyle = .regular
         table.headerView = nil
         table.backgroundColor = .clear
         table.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
@@ -38,7 +36,6 @@ struct Sidebar: NSViewRepresentable {
         let row = Page.allCases.firstIndex(of: page) ?? 0
         if table.selectedRow != row { table.selectRowIndexes([row], byExtendingSelection: false) }
         table.enumerateAvailableRowViews { view, _ in
-            (view as? SidebarRow)?.accent = accent
             (view.view(atColumn: 0) as? SidebarCell)?.accent = accent
         }
     }
@@ -59,12 +56,6 @@ struct Sidebar: NSViewRepresentable {
             cell.accent = accent
             cell.show(Page.allCases[row])
             return cell
-        }
-
-        func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
-            let view = SidebarRow()
-            view.accent = accent
-            return view
         }
 
         func tableView(_ tableView: NSTableView, typeSelectStringFor tableColumn: NSTableColumn?, row: Int) -> String? {
@@ -89,29 +80,6 @@ private final class SidebarTable: NSTableView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         window?.makeFirstResponder(self)
-    }
-}
-
-private final class SidebarRow: NSTableRowView {
-    var accent = NSColor.controlAccentColor {
-        didSet {
-            if isSelected, accent != oldValue { needsDisplay = true }
-        }
-    }
-
-    override var isSelected: Bool {
-        didSet { needsDisplay = true }
-    }
-
-    override var interiorBackgroundStyle: NSView.BackgroundStyle {
-        isSelected ? .emphasized : .normal
-    }
-
-    /// Darkened a little, as the system darkens its accent for selections, so white text stays legible.
-    override func drawBackground(in dirtyRect: NSRect) {
-        guard isSelected else { return }
-        (accent.blended(withFraction: 0.12, of: .black) ?? accent).setFill()
-        NSBezierPath(roundedRect: bounds.insetBy(dx: 10, dy: 0), xRadius: 8, yRadius: 8).fill()
     }
 }
 
@@ -157,7 +125,7 @@ private final class SidebarCell: NSTableCellView {
 
     private func tint() {
         let selected = backgroundStyle == .emphasized
-        imageView?.contentTintColor = selected ? .white : accent
-        textField?.textColor = selected ? .white : .labelColor
+        imageView?.contentTintColor = selected ? .alternateSelectedControlTextColor : accent
+        textField?.textColor = selected ? .alternateSelectedControlTextColor : .labelColor
     }
 }

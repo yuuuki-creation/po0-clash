@@ -250,7 +250,7 @@ private struct GroupRow: View {
             Button {
                 model.testDelay(group.name)
             } label: {
-                if model.testing.contains(group.name) {
+                if model.testingGroups.contains(group.name) {
                     ProgressView().controlSize(.small)
                 } else {
                     Image(systemName: "speedometer")
