@@ -157,6 +157,7 @@
     <string name="copied">Copied</string>
     <string name="copy_to_clipboard">Copy to clipboard</string>
     <string name="count_unit" />
+    <string name="error_no_allowed_apps">Select at least one installed app to use the VPN.</string>
     <string name="default_nameserver">Default nameserver</string>
     <string name="default_value">Default</string>
     <string name="dns_from_profile">From profile</string>

@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.net.IpPrefix
 import android.net.ProxyInfo
@@ -172,8 +173,16 @@ class Po0VpnService : VpnService() {
         val access = engine?.appSettings?.value?.accessControl
         val mode = access?.accessMode ?: AccessMode.OFF
         val others = access?.selected.orEmpty() - packageName
-        if (mode == AccessMode.ALLOW && others.isNotEmpty()) {
-            others.forEach { runCatching { addAllowedApplication(it) } }
+        if (mode == AccessMode.ALLOW) {
+            val added = addAvailableApplications(others) { name ->
+                try {
+                    addAllowedApplication(name)
+                    true
+                } catch (_: PackageManager.NameNotFoundException) {
+                    false
+                }
+            }
+            check(added) { getString(R.string.error_no_allowed_apps) }
         } else {
             addDisallowedApplication(packageName)
             if (mode == AccessMode.DENY) others.forEach { runCatching { addDisallowedApplication(it) } }
