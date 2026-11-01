@@ -961,11 +961,10 @@ fn restoring_statistics_mode_changes_which_traffic_is_counted() {
     fs::remove_dir_all(dir).unwrap();
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 #[test]
 #[ignore = "needs MIHOMO_BIN on Linux"]
 fn engine_rejects_invalid_profile_without_changing_selection() {
-    assert_eq!(std::env::consts::OS, "linux");
     let dir = temp_dir();
     let core = Core::new(options(&dir)).unwrap();
     core.set_engine_options(EngineOptions {
@@ -995,11 +994,10 @@ fn engine_rejects_invalid_profile_without_changing_selection() {
     fs::remove_dir_all(dir).unwrap();
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 #[test]
 #[ignore = "needs MIHOMO_BIN on Linux"]
 fn engine_does_not_reuse_another_profiles_provider_cache() {
-    assert_eq!(std::env::consts::OS, "linux");
     let dir = temp_dir();
     let core = Core::new(options(&dir)).unwrap();
     core.set_engine_options(EngineOptions {
@@ -1074,11 +1072,10 @@ fn engine_does_not_reuse_another_profiles_provider_cache() {
     fs::remove_dir_all(dir).unwrap();
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 #[test]
 #[ignore = "needs MIHOMO_BIN on Linux"]
 fn engine_android_port_changes_require_disconnect_before_settings_or_restore() {
-    assert_eq!(std::env::consts::OS, "linux");
     let dir = temp_dir();
     let mut config = options(&dir);
     config.platform = Platform::Android;
