@@ -64,6 +64,8 @@ irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.1.0
 
 ## 已知问题
 
+- 新界面的验证有限：Android 只在模拟器上跑过，Windows 只在无头浏览器里用模拟数据走过流程，macOS 只有 CI 的编译和截图，都没有上真机。
+- 连接中不能取消，要等连接完成或失败后再断开。
 - macOS：管理员授权弹窗和开机自启只在 CI 中模拟过。
 - Windows：安装程序没有签名。
 - Android：订阅里把 DNS 写成 `system` 时无法解析；关于页的开源许可只列了内核的依赖，没有列 Android 自己的依赖。

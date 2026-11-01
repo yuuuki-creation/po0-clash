@@ -1,7 +1,6 @@
 # 原生版界面重设计
 
-决定见 [ADR 0021](../../adr/0021-native-ui-traditional.md)。这是目标设计稿，`apps/` 还没有按它修改；现有代码的样式仍由
-[native-design.md](../../development/native-design.md) 描述，三端都改完后再用本页取代它。
+决定见 [ADR 0021](../../adr/0021-native-ui-traditional.md)。三端从 7.1.0 起按本页实现，本页取代 [native-design.md](../../development/native-design.md)。
 
 ## 原则
 

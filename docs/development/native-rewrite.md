@@ -50,8 +50,8 @@ UniFFI 和 Tauri 命令只做转换：
 
 ## 界面
 
-本节是现有代码的做法。新的设计见 [ADR 0021](../adr/0021-native-ui-traditional.md) 与
-[design/native-ui](../design/native-ui/README.md)，尚未实现。
+本节是 7.0.0 的做法。7.1.0 起见 [ADR 0021](../adr/0021-native-ui-traditional.md) 与
+[design/native-ui](../design/native-ui/README.md)。
 
 每端都有主界面，结构接近 FlClash（ADR 0019）：导航依次为仪表盘、代理、订阅、加白、设置；仪表盘是卡片网格加右下角的
 浮动启动按钮，代理页是可展开的策略组卡片和节点卡片网格。三端都按苹果液态玻璃（Liquid Glass）的规范来做，而且要克制：
