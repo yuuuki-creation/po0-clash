@@ -1024,8 +1024,8 @@ fn engine_does_not_reuse_another_profiles_provider_cache() {
                 "/proxy-b" => {
                     "proxies: [{name: nodeB, type: ss, server: 127.0.0.1, port: 1, cipher: aes-128-gcm, password: fixture}]\n"
                 }
-                "/rule-a" => "payload: ['a.invalid']\n",
-                "/rule-b" => "payload: ['b.invalid', 'c.invalid']\n",
+                "/rule-a" => "payload:\n  - a.invalid\n",
+                "/rule-b" => "payload:\n  - b.invalid\n  - c.invalid\n",
                 _ => panic!("unexpected provider {path}"),
             };
             lock(&requests).push(path);
