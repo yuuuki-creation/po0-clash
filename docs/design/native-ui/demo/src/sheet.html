@@ -1,0 +1,265 @@
+<div class="po0 __PLATFORM__ sheet {{rootCls}}" ref="{{rootRef}}" onPointerDown="{{onPointerDown}}">
+<div class="sheet-root">
+
+<!--if win,mac-->
+<section class="sw">
+  <h2 class="sw-name">按钮</h2>
+  <div class="sw-stack">
+    <div class="sw-cells">
+      <figure class="cell"><button type="button" class="btn">更新</button><figcaption>默认</figcaption></figure>
+      <!--if win--><figure class="cell"><button type="button" class="btn is-hover">更新</button><figcaption>悬停</figcaption></figure><!--endif-->
+      <figure class="cell"><button type="button" class="btn is-press">更新</button><figcaption>按下</figcaption></figure>
+      <figure class="cell"><button type="button" class="btn" disabled="{{true}}">更新</button><figcaption>禁用</figcaption></figure>
+      <figure class="cell"><button type="button" class="btn" disabled="{{true}}"><span class="ring"></span>更新中</button><figcaption>进行中</figcaption></figure>
+    </div>
+    <div class="sw-cells">
+      <figure class="cell"><button type="button" class="btn primary">添加</button><figcaption>默认</figcaption></figure>
+      <!--if win--><figure class="cell"><button type="button" class="btn primary is-hover">添加</button><figcaption>悬停</figcaption></figure><!--endif-->
+      <figure class="cell"><button type="button" class="btn primary is-press">添加</button><figcaption>按下</figcaption></figure>
+      <figure class="cell"><button type="button" class="btn primary" disabled="{{true}}">添加</button><figcaption>禁用</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">图标按钮</h2>
+  <div class="sw-cells">
+    <figure class="cell"><button type="button" class="icon-btn" aria-label="更新"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.refresh}}"></path></svg></button><figcaption>默认</figcaption></figure>
+    <!--if win--><figure class="cell"><button type="button" class="icon-btn is-hover" aria-label="更新"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.refresh}}"></path></svg></button><figcaption>悬停</figcaption></figure><!--endif-->
+    <figure class="cell"><button type="button" class="icon-btn is-press" aria-label="更新"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.refresh}}"></path></svg></button><figcaption>按下</figcaption></figure>
+    <figure class="cell"><button type="button" class="icon-btn" aria-label="更新"><svg class="ic spin" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.refresh}}"></path></svg></button><figcaption>进行中</figcaption></figure>
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">分段控件</h2>
+  <div class="sw-cells">
+    <div class="seg" style="--n: {{modes.n}}; --i: {{modes.i}}"><span class="seg-thumb"></span><sc-for list="{{modes.items}}" as="m" hint-placeholder-count="3"><button type="button" class="{{m.cls}}" onClick="{{m.go}}">{{m.label}}</button></sc-for></div>
+    <div class="seg" style="--n: {{routes.n}}; --i: {{routes.i}}"><span class="seg-thumb"></span><sc-for list="{{routes.items}}" as="m" hint-placeholder-count="2"><button type="button" class="{{m.cls}}" onClick="{{m.go}}">{{m.label}}</button></sc-for></div>
+  </div>
+</section>
+
+<!--if win-->
+<section class="sw">
+  <h2 class="sw-name">标签栏</h2>
+  <div class="sw-cells">
+    <div class="tabs" style="--n: {{tabs.n}}; --i: {{tabs.i}}"><sc-for list="{{tabs.items}}" as="m" hint-placeholder-count="3"><button type="button" class="{{m.cls}}" onClick="{{m.go}}">{{m.label}}</button></sc-for><span class="tabs-ind"></span></div>
+  </div>
+</section>
+<!--endif-->
+
+<section class="sw">
+  <h2 class="sw-name">开关</h2>
+  <div class="sw-cells">
+    <figure class="cell"><button type="button" class="switch" role="switch" aria-checked="{{swOff}}" aria-label="开关" onClick="{{toggleOff}}"></button><figcaption>关</figcaption></figure>
+    <figure class="cell"><button type="button" class="switch" role="switch" aria-checked="{{swOn}}" aria-label="开关" onClick="{{toggleOn}}"></button><figcaption>开</figcaption></figure>
+    <!--if win-->
+    <figure class="cell"><button type="button" class="switch is-hover" role="switch" aria-checked="true" aria-label="开关"></button><figcaption>悬停</figcaption></figure>
+    <!--endif-->
+    <figure class="cell"><button type="button" class="switch is-press" role="switch" aria-checked="true" aria-label="开关"></button><figcaption>按下</figcaption></figure>
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">输入框</h2>
+  <div class="sw-cells">
+    <figure class="cell fill"><label class="search" style="flex: none"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.search}}"></path></svg><input aria-label="搜索" placeholder="搜索"></label><figcaption>默认</figcaption></figure>
+    <figure class="cell fill"><label class="search is-focus" style="flex: none"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.search}}"></path></svg><input aria-label="搜索" placeholder="搜索"></label><figcaption>聚焦</figcaption></figure>
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">设置行</h2>
+  <div class="sw-stack">
+    <div class="group">
+      <button type="button" class="row"><span class="grow">当前节点</span><span class="val">东京 03</span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.chevron}}"></path></svg></button>
+      <!--if win--><button type="button" class="row is-hover"><span class="grow">悬停</span><span class="val">东京 03</span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.chevron}}"></path></svg></button><!--endif-->
+      <button type="button" class="row is-press"><span class="grow">按下</span><span class="val">东京 03</span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.chevron}}"></path></svg></button>
+      <div class="row"><span class="grow">自动加白</span><button type="button" class="switch" role="switch" aria-checked="{{swOn}}" aria-label="自动加白" onClick="{{toggleOn}}"></button></div>
+    </div>
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">列表行</h2>
+  <div class="sw-stack">
+    <div class="tbl auto">
+      <div class="row t-node thead"><span>名称</span><span>类型</span><span>延迟</span></div>
+      <sc-for list="{{list}}" as="n" hint-placeholder-count="3">
+        <button type="button" class="row t-node {{n.cls}}" onClick="{{n.go}}"><span class="clip"><!--if mac--><svg class="ic chk" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.check}}"></path></svg><!--endif-->{{n.name}}</span><span class="val">Trojan</span><span class="val">38 ms</span></button>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">导航项</h2>
+  <div class="sw-cells">
+    <!--if win-->
+    <div class="demo-nav" style="--i: {{navI}}">
+      <span class="nav-pill" style="left: 0"></span>
+      <sc-for list="{{navItems}}" as="t" hint-placeholder-count="5">
+        <button type="button" class="nav-item {{t.cls}}" onClick="{{t.go}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{t.icon}}"></path></svg><span>{{t.label}}</span></button>
+      </sc-for>
+    </div>
+    <!--endif-->
+    <!--if mac-->
+    <div class="demo-nav nav" style="padding: 10px; border-radius: 10px; background: var(--side)">
+      <sc-for list="{{navItems}}" as="t" hint-placeholder-count="5">
+        <button type="button" class="nav-item {{t.cls}}" onClick="{{t.go}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{t.icon}}"></path></svg><span>{{t.label}}</span></button>
+      </sc-for>
+    </div>
+    <!--endif-->
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">进度条</h2>
+  <div class="sw-cells" style="align-items: center">
+    <span class="bar-track" style="flex: 1 1 200px"><span class="bar-fill" style="width: {{pct}}"></span></span>
+    <span class="val">{{pct}}</span>
+    <button type="button" class="btn" onClick="{{bump}}">更新</button>
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">连接状态</h2>
+  <div class="sw-stack">
+    <div class="group">
+      <div class="row status">
+        <span class="dot {{connDot}}"></span>
+        <strong class="grow">{{connText}}</strong>
+        <button type="button" class="btn power {{connCls}}" disabled="{{connWait}}" onClick="{{connToggle}}"><sc-if value="{{connWait}}" hint-placeholder-val="{{false}}"><span class="ring"></span></sc-if>{{connBtn}}</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">增删行</h2>
+  <div class="sw-stack">
+    <div class="sw-cells"><button type="button" class="btn" onClick="{{addRow}}">添加一行</button></div>
+    <div class="tbl auto">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="3">
+        <div class="row {{r.cls}}" style="min-height: var(--row)"><span class="grow">{{r.name}}</span><button type="button" class="icon-btn" aria-label="移除" onClick="{{r.remove}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.trash}}"></path></svg></button></div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">弹层</h2>
+  <div class="sw-cells">
+    <button type="button" class="btn" onClick="{{openMenu}}">菜单</button>
+    <button type="button" class="btn" onClick="{{openAdd}}">添加对话框</button>
+    <button type="button" class="btn" onClick="{{openConfirm}}">确认对话框</button>
+  </div>
+</section>
+<!--endif-->
+
+<!--if and-->
+<section class="sw">
+  <h2 class="sw-name">悬浮按钮</h2>
+  <div class="sw-cells">
+    <button type="button" class="fab icon" aria-label="添加"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.plus}}"></path></svg></button>
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">按钮</h2>
+  <div class="sw-cells">
+    <figure class="cell"><button type="button" class="btn filled">添加</button><figcaption>默认</figcaption></figure>
+    <figure class="cell"><button type="button" class="btn filled is-press">添加</button><figcaption>按下</figcaption></figure>
+    <figure class="cell"><button type="button" class="btn filled" disabled="{{true}}">添加</button><figcaption>禁用</figcaption></figure>
+  </div>
+  <div class="sw-cells">
+    <figure class="cell"><button type="button" class="btn text">取消</button><figcaption>默认</figcaption></figure>
+    <figure class="cell"><button type="button" class="btn text is-press">取消</button><figcaption>按下</figcaption></figure>
+    <figure class="cell"><button type="button" class="btn text" disabled="{{true}}">取消</button><figcaption>禁用</figcaption></figure>
+    <figure class="cell"><button type="button" class="icon-btn" aria-label="更新"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.refresh}}"></path></svg></button><figcaption>图标</figcaption></figure>
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">分段按钮</h2>
+  <div class="seg" style="--n: {{modes.n}}; --i: {{modes.i}}"><sc-for list="{{modes.items}}" as="m" hint-placeholder-count="3"><button type="button" class="{{m.cls}}" onClick="{{m.go}}"><svg class="ic check" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.check}}"></path></svg>{{m.label}}</button></sc-for></div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">筛选标签</h2>
+  <div class="chips"><sc-for list="{{chips}}" as="g" hint-placeholder-count="3"><button type="button" class="chip {{g.cls}}" onClick="{{g.go}}">{{g.name}}</button></sc-for></div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">开关</h2>
+  <div class="sw-cells">
+    <figure class="cell"><button type="button" class="switch" role="switch" aria-checked="{{swOff}}" aria-label="开关" onClick="{{toggleOff}}"></button><figcaption>关</figcaption></figure>
+    <figure class="cell"><button type="button" class="switch" role="switch" aria-checked="{{swOn}}" aria-label="开关" onClick="{{toggleOn}}"></button><figcaption>开</figcaption></figure>
+    <figure class="cell"><button type="button" class="switch is-press" role="switch" aria-checked="true" aria-label="开关"></button><figcaption>按下</figcaption></figure>
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">单选行</h2>
+  <div class="group">
+    <sc-for list="{{list}}" as="n" hint-placeholder-count="3">
+      <button type="button" class="row {{n.cls}}" onClick="{{n.go}}"><span class="radio"></span><span class="grow">{{n.name}}</span><span class="val">38 ms</span></button>
+    </sc-for>
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">设置行</h2>
+  <div class="group">
+    <button type="button" class="row"><span class="grow">当前节点</span><span class="val">东京 03</span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.chevron}}"></path></svg></button>
+    <button type="button" class="row is-press"><span class="grow">按下</span><span class="val">东京 03</span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.chevron}}"></path></svg></button>
+    <div class="row"><span class="grow">自动加白</span><button type="button" class="switch" role="switch" aria-checked="{{swOn}}" aria-label="自动加白" onClick="{{toggleOn}}"></button></div>
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">导航栏</h2>
+  <nav class="bottom" aria-label="示例" style="border-radius: 12px">
+    <sc-for list="{{navItems}}" as="t" hint-placeholder-count="5">
+      <button type="button" class="tab {{t.cls}}" aria-label="{{t.label}}" onClick="{{t.go}}"><span class="pill"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{t.icon}}"></path></svg></span><span>{{t.label}}</span></button>
+    </sc-for>
+  </nav>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">进度条</h2>
+  <div class="sw-cells" style="align-items: center">
+    <span class="bar-track" style="flex: 1 1 120px"><span class="bar-fill" style="width: {{pct}}"></span></span>
+    <span class="val">{{pct}}</span>
+    <button type="button" class="btn text" onClick="{{bump}}">更新</button>
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">连接状态</h2>
+  <div class="group"><div class="row status"><span class="dot {{connDot}}"></span><strong class="grow">{{connText}}</strong><button type="button" class="btn power {{connCls}}" disabled="{{connWait}}" onClick="{{connToggle}}"><sc-if value="{{connWait}}" hint-placeholder-val="{{false}}"><span class="ring"></span></sc-if>{{connBtn}}</button></div></div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">增删行</h2>
+  <div class="sw-cells"><button type="button" class="btn text" onClick="{{addRow}}">添加一行</button></div>
+  <div class="group">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="3">
+      <div class="row {{r.cls}}" style="padding-right: 4px"><span class="grow">{{r.name}}</span><button type="button" class="icon-btn" aria-label="移除" onClick="{{r.remove}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.trash}}"></path></svg></button></div>
+    </sc-for>
+  </div>
+</section>
+
+<section class="sw">
+  <h2 class="sw-name">弹层</h2>
+  <div class="sw-cells">
+    <button type="button" class="btn text" onClick="{{openMenu}}">菜单</button>
+    <button type="button" class="btn text" onClick="{{openAdd}}">底部面板</button>
+    <button type="button" class="btn text" onClick="{{openConfirm}}">确认对话框</button>
+  </div>
+</section>
+<!--endif-->
+
+</div>
+<!--include overlays.html-->
+</div>

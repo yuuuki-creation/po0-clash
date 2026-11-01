@@ -1,0 +1,22 @@
+<div class="po0 mac {{rootCls}}" ref="{{rootRef}}">
+  <div class="lights">
+    <button type="button" aria-label="关闭" style="background: #ff5f57"></button>
+    <button type="button" aria-label="最小化" style="background: #febc2e"></button>
+    <button type="button" aria-label="缩放" style="background: #28c840"></button>
+  </div>
+  <aside class="side">
+    <nav class="nav" aria-label="po0-clash">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="6">
+        <button type="button" class="nav-item {{t.cls}}" aria-label="{{t.label}}" onClick="{{t.go}}">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{t.icon}}"></path></svg>
+          <span>{{t.label}}</span>
+        </button>
+      </sc-for>
+    </nav>
+  </aside>
+  <button type="button" class="nav-scrim" aria-label="关闭边栏" onClick="{{togglePane}}"></button>
+  <main class="main">
+<!--include desktop.html-->
+  </main>
+<!--include overlays.html-->
+</div>

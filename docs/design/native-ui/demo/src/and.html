@@ -1,0 +1,199 @@
+<div class="po0 and {{rootCls}}" ref="{{rootRef}}" onPointerDown="{{onPointerDown}}">
+  <header class="appbar {{scrolledCls}}">
+    <sc-if value="{{isDrill}}" hint-placeholder-val="{{false}}">
+      <button type="button" class="icon-btn" aria-label="返回" onClick="{{back}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.back}}"></path></svg></button>
+    </sc-if>
+    <sc-if value="{{isProxOpen}}" hint-placeholder-val="{{false}}">
+      <button type="button" class="icon-btn prox-back" aria-label="返回" onClick="{{proxBack}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.back}}"></path></svg></button>
+    </sc-if>
+    <sc-if value="{{searching}}" hint-placeholder-val="{{false}}">
+      <div class="app-search">
+        <button type="button" class="icon-btn" aria-label="返回" onClick="{{closeSearch}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.back}}"></path></svg></button>
+        <input aria-label="搜索节点组和节点" placeholder="搜索" value="{{query}}" onChange="{{onQuery}}" ref="{{focusRef}}">
+      </div>
+    </sc-if>
+    <sc-if value="{{notSearching}}" hint-placeholder-val="{{true}}">
+      <h1>{{title}}</h1>
+      <sc-if value="{{isProxies}}" hint-placeholder-val="{{false}}">
+        <button type="button" class="icon-btn" aria-label="搜索" onClick="{{openSearch}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.search}}"></path></svg></button>
+        <button type="button" class="icon-btn" aria-label="测试延迟" disabled="{{testDisabled}}" onClick="{{test}}"><sc-if value="{{testDisabled}}" hint-placeholder-val="{{false}}"><span class="ring" style="width: 20px; height: 20px"></span></sc-if><sc-if value="{{notTesting}}" hint-placeholder-val="{{true}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.bolt}}"></path></svg></sc-if></button>
+        <button type="button" class="icon-btn" aria-label="更多" onClick="{{openProxMenu}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.more}}"></path></svg></button>
+      </sc-if>
+      <sc-if value="{{isProfiles}}" hint-placeholder-val="{{false}}">
+        <button type="button" class="icon-btn" aria-label="全部更新" disabled="{{updatingAny}}" onClick="{{updateAll}}"><svg class="ic {{updateAllSpin}}" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.refresh}}"></path></svg></button>
+      </sc-if>
+      <sc-if value="{{isWhitelist}}" hint-placeholder-val="{{false}}">
+        <button type="button" class="icon-btn" aria-label="立即检查" disabled="{{checkDisabled}}" onClick="{{check}}"><svg class="ic {{checkSpin}}" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.refresh}}"></path></svg></button>
+      </sc-if>
+    </sc-if>
+  </header>
+
+  <sc-if value="{{isHome}}" hint-placeholder-val="{{true}}">
+    <main class="page scroll" onScroll="{{onScroll}}">
+      <div class="cols">
+        <div class="col">
+          <section class="group">
+            <div class="row status"><span class="dot {{dotCls}}"></span><strong class="grow">{{statusText}}</strong><button type="button" class="btn power {{powerCls}}" disabled="{{starting}}" onClick="{{toggle}}"><sc-if value="{{starting}}" hint-placeholder-val="{{false}}"><span class="ring"></span></sc-if>{{powerLabel}}</button></div>
+            <button type="button" class="row" onClick="{{goProxies}}"><span class="grow">当前节点</span><span class="val">{{nodeName}}</span><span class="val">{{nodeDelay}}</span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.chevron}}"></path></svg></button>
+          </section>
+          <div class="seg" style="--n: {{modes.n}}; --i: {{modes.i}}"><sc-for list="{{modes.items}}" as="m" hint-placeholder-count="3"><button type="button" class="{{m.cls}}" onClick="{{m.go}}"><svg class="ic check" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.check}}"></path></svg>{{m.label}}</button></sc-for></div>
+        </div>
+        <div class="col">
+          <section class="group">
+            <div class="row"><span class="grow">网络速度</span>
+              <span class="rate dn"><svg class="ic" viewBox="0 0 24 24" aria-label="下载" role="img"><path d="{{i.down}}"></path></svg>{{dnText}}</span>
+              <span class="rate up"><svg class="ic" viewBox="0 0 24 24" aria-label="上传" role="img"><path d="{{i.up}}"></path></svg>{{upText}}</span>
+            </div>
+            <div class="chart-wrap">
+              <svg class="chart" viewBox="0 0 480 148" preserveAspectRatio="none" aria-hidden="true">
+                <g ref="{{slideRef}}">
+                  <path class="up" ref="{{upRef}}"></path>
+                  <path class="dn" ref="{{dnRef}}"></path>
+                </g>
+              </svg>
+            </div>
+          </section>
+        </div>
+        <div class="col wide">
+          <section class="group">
+            <button type="button" class="row" onClick="{{goWhitelist}}"><span class="grow">加白</span><span class="val">{{wlSummary}}</span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.chevron}}"></path></svg></button>
+            <button type="button" class="row" onClick="{{goProfiles}}"><span class="grow">{{profileName}}</span><span class="val">{{profileUsed}}</span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.chevron}}"></path></svg></button>
+            <div class="row"><span class="grow">出口 IP</span><span class="val">198.51.100.24</span></div>
+            <div class="row"><span class="grow">内网 IP</span><span class="val">192.168.1.23</span></div>
+            <div class="row"><span class="grow">流量</span><span class="rate dn"><svg class="ic" viewBox="0 0 24 24" aria-label="下载" role="img"><path d="{{i.down}}"></path></svg>4.2 GB</span><span class="rate up"><svg class="ic" viewBox="0 0 24 24" aria-label="上传" role="img"><path d="{{i.up}}"></path></svg>310 MB</span></div>
+            <div class="row"><span class="grow">连接</span><span class="val">{{conns}}</span></div>
+            <div class="row"><span class="grow">内存</span><span class="val">86 MB</span></div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{isProxies}}" hint-placeholder-val="{{false}}">
+    <main class="page fixed prox {{proxCls}}">
+      <section class="group scroll prox-list" style="flex: 1; min-height: 0; overflow-y: auto">
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="10">
+          <button type="button" class="row two {{g.cls}}" title="{{g.name}}" onClick="{{g.go}}">
+            <span class="two-line grow"><span class="clip">{{g.name}}</span><span class="val clip">{{g.now}}</span></span>
+            <span class="delay val {{g.tone}}">{{g.delay}}</span>
+            <svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.chevron}}"></path></svg>
+          </button>
+        </sc-for>
+        <sc-if value="{{noGroups}}" hint-placeholder-val="{{false}}"><div class="row val">没有匹配</div></sc-if>
+      </section>
+      <section class="group scroll prox-nodes" style="flex: 1; min-height: 0; overflow-y: auto">
+        <sc-for list="{{nodes}}" as="n" hint-placeholder-count="12">
+          <button type="button" class="row {{n.cls}}" disabled="{{n.ro}}" onClick="{{n.go}}">
+            <span class="radio"></span>
+            <span class="grow clip">{{n.name}}</span>
+            <span class="delay val {{n.tone}}">{{n.delay}}</span>
+          </button>
+        </sc-for>
+      </section>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{isProfiles}}" hint-placeholder-val="{{false}}">
+    <main class="page scroll has-fab" onScroll="{{onScroll}}">
+      <sc-for list="{{profiles}}" as="p" hint-placeholder-count="3">
+        <div class="prof-card {{p.cls}}">
+          <button type="button" class="row-hit" aria-label="{{p.name}}" onClick="{{p.go}}"></button>
+          <span class="head" style="pointer-events: none; position: relative; z-index: 1">
+            <span class="radio"></span>
+            <span class="grow clip">{{p.name}}</span>
+            <button type="button" class="icon-btn" aria-label="更多" style="pointer-events: auto" onClick="{{p.more}}"><svg class="ic {{p.spin}}" viewBox="0 0 24 24" aria-hidden="true"><path d="{{p.moreIcon}}"></path></svg></button>
+          </span>
+          <sc-if value="{{p.metered}}" hint-placeholder-val="{{true}}">
+            <span class="bar-track" style="flex: none; pointer-events: none"><span class="bar-fill" style="width: {{p.pct}}"></span></span>
+          </sc-if>
+          <span class="meta" style="position: relative; pointer-events: none"><span>{{p.used}}</span><span>{{p.until}}</span></span>
+        </div>
+      </sc-for>
+    </main>
+    <button type="button" class="fab icon" aria-label="添加" onClick="{{addProfile}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.plus}}"></path></svg></button>
+  </sc-if>
+
+  <sc-if value="{{isWhitelist}}" hint-placeholder-val="{{false}}">
+    <main class="page scroll has-fab" onScroll="{{onScroll}}">
+      <section class="group">
+        <div class="row"><span class="grow">自动加白</span><button type="button" class="switch" role="switch" aria-checked="{{wlChecked}}" aria-label="自动加白" onClick="{{wlToggle}}"></button></div>
+      </section>
+      <h2 class="section-title">Token 与链接</h2>
+      <section class="group">
+        <sc-for list="{{entries}}" as="e" hint-placeholder-count="3">
+          <div class="row {{e.cls}}" style="padding-right: 4px">
+            <span class="val" style="flex: none; width: 34px">{{e.kind}}</span>
+            <span class="grow clip">{{e.name}}</span>
+            <span class="ok val"><span class="dot small {{e.dot}}"></span>{{e.outcome}}</span>
+            <button type="button" class="icon-btn" aria-label="移除" onClick="{{e.remove}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.trash}}"></path></svg></button>
+          </div>
+        </sc-for>
+      </section>
+    </main>
+    <button type="button" class="fab icon" aria-label="添加" onClick="{{addEntry}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.plus}}"></path></svg></button>
+  </sc-if>
+
+  <sc-if value="{{isToolsRoot}}" hint-placeholder-val="{{false}}">
+    <main class="scroll {{toolsPageCls}}" style="padding-bottom: 100px" onScroll="{{onScroll}}">
+      <div class="cols">
+        <div class="col">
+          <section>
+            <h2 class="section-title" style="margin: 0 0 8px">设置</h2>
+            <div class="group">
+              <button type="button" class="row"><span class="grow">语言</span><span class="val">简体中文</span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.chevron}}"></path></svg></button>
+              <div class="row"><span class="grow">外观</span>
+                <div class="seg" style="flex: none; width: 188px; --n: {{themes.n}}; --i: {{themes.i}}"><sc-for list="{{themes.items}}" as="m" hint-placeholder-count="2"><button type="button" class="{{m.cls}}" onClick="{{m.go}}"><svg class="ic check" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.check}}"></path></svg>{{m.label}}</button></sc-for></div>
+              </div>
+              <sc-for list="{{toolsA}}" as="r" hint-placeholder-count="2">
+                <button type="button" class="row" onClick="{{r.go}}"><span class="grow">{{r.label}}</span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.chevron}}"></path></svg></button>
+              </sc-for>
+            </div>
+          </section>
+          <section>
+            <h2 class="section-title" style="margin: 0 0 8px">其他</h2>
+            <div class="group">
+              <sc-for list="{{toolsC}}" as="r" hint-placeholder-count="3">
+                <button type="button" class="row"><span class="grow">{{r}}</span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.chevron}}"></path></svg></button>
+              </sc-for>
+            </div>
+          </section>
+        </div>
+        <div class="col">
+          <section>
+            <h2 class="section-title" style="margin: 0 0 8px">网络与内核</h2>
+            <div class="group">
+              <sc-for list="{{toolsB}}" as="r" hint-placeholder-count="8">
+                <button type="button" class="row"><span class="grow">{{r}}</span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.chevron}}"></path></svg></button>
+              </sc-for>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{isDrill}}" hint-placeholder-val="{{false}}">
+    <main class="page scroll drill" style="padding-bottom: 100px" onScroll="{{onScroll}}">
+      <sc-for list="{{optionGroups}}" as="g" hint-placeholder-count="3">
+        <section>
+          <h2 class="section-title" style="margin: 0 0 8px">{{g.title}}</h2>
+          <div class="group">
+            <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3">
+              <div class="row"><span class="grow">{{r.label}}</span><button type="button" class="switch" role="switch" aria-checked="{{r.checked}}" aria-label="{{r.label}}" onClick="{{r.toggle}}"></button></div>
+            </sc-for>
+          </div>
+        </section>
+      </sc-for>
+    </main>
+  </sc-if>
+
+  <nav class="bottom" aria-label="po0-clash">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+      <button type="button" class="tab {{t.cls}}" aria-label="{{t.label}}" onClick="{{t.go}}">
+        <span class="pill"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{t.icon}}"></path></svg></span>
+        <sc-if value="{{navLabels}}" hint-placeholder-val="{{true}}"><span>{{t.label}}</span></sc-if>
+      </button>
+    </sc-for>
+  </nav>
+<!--include overlays.html-->
+</div>

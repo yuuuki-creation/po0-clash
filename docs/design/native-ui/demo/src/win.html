@@ -1,0 +1,30 @@
+<div class="po0 win {{rootCls}}" ref="{{rootRef}}">
+  <header class="titlebar">
+    <button type="button" class="icon-btn pane-btn" aria-label="导航" onClick="{{togglePane}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.pane}}"></path></svg></button>
+    <svg class="app-icon" viewBox="0 0 1024 1024" aria-hidden="true"><rect class="bg" width="1024" height="1024" rx="200"></rect><path class="fg" transform="translate(512 512) scale(1.15) translate(-484 -512)" d="M304 800C273 800 248 775 248 744V280C248 249 273 224 304 224H496C620 224 720 324 720 448C720 572 620 672 496 672H360V744C360 775 335 800 304 800Z M562.28 357.72A112 112 0 0 0 405.72 514.28L562.28 357.72Z M586.28 381.72A112 112 0 0 1 429.72 538.28L586.28 381.72Z"></path></svg>
+    <span>po0-clash</span>
+    <div class="caption">
+      <button type="button" aria-label="最小化"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.min}}"></path></svg></button>
+      <button type="button" aria-label="最大化"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.max}}"></path></svg></button>
+      <button type="button" class="close" aria-label="关闭"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{i.close}}"></path></svg></button>
+    </div>
+  </header>
+  <div class="body">
+    <div class="nav-slot">
+      <nav class="nav" aria-label="po0-clash" style="--i: {{navI}}">
+        <span class="nav-pill"></span>
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="6">
+          <button type="button" class="nav-item {{t.cls}}" aria-label="{{t.label}}" onClick="{{t.go}}">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{t.icon}}"></path></svg>
+            <span>{{t.label}}</span>
+          </button>
+        </sc-for>
+      </nav>
+    </div>
+    <button type="button" class="nav-scrim" aria-label="关闭导航" onClick="{{togglePane}}"></button>
+    <main class="main">
+<!--include desktop.html-->
+    </main>
+  </div>
+<!--include overlays.html-->
+</div>

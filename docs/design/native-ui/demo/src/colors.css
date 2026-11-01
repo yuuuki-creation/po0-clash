@@ -1,0 +1,515 @@
+.win.light.pal-a {
+  --bg: #eaeeeb;
+  --card: #fcfefd;
+  --line: rgba(29, 32, 30, 0.11);
+  --ink: #1d201e;
+  --ink2: #535654;
+  --ink3: #838785;
+  --accent: #24694c;
+  --on-accent: #ffffff;
+  --track: #dce1de;
+  --scrim: rgba(0, 0, 0, 0.32);
+  --scrollbar: rgba(29, 32, 30, 0.3);
+  --warn: #875800;
+  --bad: #af2b25;
+  --card-hover: #f6f7f6;
+  --card-press: #eef3f0;
+  --stroke: rgba(29, 32, 30, 0.08);
+  --stroke-bottom: rgba(29, 32, 30, 0.2);
+  --accent-hover: #34785a;
+  --accent-press: #448768;
+  --hover: rgba(29, 32, 30, 0.055);
+  --press: rgba(29, 32, 30, 0.035);
+  --btn: #fcfefd;
+  --btn-hover: #f6f7f6;
+  --btn-press: #edf1ef;
+  --seg-bg: #fcfefd;
+  --seg-shadow: 0 0 0 1px rgba(29, 32, 30, 0.1);
+  --sw-stroke: rgba(29, 32, 30, 0.6);
+  --sw-knob: rgba(29, 32, 30, 0.68);
+  --in-bottom: rgba(29, 32, 30, 0.5);
+  --overlay: #f9faf9;
+  --overlay-foot: #edf1ef;
+}
+
+.mac.light.pal-a {
+  --bg: #eaeeeb;
+  --card: #fcfefd;
+  --line: rgba(29, 32, 30, 0.11);
+  --ink: #1d201e;
+  --ink2: #535654;
+  --ink3: #838785;
+  --accent: #24694c;
+  --on-accent: #ffffff;
+  --track: #dce1de;
+  --scrim: rgba(0, 0, 0, 0.32);
+  --scrollbar: rgba(29, 32, 30, 0.3);
+  --warn: #875800;
+  --bad: #af2b25;
+  --side: #e0e4e1;
+  --zebra: #f2f6f4;
+  --stroke: rgba(29, 32, 30, 0.07);
+  --press: rgba(29, 32, 30, 0.07);
+  --list-sel: rgba(29, 32, 30, 0.08);
+  --btn: #fcfefd;
+  --btn-shadow: 0 0 0 0.5px rgba(29, 32, 30, 0.18), 0 1px 1px rgba(0, 0, 0, 0.07);
+  --seg-bg: #fcfefd;
+  --seg-shadow: 0 0 0 0.5px rgba(29, 32, 30, 0.1), 0 1px 2px rgba(0, 0, 0, 0.18);
+  --sw-off: #a8aca9;
+  --focus: rgba(36, 105, 76, 0.38);
+  --overlay: #f9faf9;
+  --menu: #f9faf9;
+}
+
+.and.light.pal-a {
+  --bg: #eaeeeb;
+  --card: #fcfefd;
+  --line: rgba(29, 32, 30, 0.11);
+  --ink: #1d201e;
+  --ink2: #535654;
+  --ink3: #838785;
+  --accent: #24694c;
+  --on-accent: #ffffff;
+  --track: #dce1de;
+  --scrim: rgba(0, 0, 0, 0.32);
+  --scrollbar: rgba(29, 32, 30, 0.3);
+  --warn: #875800;
+  --bad: #af2b25;
+  --card-hi: #dce1de;
+  --outline: #838785;
+  --sel: #d9dedb;
+  --on-sel: #1d201e;
+  --fab: #fcfefd;
+  --on-fab: #1d201e;
+  --sheet: #f9faf9;
+}
+
+.win.dark.pal-a {
+  --bg: #151816;
+  --card: #222523;
+  --line: rgba(239, 243, 241, 0.127);
+  --ink: #eff3f1;
+  --ink2: #b5b8b6;
+  --ink3: #848785;
+  --accent: #80cea8;
+  --on-accent: #0d1f16;
+  --track: #2e312f;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --scrollbar: rgba(239, 243, 241, 0.3);
+  --warn: #ebc573;
+  --bad: #fb9890;
+  --card-hover: #292c2a;
+  --card-press: #1d201e;
+  --stroke: rgba(239, 243, 241, 0.08);
+  --stroke-bottom: rgba(239, 243, 241, 0.2);
+  --accent-hover: #70be98;
+  --accent-press: #60ae89;
+  --hover: rgba(239, 243, 241, 0.055);
+  --press: rgba(239, 243, 241, 0.035);
+  --btn: #2c2f2d;
+  --btn-hover: #333634;
+  --btn-press: #242726;
+  --seg-bg: #333634;
+  --seg-shadow: 0 0 0 1px rgba(239, 243, 241, 0.1);
+  --sw-stroke: rgba(239, 243, 241, 0.6);
+  --sw-knob: rgba(239, 243, 241, 0.68);
+  --in-bottom: rgba(239, 243, 241, 0.5);
+  --overlay: #242726;
+  --overlay-foot: #161917;
+}
+
+.mac.dark.pal-a {
+  --bg: #151816;
+  --card: #222523;
+  --line: rgba(239, 243, 241, 0.127);
+  --ink: #eff3f1;
+  --ink2: #b5b8b6;
+  --ink3: #848785;
+  --accent: #80cea8;
+  --on-accent: #0d1f16;
+  --track: #2e312f;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --scrollbar: rgba(239, 243, 241, 0.3);
+  --warn: #ebc573;
+  --bad: #fb9890;
+  --side: #1d201e;
+  --zebra: #282b29;
+  --stroke: rgba(239, 243, 241, 0.07);
+  --press: rgba(239, 243, 241, 0.07);
+  --list-sel: rgba(239, 243, 241, 0.08);
+  --btn: #2c2f2d;
+  --btn-shadow: 0 0 0 0.5px rgba(239, 243, 241, 0.18), 0 1px 1px rgba(0, 0, 0, 0.3);
+  --seg-bg: #333634;
+  --seg-shadow: 0 0 0 0.5px rgba(239, 243, 241, 0.1), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --sw-off: #616462;
+  --focus: rgba(128, 206, 168, 0.38);
+  --overlay: #242726;
+  --menu: #242726;
+}
+
+.and.dark.pal-a {
+  --bg: #151816;
+  --card: #222523;
+  --line: rgba(239, 243, 241, 0.127);
+  --ink: #eff3f1;
+  --ink2: #b5b8b6;
+  --ink3: #848785;
+  --accent: #80cea8;
+  --on-accent: #0d1f16;
+  --track: #2e312f;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --scrollbar: rgba(239, 243, 241, 0.3);
+  --warn: #ebc573;
+  --bad: #fb9890;
+  --card-hi: #2e312f;
+  --outline: #848785;
+  --sel: #3b3e3c;
+  --on-sel: #eff3f1;
+  --fab: #2e312f;
+  --on-fab: #eff3f1;
+  --sheet: #242726;
+}
+
+.win.light.pal-b {
+  --bg: #efece8;
+  --card: #fefdfc;
+  --line: rgba(33, 31, 28, 0.11);
+  --ink: #211f1c;
+  --ink2: #575551;
+  --ink3: #888681;
+  --accent: #24694c;
+  --on-accent: #ffffff;
+  --track: #e2dfda;
+  --scrim: rgba(0, 0, 0, 0.32);
+  --scrollbar: rgba(33, 31, 28, 0.3);
+  --warn: #875800;
+  --bad: #af2b25;
+  --card-hover: #f7f7f5;
+  --card-press: #f4f1ed;
+  --stroke: rgba(33, 31, 28, 0.08);
+  --stroke-bottom: rgba(33, 31, 28, 0.2);
+  --accent-hover: #34785a;
+  --accent-press: #448768;
+  --hover: rgba(33, 31, 28, 0.055);
+  --press: rgba(33, 31, 28, 0.035);
+  --btn: #fefdfc;
+  --btn-hover: #f7f7f5;
+  --btn-press: #f2f0eb;
+  --seg-bg: #fefdfc;
+  --seg-shadow: 0 0 0 1px rgba(33, 31, 28, 0.1);
+  --sw-stroke: rgba(33, 31, 28, 0.6);
+  --sw-knob: rgba(33, 31, 28, 0.68);
+  --in-bottom: rgba(33, 31, 28, 0.5);
+  --overlay: #fbfaf8;
+  --overlay-foot: #f2f0eb;
+}
+
+.mac.light.pal-b {
+  --bg: #efece8;
+  --card: #fefdfc;
+  --line: rgba(33, 31, 28, 0.11);
+  --ink: #211f1c;
+  --ink2: #575551;
+  --ink3: #888681;
+  --accent: #24694c;
+  --on-accent: #ffffff;
+  --track: #e2dfda;
+  --scrim: rgba(0, 0, 0, 0.32);
+  --scrollbar: rgba(33, 31, 28, 0.3);
+  --warn: #875800;
+  --bad: #af2b25;
+  --side: #e5e3de;
+  --zebra: #f7f5f0;
+  --stroke: rgba(33, 31, 28, 0.07);
+  --press: rgba(33, 31, 28, 0.07);
+  --list-sel: rgba(33, 31, 28, 0.08);
+  --btn: #fefdfc;
+  --btn-shadow: 0 0 0 0.5px rgba(33, 31, 28, 0.18), 0 1px 1px rgba(0, 0, 0, 0.07);
+  --seg-bg: #fefdfc;
+  --seg-shadow: 0 0 0 0.5px rgba(33, 31, 28, 0.1), 0 1px 2px rgba(0, 0, 0, 0.18);
+  --sw-off: #adaaa6;
+  --focus: rgba(36, 105, 76, 0.38);
+  --overlay: #fbfaf8;
+  --menu: #fbfaf8;
+}
+
+.and.light.pal-b {
+  --bg: #efece8;
+  --card: #fefdfc;
+  --line: rgba(33, 31, 28, 0.11);
+  --ink: #211f1c;
+  --ink2: #575551;
+  --ink3: #888681;
+  --accent: #24694c;
+  --on-accent: #ffffff;
+  --track: #e2dfda;
+  --scrim: rgba(0, 0, 0, 0.32);
+  --scrollbar: rgba(33, 31, 28, 0.3);
+  --warn: #875800;
+  --bad: #af2b25;
+  --card-hi: #e2dfda;
+  --outline: #888681;
+  --sel: #dedcd7;
+  --on-sel: #211f1c;
+  --fab: #fefdfc;
+  --on-fab: #211f1c;
+  --sheet: #fbfaf8;
+}
+
+.win.dark.pal-b {
+  --bg: #181714;
+  --card: #252421;
+  --line: rgba(243, 241, 238, 0.127);
+  --ink: #f3f1ee;
+  --ink2: #b9b7b3;
+  --ink3: #888682;
+  --accent: #80cea8;
+  --on-accent: #0d1f16;
+  --track: #32302d;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --scrollbar: rgba(243, 241, 238, 0.3);
+  --warn: #ebc573;
+  --bad: #fb9890;
+  --card-hover: #2d2b28;
+  --card-press: #201f1c;
+  --stroke: rgba(243, 241, 238, 0.08);
+  --stroke-bottom: rgba(243, 241, 238, 0.2);
+  --accent-hover: #70be98;
+  --accent-press: #60ae89;
+  --hover: rgba(243, 241, 238, 0.055);
+  --press: rgba(243, 241, 238, 0.035);
+  --btn: #2f2e2b;
+  --btn-hover: #373532;
+  --btn-press: #282623;
+  --seg-bg: #373532;
+  --seg-shadow: 0 0 0 1px rgba(243, 241, 238, 0.1);
+  --sw-stroke: rgba(243, 241, 238, 0.6);
+  --sw-knob: rgba(243, 241, 238, 0.68);
+  --in-bottom: rgba(243, 241, 238, 0.5);
+  --overlay: #282623;
+  --overlay-foot: #191815;
+}
+
+.mac.dark.pal-b {
+  --bg: #181714;
+  --card: #252421;
+  --line: rgba(243, 241, 238, 0.127);
+  --ink: #f3f1ee;
+  --ink2: #b9b7b3;
+  --ink3: #888682;
+  --accent: #80cea8;
+  --on-accent: #0d1f16;
+  --track: #32302d;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --scrollbar: rgba(243, 241, 238, 0.3);
+  --warn: #ebc573;
+  --bad: #fb9890;
+  --side: #201f1c;
+  --zebra: #2b2a27;
+  --stroke: rgba(243, 241, 238, 0.07);
+  --press: rgba(243, 241, 238, 0.07);
+  --list-sel: rgba(243, 241, 238, 0.08);
+  --btn: #2f2e2b;
+  --btn-shadow: 0 0 0 0.5px rgba(243, 241, 238, 0.18), 0 1px 1px rgba(0, 0, 0, 0.3);
+  --seg-bg: #373532;
+  --seg-shadow: 0 0 0 0.5px rgba(243, 241, 238, 0.1), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --sw-off: #656360;
+  --focus: rgba(128, 206, 168, 0.38);
+  --overlay: #282623;
+  --menu: #282623;
+}
+
+.and.dark.pal-b {
+  --bg: #181714;
+  --card: #252421;
+  --line: rgba(243, 241, 238, 0.127);
+  --ink: #f3f1ee;
+  --ink2: #b9b7b3;
+  --ink3: #888682;
+  --accent: #80cea8;
+  --on-accent: #0d1f16;
+  --track: #32302d;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --scrollbar: rgba(243, 241, 238, 0.3);
+  --warn: #ebc573;
+  --bad: #fb9890;
+  --card-hi: #32302d;
+  --outline: #888682;
+  --sel: #3e3d3a;
+  --on-sel: #f3f1ee;
+  --fab: #32302d;
+  --on-fab: #f3f1ee;
+  --sheet: #282623;
+}
+
+.win.light.pal-c {
+  --bg: #eaeeeb;
+  --card: #fcfefd;
+  --line: rgba(29, 32, 30, 0.11);
+  --ink: #1d201e;
+  --ink2: #535654;
+  --ink3: #838785;
+  --accent: #1c4031;
+  --on-accent: #ffffff;
+  --track: #dce1de;
+  --scrim: rgba(0, 0, 0, 0.32);
+  --scrollbar: rgba(29, 32, 30, 0.3);
+  --warn: #875800;
+  --bad: #af2b25;
+  --card-hover: #f6f7f6;
+  --card-press: #eef3f0;
+  --stroke: rgba(29, 32, 30, 0.08);
+  --stroke-bottom: rgba(29, 32, 30, 0.2);
+  --accent-hover: #294e3e;
+  --accent-press: #375b4c;
+  --hover: rgba(29, 32, 30, 0.055);
+  --press: rgba(29, 32, 30, 0.035);
+  --btn: #fcfefd;
+  --btn-hover: #f6f7f6;
+  --btn-press: #edf1ef;
+  --seg-bg: #fcfefd;
+  --seg-shadow: 0 0 0 1px rgba(29, 32, 30, 0.1);
+  --sw-stroke: rgba(29, 32, 30, 0.6);
+  --sw-knob: rgba(29, 32, 30, 0.68);
+  --in-bottom: rgba(29, 32, 30, 0.5);
+  --overlay: #f9faf9;
+  --overlay-foot: #edf1ef;
+}
+
+.mac.light.pal-c {
+  --bg: #eaeeeb;
+  --card: #fcfefd;
+  --line: rgba(29, 32, 30, 0.11);
+  --ink: #1d201e;
+  --ink2: #535654;
+  --ink3: #838785;
+  --accent: #1c4031;
+  --on-accent: #ffffff;
+  --track: #dce1de;
+  --scrim: rgba(0, 0, 0, 0.32);
+  --scrollbar: rgba(29, 32, 30, 0.3);
+  --warn: #875800;
+  --bad: #af2b25;
+  --side: #e0e4e1;
+  --zebra: #f2f6f4;
+  --stroke: rgba(29, 32, 30, 0.07);
+  --press: rgba(29, 32, 30, 0.07);
+  --list-sel: rgba(29, 32, 30, 0.08);
+  --btn: #fcfefd;
+  --btn-shadow: 0 0 0 0.5px rgba(29, 32, 30, 0.18), 0 1px 1px rgba(0, 0, 0, 0.07);
+  --seg-bg: #fcfefd;
+  --seg-shadow: 0 0 0 0.5px rgba(29, 32, 30, 0.1), 0 1px 2px rgba(0, 0, 0, 0.18);
+  --sw-off: #a8aca9;
+  --focus: rgba(28, 64, 49, 0.38);
+  --overlay: #f9faf9;
+  --menu: #f9faf9;
+}
+
+.and.light.pal-c {
+  --bg: #eaeeeb;
+  --card: #fcfefd;
+  --line: rgba(29, 32, 30, 0.11);
+  --ink: #1d201e;
+  --ink2: #535654;
+  --ink3: #838785;
+  --accent: #1c4031;
+  --on-accent: #ffffff;
+  --track: #dce1de;
+  --scrim: rgba(0, 0, 0, 0.32);
+  --scrollbar: rgba(29, 32, 30, 0.3);
+  --warn: #875800;
+  --bad: #af2b25;
+  --card-hi: #dce1de;
+  --outline: #838785;
+  --sel: #d9dedb;
+  --on-sel: #1d201e;
+  --fab: #fcfefd;
+  --on-fab: #1d201e;
+  --sheet: #f9faf9;
+}
+
+.win.dark.pal-c {
+  --bg: #151816;
+  --card: #222523;
+  --line: rgba(239, 243, 241, 0.127);
+  --ink: #eff3f1;
+  --ink2: #b5b8b6;
+  --ink3: #848785;
+  --accent: #9fd6ba;
+  --on-accent: #0d1f16;
+  --track: #2e312f;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --scrollbar: rgba(239, 243, 241, 0.3);
+  --warn: #ebc573;
+  --bad: #fb9890;
+  --card-hover: #292c2a;
+  --card-press: #1d201e;
+  --stroke: rgba(239, 243, 241, 0.08);
+  --stroke-bottom: rgba(239, 243, 241, 0.2);
+  --accent-hover: #8fc6aa;
+  --accent-press: #7fb69a;
+  --hover: rgba(239, 243, 241, 0.055);
+  --press: rgba(239, 243, 241, 0.035);
+  --btn: #2c2f2d;
+  --btn-hover: #333634;
+  --btn-press: #242726;
+  --seg-bg: #333634;
+  --seg-shadow: 0 0 0 1px rgba(239, 243, 241, 0.1);
+  --sw-stroke: rgba(239, 243, 241, 0.6);
+  --sw-knob: rgba(239, 243, 241, 0.68);
+  --in-bottom: rgba(239, 243, 241, 0.5);
+  --overlay: #242726;
+  --overlay-foot: #161917;
+}
+
+.mac.dark.pal-c {
+  --bg: #151816;
+  --card: #222523;
+  --line: rgba(239, 243, 241, 0.127);
+  --ink: #eff3f1;
+  --ink2: #b5b8b6;
+  --ink3: #848785;
+  --accent: #9fd6ba;
+  --on-accent: #0d1f16;
+  --track: #2e312f;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --scrollbar: rgba(239, 243, 241, 0.3);
+  --warn: #ebc573;
+  --bad: #fb9890;
+  --side: #1d201e;
+  --zebra: #282b29;
+  --stroke: rgba(239, 243, 241, 0.07);
+  --press: rgba(239, 243, 241, 0.07);
+  --list-sel: rgba(239, 243, 241, 0.08);
+  --btn: #2c2f2d;
+  --btn-shadow: 0 0 0 0.5px rgba(239, 243, 241, 0.18), 0 1px 1px rgba(0, 0, 0, 0.3);
+  --seg-bg: #333634;
+  --seg-shadow: 0 0 0 0.5px rgba(239, 243, 241, 0.1), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --sw-off: #616462;
+  --focus: rgba(159, 214, 186, 0.38);
+  --overlay: #242726;
+  --menu: #242726;
+}
+
+.and.dark.pal-c {
+  --bg: #151816;
+  --card: #222523;
+  --line: rgba(239, 243, 241, 0.127);
+  --ink: #eff3f1;
+  --ink2: #b5b8b6;
+  --ink3: #848785;
+  --accent: #9fd6ba;
+  --on-accent: #0d1f16;
+  --track: #2e312f;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --scrollbar: rgba(239, 243, 241, 0.3);
+  --warn: #ebc573;
+  --bad: #fb9890;
+  --card-hi: #2e312f;
+  --outline: #848785;
+  --sel: #3b3e3c;
+  --on-sel: #eff3f1;
+  --fab: #2e312f;
+  --on-fab: #eff3f1;
+  --sheet: #242726;
+}

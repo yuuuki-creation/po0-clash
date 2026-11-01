@@ -25,6 +25,7 @@ po0-clash 以独立应用的身份发布，可与官方 FlClash 同时安装（�
 | [development/native-rewrite.md](development/native-rewrite.md) | 三端原生重写：结构、共享内核、功能范围、界面与顺序 |
 | [development/native-feature-parity.md](development/native-feature-parity.md) | 原生版对齐 FlClash 的逐项功能清单与顺序 |
 | [development/native-design.md](development/native-design.md) | 原生版视觉规范：颜色、文字、尺寸、组件与页面 |
+| [design/native-ui/README.md](design/native-ui/README.md) | 原生版界面重设计：配色、圆角、分界线、窗口拉伸、动画、节点组与设计稿 |
 | [development/native-macos.md](development/native-macos.md) | macOS 原生版：结构、数据迁移、虚拟网卡授权、构建与测试 |
 | [development/native-windows.md](development/native-windows.md) | Windows 原生版（Tauri）：安装与升级、构建、虚拟机测试 |
 | [adr/](adr/) | 架构决策记录（ADR） |

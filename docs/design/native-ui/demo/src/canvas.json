@@ -1,0 +1,50 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-11-01T13:00:00Z" },
+  "title": "po0-clash 三端重设计",
+  "launch": { "view": "canvas", "page": "windows" },
+  "pages": [
+    { "id": "windows", "name": "窗口" },
+    { "id": "palette", "name": "配色" },
+    { "id": "components", "name": "组件" },
+    { "id": "sizes", "name": "窗口大小" }
+  ],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1240, "h": 780, "title": "Windows", "page": "windows", "is_interactive": true, "radius": 8, "expand": "fill" },
+    "macOS.dc.html": { "x": 1320, "y": 0, "w": 1240, "h": 780, "title": "macOS", "page": "windows", "is_interactive": true, "radius": 12, "expand": "fill" },
+    "Android.dc.html": { "x": 2640, "y": 0, "w": 390, "h": 844, "title": "Android", "page": "windows", "is_interactive": true, "radius": 28, "expand": "fill" },
+    "Windows-Dark.dc.html": { "x": 0, "y": 964, "w": 1240, "h": 780, "title": "Windows 深色", "page": "windows", "is_interactive": true, "radius": 8, "expand": "fill" },
+    "macOS-Dark.dc.html": { "x": 1320, "y": 964, "w": 1240, "h": 780, "title": "macOS 深色", "page": "windows", "is_interactive": true, "radius": 12, "expand": "fill" },
+    "Android-Dark.dc.html": { "x": 2640, "y": 964, "w": 390, "h": 844, "title": "Android 深色", "page": "windows", "is_interactive": true, "radius": 28, "expand": "fill" },
+    "Palette-a-Windows.dc.html": { "x": 0, "y": 0, "w": 1240, "h": 780, "title": "A 松灰 Windows", "page": "palette", "is_interactive": true, "radius": 8, "expand": "fill" },
+    "Palette-a-macOS.dc.html": { "x": 1320, "y": 0, "w": 1240, "h": 780, "title": "A 松灰 macOS", "page": "palette", "is_interactive": true, "radius": 12, "expand": "fill" },
+    "Palette-a-Android.dc.html": { "x": 2640, "y": 0, "w": 390, "h": 844, "title": "A 松灰 Android", "page": "palette", "is_interactive": true, "radius": 28, "expand": "fill" },
+    "Palette-b-Windows.dc.html": { "x": 0, "y": 964, "w": 1240, "h": 780, "title": "B 暖灰 Windows", "page": "palette", "is_interactive": true, "radius": 8, "expand": "fill" },
+    "Palette-b-macOS.dc.html": { "x": 1320, "y": 964, "w": 1240, "h": 780, "title": "B 暖灰 macOS", "page": "palette", "is_interactive": true, "radius": 12, "expand": "fill" },
+    "Palette-b-Android.dc.html": { "x": 2640, "y": 964, "w": 390, "h": 844, "title": "B 暖灰 Android", "page": "palette", "is_interactive": true, "radius": 28, "expand": "fill" },
+    "Palette-c-Windows.dc.html": { "x": 0, "y": 1928, "w": 1240, "h": 780, "title": "C 深松 Windows", "page": "palette", "is_interactive": true, "radius": 8, "expand": "fill" },
+    "Palette-c-macOS.dc.html": { "x": 1320, "y": 1928, "w": 1240, "h": 780, "title": "C 深松 macOS", "page": "palette", "is_interactive": true, "radius": 12, "expand": "fill" },
+    "Palette-c-Android.dc.html": { "x": 2640, "y": 1928, "w": 390, "h": 844, "title": "C 深松 Android", "page": "palette", "is_interactive": true, "radius": 28, "expand": "fill" },
+    "Sheet-Windows.dc.html": { "x": 0, "y": 0, "w": 1000, "h": 1790, "title": "Windows 组件", "page": "components", "is_interactive": true, "expand": "fill" },
+    "Sheet-macOS.dc.html": { "x": 1080, "y": 0, "w": 1000, "h": 1560, "title": "macOS 组件", "page": "components", "is_interactive": true, "expand": "fill" },
+    "Sheet-Android.dc.html": { "x": 2160, "y": 0, "w": 420, "h": 2090, "title": "Android 组件", "page": "components", "is_interactive": true, "expand": "fill" },
+    "Sheet-Windows-Dark.dc.html": { "x": 2660, "y": 0, "w": 1000, "h": 1790, "title": "Windows 组件 深色", "page": "components", "is_interactive": true, "expand": "fill" },
+    "Sheet-macOS-Dark.dc.html": { "x": 3740, "y": 0, "w": 1000, "h": 1560, "title": "macOS 组件 深色", "page": "components", "is_interactive": true, "expand": "fill" },
+    "Sheet-Android-Dark.dc.html": { "x": 4820, "y": 0, "w": 420, "h": 2090, "title": "Android 组件 深色", "page": "components", "is_interactive": true, "expand": "fill" },
+    "Windows-Compact.dc.html": { "x": 0, "y": 0, "w": 860, "h": 620, "title": "Windows 860", "page": "sizes", "is_interactive": true, "radius": 8, "expand": "fill" },
+    "Windows-Min.dc.html": { "x": 940, "y": 0, "w": 720, "h": 560, "title": "Windows 最小 720", "page": "sizes", "is_interactive": true, "radius": 8, "expand": "fill" },
+    "macOS-Narrow.dc.html": { "x": 1740, "y": 0, "w": 700, "h": 540, "title": "macOS 700", "page": "sizes", "is_interactive": true, "radius": 12, "expand": "fill" },
+    "Android-Medium.dc.html": { "x": 0, "y": 740, "w": 760, "h": 900, "title": "Android 760", "page": "sizes", "is_interactive": true, "radius": 24, "expand": "fill" },
+    "Android-Expanded.dc.html": { "x": 840, "y": 740, "w": 1040, "h": 700, "title": "Android 1040", "page": "sizes", "is_interactive": true, "radius": 24, "expand": "fill" }
+  },
+  "order": [
+    "Main.dc.html", "macOS.dc.html", "Android.dc.html", "Windows-Dark.dc.html", "macOS-Dark.dc.html", "Android-Dark.dc.html",
+    "Palette-a-Windows.dc.html", "Palette-a-macOS.dc.html", "Palette-a-Android.dc.html",
+    "Palette-b-Windows.dc.html", "Palette-b-macOS.dc.html", "Palette-b-Android.dc.html",
+    "Palette-c-Windows.dc.html", "Palette-c-macOS.dc.html", "Palette-c-Android.dc.html",
+    "Sheet-Windows.dc.html", "Sheet-macOS.dc.html", "Sheet-Android.dc.html", "Sheet-Windows-Dark.dc.html", "Sheet-macOS-Dark.dc.html", "Sheet-Android-Dark.dc.html",
+    "Windows-Compact.dc.html", "Windows-Min.dc.html", "macOS-Narrow.dc.html", "Android-Medium.dc.html", "Android-Expanded.dc.html"
+  ],
+  "notes": {},
+  "designSystems": []
+}

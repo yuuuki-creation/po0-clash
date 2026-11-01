@@ -1,0 +1,46 @@
+  <sc-if value="{{menuOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" class="menu-scrim" aria-label="关闭菜单" onClick="{{closeMenu}}"></button>
+    <div class="menu {{menuCls}}" role="menu" style="top: {{menuTop}}px; right: {{menuRight}}px">
+      <sc-for list="{{menuItems}}" as="m" hint-placeholder-count="4">
+        <button type="button" role="menuitem" class="{{m.cls}}" onClick="{{m.go}}">{{m.label}}</button>
+      </sc-for>
+    </div>
+  </sc-if>
+  <!--if win,mac-->
+  <sc-if value="{{groupMenuOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" class="menu-scrim" aria-label="关闭节点组列表" onClick="{{closeGroupMenu}}"></button>
+    <div class="menu group-menu {{menuCls}}" role="listbox" ref="{{groupMenuRef}}" style="top: {{gmTop}}px; left: {{gmLeft}}px; width: {{gmWidth}}px">
+      <sc-for list="{{groups}}" as="g" hint-placeholder-count="8">
+        <button type="button" role="option" class="{{g.cls}}" title="{{g.name}}" onClick="{{g.pick}}"><span class="clip">{{g.name}}</span><span class="val clip">{{g.now}}</span></button>
+      </sc-for>
+    </div>
+  </sc-if>
+  <!--endif-->
+  <sc-if value="{{dialogOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" class="scrim {{dialogCls}}" aria-label="关闭" onClick="{{closeDialog}}"></button>
+    <div class="dialog {{dialogCls}} {{dialogKind}}" role="dialog" aria-modal="true" aria-label="{{dialogTitle}}">
+      <h2>{{dialogTitle}}</h2>
+      <sc-if value="{{dialogAdd}}" hint-placeholder-val="{{false}}">
+        <div class="dialog-body">
+          <sc-if value="{{dialogWl}}" hint-placeholder-val="{{false}}">
+            <textarea class="in" rows="4" aria-label="po0 token 或 ggy 加白链接" placeholder="po0 token 或 ggy 加白链接" value="{{formText}}" onChange="{{onFormText}}" ref="{{focusRef}}"></textarea>
+            <input class="in" aria-label="名称" placeholder="名称" value="{{formName}}" onChange="{{onFormName}}">
+          </sc-if>
+          <sc-if value="{{dialogProfile}}" hint-placeholder-val="{{false}}">
+            <input class="in" aria-label="订阅链接" placeholder="订阅链接" value="{{formText}}" onChange="{{onFormText}}" ref="{{focusRef}}">
+            <input class="in" aria-label="名称" placeholder="名称" value="{{formName}}" onChange="{{onFormName}}">
+          </sc-if>
+        </div>
+      </sc-if>
+      <div class="dialog-actions">
+        <!--if win,mac-->
+        <button type="button" class="btn" onClick="{{closeDialog}}">取消</button>
+        <button type="button" class="btn primary" disabled="{{confirmDisabled}}" onClick="{{confirm}}">{{dialogConfirm}}</button>
+        <!--endif-->
+        <!--if and-->
+        <button type="button" class="btn text" onClick="{{closeDialog}}">取消</button>
+        <button type="button" class="btn text" disabled="{{confirmDisabled}}" onClick="{{confirm}}">{{dialogConfirm}}</button>
+        <!--endif-->
+      </div>
+    </div>
+  </sc-if>

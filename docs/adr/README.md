@@ -36,5 +36,6 @@
 | [0016](0016-material3-performance.md) | 简洁界面与按需统计刷新 | 已采纳，仅适用于 Flutter 版（见 0018） |
 | [0017](0017-rust-app-backend.md) | 应用后端分阶段迁到 Rust，内核与界面不变 | 已取代（见 0018） |
 | [0018](0018-native-rewrite.md) | 三端原生重写，共享精简的 Rust 内核 | 已采纳，界面由 0019、功能范围由 0020 修改 |
-| [0019](0019-native-main-window.md) | 原生版恢复主界面，结构接近 FlClash | 已采纳，样式由 native-design.md 细化 |
-| [0020](0020-native-feature-parity.md) | 原生版功能对齐 FlClash | 已采纳 |
+| [0019](0019-native-main-window.md) | 原生版恢复主界面，结构接近 FlClash | 已采纳，样式部分将由 0021 取代 |
+| [0020](0020-native-feature-parity.md) | 原生版功能对齐 FlClash | 已采纳，默认强调色由 0021 修改 |
+| [0021](0021-native-ui-traditional.md) | 原生版界面改为传统的平台风格，暖灰配色 | 已采纳，三端尚未实现 |

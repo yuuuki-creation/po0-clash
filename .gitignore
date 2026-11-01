@@ -52,6 +52,7 @@ docs/*
 !docs/*.md
 !docs/windows-security.txt
 !docs/adr/
+!docs/design/
 !docs/features/
 !docs/development/
 
