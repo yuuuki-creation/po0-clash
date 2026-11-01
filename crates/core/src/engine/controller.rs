@@ -1,13 +1,64 @@
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+#[cfg(windows)]
+mod pipe;
 
 use serde_json::Value;
 
 use crate::error::{CoreError, Result};
 
 const TIMEOUT: Duration = Duration::from_secs(15);
+
+#[derive(Clone, Copy)]
+enum Timeout {
+    Deadline(Instant),
+    Idle(Duration),
+}
+
+impl Timeout {
+    fn remaining(self) -> io::Result<Duration> {
+        match self {
+            Self::Deadline(deadline) => deadline
+                .checked_duration_since(Instant::now())
+                .filter(|remaining| !remaining.is_zero())
+                .ok_or_else(timed_out),
+            Self::Idle(timeout) => Ok(timeout),
+        }
+    }
+}
+
+fn timed_out() -> io::Error {
+    io::Error::new(io::ErrorKind::TimedOut, "controller request timed out")
+}
+
+#[cfg(unix)]
+struct UnixConnection {
+    stream: std::os::unix::net::UnixStream,
+    timeout: Timeout,
+}
+
+#[cfg(unix)]
+impl Read for UnixConnection {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        self.stream.set_read_timeout(Some(self.timeout.remaining()?))?;
+        self.stream.read(buffer)
+    }
+}
+
+#[cfg(unix)]
+impl Write for UnixConnection {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        self.stream.set_write_timeout(Some(self.timeout.remaining()?))?;
+        self.stream.write(buffer)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.stream.flush()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Endpoint {
@@ -59,37 +110,15 @@ impl Controller {
         &self.secret
     }
 
-    fn connect(&self, timeout: Option<Duration>) -> io::Result<Box<dyn Conn>> {
+    fn connect(&self, timeout: Timeout) -> io::Result<Box<dyn Conn>> {
         match &self.endpoint {
             #[cfg(unix)]
             Endpoint::Unix(path) => {
                 let stream = std::os::unix::net::UnixStream::connect(path)?;
-                stream.set_read_timeout(timeout)?;
-                stream.set_write_timeout(Some(TIMEOUT))?;
-                Ok(Box::new(stream))
+                Ok(Box::new(UnixConnection { stream, timeout }))
             }
             #[cfg(windows)]
-            Endpoint::Pipe(name) => {
-                let _ = timeout;
-                const ERROR_PIPE_BUSY: i32 = 231;
-                let mut attempts = 0;
-                loop {
-                    match std::fs::OpenOptions::new()
-                        .read(true)
-                        .write(true)
-                        .open(name)
-                    {
-                        Ok(file) => return Ok(Box::new(file)),
-                        Err(error)
-                            if error.raw_os_error() == Some(ERROR_PIPE_BUSY) && attempts < 40 =>
-                        {
-                            attempts += 1;
-                            std::thread::sleep(Duration::from_millis(50));
-                        }
-                        Err(error) => return Err(error),
-                    }
-                }
-            }
+            Endpoint::Pipe(name) => Ok(Box::new(pipe::Pipe::connect(name, timeout)?)),
             #[allow(unreachable_patterns)]
             _ => {
                 let _ = timeout;
@@ -106,7 +135,7 @@ impl Controller {
         method: &str,
         path: &str,
         body: Option<&Value>,
-        timeout: Option<Duration>,
+        timeout: Timeout,
     ) -> io::Result<BufReader<Box<dyn Conn>>> {
         let mut conn = self.connect(timeout)?;
         let body = body.map(Value::to_string).unwrap_or_default();
@@ -137,7 +166,8 @@ impl Controller {
         body: Option<&Value>,
         timeout: Duration,
     ) -> io::Result<(u16, String)> {
-        let mut reader = self.send(method, path, body, Some(timeout))?;
+        let deadline = Timeout::Deadline(Instant::now() + timeout);
+        let mut reader = self.send(method, path, body, deadline)?;
         let (status, chunked, length) = read_head(&mut reader)?;
         let mut bytes = Vec::new();
         if chunked {
@@ -186,7 +216,7 @@ impl Controller {
         stop: &AtomicBool,
         mut on_line: impl FnMut(&str),
     ) -> io::Result<()> {
-        let mut reader = self.send("GET", path, None, Some(Duration::from_secs(5)))?;
+        let mut reader = self.send("GET", path, None, Timeout::Idle(Duration::from_secs(5)))?;
         let (status, chunked, _) = read_head(&mut reader)?;
         if status != 200 {
             return Err(io::Error::other(format!("HTTP {status}")));
@@ -334,6 +364,30 @@ mod tests {
             })
             .unwrap();
         assert_eq!(lines, ["{\"up\":1,\"down\":2}"]);
+    }
+
+    #[test]
+    fn response_reads_share_one_deadline() {
+        let dir = std::env::temp_dir().join(format!("po0-ctl-{}", crate::util::random_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("ctl.sock");
+        let listener = UnixListener::bind(&path).unwrap();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let _ = stream.read(&mut [0; 4096]);
+            stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n").unwrap();
+            for _ in 0..10 {
+                thread::sleep(Duration::from_millis(40));
+                if stream.write_all(b"x").is_err() {
+                    break;
+                }
+            }
+        });
+        let controller = Controller::new(Endpoint::Unix(path), String::new());
+        let error = controller.request_within("GET", "/version", None, Duration::from_millis(100)).unwrap_err();
+        assert!(matches!(error.kind(), io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock));
+        server.join().unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

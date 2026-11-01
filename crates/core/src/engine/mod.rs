@@ -218,16 +218,17 @@ pub fn wait_ready(session: &Session, rendered: &str, log: &LogFile) -> Result<()
         if let Some(status) = session.runner.exited() {
             return Err(exited(status));
         }
-        if session.controller().json("GET", "/version", None).is_ok() {
-            break;
-        }
-        if Instant::now() > deadline {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
             return Err(CoreError::Engine(format!(
                 "mihomo did not come up: {}",
                 last_lines(log, 3)
             )));
         }
-        thread::sleep(Duration::from_millis(100));
+        if session.controller().json_within("GET", "/version", None, remaining).is_ok() {
+            break;
+        }
+        thread::sleep(deadline.saturating_duration_since(Instant::now()).min(Duration::from_millis(100)));
     }
     if cfg!(target_os = "android") {
         return Ok(());
