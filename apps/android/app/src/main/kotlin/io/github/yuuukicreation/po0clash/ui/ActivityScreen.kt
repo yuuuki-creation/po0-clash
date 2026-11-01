@@ -3,24 +3,16 @@ package io.github.yuuukicreation.po0clash.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,8 +23,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -101,7 +91,7 @@ fun ActivityScreen(vm: AppViewModel, onBack: () -> Unit) {
         ActivityTab.LOGS -> listOf(
             PageAction(LineIcons.Sliders, levelTitle, anchor = levelAnchor) {
                 val choices = listOf(null to allLevels) + LEVELS.map { it to levelLabel(it) }
-                sheets.menu(levelAnchor, levelTitle, choices.map { (value, label) -> SheetAction(label, checked = value == level) { level = value } })
+                sheets.menu(levelAnchor, choices.map { (value, label) -> SheetAction(label, checked = value == level) { level = value } })
             },
             PageAction(LineIcons.Download, stringResource(R.string.export), enabled = logs.isNotEmpty()) {
                 exportLogs.launch("po0-clash-logs-${SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())}.txt")
@@ -115,15 +105,14 @@ fun ActivityScreen(vm: AppViewModel, onBack: () -> Unit) {
 
     val title = stringResource(R.string.activity)
     val list = rememberLazyListState()
-    PageScaffold(title, list, actions = actions, onBack = onBack) { padding ->
+    PageScaffold(title, list, actions = actions, onBack = onBack, capped = false) { padding ->
         LazyColumn(
             state = list,
             modifier = Modifier.fillMaxSize(),
             contentPadding = padding,
         ) {
-            item { PageTitle(title) }
             item(key = "controls") {
-                Column(Modifier.padding(top = 8.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.padding(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SegmentedPicker(tabs.map { it to stringResource(it.label) }, tab, enabled = true) { picked = it }
                     SearchField(query) { query = it }
                 }
@@ -131,7 +120,7 @@ fun ActivityScreen(vm: AppViewModel, onBack: () -> Unit) {
             when (tab) {
                 ActivityTab.REQUESTS -> {
                     val shown = requests.filter { it.matches(needle) }
-                    if (shown.isEmpty()) item { EmptyCard(stringResource(R.string.no_requests), stringResource(R.string.no_requests_body), LineIcons.Activity) }
+                    if (shown.isEmpty()) item { EmptyState(stringResource(R.string.no_requests), LineIcons.Activity) }
                     itemsIndexed(shown) { index, request ->
                         ConnectionRow(index, shown.size, request, onClick = { showDetail(request, false) }, trailing = { TimeLabel(request.start) })
                     }
@@ -140,27 +129,21 @@ fun ActivityScreen(vm: AppViewModel, onBack: () -> Unit) {
                     val shown = connections.filter { it.matches(needle) }
                     if (shown.isEmpty()) {
                         item {
-                            EmptyCard(
-                                stringResource(R.string.no_connections),
-                                stringResource(if (running) R.string.no_connections_body else R.string.connect_first),
-                                LineIcons.Link,
-                            )
+                            EmptyState(stringResource(R.string.no_connections), LineIcons.Link)
                         }
                     }
                     itemsIndexed(shown, key = { _, it -> it.id }) { index, connection ->
                         Box(itemMotion()) {
                             ConnectionRow(index, shown.size, connection, onClick = { showDetail(connection, true) }) {
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text("↑ ${bytes(connection.upload)}", style = MaterialTheme.typography.labelMedium.tabular(), color = apple.secondaryLabel)
-                                    Text("↓ ${bytes(connection.download)}", style = MaterialTheme.typography.labelMedium.tabular(), color = apple.secondaryLabel)
+                                    Text("↑ ${bytes(connection.upload)}", style = MaterialTheme.typography.bodyMedium.tabular(), color = palette.ink2, maxLines = 1)
+                                    Text("↓ ${bytes(connection.download)}", style = MaterialTheme.typography.bodyMedium.tabular(), color = palette.ink2, maxLines = 1)
                                 }
-                                IconButton(
-                                    onClick = { vm.closeConnection(connection.id) },
+                                AppIconButton(
+                                    LineIcons.Close,
+                                    stringResource(R.string.close),
                                     enabled = "connection:${connection.id}" !in busy,
-                                    modifier = Modifier.size(36.dp),
-                                ) {
-                                    Icon(LineIcons.Close, contentDescription = stringResource(R.string.close), tint = apple.secondaryLabel)
-                                }
+                                ) { vm.closeConnection(connection.id) }
                             }
                         }
                     }
@@ -168,7 +151,7 @@ fun ActivityScreen(vm: AppViewModel, onBack: () -> Unit) {
                 ActivityTab.LOGS -> {
                     val minimum = level?.ordinal ?: 0
                     val shown = logs.filter { it.level.ordinal >= minimum && (needle.isEmpty() || it.message.contains(needle, ignoreCase = true)) }
-                    if (shown.isEmpty()) item { EmptyCard(stringResource(R.string.no_logs), stringResource(R.string.no_logs_body), LineIcons.FileText) }
+                    if (shown.isEmpty()) item { EmptyState(stringResource(R.string.no_logs), LineIcons.FileText) }
                     itemsIndexed(shown) { index, entry -> LogRow(index, shown.size, entry) }
                 }
             }
@@ -181,30 +164,8 @@ private fun Connection.matches(needle: String) = needle.isEmpty() ||
     chains.any { it.contains(needle, ignoreCase = true) }
 
 @Composable
-fun SearchField(query: String, onChange: (String) -> Unit) {
-    val colors = apple
-    Row(
-        Modifier.fillMaxWidth().height(40.dp).background(colors.track, CircleShape).padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(LineIcons.Search, contentDescription = null, tint = colors.secondaryLabel, modifier = Modifier.size(20.dp))
-        Box(Modifier.weight(1f).padding(start = 8.dp)) {
-            if (query.isEmpty()) Text(stringResource(R.string.search), style = MaterialTheme.typography.bodyLarge, color = colors.secondaryLabel)
-            BasicTextField(
-                query,
-                onChange,
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.label),
-                cursorBrush = SolidColor(colors.accent),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    }
-}
-
-@Composable
 private fun ConnectionRow(index: Int, count: Int, connection: Connection, onClick: () -> Unit, trailing: @Composable () -> Unit) {
-    val colors = apple
+    val colors = palette
     GroupRow(index, count, onClick = onClick) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
@@ -217,15 +178,15 @@ private fun ConnectionRow(index: Int, count: Int, connection: Connection, onClic
             val rule = if (connection.rulePayload.isBlank()) connection.rule else "${connection.rule}(${connection.rulePayload})"
             Text(
                 listOfNotNull(connection.network.uppercase(), connection.process, rule).filter(String::isNotBlank).joinToString(" · "),
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.secondaryLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.ink2,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             if (connection.chains.isNotEmpty()) {
                 Text(
                     connection.chains.asReversed().joinToString(" → "),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = colors.accent,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -246,7 +207,7 @@ private fun levelLabel(level: LogLevel) = when (level) {
 }
 
 @Composable
-private fun ConnectionDetail(connection: Connection, onClose: (() -> Unit)?) {
+private fun ColumnScope.ConnectionDetail(connection: Connection, onClose: (() -> Unit)?) {
     val sheets = LocalSheets.current
     val rows = listOfNotNull(
         stringResource(R.string.destination) to connection.destination,
@@ -259,11 +220,10 @@ private fun ConnectionDetail(connection: Connection, onClose: (() -> Unit)?) {
         stringResource(R.string.started) to DateFormat.getDateTimeInstance().format(Date(connection.start * 1000)),
     ).filter { it.second.isNotBlank() }
     SheetTitle(connection.host.ifBlank { connection.destination })
-    Column(Modifier.clip(RoundedCornerShape(cardRadius)).background(apple.card).padding(horizontal = 16.dp, vertical = 6.dp)) {
+    SheetBody {
         rows.forEachIndexed { index, (label, value) ->
-            if (index > 0) Hairline()
-            Row(Modifier.padding(vertical = 9.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(label, style = MaterialTheme.typography.bodyMedium, color = apple.secondaryLabel)
+            GroupRow(index, rows.size) {
+                Text(label, style = MaterialTheme.typography.bodyMedium, color = palette.ink2)
                 Text(value, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
             }
         }
@@ -273,26 +233,28 @@ private fun ConnectionDetail(connection: Connection, onClose: (() -> Unit)?) {
             sheets.dismiss()
             onClose()
         }
+    } else {
+        SheetDoneButton(sheets::dismiss)
     }
 }
 
 @Composable
 private fun LogRow(index: Int, count: Int, entry: LogEntry) {
-    val colors = apple
+    val colors = palette
     val label = levelLabel(entry.level)
     val color = when (entry.level) {
-        LogLevel.ERROR -> colors.red
-        LogLevel.WARNING -> colors.orange
-        LogLevel.DEBUG -> colors.secondaryLabel
+        LogLevel.ERROR -> colors.bad
+        LogLevel.WARNING -> colors.warn
+        LogLevel.DEBUG -> colors.ink2
         else -> colors.accent
     }
     GroupRow(index, count) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = color)
+                Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = color)
                 TimeLabel(entry.at)
             }
-            Text(entry.message, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace))
+            Text(entry.message, style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace))
         }
     }
 }
@@ -300,5 +262,5 @@ private fun LogRow(index: Int, count: Int, entry: LogEntry) {
 @Composable
 private fun TimeLabel(epochSeconds: Long) {
     val time = remember(epochSeconds) { DateFormat.getTimeInstance(DateFormat.MEDIUM).format(Date(epochSeconds * 1000)) }
-    Text(time, style = MaterialTheme.typography.labelMedium.tabular(), color = apple.secondaryLabel)
+    Text(time, style = MaterialTheme.typography.bodyMedium.tabular(), color = palette.ink2)
 }

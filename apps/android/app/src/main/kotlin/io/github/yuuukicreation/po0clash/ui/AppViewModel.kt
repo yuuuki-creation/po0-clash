@@ -192,8 +192,9 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
         null
     }
 
-    fun addSubscription(url: String) = launch(BUSY_PROFILES) {
-        core.addSubscription(url.trim())
+    fun addSubscription(url: String, name: String) = launch(BUSY_PROFILES) {
+        val profile = core.addSubscription(url.trim())
+        if (name.isNotBlank()) core.editProfile(profile.id, ProfileEdit(name.trim(), profile.url, profile.autoUpdate, profile.updateHours))
         refresh(Change.PROFILES)
         null
     }

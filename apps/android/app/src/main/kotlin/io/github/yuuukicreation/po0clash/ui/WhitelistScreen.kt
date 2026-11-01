@@ -3,22 +3,20 @@ package io.github.yuuukicreation.po0clash.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -26,7 +24,6 @@ import io.github.yuuukicreation.po0clash.R
 import io.github.yuuukicreation.po0clash.core.WhitelistEntry
 import io.github.yuuukicreation.po0clash.core.WhitelistKind
 import io.github.yuuukicreation.po0clash.core.WhitelistOutcome
-import io.github.yuuukicreation.po0clash.core.WhitelistState
 
 @Composable
 fun WhitelistScreen(vm: AppViewModel) {
@@ -37,104 +34,109 @@ fun WhitelistScreen(vm: AppViewModel) {
     val hint = stringResource(R.string.whitelist_text)
     val nameHint = stringResource(R.string.whitelist_name)
     val add = stringResource(R.string.add)
+    val checking = AppViewModel.BUSY_WHITELIST_NOW in busy
     val actions = listOf(
         PageAction(
             LineIcons.Refresh,
             stringResource(R.string.whitelist_now),
-            enabled = whitelist.entries.isNotEmpty(),
-            busy = AppViewModel.BUSY_WHITELIST_NOW in busy,
+            enabled = whitelist.enabled && whitelist.entries.isNotEmpty(),
+            busy = checking,
             onClick = vm::whitelistNow,
         ),
-        PageAction(LineIcons.Plus, addTitle, busy = AppViewModel.BUSY_WHITELIST in busy) {
-            sheets.show {
-                TextSheet(addTitle, hint, multiline = true, confirm = add, namePlaceholder = nameHint) { text, name ->
-                    vm.addWhitelist(text, name)
-                }
-            }
-        },
     )
-
+    val fab = FabAction(LineIcons.Plus, addTitle, busy = AppViewModel.BUSY_WHITELIST in busy) {
+        sheets.show {
+            TextSheet(addTitle, hint, multiline = true, confirm = add, namePlaceholder = nameHint) { text, name ->
+                vm.addWhitelist(text, name)
+            }
+        }
+    }
     val list = rememberLazyListState()
-    PageScaffold(stringResource(R.string.whitelist), list, actions) { padding ->
+    PageScaffold(stringResource(R.string.whitelist), list, actions, fab = fab) { padding ->
         LazyColumn(
             state = list,
             modifier = Modifier.fillMaxSize(),
             contentPadding = padding,
         ) {
-            item { PageTitle(stringResource(R.string.whitelist)) }
             item(key = "switch") {
-                Column(Modifier.padding(top = 8.dp)) {
-                    GroupRow(0, 1) {
-                        Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.whitelist_enabled), style = MaterialTheme.typography.bodyLarge)
-                            Text(whitelistSummary(whitelist), style = MaterialTheme.typography.bodySmall, color = apple.secondaryLabel)
-                        }
-                        AppleSwitch(whitelist.enabled, vm::setWhitelistEnabled, enabled = AppViewModel.BUSY_WHITELIST !in busy)
-                    }
-                    SectionFooter(stringResource(R.string.whitelist_hint))
+                GroupRow(0, 1) {
+                    Text(stringResource(R.string.whitelist_enabled), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    Po0Switch(whitelist.enabled, vm::setWhitelistEnabled, enabled = AppViewModel.BUSY_WHITELIST !in busy)
                 }
             }
-            item { SectionHeader(stringResource(R.string.whitelist_entries)) }
+            item(key = "title") { SectionHeader(stringResource(R.string.whitelist_entries)) }
             if (whitelist.entries.isEmpty()) {
-                item { EmptyCard(stringResource(R.string.whitelist_none), stringResource(R.string.whitelist_empty_body), LineIcons.ShieldCheck) }
+                item(key = "empty") { EmptyState(stringResource(R.string.whitelist_none), LineIcons.ShieldCheck) }
             }
             itemsIndexed(whitelist.entries, key = { _, entry -> entry.id }) { index, entry ->
                 Box(itemMotion()) {
-                    EntryRow(index, whitelist.entries.size, entry, vm)
+                    EntryRow(index, whitelist.entries.size, entry, whitelist.enabled, checking, vm)
                 }
             }
         }
     }
 }
 
+private fun WhitelistEntry.kindLabel() = if (kind == WhitelistKind.PO0) "po0" else "ggy"
+
 @Composable
-private fun EntryRow(index: Int, count: Int, entry: WhitelistEntry, vm: AppViewModel) {
-    val colors = apple
+private fun EntryRow(index: Int, count: Int, entry: WhitelistEntry, enabled: Boolean, checking: Boolean, vm: AppViewModel) {
+    val colors = palette
     val sheets = LocalSheets.current
-    val anchor = rememberAnchor()
     val delete = stringResource(R.string.delete)
-    val confirm = stringResource(R.string.delete_title, entry.name.ifBlank { entry.label })
-    val result = entry.result
-    val outcome = result?.outcome
-    val resultColor = when (outcome) {
-        WhitelistOutcome.APPLIED -> colors.green
-        WhitelistOutcome.REJECTED, WhitelistOutcome.ERROR -> colors.red
-        else -> colors.secondaryLabel
+    val name = entry.name.ifBlank { entry.label }
+    val confirm = stringResource(R.string.delete_title, name)
+    val outcome = entry.result?.outcome
+    val failed = outcome == WhitelistOutcome.REJECTED || outcome == WhitelistOutcome.ERROR
+    val (dot, text) = when {
+        !enabled -> colors.ink3 to stringResource(R.string.outcome_disabled)
+        checking -> colors.warn to stringResource(R.string.whitelist_checking)
+        outcome == null -> colors.ink3 to stringResource(R.string.whitelist_pending)
+        else -> dotColor(outcome, colors) to stringResource(outcomeLabel(outcome))
     }
-    val resultText = if (result == null || outcome == null) {
-        stringResource(R.string.whitelist_pending)
-    } else {
-        listOfNotNull(stringResource(outcomeLabel(outcome)), result.ip, relativeTime(result.at)).joinToString(" · ") +
-            (result.message?.let { "\n$it" } ?: "")
-    }
-    val kind = if (entry.kind == WhitelistKind.PO0) "po0" else "ggy"
-    GroupRow(index, count) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                entry.name.ifBlank { entry.label },
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text("$kind · ${entry.label}", style = MaterialTheme.typography.bodySmall, color = colors.secondaryLabel)
-            Text(resultText, style = MaterialTheme.typography.bodySmall, color = resultColor)
+    GroupRow(index, count, endPadding = 4.dp, onClick = { sheets.show { EntryDetail(entry, name) } }) {
+        Text(entry.kindLabel(), style = MaterialTheme.typography.bodyMedium, color = colors.ink2, modifier = Modifier.width(34.dp))
+        Column(Modifier.weight(1f)) {
+            Text(name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (failed && enabled) {
+                entry.result?.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.bad, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+            }
         }
-        IconButton(
-            onClick = { sheets.menu(anchor, confirm, listOf(SheetAction(delete, destructive = true) { vm.removeWhitelist(entry.id) })) },
-            modifier = Modifier.anchor(anchor),
-        ) {
-            Icon(LineIcons.Trash, contentDescription = delete, tint = colors.secondaryLabel)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatusDot(dot, pulsing = checking && enabled, size = 8.dp)
+            Text(text, style = MaterialTheme.typography.bodyMedium, color = colors.ink2, maxLines = 1)
+        }
+        AppIconButton(LineIcons.Trash, delete) {
+            sheets.confirm(confirm, delete) { vm.removeWhitelist(entry.id) }
         }
     }
 }
 
 @Composable
-fun whitelistSummary(whitelist: WhitelistState): String {
-    val entries = whitelist.entries
-    if (entries.isEmpty()) return stringResource(R.string.whitelist_none)
-    val applied = entries.count { it.result?.outcome == WhitelistOutcome.APPLIED }
-    return pluralStringResource(R.plurals.whitelist_summary, entries.size, applied, entries.size)
+private fun EntryDetail(entry: WhitelistEntry, name: String) {
+    val sheets = LocalSheets.current
+    val colors = palette
+    val result = entry.result
+    val outcome = result?.outcome
+    SheetTitle(name)
+    Text("${entry.kindLabel()} · ${entry.label}", style = MaterialTheme.typography.bodyLarge)
+    Text(
+        if (result == null || outcome == null) {
+            stringResource(R.string.whitelist_pending)
+        } else {
+            listOfNotNull(stringResource(outcomeLabel(outcome)), result.ip, relativeTime(result.at)).joinToString(" · ")
+        },
+        style = MaterialTheme.typography.bodyMedium,
+        color = colors.ink2,
+    )
+    result?.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = if (outcome == WhitelistOutcome.APPLIED) colors.ink2 else colors.bad) }
+    SheetDoneButton(sheets::dismiss)
+}
+
+private fun dotColor(outcome: WhitelistOutcome, colors: Po0Colors): Color = when (outcome) {
+    WhitelistOutcome.APPLIED -> colors.accent
+    WhitelistOutcome.REJECTED, WhitelistOutcome.ERROR -> colors.bad
+    else -> colors.ink3
 }
 
 private fun outcomeLabel(outcome: WhitelistOutcome) = when (outcome) {

@@ -45,7 +45,7 @@ fun BasicOptionsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 KeyboardType.Number,
                 validate = { it.isEmpty() || it.toUIntOrNull() != null },
             ) { v -> set { it.copy(keepAliveInterval = v.toUIntOrNull() ?: 0u) } }
-            SwitchRow(4, 8, stringResource(R.string.unified_delay), o.unifiedDelay, stringResource(R.string.unified_delay_detail)) { v ->
+            SwitchRow(4, 8, stringResource(R.string.unified_delay), o.unifiedDelay) { v ->
                 set { it.copy(unifiedDelay = v) }
             }
             SwitchRow(5, 8, stringResource(R.string.tcp_concurrent), o.tcpConcurrent) { v -> set { it.copy(tcpConcurrent = v) } }
@@ -63,14 +63,13 @@ fun BasicOptionsScreen(vm: AppViewModel, onBack: () -> Unit) {
             EditRow(2, 6, stringResource(R.string.http_port), portText(o.httpPort), off, KeyboardType.Number, validate = { it.isEmpty() || isPort(it) }) { v ->
                 set { it.copy(httpPort = v.toUShortOrNull() ?: 0u) }
             }
-            SwitchRow(3, 6, stringResource(R.string.allow_lan), o.allowLan, stringResource(R.string.allow_lan_detail)) { v -> set { it.copy(allowLan = v) } }
+            SwitchRow(3, 6, stringResource(R.string.allow_lan), o.allowLan) { v -> set { it.copy(allowLan = v) } }
             ListRow(4, 6, stringResource(R.string.authentication), o.authentication, stringResource(R.string.authentication_hint)) { v ->
                 set { it.copy(authentication = v) }
             }
-            SwitchRow(5, 6, stringResource(R.string.external_controller), o.externalController, stringResource(R.string.external_controller_detail)) { v ->
+            SwitchRow(5, 6, stringResource(R.string.external_controller), o.externalController) { v ->
                 set { it.copy(externalController = v) }
             }
-            SectionFooter(stringResource(R.string.mixed_port_disconnect))
         }
         item {
             SectionHeader("Hosts")
@@ -96,14 +95,13 @@ fun NetworkOptionsScreen(vm: AppViewModel, onBack: () -> Unit) {
     ToolPage(stringResource(R.string.network), onBack) {
         item {
             SectionHeader(stringResource(R.string.vpn))
-            SwitchRow(0, 3, stringResource(R.string.allow_bypass), android.allowBypass, stringResource(R.string.allow_bypass_detail)) { v ->
+            SwitchRow(0, 3, stringResource(R.string.allow_bypass), android.allowBypass) { v ->
                 vm.updateAndroid { it.copy(allowBypass = v) }
             }
-            SwitchRow(1, 3, stringResource(R.string.system_proxy), android.systemProxy, stringResource(R.string.system_proxy_detail)) { v ->
+            SwitchRow(1, 3, stringResource(R.string.system_proxy), android.systemProxy) { v ->
                 vm.updateAndroid { it.copy(systemProxy = v) }
             }
-            SwitchRow(2, 3, "IPv6", android.ipv6, stringResource(R.string.vpn_ipv6_detail)) { v -> vm.updateAndroid { it.copy(ipv6 = v) } }
-            SectionFooter(stringResource(R.string.reconnect_to_apply))
+            SwitchRow(2, 3, "IPv6", android.ipv6) { v -> vm.updateAndroid { it.copy(ipv6 = v) } }
         }
         item {
             SectionHeader(stringResource(R.string.tun))
@@ -126,7 +124,7 @@ fun DnsOptionsScreen(vm: AppViewModel, onBack: () -> Unit) {
     ToolPage(stringResource(R.string.dns), onBack) {
         item {
             SectionHeader(stringResource(R.string.dns_override))
-            SwitchRow(0, 1, stringResource(R.string.dns_override), o.overrideDns, stringResource(R.string.dns_override_detail)) { v ->
+            SwitchRow(0, 1, stringResource(R.string.dns_override), o.overrideDns) { v ->
                 vm.setOptions { it.copy(overrideDns = v) }
             }
         }
@@ -173,7 +171,6 @@ fun AdvancedOptionsScreen(vm: AppViewModel, onBack: () -> Unit) {
             ListRow(0, 1, stringResource(R.string.added_rules), o.addedRules, "DOMAIN-SUFFIX,example.com,DIRECT") { v ->
                 vm.setOptions { it.copy(addedRules = v) }
             }
-            SectionFooter(stringResource(R.string.added_rules_detail))
         }
         item { ScriptLibrary(vm) }
     }

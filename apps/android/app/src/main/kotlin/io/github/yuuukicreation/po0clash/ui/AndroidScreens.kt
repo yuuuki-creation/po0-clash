@@ -5,6 +5,7 @@ import io.github.yuuukicreation.po0clash.core.ThemeMode
 import io.github.yuuukicreation.po0clash.Language
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -82,25 +83,24 @@ fun OnDemandScreen(vm: AppViewModel, onBack: () -> Unit) {
                 vm.setAppSettings { it.copy(excludedSsids = v.distinct()) }
             }
             if (current != null) {
-                ActionRow(1, count, stringResource(R.string.exclude_current_wifi, current), LineIcons.Plus) {
+                ActionRow(1, count, stringResource(R.string.exclude_current_wifi, current)) {
                     vm.setAppSettings { it.copy(excludedSsids = it.excludedSsids + current) }
                 }
             }
-            SectionFooter(stringResource(R.string.excluded_wifi_detail))
         }
         item {
             SectionHeader(stringResource(R.string.permissions))
-            NavRow(0, 3, LineIcons.Pin, stringResource(R.string.location_permission), if (fine) allowed else notAllowed) {
+            NavRow(0, 3, stringResource(R.string.location_permission), if (fine) allowed else notAllowed) {
                 if (!fine) {
                     location.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
                 } else {
                     context.startActivity(appDetails(context.packageName))
                 }
             }
-            NavRow(1, 3, LineIcons.Pin, stringResource(R.string.background_location), if (background) allowed else notAllowed) {
+            NavRow(1, 3, stringResource(R.string.background_location), if (background) allowed else notAllowed) {
                 context.startActivity(appDetails(context.packageName))
             }
-            NavRow(2, 3, LineIcons.Battery, stringResource(R.string.ignore_battery), if (battery) allowed else notAllowed) {
+            NavRow(2, 3, stringResource(R.string.ignore_battery), if (battery) allowed else notAllowed) {
                 val intent = if (battery) {
                     Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                 } else {
@@ -108,7 +108,6 @@ fun OnDemandScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
                 runCatching { context.startActivity(intent) }
             }
-            SectionFooter(stringResource(R.string.permissions_detail))
         }
     }
 }
@@ -128,9 +127,9 @@ fun ApplicationScreen(vm: AppViewModel, onBack: () -> Unit) {
     ToolPage(stringResource(R.string.application), onBack) {
         item {
             SectionHeader(stringResource(R.string.general))
-            SwitchRow(0, 5, stringResource(R.string.auto_connect), s.autoConnect, stringResource(R.string.auto_connect_detail)) { v -> set { it.copy(autoConnect = v) } }
+            SwitchRow(0, 5, stringResource(R.string.auto_connect), s.autoConnect) { v -> set { it.copy(autoConnect = v) } }
             SwitchRow(1, 5, stringResource(R.string.hide_from_recents), s.hideFromRecents) { v -> set { it.copy(hideFromRecents = v) } }
-            SwitchRow(2, 5, stringResource(R.string.notification_stop), s.notificationStopButton, stringResource(R.string.notification_stop_detail)) { v ->
+            SwitchRow(2, 5, stringResource(R.string.notification_stop), s.notificationStopButton) { v ->
                 set { it.copy(notificationStopButton = v) }
             }
             SwitchRow(3, 5, stringResource(R.string.page_animation), s.pageAnimation) { v -> set { it.copy(pageAnimation = v) } }
@@ -138,12 +137,12 @@ fun ApplicationScreen(vm: AppViewModel, onBack: () -> Unit) {
         }
         item {
             SectionHeader(stringResource(R.string.connections))
-            SwitchRow(0, 4, stringResource(R.string.capture_logs), s.captureLogs, stringResource(R.string.capture_logs_detail)) { v -> set { it.copy(captureLogs = v) } }
-            SwitchRow(1, 4, stringResource(R.string.close_on_switch), s.closeConnectionsOnSwitch, stringResource(R.string.close_on_switch_detail)) { v ->
+            SwitchRow(0, 4, stringResource(R.string.capture_logs), s.captureLogs) { v -> set { it.copy(captureLogs = v) } }
+            SwitchRow(1, 4, stringResource(R.string.close_on_switch), s.closeConnectionsOnSwitch) { v ->
                 set { it.copy(closeConnectionsOnSwitch = v) }
             }
             SwitchRow(2, 4, stringResource(R.string.only_proxy_traffic), s.onlyProxyTraffic) { v -> set { it.copy(onlyProxyTraffic = v) } }
-            SwitchRow(3, 4, stringResource(R.string.check_certificate), s.checkCertificate, stringResource(R.string.check_certificate_detail)) { v ->
+            SwitchRow(3, 4, stringResource(R.string.check_certificate), s.checkCertificate) { v ->
                 set { it.copy(checkCertificate = v) }
             }
         }
@@ -154,12 +153,11 @@ fun ApplicationScreen(vm: AppViewModel, onBack: () -> Unit) {
         item {
             SectionHeader(stringResource(R.string.external_control))
             actions.forEachIndexed { index, action ->
-                NavRow(index, actions.size, null, action.substringAfterLast('.'), action.substringBeforeLast(".action"), chevron = false) {
+                NavRow(index, actions.size, action.substringAfterLast('.'), action.substringBeforeLast(".action"), chevron = false) {
                     clipboard.setText(AnnotatedString(action))
                     vm.toast(copied)
                 }
             }
-            SectionFooter(stringResource(R.string.external_control_detail))
         }
     }
 }
@@ -195,11 +193,10 @@ fun AppearanceScreen(vm: AppViewModel, onBack: () -> Unit) {
                     }
                 },
             )
-            SectionFooter(stringResource(R.string.theme_color_detail))
         }
         item {
             SectionHeader(stringResource(R.string.display))
-            SwitchRow(0, 2, stringResource(R.string.pure_black), s.pureBlack, stringResource(R.string.pure_black_detail)) { v -> vm.setAppSettings { it.copy(pureBlack = v) } }
+            SwitchRow(0, 2, stringResource(R.string.pure_black), s.pureBlack) { v -> vm.setAppSettings { it.copy(pureBlack = v) } }
             ChoiceRow(1, 2, stringResource(R.string.text_size), scales, s.textScale?.toInt()) { v ->
                 vm.setAppSettings { it.copy(textScale = v?.toUShort()) }
             }
@@ -211,9 +208,11 @@ fun AppearanceScreen(vm: AppViewModel, onBack: () -> Unit) {
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 private fun ColorSwatches(colors: List<UInt>, selected: UInt, onSelect: (UInt) -> Unit, onRemove: (UInt) -> Unit, onAdd: () -> Unit) {
-    val palette = apple
+    val card = palette.card
+    val ink = palette.ink
+    val track = palette.track
     FlowRow(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(cardRadius)).background(palette.card).padding(16.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(card).padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -224,14 +223,17 @@ private fun ColorSwatches(colors: List<UInt>, selected: UInt, onSelect: (UInt) -
                     .combinedClickable(onLongClick = { if (!active) onRemove(argb) }) { onSelect(argb) },
                 contentAlignment = Alignment.Center,
             ) {
-                if (active) Icon(LineIcons.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                if (active) {
+                    val tint = if (Color(argb.toInt()).luminance() > 0.5f) Color.Black else Color.White
+                    Icon(LineIcons.Check, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+                }
             }
         }
         Box(
-            Modifier.size(38.dp).clip(CircleShape).background(palette.track).clickable(onClick = onAdd),
+            Modifier.size(38.dp).clip(CircleShape).background(track).clickable(onClick = onAdd),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(LineIcons.Plus, contentDescription = stringResource(R.string.add_color), tint = palette.label, modifier = Modifier.size(18.dp))
+            Icon(LineIcons.Plus, contentDescription = stringResource(R.string.add_color), tint = ink, modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -243,8 +245,8 @@ private fun ColorSheet(title: String, onAdd: (UInt) -> Unit) {
     val argb = text.removePrefix("#").takeIf { it.length == 6 }?.toUIntOrNull(16)?.let { it or 0xFF000000u }
     SheetTitle(title)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(Modifier.size(38.dp).clip(CircleShape).background(argb?.let { Color(it.toInt()) } ?: apple.track))
-        Box(Modifier.weight(1f)) { SheetField(text, { text = it.take(7) }, "#007AFF", multiline = false, keyboardType = KeyboardType.Ascii) }
+        Box(Modifier.size(38.dp).clip(CircleShape).background(argb?.let { Color(it.toInt()) } ?: palette.track))
+        Box(Modifier.weight(1f)) { SheetField(text, { text = it.take(7) }, "#24694C", multiline = false, keyboardType = KeyboardType.Ascii) }
     }
     SheetButtons(stringResource(R.string.add), enabled = argb != null, onCancel = sheets::dismiss) {
         sheets.dismiss()
@@ -266,8 +268,8 @@ fun LanguageScreen(vm: AppViewModel, onBack: () -> Unit) {
                         activity?.let { Language.apply(it, tag) }
                     }
                 }) {
+                    Po0Radio(tag == s.language)
                     Text(languageLabel(tag) ?: system, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                    if (tag == s.language) Icon(LineIcons.Check, contentDescription = null, tint = apple.accent, modifier = Modifier.size(18.dp))
                 }
             }
         }
