@@ -1,0 +1,95 @@
+:root {
+  color-scheme: light;
+  --ctl: 32px;
+  --row: 48px;
+  --pad: 16px;
+  --block: 16px;
+  --gap: 4px;
+  --split: 240px;
+  --chart: 148px;
+  --t-in: 250ms;
+  --t-out: 83ms;
+  --ease-in: cubic-bezier(0, 0, 0, 1);
+  --ease-out: cubic-bezier(0.4, 0, 1, 1);
+
+  --bg: #efece8;
+  --card: #fefdfc;
+  --line: rgba(33, 31, 28, 0.11);
+  --ink: #211f1c;
+  --ink2: #575551;
+  --ink3: #888681;
+  --accent: #24694c;
+  --on-accent: #ffffff;
+  --track: #e2dfda;
+  --scrim: rgba(0, 0, 0, 0.32);
+  --scrollbar: rgba(33, 31, 28, 0.3);
+  --warn: #875800;
+  --bad: #af2b25;
+  --card-hover: #f7f7f5;
+  --card-press: #f4f1ed;
+  --stroke: rgba(33, 31, 28, 0.08);
+  --stroke-bottom: rgba(33, 31, 28, 0.2);
+  --accent-hover: #34785a;
+  --accent-press: #448768;
+  --hover: rgba(33, 31, 28, 0.055);
+  --press: rgba(33, 31, 28, 0.035);
+  --btn: #fefdfc;
+  --btn-hover: #f7f7f5;
+  --btn-press: #f2f0eb;
+  --seg-bg: #fefdfc;
+  --seg-shadow: 0 0 0 1px rgba(33, 31, 28, 0.1);
+  --sw-stroke: rgba(33, 31, 28, 0.6);
+  --sw-knob: rgba(33, 31, 28, 0.68);
+  --in-bottom: rgba(33, 31, 28, 0.5);
+  --overlay: #fbfaf8;
+  --overlay-foot: #f2f0eb;
+}
+
+:root[data-dark] {
+  color-scheme: dark;
+  --bg: #181714;
+  --card: #252421;
+  --line: rgba(243, 241, 238, 0.127);
+  --ink: #f3f1ee;
+  --ink2: #b9b7b3;
+  --ink3: #888682;
+  --accent: #80cea8;
+  --on-accent: #0d1f16;
+  --track: #32302d;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --scrollbar: rgba(243, 241, 238, 0.3);
+  --warn: #ebc573;
+  --bad: #fb9890;
+  --card-hover: #2d2b28;
+  --card-press: #201f1c;
+  --stroke: rgba(243, 241, 238, 0.08);
+  --stroke-bottom: rgba(243, 241, 238, 0.2);
+  --accent-hover: #70be98;
+  --accent-press: #60ae89;
+  --hover: rgba(243, 241, 238, 0.055);
+  --press: rgba(243, 241, 238, 0.035);
+  --btn: #2f2e2b;
+  --btn-hover: #373532;
+  --btn-press: #282623;
+  --seg-bg: #373532;
+  --seg-shadow: 0 0 0 1px rgba(243, 241, 238, 0.1);
+  --sw-stroke: rgba(243, 241, 238, 0.6);
+  --sw-knob: rgba(243, 241, 238, 0.68);
+  --in-bottom: rgba(243, 241, 238, 0.5);
+  --overlay: #282623;
+  --overlay-foot: #191815;
+}
+
+:root[data-dark][data-black] {
+  --bg: #000000;
+  --card: #151412;
+  --card-hover: #1d1c1a;
+  --card-press: #100f0e;
+  --track: #252421;
+  --btn: #1f1e1b;
+  --btn-hover: #272623;
+  --btn-press: #191816;
+  --seg-bg: #2d2b28;
+  --overlay: #1b1a18;
+  --overlay-foot: #0c0c0b;
+}

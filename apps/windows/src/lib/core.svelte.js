@@ -6,7 +6,8 @@ export const app = $state({
   version: '',
   page: 'dashboard',
   tool: null,
-  sidebar: true,
+  nav: '',
+  pane: false,
   status: null,
   connectedAt: null,
   profiles: [],
@@ -21,7 +22,6 @@ export const app = $state({
   exitIp: null,
   exitIpLoading: false,
   busy: {},
-  delayResults: {},
   notice: null,
 });
 
@@ -61,7 +61,6 @@ export async function testDelay(name) {
   for (const node of group.nodes) {
     if (node.delay == null) continue;
     delays.set(node.name, node.delay);
-    app.delayResults[node.name] = (app.delayResults[node.name] ?? 0) + 1;
   }
   app.groups = app.groups.map((g) => (g.name === name ? withDelays(group) : withDelays(g)));
 }
@@ -71,14 +70,12 @@ export async function testNode(name) {
   const delay = await act(`node:${name}`, 'test_node_delay', { node: name });
   if (delay === undefined) return;
   delays.set(name, delay);
-  app.delayResults[name] = (app.delayResults[name] ?? 0) + 1;
   app.groups = app.groups.map(withDelays);
 }
 
 async function loadGroups() {
   if (app.status?.engine.state !== 'running') {
     delays.clear();
-    app.delayResults = {};
     app.groups = [];
     return;
   }

@@ -1,5 +1,5 @@
 <script>
-  let { icon, name, style = 'standard', size = 18 } = $props();
+  let { icon, name, style = 'standard', size = 20 } = $props();
   let failed = $state(false);
 
   const src = $derived.by(() => {
@@ -19,4 +19,4 @@
 {#if src && !failed}
   <img class="group-icon" {src} alt="" width={size} height={size} onerror={() => (failed = true)} />
 {/if}
-{#if style !== 'iconOnly' || !src || failed}<span class="title">{name}</span>{/if}
+{#if style !== 'iconOnly' || !src || failed}<span class="clip">{name}</span>{/if}

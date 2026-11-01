@@ -1,0 +1,268 @@
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  color: var(--ink);
+  background: var(--bg);
+  font-family: 'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:where(button) {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: none;
+  font: inherit;
+  text-align: inherit;
+  cursor: default;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+.selectable {
+  user-select: text;
+}
+
+.ic {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ic.dots {
+  stroke-width: 3;
+}
+
+.chev {
+  width: 16px;
+  height: 16px;
+  color: var(--ink2);
+}
+
+.chev-d {
+  width: 14px;
+  height: 14px;
+  color: var(--ink2);
+}
+
+.val {
+  color: var(--ink2);
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.clip {
+  overflow: hidden;
+  min-width: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mono {
+  font-family: 'Cascadia Mono', Consolas, 'Microsoft YaHei UI', monospace;
+}
+
+.bad-text {
+  color: var(--bad);
+}
+
+.scroll {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+}
+
+.capped {
+  width: 100%;
+  max-width: 1100px;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: var(--row);
+  padding: 0 var(--pad);
+}
+
+.row-hit {
+  position: absolute !important;
+  inset: 0;
+  z-index: 0;
+}
+
+.row:has(.row-hit) > :not(.row-hit) {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.row:has(.row-hit) :is(.icon-btn, .btn, .switch, .seg, .delay-btn, .val-menu) {
+  pointer-events: auto;
+}
+
+.section-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.group .row,
+.chart-wrap {
+  border: 1px solid var(--stroke);
+  border-radius: 4px;
+  background: var(--card);
+}
+
+.group button.row,
+.group .row:has(> .row-hit) {
+  transition: background 83ms;
+}
+
+.group button.row:hover,
+.group .row:has(> .row-hit:hover) {
+  background: var(--card-hover);
+}
+
+.group button.row:active,
+.group .row:has(> .row-hit:active) {
+  color: var(--ink2);
+  background: var(--card-press);
+}
+
+.group .row.block {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 12px var(--pad);
+}
+
+.group .row.top {
+  align-items: flex-start;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.empty-state {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 160px;
+  color: var(--ink2);
+}
+
+.empty-state .ic {
+  width: 32px;
+  height: 32px;
+  stroke-width: 1.2;
+  color: var(--ink3);
+}
+
+.empty-row {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  margin: 0 4px;
+  padding: 0 10px;
+  color: var(--ink2);
+}
+
+/* Long translations push a segmented control under its label instead of clipping the label away. */
+.row:has(> .seg) {
+  flex-wrap: wrap;
+  row-gap: 4px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.row:has(> .seg) > .grow {
+  flex: 1 0 auto;
+  max-width: 100%;
+}
+
+@keyframes pulse {
+  to {
+    opacity: 0.3;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html.theming,
+  html.theming * {
+    transition:
+      background-color 200ms,
+      color 200ms,
+      border-color 200ms,
+      fill 200ms,
+      stroke 200ms !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

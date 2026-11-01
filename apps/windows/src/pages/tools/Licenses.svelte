@@ -4,7 +4,7 @@
   import Icon from '../../lib/Icon.svelte';
   import Page from '../../lib/Page.svelte';
 
-  let { onback } = $props();
+  let { crumbs } = $props();
   let licenses = $state([]);
   let query = $state('');
 
@@ -16,25 +16,24 @@
   });
 </script>
 
-<Page title={t('licenses.title')} subtitle={t('licenses.count', { count: licenses.length })} {onback} form>
+<Page title={t('licenses.title')} {crumbs}>
   {#snippet actions()}
-    <label class="search glass">
+    <label class="search">
       <Icon name="search" />
       <input bind:value={query} aria-label={t('licenses.search')} placeholder={t('licenses.search')} spellcheck="false" />
     </label>
   {/snippet}
 
-  <div class="list">
+  <div class="group">
     {#each shown as item (`${item.name}@${item.version}`)}
-      <button type="button" class="row tall" title={item.url} onclick={() => act('open', 'open_url', { url: item.url })}>
-        <span class="label">
-          <span>{item.name} <span class="sub">{item.version}</span></span>
-          <span class="sub">{item.license}</span>
-        </span>
-        <span class="chevron"><Icon name="chevron" /></span>
+      <button type="button" class="row" title={item.url} onclick={() => act('open', 'open_url', { url: item.url })}>
+        <span class="grow clip">{item.name}</span>
+        <span class="val">{item.version}</span>
+        <span class="val">{item.license}</span>
+        <Icon name="chevron" class="chev" />
       </button>
     {:else}
-      {#if licenses.length}<div class="row"><span class="sub">{t('licenses.noMatch')}</span></div>{/if}
+      {#if licenses.length}<div class="row"><span class="val">{t('licenses.noMatch')}</span></div>{/if}
     {/each}
   </div>
 </Page>

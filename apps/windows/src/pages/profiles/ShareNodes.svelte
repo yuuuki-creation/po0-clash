@@ -1,15 +1,14 @@
 <script>
-  import { flip } from 'svelte/animate';
   import { invoke } from '@tauri-apps/api/core';
   import { act, app, notify } from '../../lib/core.svelte.js';
   import { t } from '../../lib/i18n.js';
   import Dialog from '../../lib/Dialog.svelte';
   import Icon from '../../lib/Icon.svelte';
-  import { motion, rise } from '../../lib/motion.svelte.js';
+  import { rowIn, rowOut } from '../../lib/motion.svelte.js';
   import Page from '../../lib/Page.svelte';
 
   let { profile, onback } = $props();
-  let nodes = $state([]);
+  let nodes = $state(null);
   let renaming = $state(null);
   let removing = $state(null);
 
@@ -39,43 +38,46 @@
     removing = null;
     if ((await act(`node:remove:${name}`, 'remove_share_node', { id: profile.id, name })) !== undefined) await load();
   }
+
+  const crumbs = $derived([{ label: t('page.profiles'), onclick: onback }]);
 </script>
 
-<Page title={t('nodes.title')} subtitle={t('nodes.count', { count: nodes.length })} {onback} form>
-  <div class="list">
-    {#each nodes as node (node.name)}
-      <div class="row" animate:flip={{ duration: motion(260) }} transition:rise>
-        <span class="tag mono">{node.kind}</span>
-        <span class="grow selectable">{node.name}</span>
-        <button
-          type="button"
-          class="icon-button"
-          title={t('nodes.rename')}
-          aria-label={t('nodes.rename')}
-          onclick={() => (renaming = { name: node.name, newName: node.name })}><Icon name="pencil" /></button
-        >
-        <button
-          type="button"
-          class="icon-button"
-          title={nodes.length > 1 ? t('nodes.delete') : t('nodes.lastNode')}
-          aria-label={t('nodes.delete')}
-          disabled={nodes.length < 2 || app.busy[`node:remove:${node.name}`]}
-          onclick={() => (removing = node)}><Icon name="trash" /></button
-        >
-      </div>
-    {/each}
-  </div>
-  <p class="note">{t('nodes.hint')}</p>
+<Page title={t('nodes.title')} {crumbs}>
+  {#if nodes}
+    <div class="group">
+      {#each nodes as node (node.name)}
+        <div class="row" in:rowIn out:rowOut>
+          <span class="val">{node.kind}</span>
+          <span class="grow clip selectable">{node.name}</span>
+          <button
+            type="button"
+            class="icon-btn"
+            title={t('nodes.rename')}
+            aria-label={t('nodes.rename')}
+            onclick={() => (renaming = { name: node.name, newName: node.name })}><Icon name="edit" /></button
+          >
+          <button
+            type="button"
+            class="icon-btn"
+            title={nodes.length > 1 ? t('nodes.delete') : t('nodes.lastNode')}
+            aria-label={t('nodes.delete')}
+            disabled={nodes.length < 2 || app.busy[`node:remove:${node.name}`]}
+            onclick={() => (removing = node)}><Icon name="trash" /></button
+          >
+        </div>
+      {/each}
+    </div>
+  {/if}
 </Page>
 
 {#if renaming}
   <Dialog title={t('nodes.renameTitle')} onclose={() => (renaming = null)}>
-    <form id="rename-node" onsubmit={rename}>
+    <form id="rename-node" class="dialog-form" onsubmit={rename}>
       <!-- svelte-ignore a11y_autofocus -->
-      <input bind:value={renaming.newName} aria-label={t('nodes.name')} spellcheck="false" autofocus />
+      <input class="in" bind:value={renaming.newName} aria-label={t('nodes.name')} spellcheck="false" autofocus />
     </form>
     {#snippet actions()}
-      <button type="submit" form="rename-node" class="pill filled" disabled={!renaming.newName.trim() || app.busy['node:rename']}
+      <button type="submit" form="rename-node" class="btn primary" disabled={!renaming.newName.trim() || app.busy['node:rename']}
         >{t('nodes.rename')}</button
       >
     {/snippet}
@@ -85,7 +87,7 @@
 {#if removing}
   <Dialog title={t('nodes.confirmDelete', { name: removing.name })} onclose={() => (removing = null)}>
     {#snippet actions()}
-      <button type="button" class="pill destructive" onclick={remove}>{t('nodes.delete')}</button>
+      <button type="button" class="btn primary" onclick={remove}>{t('nodes.delete')}</button>
     {/snippet}
   </Dialog>
 {/if}

@@ -2,9 +2,7 @@ import { mockIPC, mockWindows } from '@tauri-apps/api/mocks';
 import { mount } from 'svelte';
 import App from '../src/App.svelte';
 import '../src/app.css';
-import '../src/styles/workspace.css';
 import { app } from '../src/lib/core.svelte.js';
-import { watchGlass } from '../src/lib/glass.js';
 import { setLanguage } from '../src/lib/i18n.js';
 import { loadSettings, settings } from '../src/lib/settings.svelte.js';
 import { watchAppearance } from '../src/lib/theme.svelte.js';
@@ -19,8 +17,8 @@ const defaults = {
   groupIconStyle: 'standard',
   showNavLabels: true,
   themeMode: 'system',
-  themeColor: 0xff007aff,
-  themeColors: [],
+  themeColor: 0xff24694c,
+  themeColors: [0xff24694c, 0xff007aff],
   schemeVariant: 'tonalSpot',
   pureBlack: false,
   textScale: null,
@@ -91,6 +89,5 @@ mockIPC(async (command, args) => {
 await loadSettings();
 setLanguage(settings.value.language ?? 'en');
 watchAppearance();
-watchGlass();
 mount(App, { target: document.getElementById('app') });
 window.fixture = { app, settings, storageKey: key };

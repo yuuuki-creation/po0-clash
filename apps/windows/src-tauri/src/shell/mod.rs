@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use po0::{Change, Core, CoreOptions, LaunchRecovery, Listener, Platform};
 use po0_core as po0;
+use tauri::window::Color;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 
 /// The language chosen in the app settings, or the system's when none is: `zh`, `en`, `ja` or `ru`.
@@ -35,8 +36,6 @@ pub struct LaunchNotice {
 
 pub struct Launch(pub Mutex<Option<LaunchNotice>>);
 
-pub struct Backdrop(pub bool);
-
 pub fn show_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
@@ -45,11 +44,17 @@ pub fn show_window(app: &AppHandle) {
     }
 }
 
-/// Windows 10 draws Acrylic untinted, which leaves the page titles on a raw blur of the desktop.
-fn acrylic_tint(window: &tauri::WebviewWindow) -> (u8, u8, u8, u8) {
-    match window.theme() {
-        Ok(tauri::Theme::Dark) => (32, 32, 32, 200),
-        _ => (243, 243, 243, 200),
+/// The page colour for the window before the interface has loaded; the interface keeps it in sync afterwards.
+fn page_color(window: &tauri::WebviewWindow, settings: &po0::AppSettings) -> Color {
+    let dark = match settings.theme_mode {
+        po0::ThemeMode::Dark => true,
+        po0::ThemeMode::Light => false,
+        po0::ThemeMode::System => matches!(window.theme(), Ok(tauri::Theme::Dark)),
+    };
+    match (dark, settings.pure_black) {
+        (true, true) => Color(0x00, 0x00, 0x00, 0xFF),
+        (true, false) => Color(0x18, 0x17, 0x14, 0xFF),
+        _ => Color(0xEF, 0xEC, 0xE8, 0xFF),
     }
 }
 
@@ -194,10 +199,7 @@ pub fn run() {
             let core = open_core(handle).unwrap_or_else(|e| fatal(&e));
             app.manage(Arc::clone(&core));
             let window = app.get_webview_window("main").expect("main window");
-            let backdrop = window_vibrancy::apply_mica(&window, None)
-                .or_else(|_| window_vibrancy::apply_acrylic(&window, Some(acrylic_tint(&window))))
-                .is_ok();
-            app.manage(Backdrop(backdrop));
+            let _ = window.set_background_color(Some(page_color(&window, &core.app_settings())));
             tray::create(handle)?;
             app.manage(hotkeys::Hotkeys::spawn(handle.clone()));
             hotkeys::refresh(handle);
