@@ -343,6 +343,17 @@ jobs:
           shoot window-proxies-dark 15 "${connected[@]}" -showWindow proxies -appearance dark
           shoot window-whitelist-dark 6 -showWindow whitelist -appearance dark
           shoot window-proxies-list 15 "${connected[@]}" -showWindow proxies -proxiesLayout list
+          # Design review on the demo's busy profile, with no engine behind it.
+          sample=(-sample YES -AppleLanguages '(zh-Hans)')
+          for page in dashboard proxies profiles whitelist activity tools; do
+            shoot "design-$page" 4 "${sample[@]}" -showWindow "$page"
+            shoot "design-$page-dark" 4 "${sample[@]}" -showWindow "$page" -appearance dark
+          done
+          shoot design-proxies-list 4 "${sample[@]}" -showWindow proxies -proxiesLayout list
+          for page in dashboard proxies profiles whitelist; do
+            shoot "design-$page-narrow" 4 "${sample[@]}" -showWindow "$page" -windowSize 640x500
+          done
+          shoot design-dashboard-blue 4 "${sample[@]}" -showWindow dashboard -themeColor 4278221567
 
       - name: Upload screenshots
         if: always()

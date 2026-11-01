@@ -8,27 +8,27 @@ struct MenuView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if let error = model.launchError {
-                Label {
-                    Text(error).textSelection(.enabled)
-                } icon: {
-                    Image(systemName: "exclamationmark.triangle").foregroundStyle(.red)
+                RowGroup {
+                    Row { ErrorText(message: error) }
                 }
-                .groupedSection()
             } else {
-                ConnectionCard().groupedSection()
-                ControlsGrid().groupedSection()
+                ConnectionGroup()
+                ControlsGroup()
                 if model.status?.mode != .direct, !model.groups.isEmpty {
                     GroupsSection()
                 }
-                WhitelistSummary().groupedSection()
+                RowGroup { WhitelistSummary() }
             }
             if let notice = model.notice {
-                NoticeBanner(text: notice) { model.notice = nil }.groupedSection()
+                RowGroup {
+                    NoticeBanner(text: notice) { model.notice = nil }
+                }
             }
             MenuActions()
         }
         .padding(12)
         .frame(width: 340)
+        .background(Color.page)
         .onAppear { model.setVisible(.menu, true) }
         .onDisappear { model.setVisible(.menu, false) }
         .background(WindowVisibility { model.setVisible(.menu, $0) })
@@ -81,112 +81,76 @@ struct WindowVisibility: NSViewRepresentable {
     }
 }
 
-private struct ConnectionCard: View {
+private struct ConnectionGroup: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center) {
+        RowGroup {
+            Row {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: "po0-clash").font(.headline)
-                    Text(model.stateTitle).font(.subheadline).foregroundStyle(.secondary).contentTransition(.opacity)
+                    Text(verbatim: "po0-clash").font(Ui.boldFont)
+                    Text(verbatim: model.stateTitle).foregroundStyle(Color.ink2)
                 }
-                Spacer()
-                Toggle("Connect", isOn: Binding(get: { model.isOn }, set: { model.setConnected($0) }))
-                    .toggleStyle(.themedSwitch)
-                    .labelsHidden()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                SwitchControl(isOn: Binding(get: { model.isOn }, set: { model.setConnected($0) }))
                     .disabled(model.busy || model.status == nil)
+                    .accessibilityLabel(Text("Connect"))
             }
             if case .failed(let message)? = model.status?.engine {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .lineLimit(4)
-                    .textSelection(.enabled)
-                Button("Reconnect") { model.reconnect() }
-                    .glassButton(prominent: true)
-                    .disabled(model.busy)
-            }
-            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
-                if model.isRunning {
-                    InfoRow(title: "Node", value: model.status?.currentNode ?? "—")
-                }
-                InfoRow(title: "Exit IP", value: model.exitIpText)
-                if model.isRunning {
-                    GridRow {
-                        Text("Speed").foregroundStyle(.secondary)
-                        HStack(spacing: 12) {
-                            Label(Format.rate(model.traffic?.up ?? 0), systemImage: "arrow.up")
-                            Label(Format.rate(model.traffic?.down ?? 0), systemImage: "arrow.down")
-                        }
-                        .monospacedDigit()
-                        .rollingDigits()
-                        .motion(Motion.quick, value: model.traffic?.down)
-                    }
+                Row {
+                    ErrorText(message: message).lineLimit(4)
+                    Button("Reconnect") { model.reconnect() }
+                        .disabled(model.busy)
                 }
             }
-            .font(.callout)
-        }
-        .motion(value: model.stateTitle)
-    }
-
-}
-
-private struct InfoRow: View {
-    let title: LocalizedStringKey
-    let value: String
-
-    var body: some View {
-        GridRow {
-            Text(title).foregroundStyle(.secondary)
-            Text(value).lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+            if model.isRunning {
+                ValueRow(Text("Node")) {
+                    Text(verbatim: model.status?.currentNode ?? "—").textSelection(.enabled)
+                }
+            }
+            ValueRow(Text("Exit IP")) {
+                Text(verbatim: model.exitIpText).textSelection(.enabled)
+            }
+            if model.isRunning {
+                ValueRow(Text("Speed")) {
+                    Text(verbatim: "↑ \(Format.rate(model.traffic?.up ?? 0))  ↓ \(Format.rate(model.traffic?.down ?? 0))")
+                }
+            }
         }
     }
 }
 
-private struct ControlsGrid: View {
+private struct ControlsGroup: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
-            GridRow {
-                Text("Mode").foregroundStyle(.secondary)
-                Picker("Mode", selection: Binding(get: { model.status?.mode ?? .rule }, set: { model.setMode($0) })) {
-                    Text("Rule").tag(Mode.rule)
-                    Text("Global").tag(Mode.global)
-                    Text("Direct").tag(Mode.direct)
-                }
-                .themedSegments()
-                .labelsHidden()
+        RowGroup {
+            ControlRow(Text("Mode")) {
+                SegmentedControl(
+                    selection: Binding(get: { model.status?.mode ?? .rule }, set: { model.setMode($0) }),
+                    segments: Mode.segments
+                )
             }
-            GridRow {
-                Text("Route").foregroundStyle(.secondary)
-                Picker("Route", selection: Binding(
-                    get: { model.status?.routeMode ?? .systemProxy },
-                    set: { model.setRouteMode($0) }
-                )) {
-                    Text("System proxy").tag(RouteMode.systemProxy)
-                    Text("TUN").tag(RouteMode.tun)
-                }
-                .themedSegments()
-                .labelsHidden()
+            ControlRow(Text("Route")) {
+                SegmentedControl(
+                    selection: Binding(get: { model.status?.routeMode ?? .systemProxy }, set: { model.setRouteMode($0) }),
+                    segments: [Segment(RouteMode.systemProxy, "System proxy"), Segment(RouteMode.tun, "TUN")]
+                )
             }
-            GridRow {
-                Text("Subscription").foregroundStyle(.secondary)
-                if model.profiles.isEmpty {
+            if model.profiles.isEmpty {
+                Row {
+                    Text("Subscription").frame(maxWidth: .infinity, alignment: .leading)
                     Button("Add Subscription…") { MainWindow.shared.show(.profiles) }
-                        .buttonStyle(.link)
-                } else {
-                    Picker("Subscription", selection: Binding<String?>(
+                }
+            } else {
+                OptionRow(
+                    "Subscription",
+                    selection: Binding<String?>(
                         get: { model.profiles.first(where: \.selected)?.id },
                         set: { if let id = $0 { model.selectProfile(id) } }
-                    )) {
-                        ForEach(model.profiles, id: \.id) { profile in
-                            Text(profile.title).tag(Optional(profile.id))
-                        }
-                    }
-                    .labelsHidden()
-                }
+                    ),
+                    options: model.profiles.map { Option<String?>($0.id, $0.title) }
+                )
             }
         }
         .disabled(model.busy || model.status == nil)
@@ -198,8 +162,8 @@ private struct GroupsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Proxies").font(.subheadline).foregroundStyle(.secondary).padding(.leading, 4)
-            Group {
+            Text("Proxies").font(Ui.boldFont)
+            RowGroup {
                 if model.groups.count > 6 {
                     ScrollView {
                         rows
@@ -209,12 +173,11 @@ private struct GroupsSection: View {
                     rows
                 }
             }
-            .groupedSection()
         }
     }
 
     private var rows: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 0) {
             ForEach(model.groups, id: \.name) { group in
                 GroupRow(group: group)
             }
@@ -227,38 +190,30 @@ private struct GroupRow: View {
     let group: ProxyGroup
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text(group.name)
+        Row {
+            Text(verbatim: group.name)
                 .lineLimit(1)
                 .frame(width: 96, alignment: .leading)
             if group.selectable {
-                Picker(group.name, selection: Binding(
-                    get: { group.now ?? "" },
-                    set: { model.selectNode(group: group.name, node: $0) }
-                )) {
-                    ForEach(group.nodes, id: \.name) { node in
-                        Text(Format.delay(node).map { "\(node.name)   \($0)" } ?? node.name).tag(node.name)
+                OptionMenu(
+                    selection: Binding(
+                        get: { group.now ?? "" },
+                        set: { model.selectNode(group: group.name, node: $0) }
+                    ),
+                    options: group.nodes.map { node in
+                        Option(node.name, Format.delay(node).map { "\(node.name)   \($0)" } ?? node.name)
                     }
-                }
-                .labelsHidden()
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                Text(group.now ?? "—")
-                    .foregroundStyle(.secondary)
+                Text(verbatim: group.now ?? "—")
+                    .foregroundStyle(Color.ink2)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Button {
+            IconButton(symbol: "speedometer", help: "Test delay", busy: model.testingGroups.contains(group.name)) {
                 model.testDelay(group.name)
-            } label: {
-                if model.testingGroups.contains(group.name) {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Image(systemName: "speedometer")
-                }
             }
-            .buttonStyle(.borderless)
-            .frame(width: 20)
-            .help("Test delay")
         }
     }
 }
@@ -267,29 +222,27 @@ private struct WhitelistSummary: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        HStack(spacing: 10) {
+        Row {
             Button {
                 MainWindow.shared.show(.whitelist)
             } label: {
                 HStack(spacing: 10) {
-                    Image(systemName: "checkmark.shield").foregroundStyle(.secondary)
+                    Image(systemName: "checkmark.shield").foregroundStyle(Color.accentColor)
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Auto whitelist")
-                        Text(model.whitelistSummary).font(.caption).foregroundStyle(.secondary)
+                        Text(verbatim: model.whitelistSummary).foregroundStyle(Color.ink2)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            Spacer()
-            Toggle("Auto whitelist", isOn: Binding(
+            SwitchControl(isOn: Binding(
                 get: { model.whitelist?.enabled ?? false },
                 set: { model.setWhitelistEnabled($0) }
             ))
-            .toggleStyle(.themedSwitch)
-            .controlSize(.small)
-            .labelsHidden()
             .disabled(model.whitelist == nil)
+            .accessibilityLabel(Text("Auto whitelist"))
         }
     }
 }
@@ -316,7 +269,7 @@ private struct MenuActions: View {
             MenuRow("Launch at Login", checked: launchAtLogin, action: toggleLaunchAtLogin)
             MenuRow(copied ? "Copied" : "Copy Terminal Proxy Command", action: copyProxyCommand)
                 .disabled(model.proxyCommand == nil)
-            Divider().padding(.vertical, 4)
+            Rectangle().fill(Color.line).frame(height: 1).padding(.vertical, 4)
             MenuRow("Quit po0-clash", shortcut: "⌘Q") { quitApp() }
                 .keyboardShortcut("q")
         }
@@ -351,6 +304,7 @@ private struct MenuRow: View {
     var shortcut: String?
     let action: () -> Void
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.onAccent) private var onAccent
     @State private var hovering = false
 
     init(_ title: LocalizedStringKey, checked: Bool = false, shortcut: String? = nil, action: @escaping () -> Void) {
@@ -360,25 +314,30 @@ private struct MenuRow: View {
         self.action = action
     }
 
+    private var highlighted: Bool { hovering && isEnabled }
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: "checkmark")
-                    .font(.caption.weight(.semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .frame(width: 16)
                     .opacity(checked ? 1 : 0)
                 Text(title)
                 Spacer(minLength: 12)
                 if let shortcut {
-                    Text(verbatim: shortcut).foregroundStyle(.secondary)
+                    Text(verbatim: shortcut)
+                        .foregroundStyle(highlighted ? onAccent : Color.ink2)
                 }
             }
             .padding(.horizontal, 6)
-            .padding(.vertical, 4)
+            .frame(minHeight: 26)
+            .foregroundStyle(highlighted ? onAccent : Color.ink)
+            .opacity(isEnabled ? 1 : 0.5)
             .contentShape(Rectangle())
             .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(hovering && isEnabled ? Color.primary.opacity(0.08) : .clear)
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(highlighted ? Color.accentColor : Color.clear)
             )
         }
         .buttonStyle(.plain)
@@ -391,14 +350,9 @@ struct NoticeBanner: View {
     let dismiss: () -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "info.circle").foregroundStyle(.secondary)
-            Text(text).font(.callout).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-            Button(action: dismiss) {
-                Image(systemName: "xmark")
-            }
-            .buttonStyle(.borderless)
-            .help("Dismiss")
+        Row {
+            Text(verbatim: text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+            IconButton(symbol: "xmark", help: "Dismiss", action: dismiss)
         }
     }
 }

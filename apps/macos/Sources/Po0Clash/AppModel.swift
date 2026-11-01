@@ -134,6 +134,28 @@ final class AppModel: ObservableObject {
 
     var hasCore: Bool { client != nil }
 
+    /// With no core behind it the refreshes find nothing to read, so this data stays until the app quits.
+    func adoptSample(_ sample: Showcase.Sample) {
+        appSettings = sample.settings
+        engineOptions = sample.engineOptions
+        status = sample.status
+        groups = sample.groups
+        profiles = sample.profiles
+        whitelist = sample.whitelist
+        traffic = sample.traffic
+        trafficHistory = sample.trafficHistory
+        memory = sample.memory
+        connectionSummary = ConnectionSummary(
+            count: sample.connections.items.count,
+            upload: sample.connections.uploadTotal,
+            download: sample.connections.downloadTotal
+        )
+        exitIp = sample.exitIp
+        ipQuality = sample.ipQuality
+        intranetIp = sample.intranetIp
+        connectedAt = Date().addingTimeInterval(-3725)
+    }
+
     /// For pages that poll the core themselves, such as Activity.
     var core: CoreClient? { client }
 

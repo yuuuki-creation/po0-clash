@@ -1,5 +1,6 @@
 import AppKit
 import Po0FFI
+import QuartzCore
 import SwiftUI
 
 enum Format {
@@ -44,13 +45,12 @@ enum Format {
         return delay == 0 ? String(localized: "Timeout") : "\(delay) ms"
     }
 
-    /// The Flutter app's thresholds: a timeout is red, under 600 ms green, anything slower orange.
+    /// A timeout is an error and anything from 600 ms up a warning, the Flutter app's thresholds.
     static func delayTint(_ delay: UInt32?) -> Color {
         switch delay {
-        case 0?: return .badText
-        case let delay? where delay < 600: return .goodText
-        case .some: return .warnText
-        case nil: return .secondary
+        case 0?: return .bad
+        case let delay? where delay >= 600: return .warn
+        default: return .ink2
         }
     }
 
@@ -58,10 +58,9 @@ enum Format {
         count == 1 ? String(localized: "1 node") : String(localized: "\(count) nodes")
     }
 
-    /// "2.59 GB" as its number and unit, so the unit can be set smaller and grey.
-    static func parts(_ text: String) -> (value: String, unit: String) {
-        guard let space = text.lastIndex(where: \.isWhitespace) else { return (text, "") }
-        return (String(text[..<space]), String(text[text.index(after: space)...]))
+    static func usage(_ usage: Usage?) -> String? {
+        guard let usage, usage.total > 0 else { return nil }
+        return "\(bytes(usage.upload + usage.download)) / \(bytes(usage.total))"
     }
 
     private static let relative: RelativeDateTimeFormatter = {
@@ -75,20 +74,15 @@ enum Format {
     }
 }
 
-/// docs/development/native-design.md in macOS 26's grouped-form colours, so cards match the settings pages: a white
-/// page, faint grey cards on it, white tiles inside the cards.
-extension Color {
-    static let pageBackground = Color(light: 0xFFFFFF, dark: 0x1E1E1E, black: 0x000000)
-    static let cardBackground = Color(light: 0xF7F7F7, dark: 0x252525, black: 0x161616)
-    static let tileBackground = Color(light: 0xFFFFFF, dark: 0x303030, black: 0x262626)
-    static let controlFill = Color(light: 0x767680, dark: 0x767680, lightAlpha: 0.12, darkAlpha: 0.24)
-    static let cardEdge = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.05, darkAlpha: 0.06)
-    static let goodText = Color(light: 0x1E7F35, dark: 0x30D158)
-    static let warnText = Color(light: 0xB25000, dark: 0xFF9F0A)
-    static let badText = Color(light: 0xD70015, dark: 0xFF6961)
-
-    init(light: UInt32, dark: UInt32, black: UInt32? = nil, lightAlpha: CGFloat = 1, darkAlpha: CGFloat = 1) {
-        self.init(nsColor: NSColor(name: nil) { appearance in
+extension NSColor {
+    static func token(
+        light: UInt32,
+        dark: UInt32,
+        black: UInt32? = nil,
+        lightAlpha: CGFloat = 1,
+        darkAlpha: CGFloat = 1
+    ) -> NSColor {
+        NSColor(name: nil) { appearance in
             let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
             let hex = isDark ? (Theme.pureBlack ? black ?? dark : dark) : light
             return NSColor(
@@ -97,27 +91,105 @@ extension Color {
                 blue: CGFloat(hex & 0xFF) / 255,
                 alpha: isDark ? darkAlpha : lightAlpha
             )
-        })
+        }
+    }
+
+    static let pageBackground = token(light: 0xEFECE8, dark: 0x181714, black: 0x000000)
+    static let inkText = token(light: 0x211F1C, dark: 0xF3F1EE)
+    static let badText = token(light: 0xAF2B25, dark: 0xFB9890)
+
+    convenience init(argb: UInt32) {
+        self.init(
+            srgbRed: CGFloat(argb >> 16 & 0xFF) / 255,
+            green: CGFloat(argb >> 8 & 0xFF) / 255,
+            blue: CGFloat(argb & 0xFF) / 255,
+            alpha: CGFloat(argb >> 24 & 0xFF) / 255
+        )
+    }
+}
+
+extension Color {
+    static let page = Color(nsColor: .pageBackground)
+    static let side = Color(light: 0xE5E3DE, dark: 0x201F1C, black: 0x0E0E0D)
+    static let card = Color(light: 0xFEFDFC, dark: 0x252421, black: 0x171614)
+    static let zebra = Color(light: 0xF7F5F0, dark: 0x2B2A27, black: 0x1D1C1A)
+    static let track = Color(light: 0xE2DFDA, dark: 0x32302D, black: 0x262523)
+    static let controlSurface = Color(light: 0xFEFDFC, dark: 0x2F2E2B, black: 0x232220)
+    static let segmentThumb = Color(light: 0xFEFDFC, dark: 0x373532, black: 0x2C2B28)
+    static let switchOff = Color(light: 0xADAAA6, dark: 0x656360)
+    static let dialogSurface = Color(light: 0xFBFAF8, dark: 0x282623, black: 0x1A1918)
+
+    static let ink = Color(nsColor: .inkText)
+    static let ink2 = Color(light: 0x575551, dark: 0xB9B7B3)
+    static let ink3 = Color(light: 0x888681, dark: 0x888682)
+    static let warn = Color(light: 0x875800, dark: 0xEBC573)
+    static let bad = Color(nsColor: .badText)
+
+    static let line = Color(light: 0x211F1C, dark: 0xF3F1EE, lightAlpha: 0.11, darkAlpha: 0.127)
+    static let stroke = Color(light: 0x211F1C, dark: 0xF3F1EE, lightAlpha: 0.07, darkAlpha: 0.07)
+    static let press = Color(light: 0x211F1C, dark: 0xF3F1EE, lightAlpha: 0.07, darkAlpha: 0.07)
+    static let listSelection = Color(light: 0x211F1C, dark: 0xF3F1EE, lightAlpha: 0.08, darkAlpha: 0.08)
+    static let controlRing = Color(light: 0x211F1C, dark: 0xF3F1EE, lightAlpha: 0.18, darkAlpha: 0.18)
+    static let segmentRing = Color(light: 0x211F1C, dark: 0xF3F1EE, lightAlpha: 0.1, darkAlpha: 0.1)
+    static let controlShadow = Color(light: 0x000000, dark: 0x000000, lightAlpha: 0.07, darkAlpha: 0.3)
+    static let thumbShadow = Color(light: 0x000000, dark: 0x000000, lightAlpha: 0.18, darkAlpha: 0.4)
+    static let scrim = Color(light: 0x000000, dark: 0x000000, lightAlpha: 0.32, darkAlpha: 0.5)
+
+    init(light: UInt32, dark: UInt32, black: UInt32? = nil, lightAlpha: CGFloat = 1, darkAlpha: CGFloat = 1) {
+        self.init(nsColor: .token(light: light, dark: dark, black: black, lightAlpha: lightAlpha, darkAlpha: darkAlpha))
+    }
+
+    var argb: UInt32? {
+        guard let color = NSColor(self).usingColorSpace(.sRGB) else { return nil }
+        let channel = { (value: CGFloat) in UInt32((min(max(value, 0), 1) * 255).rounded()) }
+        return 0xFF00_0000 | channel(color.redComponent) << 16 | channel(color.greenComponent) << 8
+            | channel(color.blueComponent)
     }
 }
 
 /// The theme settings FlClash keeps in the core, applied over the system appearance.
 enum Theme {
     static var pureBlack = false
-    static let defaultColor: UInt32 = 0xFF00_7AFF
+    private static var appliedColor: UInt32?
+
+    // crates/core/src/app_settings.rs keeps the same list as THEME_COLOR_PRESETS.
+    static let defaultColor: UInt32 = 0xFF24_694C
     static let presets: [UInt32] = [
-        defaultColor, 0xFF58_56D6, 0xFFAF_52DE, 0xFFFF_2D55, 0xFFFF_9500, 0xFF34_C759, 0xFF30_B0C7, 0xFF8E_8E93,
+        defaultColor, 0xFF00_7AFF, 0xFF58_56D6, 0xFFAF_52DE, 0xFFFF_2D55, 0xFFFF_9500, 0xFF34_C759, 0xFF30_B0C7,
+        0xFF8E_8E93,
     ]
 
     @MainActor
     static func apply(_ settings: AppSettings?) {
         guard let settings else { return }
+        let target = appearance(settings.themeMode)
+        let keepsAppearance = Showcase.forcesAppearance || NSApp.appearance?.name == target?.name
+        if appliedColor != nil, settings.themeColor != appliedColor || settings.pureBlack != pureBlack || !keepsAppearance {
+            fadeWindows()
+        }
+        appliedColor = settings.themeColor
         pureBlack = settings.pureBlack
-        guard !Showcase.forcesAppearance else { return }
-        switch settings.themeMode {
-        case .system: NSApp.appearance = nil
-        case .light: NSApp.appearance = NSAppearance(named: .aqua)
-        case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
+        if !Showcase.forcesAppearance { NSApp.appearance = target }
+    }
+
+    private static func appearance(_ mode: ThemeMode) -> NSAppearance? {
+        switch mode {
+        case .system: return nil
+        case .light: return NSAppearance(named: .aqua)
+        case .dark: return NSAppearance(named: .darkAqua)
+        }
+    }
+
+    @MainActor
+    private static func fadeWindows() {
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
+        for window in NSApp.windows where window.isVisible {
+            guard let view = window.contentView else { continue }
+            view.wantsLayer = true
+            let fade = CATransition()
+            fade.type = .fade
+            fade.duration = 0.2
+            view.layer?.add(fade, forKey: "theme")
         }
     }
 
@@ -125,9 +197,14 @@ enum Theme {
         Color(nsColor: nsAccent(argb))
     }
 
-    /// The presets are Apple's system colours, so they keep their dark-mode variants.
+    static func onAccent(_ argb: UInt32) -> Color {
+        Color(nsColor: nsOnAccent(argb))
+    }
+
+    /// The other presets are Apple's system colours, so they keep their dark-mode variants.
     static func nsAccent(_ argb: UInt32) -> NSColor {
         switch argb {
+        case 0xFF24_694C: return .token(light: 0x24694C, dark: 0x80CEA8)
         case 0xFF00_7AFF: return .systemBlue
         case 0xFF58_56D6: return .systemIndigo
         case 0xFFAF_52DE: return .systemPurple
@@ -138,6 +215,27 @@ enum Theme {
         case 0xFF8E_8E93: return .systemGray
         default: return NSColor(argb: argb)
         }
+    }
+
+    /// White until the accent is too light to carry it, which is where 3:1 contrast runs out.
+    static func nsOnAccent(_ argb: UInt32) -> NSColor {
+        let accent = nsAccent(argb)
+        return NSColor(name: nil) { appearance in
+            var luminance: CGFloat = 0
+            appearance.performAsCurrentDrawingAppearance {
+                luminance = Theme.relativeLuminance(accent)
+            }
+            return luminance > 0.3 ? NSColor(srgbRed: 0x0D / 255, green: 0x1F / 255, blue: 0x16 / 255, alpha: 1) : .white
+        }
+    }
+
+    private static func relativeLuminance(_ color: NSColor) -> CGFloat {
+        guard let color = color.usingColorSpace(.sRGB) else { return 0 }
+        let linear = { (value: CGFloat) -> CGFloat in
+            value <= 0.03928 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(color.redComponent) + 0.7152 * linear(color.greenComponent)
+            + 0.0722 * linear(color.blueComponent)
     }
 }
 
@@ -151,267 +249,25 @@ struct AppTheme: ViewModifier {
     @EnvironmentObject private var model: AppModel
 
     func body(content: Content) -> some View {
-        let accent = Theme.accent(model.themeColor)
         content
-            .accentColor(accent)
-            .environment(\.themeAccent, accent)
-            .toggleStyle(.themedSwitch)
+            .accentColor(Theme.accent(model.themeColor))
+            .environment(\.onAccent, Theme.onAccent(model.themeColor))
+            .font(Ui.font)
+            .monospacedDigit()
+            .foregroundStyle(Color.ink)
+            .buttonStyle(ActionButtonStyle())
             .id(model.appSettings?.pureBlack ?? false)
     }
 }
 
-private struct ThemeAccentKey: EnvironmentKey {
-    static let defaultValue = Color.accentColor
+private struct OnAccentKey: EnvironmentKey {
+    static let defaultValue = Color.white
 }
 
 extension EnvironmentValues {
-    /// The theme colour itself: `Color.accentColor` reaches switches and segmented pickers as the system accent.
-    var themeAccent: Color {
-        get { self[ThemeAccentKey.self] }
-        set { self[ThemeAccentKey.self] = newValue }
-    }
-}
-
-/// A window-wide tint would colour push buttons too, so the theme reaches switches through their style.
-struct ThemedSwitch: ToggleStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        ThemedSwitchBody(configuration: configuration)
-    }
-}
-
-private struct ThemedSwitchBody: View {
-    let configuration: ToggleStyleConfiguration
-    @Environment(\.themeAccent) private var accent
-
-    var body: some View {
-        Toggle(configuration)
-            .toggleStyle(.switch)
-            .tint(accent)
-    }
-}
-
-extension ToggleStyle where Self == ThemedSwitch {
-    static var themedSwitch: ThemedSwitch { ThemedSwitch() }
-}
-
-extension View {
-    func themedSegments() -> some View {
-        modifier(ThemedSegments())
-    }
-}
-
-private struct ThemedSegments: ViewModifier {
-    @Environment(\.themeAccent) private var accent
-
-    func body(content: Content) -> some View {
-        content
-            .pickerStyle(.segmented)
-            .tint(accent)
-    }
-}
-
-extension NSColor {
-    convenience init(argb: UInt32) {
-        self.init(
-            srgbRed: CGFloat(argb >> 16 & 0xFF) / 255,
-            green: CGFloat(argb >> 8 & 0xFF) / 255,
-            blue: CGFloat(argb & 0xFF) / 255,
-            alpha: CGFloat(argb >> 24 & 0xFF) / 255
-        )
-    }
-}
-
-extension Color {
-    var argb: UInt32? {
-        guard let color = NSColor(self).usingColorSpace(.sRGB) else { return nil }
-        let channel = { (value: CGFloat) in UInt32((min(max(value, 0), 1) * 255).rounded()) }
-        return 0xFF00_0000 | channel(color.redComponent) << 16 | channel(color.greenComponent) << 8
-            | channel(color.blueComponent)
-    }
-}
-
-struct Metric: View {
-    private let value: String
-    private let unit: String
-    private let size: CGFloat
-
-    init(_ text: String, size: CGFloat = 26) {
-        (value, unit) = Format.parts(text)
-        self.size = size
-    }
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 3) {
-            Text(value)
-                .font(.system(size: size, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .rollingDigits()
-            if !unit.isEmpty {
-                Text(unit).font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
-            }
-        }
-        .lineLimit(1)
-        .motion(Motion.quick, value: value)
-    }
-}
-
-struct CircleButton: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    let symbol: String
-    let help: LocalizedStringKey
-    var size: CGFloat = 24
-    var busy = false
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Group {
-                if busy {
-                    if reduceMotion {
-                        Image(systemName: "ellipsis")
-                    } else {
-                        ProgressView().controlSize(.mini).transition(.opacity)
-                    }
-                } else {
-                    Image(systemName: symbol)
-                        .font(.system(size: size * 0.46, weight: .semibold))
-                        .replacingSymbol()
-                        .transition(.opacity)
-                }
-            }
-            .frame(width: size, height: size)
-            .background(Color.controlFill, in: Circle())
-            .hoverHighlight(Circle())
-            .contentShape(Circle())
-            .motion(Motion.quick, value: busy)
-        }
-        .buttonStyle(.pressable)
-        .disabled(busy)
-        .help(help)
-        .accessibilityLabel(Text(help))
-    }
-}
-
-struct SearchField: View {
-    @Binding var text: String
-    let prompt: LocalizedStringKey
-    @FocusState private var focused: Bool
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField(prompt, text: $text).textFieldStyle(.plain).focused($focused)
-            if !text.isEmpty {
-                Button {
-                    text = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Clear")
-            }
-        }
-        .font(.system(size: 13))
-        .padding(.horizontal, 10)
-        .frame(height: 30)
-        .background(Color.controlFill, in: Capsule())
-        .overlay(Capsule().strokeBorder(Color.accentColor.opacity(focused ? 0.5 : 0), lineWidth: 1.5))
-        .motion(Motion.quick, value: focused)
-        .onAppear { focused = true }
-        .onExitCommand { text = "" }
-    }
-}
-
-struct StatusDot: View {
-    let color: Color
-
-    var body: some View {
-        Circle().fill(color).frame(width: 7, height: 7).motion(value: color)
-    }
-}
-
-/// Liquid Glass belongs to the floating control layer only (HIG, macOS 26); content sits on opaque grouped
-/// surfaces like a grouped `Form`.
-extension View {
-    func cardSurface(radius: CGFloat = 14) -> some View {
-        background(Color.cardBackground, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
-    }
-
-    func groupedSection() -> some View {
-        padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-
-    @ViewBuilder
-    func glassButton(prominent: Bool = false) -> some View {
-        #if compiler(>=6.2)
-        if #available(macOS 26, *) {
-            if prominent {
-                buttonStyle(.glassProminent).tint(Color.accentColor)
-            } else {
-                buttonStyle(.glass)
-            }
-        } else {
-            plainButton(prominent: prominent)
-        }
-        #else
-        plainButton(prominent: prominent)
-        #endif
-    }
-
-    @ViewBuilder
-    func buttonBorderShapeCapsule() -> some View {
-        if #available(macOS 14, *) {
-            buttonBorderShape(.capsule)
-        } else {
-            self
-        }
-    }
-
-    @ViewBuilder
-    private func plainButton(prominent: Bool) -> some View {
-        if prominent {
-            buttonStyle(.borderedProminent).tint(Color.accentColor)
-        } else {
-            buttonStyle(.bordered)
-        }
-    }
-}
-
-/// A row of floating controls; on macOS 26 its glass buttons share one container so they render as one layer.
-struct ControlBar<Content: View>: View {
-    private let content: Content
-
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
-    }
-
-    var body: some View {
-        #if compiler(>=6.2)
-        if #available(macOS 26, *) {
-            GlassEffectContainer {
-                HStack(spacing: 8) { content }.glassButton()
-            }
-        } else {
-            HStack(spacing: 8) { content }.glassButton()
-        }
-        #else
-        HStack(spacing: 8) { content }.glassButton()
-        #endif
-    }
-}
-
-struct EmptyRow: View {
-    let title: LocalizedStringKey
-    let detail: LocalizedStringKey
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-            Text(detail).font(.callout).foregroundStyle(.secondary)
-        }
-        .padding(.vertical, 4)
+    var onAccent: Color {
+        get { self[OnAccentKey.self] }
+        set { self[OnAccentKey.self] = newValue }
     }
 }
 
@@ -444,6 +300,7 @@ extension AppModel {
 
     var whitelistSummary: String {
         let entries = whitelist?.entries ?? []
+        if whitelist?.enabled != true { return String(localized: "Off") }
         if entries.isEmpty { return String(localized: "No tokens or links yet") }
         let applied = entries.filter { $0.result?.outcome == .applied }.count
         return String(localized: "\(applied) of \(entries.count) whitelisted")
@@ -454,6 +311,12 @@ extension Profile {
     /// The core names the share-link profile in English; show it in the user's language instead.
     var title: String {
         kind == .links ? String(localized: "Share links") : name
+    }
+}
+
+extension Usage {
+    var fraction: Double {
+        min(Double(upload + download) / Double(max(total, 1)), 1)
     }
 }
 
@@ -468,21 +331,12 @@ extension WhitelistOutcome {
         }
     }
 
-    var symbol: String {
-        switch self {
-        case .applied: return "checkmark.circle.fill"
-        case .notApplied: return "minus.circle"
-        case .disabled: return "pause.circle"
-        case .rejected, .error: return "xmark.octagon"
-        }
-    }
-
     var tint: Color {
         switch self {
-        case .applied: return .green
-        case .notApplied: return .orange
-        case .disabled: return .secondary
-        case .rejected, .error: return .red
+        case .applied: return .accentColor
+        case .notApplied: return .warn
+        case .disabled: return .ink3
+        case .rejected, .error: return .bad
         }
     }
 }
