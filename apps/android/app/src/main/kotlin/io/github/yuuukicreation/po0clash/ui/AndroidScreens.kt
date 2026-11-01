@@ -63,7 +63,7 @@ fun OnDemandScreen(vm: AppViewModel, onBack: () -> Unit) {
     val ssid by vm.engine.ssid.collectAsStateWithLifecycle()
     var resumed by remember { mutableIntStateOf(0) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { resumed++ }
-    val location = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+    val location = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         resumed++
         vm.engine.refreshSsid()
     }
@@ -91,7 +91,11 @@ fun OnDemandScreen(vm: AppViewModel, onBack: () -> Unit) {
         item {
             SectionHeader(stringResource(R.string.permissions))
             NavRow(0, 3, LineIcons.Pin, stringResource(R.string.location_permission), if (fine) allowed else notAllowed) {
-                if (!fine) location.launch(Manifest.permission.ACCESS_FINE_LOCATION) else context.startActivity(appDetails(context.packageName))
+                if (!fine) {
+                    location.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
+                } else {
+                    context.startActivity(appDetails(context.packageName))
+                }
             }
             NavRow(1, 3, LineIcons.Pin, stringResource(R.string.background_location), if (background) allowed else notAllowed) {
                 context.startActivity(appDetails(context.packageName))
