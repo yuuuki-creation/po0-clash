@@ -10,6 +10,7 @@
   import Icon from '../lib/Icon.svelte';
   import { navigate } from '../lib/motion.svelte.js';
   import Page from '../lib/Page.svelte';
+  import Segmented from '../lib/Segmented.svelte';
   import Switch from '../lib/Switch.svelte';
   import Toggle from '../lib/form/Toggle.svelte';
   import { settings, updateSettings } from '../lib/settings.svelte.js';
@@ -27,38 +28,12 @@
   import Resources from './tools/Resources.svelte';
   import Rules from './tools/Rules.svelte';
 
-  const sections = [
-    {
-      id: 'settings',
-      entries: [
-        ['language', 'language'],
-        ['appearance', 'appearance'],
-        ['application', 'window'],
-        ['hotkeys', 'keyboard'],
-      ],
-    },
-    {
-      id: 'network',
-      entries: [
-        ['basic', 'sliders'],
-        ['networkSettings', 'network'],
-        ['dns', 'dns'],
-        ['advanced', 'gears'],
-        ['resources', 'box'],
-        ['providers', 'providers'],
-        ['rules', 'rules'],
-        ['loopback', 'loop'],
-      ],
-    },
-    {
-      id: 'other',
-      entries: [
-        ['backup', 'drive'],
-        ['diagnostics', 'doc'],
-        ['developer', 'hammer'],
-        ['about', 'info'],
-      ],
-    },
+  const columns = [
+    [
+      { id: 'settings', entries: ['language', 'appearance', 'application', 'hotkeys'] },
+      { id: 'other', entries: ['backup', 'diagnostics', 'developer', 'about'] },
+    ],
+    [{ id: 'network', entries: ['basic', 'networkSettings', 'dns', 'advanced', 'resources', 'providers', 'rules', 'loopback'] }],
   ];
   const engineForms = { basic: Basic, networkSettings: Network, dns: Dns, advanced: Advanced, resources: Resources };
   const pages = {
@@ -110,6 +85,7 @@
   }
 
   const back = () => navigate('tools', null, 'back');
+  const root = () => [{ label: t('page.tools'), onclick: back }];
 
   // FlClash turns developer mode on after five clicks on the version.
   let versionClicks = 0;
@@ -126,110 +102,109 @@
 </script>
 
 {#if !app.tool}
-  <Page title={t('page.tools')} form>
-    {#snippet actions()}
-      <div class="tb-group glass">
-        <button
-          type="button"
-          title={t('tools.diagnostics')}
-          aria-label={t('tools.diagnostics')}
-          disabled={app.busy.diagnostics}
-          onclick={exportDiagnostics}><Icon name="share" /></button
-        >
-      </div>
-    {/snippet}
-
-    {#each sections as section (section.id)}
-      <h2 class="group-title">{t(`tools.${section.id}`)}</h2>
-      <div class="list">
-        {#each section.entries.filter(([id]) => id !== 'developer' || s.developerMode) as [id, icon] (id)}
-          {#if id === 'diagnostics'}
-            <div class="row tall with-icon">
-              <span class="row-icon"><Icon name={icon} /></span>
-              <div class="label">
-                <span>{t('tools.diagnostics')}</span>
-                <span class="sub">{t('tools.diagnosticsHint')}</span>
+  <Page title={t('page.tools')}>
+    <div class="cols">
+      {#each columns as column, c (c)}
+        <div class="col">
+          {#each column as section (section.id)}
+            <section>
+              <h2 class="section-title">{t(`tools.${section.id}`)}</h2>
+              <div class="group">
+                {#each section.entries.filter((id) => id !== 'developer' || s.developerMode) as id (id)}
+                  {#if id === 'diagnostics'}
+                    <div class="row">
+                      <span class="grow clip">{t('tools.diagnostics')}</span>
+                      <button type="button" class="btn" disabled={app.busy.diagnostics} onclick={exportDiagnostics}>{t('tools.export')}</button>
+                    </div>
+                  {:else if id === 'appearance'}
+                    <div class="row">
+                      <button type="button" class="row-hit" aria-label={t('tools.appearance')} onclick={() => navigate('tools', id, 'drill')}></button>
+                      <span class="grow clip">{t('tools.appearance')}</span>
+                      <Segmented
+                        label={t('ap.mode')}
+                        value={s.themeMode}
+                        options={['light', 'dark', 'system'].map((value) => ({ value, label: t(`ap.${value}`) }))}
+                        onchange={(themeMode) => updateSettings({ themeMode })}
+                      />
+                      <Icon name="chevron" class="chev" />
+                    </div>
+                  {:else}
+                    <button type="button" class="row" onclick={() => navigate('tools', id, 'drill')}>
+                      <span class="grow clip">{t(`tools.${id}`)}</span>
+                      {#if id === 'about'}<span class="val">{app.version}</span>{:else if id === 'language'}<span class="val">{languageLabel}</span>{/if}
+                      <Icon name="chevron" class="chev" />
+                    </button>
+                  {/if}
+                {/each}
               </div>
-              <button type="button" class="pill" disabled={app.busy.diagnostics} onclick={exportDiagnostics}
-                >{t('tools.export')}</button
-              >
-            </div>
-          {:else}
-            <button type="button" class="row with-icon" onclick={() => navigate('tools', id, 'forward')}>
-              <span class="row-icon"><Icon name={icon} /></span>
-              <span class="label">{t(`tools.${id}`)}</span>
-              <span class="trailing">
-                {#if id === 'about'}{app.version}{:else if id === 'language'}{languageLabel}{/if}
-                <span class="chevron"><Icon name="chevron" /></span>
-              </span>
-            </button>
-          {/if}
-        {/each}
-      </div>
-    {/each}
-  </Page>
-{:else if app.tool === 'application'}
-  <Page title={t('tools.application')} subtitle={t('page.tools')} onback={back} form>
-    <h2 class="group-title">{t('app.launch')}</h2>
-    <div class="list">
-      <div class="row tall">
-        <div class="label"><span>{t('tools.autostart')}</span><span class="sub">{t('tools.autostartHint')}</span></div>
-        <Switch label={t('tools.autostart')} checked={autostart} disabled={app.busy.autostart} onchange={setAutostart} />
-      </div>
-      {#each [['silentLaunch', true], ['autoConnect', true], ['minimizeOnClose', true]] as [key, hint] (key)}
-        <Toggle label={t(`app.${key}`)} hint={hint ? t(`app.${key}Hint`) : ''} checked={s[key]} onchange={set(key)} />
+            </section>
+          {/each}
+        </div>
       {/each}
     </div>
-    <h2 class="group-title">{t('app.interface')}</h2>
-    <div class="list">
-      <Toggle label={t('app.pageAnimation')} checked={s.pageAnimation} onchange={set('pageAnimation')} />
-      <Toggle label={t('app.showNavLabels')} checked={s.showNavLabels} onchange={set('showNavLabels')} />
-      <Toggle label={t('app.captureLogs')} hint={t('app.captureLogsHint')} checked={s.captureLogs} onchange={set('captureLogs')} />
-    </div>
-    <h2 class="group-title">{t('app.network')}</h2>
-    <div class="list">
-      <Toggle
-        label={t('app.closeOnSwitch')}
-        hint={t('app.closeOnSwitchHint')}
-        checked={s.closeConnectionsOnSwitch}
-        onchange={set('closeConnectionsOnSwitch')}
-      />
-      <Toggle label={t('app.checkCertificate')} checked={s.checkCertificate} onchange={set('checkCertificate')} />
-    </div>
+  </Page>
+{:else if app.tool === 'application'}
+  <Page title={t('tools.application')} crumbs={root()}>
+    <section>
+      <h2 class="section-title">{t('app.launch')}</h2>
+      <div class="group">
+        <div class="row">
+          <span class="grow">{t('tools.autostart')}</span>
+          <Switch label={t('tools.autostart')} checked={autostart} disabled={app.busy.autostart} onchange={setAutostart} />
+        </div>
+        {#each ['silentLaunch', 'autoConnect', 'minimizeOnClose'] as key (key)}
+          <Toggle label={t(`app.${key}`)} checked={s[key]} onchange={set(key)} />
+        {/each}
+      </div>
+    </section>
+    <section>
+      <h2 class="section-title">{t('app.interface')}</h2>
+      <div class="group">
+        <Toggle label={t('app.pageAnimation')} checked={s.pageAnimation} onchange={set('pageAnimation')} />
+        <Toggle label={t('app.showNavLabels')} checked={s.showNavLabels} onchange={set('showNavLabels')} />
+        <Toggle label={t('app.captureLogs')} checked={s.captureLogs} onchange={set('captureLogs')} />
+      </div>
+    </section>
+    <section>
+      <h2 class="section-title">{t('app.network')}</h2>
+      <div class="group">
+        <Toggle label={t('app.closeOnSwitch')} checked={s.closeConnectionsOnSwitch} onchange={set('closeConnectionsOnSwitch')} />
+        <Toggle label={t('app.checkCertificate')} checked={s.checkCertificate} onchange={set('checkCertificate')} />
+      </div>
+    </section>
   </Page>
 {:else if app.tool === 'language'}
-  <Page title={t('tools.language')} subtitle={t('page.tools')} onback={back} form>
-    <div class="list">
+  <Page title={t('tools.language')} crumbs={root()}>
+    <div class="group">
       {#each languages as [value, name] (value)}
-        <button type="button" class="row" onclick={() => setLanguage(value)}>
-          <span class="label">{name}</span>
-          {#if s.language === value}<span class="row-icon"><Icon name="check" /></span>{/if}
+        <button type="button" class="row" aria-pressed={s.language === value} onclick={() => setLanguage(value)}>
+          <span class="grow">{name}</span>
+          {#if s.language === value}<Icon name="check" />{/if}
         </button>
       {/each}
     </div>
-    <p class="note">{t('lang.hint')}</p>
   </Page>
 {:else if app.tool === 'about'}
-  <Page title={t('tools.about')} subtitle={t('page.tools')} onback={back} form>
-    <div class="list">
+  <Page title={t('tools.about')} crumbs={root()}>
+    <div class="group">
       <button type="button" class="row" onclick={clickVersion}>
-        <span class="label">{t('tools.version')}</span>
-        <span class="trailing">{app.version}</span>
+        <span class="grow">{t('tools.version')}</span>
+        <span class="val">{app.version}</span>
       </button>
-      <button type="button" class="row" onclick={() => navigate('tools', 'licenses', 'forward')}>
-        <span class="label">{t('licenses.title')}</span>
-        <span class="chevron"><Icon name="chevron" /></span>
+      <button type="button" class="row" onclick={() => navigate('tools', 'licenses', 'drill')}>
+        <span class="grow">{t('licenses.title')}</span>
+        <Icon name="chevron" class="chev" />
       </button>
     </div>
   </Page>
 {:else if app.tool === 'licenses'}
-  <Licenses onback={() => navigate('tools', 'about', 'back')} />
+  <Licenses crumbs={[...root(), { label: t('tools.about'), onclick: () => navigate('tools', 'about', 'back') }]} />
 {:else if app.tool === 'loopback'}
-  <Loopback onback={back} />
+  <Loopback crumbs={root()} />
 {:else if app.tool === 'rules'}
-  <Page title={t('tools.rules')} subtitle={t('page.tools')} onback={back} form>
+  <Page title={t('tools.rules')} crumbs={root()}>
     {#snippet actions()}
-      <label class="search glass">
+      <label class="search">
         <Icon name="search" />
         <input bind:value={ruleQuery} aria-label={t('rules.search')} placeholder={t('rules.search')} spellcheck="false" />
       </label>
@@ -237,14 +212,12 @@
     <Rules query={ruleQuery} />
   </Page>
 {:else if Sub}
-  <Page title={t(`tools.${app.tool}`)} subtitle={t('page.tools')} onback={back} form>
+  <Page title={t(`tools.${app.tool}`)} crumbs={root()}>
     {#snippet actions()}
       {#if app.tool === 'dns'}
-        <div class="tb-group glass">
-          <button type="button" disabled={app.busy.flush || app.status?.engine.state !== 'running'} onclick={flushDns}
-            >{t('opt.flushDns')}</button
-          >
-        </div>
+        <button type="button" class="btn" disabled={app.busy.flush || app.status?.engine.state !== 'running'} onclick={flushDns}
+          >{t('opt.flushDns')}</button
+        >
       {/if}
     {/snippet}
     {#if ready}<Sub />{/if}

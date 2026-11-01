@@ -14,21 +14,17 @@
   });
 </script>
 
-<div class="window-controls">
+<div class="caption">
   <button type="button" title={t('window.minimize')} aria-label={t('window.minimize')} onclick={() => appWindow.minimize()}
-    ><Icon name="minimize" /></button
+    ><Icon name="min" /></button
   >
   <button
     type="button"
     title={maximized ? t('window.restore') : t('window.maximize')}
     aria-label={maximized ? t('window.restore') : t('window.maximize')}
-    onclick={() => appWindow.toggleMaximize()}><Icon name={maximized ? 'restore' : 'maximize'} /></button
+    onclick={() => appWindow.toggleMaximize()}><Icon name={maximized ? 'restore' : 'max'} /></button
   >
-  <button
-    type="button"
-    class="close"
-    title={t('window.close')}
-    aria-label={t('window.close')}
-    onclick={() => appWindow.close()}><Icon name="close" /></button
+  <button type="button" class="close" title={t('window.close')} aria-label={t('window.close')} onclick={() => appWindow.close()}
+    ><Icon name="close" /></button
   >
 </div>

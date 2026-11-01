@@ -23,15 +23,12 @@
 </script>
 
 <Dialog title={initial ? t('script.edit') : t('script.new')} wide {onclose}>
-  <form id="script-editor" class="stack" onsubmit={save}>
+  <form id="script-editor" class="dialog-form" onsubmit={save}>
     <!-- svelte-ignore a11y_autofocus -->
-    <input bind:value={name} aria-label={t('script.name')} placeholder={t('script.name')} spellcheck="false" autofocus />
-    <textarea class="code" rows="16" bind:value={content} aria-label={t('script.content')} spellcheck="false"></textarea>
-    <p class="sub">{t('script.hint')}</p>
+    <input class="in" bind:value={name} aria-label={t('script.name')} placeholder={t('script.name')} spellcheck="false" autofocus />
+    <textarea class="in code" rows="16" bind:value={content} aria-label={t('script.content')} spellcheck="false"></textarea>
   </form>
   {#snippet actions()}
-    <button type="submit" form="script-editor" class="pill filled" disabled={!name.trim() || app.busy['script:save']}
-      >{t('common.save')}</button
-    >
+    <button type="submit" form="script-editor" class="btn primary" disabled={!name.trim() || app.busy['script:save']}>{t('common.save')}</button>
   {/snippet}
 </Dialog>

@@ -1,0 +1,184 @@
+.row.status {
+  min-height: 64px;
+}
+
+.status strong {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.status-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.status-main {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.chart-wrap {
+  position: relative;
+  overflow: hidden;
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  height: var(--chart);
+}
+
+.chart path {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart .dn {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.chart .up {
+  stroke: var(--ink2);
+  stroke-width: 1.25;
+}
+
+.edit-row {
+  cursor: default;
+}
+
+.edit-row.dragging {
+  opacity: 0.5;
+}
+
+.edit-row.drop-target {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.edit-grip {
+  display: grid;
+  place-items: center;
+  width: var(--ctl);
+  height: var(--ctl);
+  border-radius: 4px;
+  color: var(--ink2);
+  cursor: grab;
+}
+
+.edit-grip:hover {
+  background: var(--hover);
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.swatch {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 4px;
+  background: var(--swatch);
+}
+
+.swatch.on {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.swatch.add {
+  border: 1px solid var(--stroke-bottom);
+  color: var(--ink2);
+  background: none;
+}
+
+.swatch.add:hover {
+  background: var(--hover);
+}
+
+.swatch.add .ic {
+  width: 14px;
+  height: 14px;
+}
+
+.scale-value {
+  flex: none;
+  width: 48px;
+  text-align: right;
+}
+
+.scale-a {
+  flex: none;
+  color: var(--ink2);
+  font-weight: 600;
+}
+
+.shortcut.recording {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.section-title.with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.text-link {
+  color: var(--accent);
+  font-weight: 400;
+}
+
+.text-link:hover {
+  text-decoration: underline;
+}
+
+.text-link:disabled {
+  color: var(--ink3);
+  text-decoration: none;
+}
+
+.link-row {
+  color: var(--accent);
+}
+
+.activity-head {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.activity-head .tabs {
+  margin-right: auto;
+}
+
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.provider-name {
+  flex: 0 1 30%;
+}
+
+.provider-usage {
+  flex: 0 1 240px;
+}
+
+.t-rule {
+  display: grid;
+  grid-template-columns: minmax(0, 160px) minmax(0, 1fr) minmax(0, 200px);
+  gap: 12px;
+}

@@ -18,36 +18,39 @@
   ];
 </script>
 
-<h2 class="group-title">{t('opt.tun')}</h2>
-<div class="list">
-  <Choice
-    label={t('opt.tunStack')}
-    value={o.tunStack ?? 'default'}
-    options={stacks}
-    onchange={(stack) => set('tunStack')(stack === 'default' ? null : stack)}
-  />
-  <Lines
-    label={t('opt.routeAddress')}
-    hint={t('opt.routeAddressHint')}
-    rows="3"
-    value={toLines(o.tunRouteAddress)}
-    onchange={(text) => set('tunRouteAddress')(fromLines(text))}
-  />
-  <Lines
-    label={t('opt.dnsHijack')}
-    hint={t('opt.dnsHijackHint')}
-    rows="2"
-    value={toLines(o.tunDnsHijack)}
-    onchange={(text) => set('tunDnsHijack')(fromLines(text))}
-  />
-</div>
+<section>
+  <h2 class="section-title">{t('opt.tun')}</h2>
+  <div class="group">
+    <Choice
+      label={t('opt.tunStack')}
+      value={o.tunStack ?? 'default'}
+      options={stacks}
+      onchange={(stack) => set('tunStack')(stack === 'default' ? null : stack)}
+    />
+    <Lines
+      label={t('opt.routeAddress')}
+      rows="3"
+      placeholder="0.0.0.0/1"
+      value={toLines(o.tunRouteAddress)}
+      onchange={(text) => set('tunRouteAddress')(fromLines(text))}
+    />
+    <Lines
+      label={t('opt.dnsHijack')}
+      rows="2"
+      placeholder="any:53"
+      value={toLines(o.tunDnsHijack)}
+      onchange={(text) => set('tunDnsHijack')(fromLines(text))}
+    />
+  </div>
+</section>
 
-<h2 class="group-title">{t('opt.outbound')}</h2>
-<div class="list">
-  <Field
-    label={t('opt.interfaceName')}
-    hint={t('opt.interfaceNameHint')}
-    value={o.interfaceName}
-    onchange={set('interfaceName')}
-  />
-</div>
+<section>
+  <h2 class="section-title">{t('opt.outbound')}</h2>
+  <div class="group">
+    <Field
+      label={t('opt.interfaceName')}
+      value={o.interfaceName}
+      onchange={set('interfaceName')}
+    />
+  </div>
+</section>

@@ -20,7 +20,7 @@
         "center": true,
         "decorations": false,
         "shadow": true,
-        "transparent": true,
+        "transparent": false,
         "dragDropEnabled": false,
         "visible": false
       }

@@ -1,0 +1,514 @@
+.dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ink3);
+  transition: background 200ms;
+}
+
+.dot.on,
+.dot.good {
+  background: var(--accent);
+}
+
+.dot.wait {
+  background: var(--warn);
+  animation: pulse 0.8s ease-in-out infinite alternate;
+}
+
+.dot.fair {
+  background: var(--warn);
+}
+
+.dot.bad {
+  background: var(--bad);
+}
+
+.dot.small {
+  width: 8px;
+  height: 8px;
+}
+
+.ring {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--ctl);
+  padding: 0 12px;
+  border: 1px solid var(--stroke);
+  border-bottom-color: var(--stroke-bottom);
+  border-radius: 4px;
+  background: var(--btn);
+  white-space: nowrap;
+  transition:
+    background 83ms,
+    color 83ms;
+}
+
+.btn:hover {
+  background: var(--btn-hover);
+}
+
+.btn:active {
+  border-bottom-color: var(--stroke);
+  color: var(--ink2);
+  background: var(--btn-press);
+}
+
+.btn.primary {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-bottom-color: rgba(0, 0, 0, 0.4);
+  color: var(--on-accent);
+  background: var(--accent);
+}
+
+.btn.primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn.primary:active {
+  border-color: transparent;
+  background: var(--accent-press);
+}
+
+.btn:disabled,
+.btn.primary:disabled {
+  border-color: var(--stroke);
+  color: var(--ink3);
+  background: var(--track);
+}
+
+.btn.select {
+  flex: 0 1 auto;
+  justify-content: space-between;
+  min-width: 120px;
+  max-width: 280px;
+}
+
+.btn.power {
+  min-width: 104px;
+}
+
+.power-labels {
+  display: grid;
+}
+
+.power-labels > span {
+  display: inline-flex;
+  grid-area: 1 / 1;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  visibility: hidden;
+}
+
+.power-labels > span.on {
+  visibility: visible;
+}
+
+.icon-btn {
+  position: relative;
+  display: grid;
+  flex: none;
+  width: var(--ctl);
+  height: var(--ctl);
+  place-items: center;
+  border-radius: 4px;
+  color: var(--ink2);
+  transition:
+    background 83ms,
+    color 83ms;
+}
+
+.icon-btn:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.icon-btn:active {
+  background: var(--press);
+}
+
+.icon-btn:disabled {
+  color: var(--ink3);
+  background: none;
+}
+
+.icon-btn.on {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.val-menu {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  height: var(--ctl);
+  padding: 0 6px;
+  border-radius: 4px;
+  color: var(--ink2);
+  transition: background 83ms;
+}
+
+.val-menu:hover {
+  background: var(--hover);
+}
+
+.val-menu:active {
+  background: var(--press);
+}
+
+.seg {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  padding: 2px;
+  border-radius: 4px;
+  background: var(--track);
+}
+
+.seg-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / var(--n));
+  border-radius: 3px;
+  background: var(--seg-bg);
+  box-shadow: var(--seg-shadow);
+  transform: translateX(calc(100% * var(--i)));
+  transition: transform 167ms var(--ease-in);
+}
+
+.seg button {
+  position: relative;
+  height: calc(var(--ctl) - 4px);
+  padding: 0 12px;
+  border-radius: 3px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.seg button:disabled {
+  color: var(--ink3);
+}
+
+.tabs {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  grid-auto-columns: minmax(72px, 1fr);
+  grid-auto-flow: column;
+}
+
+.tabs button {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 4px;
+  color: var(--ink2);
+  text-align: center;
+  white-space: nowrap;
+  transition: background 83ms;
+}
+
+.tabs button:hover {
+  background: var(--hover);
+}
+
+.tabs button.act {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.tabs-ind {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  width: calc(100% / var(--n));
+  height: 3px;
+  pointer-events: none;
+  transform: translateX(calc(100% * var(--i)));
+  transition: transform 167ms var(--ease-in);
+}
+
+.tabs-ind::before {
+  content: '';
+  width: 20px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.switch {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 20px;
+  border: 1px solid var(--sw-stroke);
+  border-radius: 10px;
+  transition:
+    background 83ms,
+    border-color 83ms;
+}
+
+.switch::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 7px;
+  background: var(--sw-knob);
+  transform: translateY(-50%);
+  transition:
+    left 167ms var(--ease-in),
+    width 83ms,
+    height 83ms,
+    background 83ms;
+}
+
+.switch:hover:not(:disabled)::before {
+  left: 2px;
+  width: 14px;
+  height: 14px;
+}
+
+.switch:active:not(:disabled)::before {
+  left: 2px;
+  width: 17px;
+  height: 14px;
+}
+
+.switch[aria-checked='true'] {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.switch[aria-checked='true']::before {
+  left: calc(100% - 15px);
+  background: var(--on-accent);
+}
+
+.switch[aria-checked='true']:hover:not(:disabled)::before {
+  left: calc(100% - 16px);
+}
+
+.switch[aria-checked='true']:active:not(:disabled)::before {
+  left: calc(100% - 19px);
+}
+
+.switch:disabled {
+  opacity: 0.5;
+}
+
+.search,
+.in {
+  min-width: 0;
+  border: 1px solid var(--stroke);
+  border-bottom-color: var(--in-bottom);
+  border-radius: 4px;
+  color: var(--ink);
+  background: var(--btn);
+  font: inherit;
+  transition: background 83ms;
+}
+
+.search {
+  display: flex;
+  flex: 0 1 220px;
+  align-items: center;
+  gap: 8px;
+  width: 220px;
+  height: var(--ctl);
+  padding: 0 10px;
+  color: var(--ink2);
+}
+
+.search input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: var(--ink);
+  background: none;
+  font: inherit;
+  user-select: text;
+}
+
+.search input::placeholder,
+.in::placeholder {
+  color: var(--ink2);
+  opacity: 1;
+}
+
+.in {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  outline: 0;
+  resize: none;
+  user-select: text;
+}
+
+input.in {
+  height: var(--ctl);
+  padding: 0 10px;
+}
+
+.row > input.in {
+  flex: 0 1 280px;
+}
+
+input.in.number {
+  flex-basis: 96px;
+  width: 96px;
+}
+
+textarea.in.code {
+  font-family: 'Cascadia Mono', Consolas, 'Microsoft YaHei UI', monospace;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow: auto;
+}
+
+.search:hover,
+.in:hover {
+  background: var(--btn-hover);
+}
+
+.search:focus-within,
+.in:focus {
+  border-bottom: 2px solid var(--accent);
+  background: var(--card);
+}
+
+input[type='number'].in::-webkit-inner-spin-button {
+  display: none;
+}
+
+.bar-track {
+  position: relative;
+  display: flex;
+  flex: 1;
+  height: 3px;
+  min-width: 40px;
+}
+
+.bar-track::before {
+  content: '';
+  position: absolute;
+  top: 1px;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--ink3);
+}
+
+.bar-fill {
+  position: relative;
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 250ms var(--ease-in);
+}
+
+input[type='range'] {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.rate {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.rate .ic {
+  width: 16px;
+  height: 16px;
+}
+
+.rate.dn .ic {
+  color: var(--accent);
+}
+
+.rate.up .ic {
+  color: var(--ink2);
+}
+
+.delay-btn {
+  height: 28px;
+  margin-right: -6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  color: var(--ink2);
+  text-align: right;
+  white-space: nowrap;
+  transition:
+    background 83ms,
+    opacity 150ms;
+}
+
+.delay-btn:hover {
+  background: var(--hover);
+}
+
+.delay-btn:disabled {
+  background: none;
+}
+
+.delay-btn.wait {
+  opacity: 0.4;
+}
+
+.delay-btn.fair {
+  color: var(--warn);
+}
+
+.delay-btn.bad {
+  color: var(--bad);
+}
+
+.delay-btn .dot {
+  display: inline-block;
+  vertical-align: 0;
+}
+
+.status-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}

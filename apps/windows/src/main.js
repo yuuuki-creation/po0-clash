@@ -2,16 +2,13 @@ import { invoke } from '@tauri-apps/api/core';
 import { mount } from 'svelte';
 import App from './App.svelte';
 import './app.css';
-import './styles/workspace.css';
 import { app, init } from './lib/core.svelte.js';
-import { watchGlass } from './lib/glass.js';
 import { setLanguage } from './lib/i18n.js';
 import { loadSettings } from './lib/settings.svelte.js';
 import { watchAppearance } from './lib/theme.svelte.js';
 
 const [info] = await Promise.all([invoke('app_info'), loadSettings()]);
 setLanguage(info.language);
-document.documentElement.classList.toggle('backdrop', info.backdrop);
 app.version = info.version;
 
 document.addEventListener('contextmenu', (event) => {
@@ -19,6 +16,5 @@ document.addEventListener('contextmenu', (event) => {
 });
 
 watchAppearance();
-watchGlass();
 mount(App, { target: document.getElementById('app') });
 init();

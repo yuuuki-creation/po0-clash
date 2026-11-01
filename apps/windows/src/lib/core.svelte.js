@@ -6,7 +6,8 @@ export const app = $state({
   version: '',
   page: 'dashboard',
   tool: null,
-  sidebar: true,
+  nav: '',
+  pane: false,
   status: null,
   connectedAt: null,
   profiles: [],
@@ -21,7 +22,6 @@ export const app = $state({
   exitIp: null,
   exitIpLoading: false,
   busy: {},
-  delayResults: {},
   notice: null,
 });
 
@@ -49,6 +49,20 @@ const withDelays = (group) => ({
   nodes: group.nodes.map((node) => ({ ...node, delay: delays.get(node.name) ?? node.delay ?? null })),
 });
 
+/** A group listed as a node has no delay of its own, so it shows the delay of the node it currently routes to. */
+export function resolvedDelay(node) {
+  let { name, delay } = node;
+  const seen = new Set();
+  while (delay == null && !seen.has(name)) {
+    seen.add(name);
+    const group = app.groups.find((g) => g.name === name);
+    if (!group?.now) break;
+    name = group.now;
+    delay = group.nodes.find((n) => n.name === name)?.delay;
+  }
+  return delay ?? null;
+}
+
 export const isTestingNode = (name) =>
   !!app.busy[`node:${name}`] ||
   app.groups.some((group) => app.busy[`delay:${group.name}`] && group.nodes.some((node) => node.name === name));
@@ -61,7 +75,6 @@ export async function testDelay(name) {
   for (const node of group.nodes) {
     if (node.delay == null) continue;
     delays.set(node.name, node.delay);
-    app.delayResults[node.name] = (app.delayResults[node.name] ?? 0) + 1;
   }
   app.groups = app.groups.map((g) => (g.name === name ? withDelays(group) : withDelays(g)));
 }
@@ -71,14 +84,12 @@ export async function testNode(name) {
   const delay = await act(`node:${name}`, 'test_node_delay', { node: name });
   if (delay === undefined) return;
   delays.set(name, delay);
-  app.delayResults[name] = (app.delayResults[name] ?? 0) + 1;
   app.groups = app.groups.map(withDelays);
 }
 
 async function loadGroups() {
   if (app.status?.engine.state !== 'running') {
     delays.clear();
-    app.delayResults = {};
     app.groups = [];
     return;
   }

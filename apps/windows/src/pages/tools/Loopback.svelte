@@ -1,12 +1,11 @@
 <script>
-  import { invoke } from '@tauri-apps/api/core';
-  import { act, app, notify } from '../../lib/core.svelte.js';
+  import { act, app } from '../../lib/core.svelte.js';
   import { t } from '../../lib/i18n.js';
   import Icon from '../../lib/Icon.svelte';
   import Page from '../../lib/Page.svelte';
   import Switch from '../../lib/Switch.svelte';
 
-  let { onback } = $props();
+  let { crumbs } = $props();
   let apps = $state(null);
   let query = $state('');
 
@@ -16,8 +15,7 @@
   );
   const exempted = $derived((apps ?? []).filter((a) => a.exempt).length);
 
-  const load = () =>
-    act('loopback:load', 'loopback_apps').then((list) => list && (apps = list));
+  const load = () => act('loopback:load', 'loopback_apps').then((list) => list && (apps = list));
 
   $effect(() => {
     load();
@@ -29,44 +27,29 @@
   }
 </script>
 
-<Page
-  title={t('tools.loopback')}
-  subtitle={apps ? t('loopback.summary', { count: exempted, total: apps.length }) : t('page.tools')}
-  {onback}
-  form
->
+<Page title={t('tools.loopback')} {crumbs}>
   {#snippet actions()}
-    <label class="search glass">
+    <label class="search">
       <Icon name="search" />
       <input bind:value={query} aria-label={t('loopback.search')} placeholder={t('loopback.search')} spellcheck="false" />
     </label>
-    <div class="tb-group glass">
-      <button type="button" disabled={!apps?.length || app.busy.loopback} onclick={() => apply(() => true)}
-        >{t('loopback.all')}</button
-      >
-      <button type="button" disabled={!exempted || app.busy.loopback} onclick={() => apply(() => false)}
-        >{t('loopback.none')}</button
-      >
-    </div>
-    <div class="tb-group glass">
-      <button
-        type="button"
-        title={t('loopback.refresh')}
-        aria-label={t('loopback.refresh')}
-        disabled={app.busy['loopback:load']}
-        onclick={load}><Icon name="refresh" /></button
-      >
-    </div>
+    <button type="button" class="btn" disabled={!apps?.length || app.busy.loopback} onclick={() => apply(() => true)}>{t('loopback.all')}</button>
+    <button type="button" class="btn" disabled={!exempted || app.busy.loopback} onclick={() => apply(() => false)}>{t('loopback.none')}</button>
+    <button
+      type="button"
+      class="icon-btn"
+      title={t('loopback.refresh')}
+      aria-label={t('loopback.refresh')}
+      disabled={app.busy['loopback:load']}
+      onclick={load}><Icon name="refresh" class={app.busy['loopback:load'] ? 'spin' : ''} /></button
+    >
   {/snippet}
 
   {#if apps}
-    <div class="list">
+    <div class="group">
       {#each shown as item (item.sid)}
-        <div class="row tall">
-          <div class="label">
-            <span>{item.displayName}</span>
-            {#if item.displayName !== item.name}<span class="sub">{item.name}</span>{/if}
-          </div>
+        <div class="row">
+          <span class="grow clip" title={item.name}>{item.displayName}</span>
           <Switch
             label={item.displayName}
             checked={item.exempt}
@@ -75,9 +58,8 @@
           />
         </div>
       {:else}
-        <div class="row"><span class="sub">{t(apps.length ? 'loopback.noMatch' : 'loopback.empty')}</span></div>
+        <div class="row"><span class="val">{t(apps.length ? 'loopback.noMatch' : 'loopback.empty')}</span></div>
       {/each}
     </div>
-    <p class="note">{t('loopback.hint')}</p>
   {/if}
 </Page>

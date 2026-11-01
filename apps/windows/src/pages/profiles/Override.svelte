@@ -23,6 +23,10 @@
   const globalRules = $derived(engine.options?.addedRules ?? []);
   const dirty = $derived(draft && JSON.stringify(draft) !== JSON.stringify(saved));
   const script = $derived(scripts.list.find((s) => s.id === draft?.scriptId));
+  const crumbs = $derived([
+    { label: t('page.profiles'), onclick: onback },
+    { label: profile.title, onclick: onback },
+  ]);
 
   $effect(() => {
     Promise.all([invoke('profile_override', { id }), loadOptions(), loadScripts()])
@@ -56,18 +60,16 @@
   }
 </script>
 
-<Page title={t('override.title')} subtitle={profile.title} {onback} form>
+<Page title={t('override.title')} {crumbs}>
   {#snippet actions()}
-    <div class="tb-group glass">
-      <button type="button" disabled={!dirty} onclick={() => (draft = $state.snapshot(saved))}>{t('override.revert')}</button>
-      <button type="button" class="primary" disabled={!dirty || app.busy['override:save']} onclick={save}>{t('common.save')}</button>
-    </div>
+    <button type="button" class="btn" disabled={!dirty} onclick={() => (draft = $state.snapshot(saved))}>{t('override.revert')}</button>
+    <button type="button" class="btn primary" disabled={!dirty || app.busy['override:save']} onclick={save}>{t('common.save')}</button>
   {/snippet}
 
   {#if draft}
-    <div class="list">
-      <div class="row tall">
-        <div class="label"><span>{t('override.mode')}</span><span class="sub">{t(`override.${draft.mode}Hint`)}</span></div>
+    <div class="group">
+      <div class="row">
+        <span class="grow">{t('override.mode')}</span>
         <Segmented
           label={t('override.mode')}
           value={draft.mode}
@@ -78,50 +80,54 @@
     </div>
 
     {#if draft.mode === 'standard'}
-      <h2 class="group-title">{t('override.addedRules')}</h2>
-      <div class="list">
-        <label class="row block">
-          <span class="sub">{t('override.addedRulesHint')}</span>
-          <textarea
-            class="code"
-            rows="8"
-            value={toLines(draft.addedRules)}
-            spellcheck="false"
-            placeholder="DOMAIN-SUFFIX,example.com,DIRECT"
-            onchange={(event) => (draft.addedRules = fromLines(event.target.value))}
-          ></textarea>
-        </label>
-        <label class="row tall">
-          <span class="label"><span>{t('override.matchTarget')}</span><span class="sub">{t('override.matchTargetHint')}</span></span>
-          <input
-            value={draft.matchTarget ?? ''}
-            placeholder={t('override.matchTargetPlaceholder')}
-            spellcheck="false"
-            onchange={(event) => (draft.matchTarget = event.target.value.trim() || null)}
-          />
-        </label>
-      </div>
-
-      <h2 class="group-title">{t('override.globalRules')}</h2>
-      <div class="list">
-        {#each globalRules as rule (rule)}
-          <div class="row">
-            <span class="grow mono">{rule}</span>
-            <Switch
-              label={rule}
-              checked={!draft.disabledGlobalRules.includes(rule)}
-              onchange={(enabled) => toggleGlobal(rule, enabled)}
+      <section>
+        <h2 class="section-title">{t('override.addedRules')}</h2>
+        <div class="group">
+          <label class="row block">
+            <textarea
+              class="in code"
+              rows="8"
+              value={toLines(draft.addedRules)}
+              aria-label={t('override.addedRules')}
+              spellcheck="false"
+              placeholder="DOMAIN-SUFFIX,example.com,DIRECT"
+              onchange={(event) => (draft.addedRules = fromLines(event.target.value))}
+            ></textarea>
+          </label>
+          <label class="row">
+            <span class="grow">{t('override.matchTarget')}</span>
+            <input
+              class="in"
+              value={draft.matchTarget ?? ''}
+              placeholder={t('override.matchTargetPlaceholder')}
+              spellcheck="false"
+              onchange={(event) => (draft.matchTarget = event.target.value.trim() || null)}
             />
-          </div>
-        {:else}
-          <button type="button" class="row link-row" onclick={() => navigate('tools', 'advanced', 'forward')}
-            >{t('override.noGlobalRules')}</button
-          >
-        {/each}
-      </div>
-      <p class="note">{t('override.globalRulesHint')}</p>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2 class="section-title">{t('override.globalRules')}</h2>
+        <div class="group">
+          {#each globalRules as rule (rule)}
+            <div class="row">
+              <span class="grow clip mono" title={rule}>{rule}</span>
+              <Switch
+                label={rule}
+                checked={!draft.disabledGlobalRules.includes(rule)}
+                onchange={(enabled) => toggleGlobal(rule, enabled)}
+              />
+            </div>
+          {:else}
+            <button type="button" class="row link-row" onclick={() => navigate('tools', 'advanced', 'drill')}
+              >{t('override.noGlobalRules')}</button
+            >
+          {/each}
+        </div>
+      </section>
     {:else if draft.mode === 'script'}
-      <div class="list">
+      <div class="group">
         <Choice
           label={t('override.script')}
           value={draft.scriptId ?? ''}
@@ -136,44 +142,47 @@
         {/if}
         <button type="button" class="row link-row" onclick={() => (editor = { script: null })}>{t('script.newEllipsis')}</button>
       </div>
-      <p class="note">{t('override.scriptNote')}</p>
     {:else}
-      <h2 class="group-title split-title">
-        <span>{t('override.customGroups')}</span>
-        <button
-          type="button"
-          class="plain-link"
-          disabled={app.busy['override:copy']}
-          onclick={() => (draft.customGroups.trim() || draft.customRules.length ? (replacing = true) : copyFromProfile())}
-          >{t('override.copyFromProfile')}</button
-        >
-      </h2>
-      <div class="list">
-        <label class="row block">
-          <textarea
-            class="code"
-            rows="14"
-            bind:value={draft.customGroups}
-            aria-label={t('override.customGroups')}
-            spellcheck="false"
-            placeholder={'- name: Proxy\n  type: select\n  proxies: [DIRECT]'}
-          ></textarea>
-        </label>
-      </div>
-      <h2 class="group-title">{t('override.customRules')}</h2>
-      <div class="list">
-        <label class="row block">
-          <textarea
-            class="code"
-            rows="10"
-            value={toLines(draft.customRules)}
-            aria-label={t('override.customRules')}
-            spellcheck="false"
-            onchange={(event) => (draft.customRules = fromLines(event.target.value))}
-          ></textarea>
-        </label>
-      </div>
-      <p class="note">{t('override.customNote')}</p>
+      <section>
+        <h2 class="section-title with-action">
+          <span>{t('override.customGroups')}</span>
+          <button
+            type="button"
+            class="text-link"
+            disabled={app.busy['override:copy']}
+            onclick={() => (draft.customGroups.trim() || draft.customRules.length ? (replacing = true) : copyFromProfile())}
+            >{t('override.copyFromProfile')}</button
+          >
+        </h2>
+        <div class="group">
+          <label class="row block">
+            <textarea
+              class="in code"
+              rows="14"
+              bind:value={draft.customGroups}
+              aria-label={t('override.customGroups')}
+              spellcheck="false"
+              placeholder={'- name: Proxy\n  type: select\n  proxies: [DIRECT]'}
+            ></textarea>
+          </label>
+        </div>
+      </section>
+      <section>
+        <h2 class="section-title">{t('override.customRules')}</h2>
+        <div class="group">
+          <label class="row block">
+            <textarea
+              class="in code"
+              rows="10"
+              value={toLines(draft.customRules)}
+              aria-label={t('override.customRules')}
+              spellcheck="false"
+              placeholder="DOMAIN-SUFFIX,example.com,Proxy"
+              onchange={(event) => (draft.customRules = fromLines(event.target.value))}
+            ></textarea>
+          </label>
+        </div>
+      </section>
     {/if}
   {/if}
 </Page>
@@ -185,7 +194,7 @@
 {#if replacing}
   <Dialog title={t('override.confirmCopy')} onclose={() => (replacing = false)}>
     {#snippet actions()}
-      <button type="button" class="pill destructive" onclick={copyFromProfile}>{t('override.replace')}</button>
+      <button type="button" class="btn primary" onclick={copyFromProfile}>{t('override.replace')}</button>
     {/snippet}
   </Dialog>
 {/if}

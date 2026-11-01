@@ -89,28 +89,27 @@
 
 <svelte:window onkeydowncapture={keydown} />
 
-<div class="list">
+<div class="group">
   {#each actions as action (action)}
     {@const hotkey = current(action)}
-    <div class="row tall">
-      <div class="label">
+    <div class="row">
+      <div class="grow stack">
         <span>{t(`hotkey.${action}`)}</span>
         {#if recording === action && needsModifier}
-          <span class="sub">{t('hotkey.needsModifier')}</span>
+          <span class="bad-text">{t('hotkey.needsModifier')}</span>
         {:else if failed.includes(action)}
-          <span class="sub bad">{t('hotkey.failed')}</span>
+          <span class="bad-text">{t('hotkey.failed')}</span>
         {/if}
       </div>
       <button
         type="button"
-        class="pill shortcut"
+        class="btn shortcut"
         class:recording={recording === action}
+        title={t('hotkey.hint')}
         onclick={() => (recording === action ? stop() : start(action))}
       >
-        {#if recording === action}{t('hotkey.recording')}{:else if hotkey}<span class="mono">{display(hotkey)}</span
-          >{:else}<span class="sub">{t('hotkey.notSet')}</span>{/if}
+        {#if recording === action}{t('hotkey.recording')}{:else if hotkey}{display(hotkey)}{:else}<span class="val">{t('hotkey.notSet')}</span>{/if}
       </button>
     </div>
   {/each}
 </div>
-<p class="note">{t('hotkey.hint')}</p>

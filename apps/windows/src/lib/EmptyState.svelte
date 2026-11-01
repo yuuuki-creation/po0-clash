@@ -1,11 +1,10 @@
 <script>
   import Icon from './Icon.svelte';
 
-  let { icon, title, detail } = $props();
+  let { icon, title } = $props();
 </script>
 
 <div class="empty-state">
   <Icon name={icon} />
-  <span class="empty-title">{title}</span>
-  <span class="sub">{detail}</span>
+  <span>{title}</span>
 </div>

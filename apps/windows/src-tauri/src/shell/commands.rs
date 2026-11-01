@@ -10,7 +10,7 @@ use super::po0::{
     Provider, ProviderKind, ProxyGroup, RestoreScope, RouteMode, Rule, Script, Status, Traffic,
     WebDav, WhitelistState,
 };
-use super::{Backdrop, Launch, LaunchNotice, autostart, hotkeys, language, loopback};
+use super::{Launch, LaunchNotice, autostart, hotkeys, language, loopback};
 
 type CoreState<'a> = State<'a, Arc<Core>>;
 type Reply<T> = Result<T, String>;
@@ -31,15 +31,13 @@ where
 pub struct AppInfo {
     version: String,
     language: &'static str,
-    backdrop: bool,
 }
 
 #[tauri::command]
-pub fn app_info(app: AppHandle, core: CoreState<'_>, backdrop: State<'_, Backdrop>) -> AppInfo {
+pub fn app_info(app: AppHandle, core: CoreState<'_>) -> AppInfo {
     AppInfo {
         version: app.package_info().version.to_string(),
         language: language(&core),
-        backdrop: backdrop.0,
     }
 }
 

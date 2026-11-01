@@ -30,27 +30,27 @@
   }
 </script>
 
-<h2 class="group-title">{t('opt.geo')}</h2>
-<div class="list">
-  {#each files as file (file.name)}
-    <div class="row">
-      <div class="label">
-        <span>{file.name}</span>
-        <span class="sub mono">
+<section>
+  <h2 class="section-title">{t('opt.geo')}</h2>
+  <div class="group">
+    {#each files as file (file.name)}
+      <div class="row">
+        <span class="grow clip">{file.name}</span>
+        <span class="val clip">
           {file.size != null ? formatBytes(file.size) : t('opt.notDownloaded')}{file.modified
             ? ` · ${formatTime(file.modified)}`
             : ''}
         </span>
       </div>
+    {/each}
+    <div class="row">
+      <span class="grow">{t('opt.updateGeo')}</span>
+      <button type="button" class="btn" disabled={app.busy.geo} onclick={update}>{t('prov.update')}</button>
     </div>
-  {/each}
-  <div class="row">
-    <span class="label"></span>
-    <button type="button" class="pill" disabled={app.busy.geo} onclick={update}>{t('opt.updateGeo')}</button>
   </div>
-</div>
+</section>
 
-<div class="list" style:margin-top="12px">
+<div class="group">
   <Choice
     label={t('opt.geoLoader')}
     value={o.geodataLoader}
@@ -61,10 +61,12 @@
   <Field label={t('opt.geoInterval')} type="number" min="1" value={o.geoUpdateInterval} onchange={set('geoUpdateInterval')} />
 </div>
 
-<h2 class="group-title">{t('opt.geoUrls')}</h2>
-<div class="list">
-  <Field label="GeoIP" value={o.geoxUrl.geoip} onchange={setUrl('geoip')} />
-  <Field label="GeoSite" value={o.geoxUrl.geosite} onchange={setUrl('geosite')} />
-  <Field label="MMDB" value={o.geoxUrl.mmdb} onchange={setUrl('mmdb')} />
-  <Field label="ASN" value={o.geoxUrl.asn} onchange={setUrl('asn')} />
-</div>
+<section>
+  <h2 class="section-title">{t('opt.geoUrls')}</h2>
+  <div class="group">
+    <Field label="GeoIP" value={o.geoxUrl.geoip} onchange={setUrl('geoip')} />
+    <Field label="GeoSite" value={o.geoxUrl.geosite} onchange={setUrl('geosite')} />
+    <Field label="MMDB" value={o.geoxUrl.mmdb} onchange={setUrl('mmdb')} />
+    <Field label="ASN" value={o.geoxUrl.asn} onchange={setUrl('asn')} />
+  </div>
+</section>

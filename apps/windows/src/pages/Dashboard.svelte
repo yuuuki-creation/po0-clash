@@ -3,28 +3,40 @@
 </script>
 
 <script>
-  import { flip } from 'svelte/animate';
-  import { act, app, refreshExitIp, testDelay } from '../lib/core.svelte.js';
-  import { delayTone, formatAgo, formatBytes, formatDate, formatDelay, formatRate, t } from '../lib/i18n.js';
-  import Card from '../lib/Card.svelte';
+  import { act, app, refreshExitIp, resolvedDelay, testDelay } from '../lib/core.svelte.js';
+  import { arrangeCards, displayOrder, moveCard } from '../lib/dashboard-cards.js';
+  import { formatAgo, formatBytes, formatDate, formatDelay, formatElapsed, formatRate, formatUsage, t } from '../lib/i18n.js';
   import DelayButton from '../lib/DelayButton.svelte';
   import Icon from '../lib/Icon.svelte';
-  import Menu from '../lib/Menu.svelte';
-  import { motion, navigate, pop } from '../lib/motion.svelte.js';
+  import { navigate, rowIn, rowOut } from '../lib/motion.svelte.js';
   import Page from '../lib/Page.svelte';
+  import SectionMenu from '../lib/SectionMenu.svelte';
   import Segmented from '../lib/Segmented.svelte';
+  import { settings, updateSettings } from '../lib/settings.svelte.js';
   import SpeedChart from '../lib/SpeedChart.svelte';
   import Switch from '../lib/Switch.svelte';
-  import Value from '../lib/Value.svelte';
-  import { settings, updateSettings } from '../lib/settings.svelte.js';
-  import { moveCard } from '../lib/dashboard-cards.js';
-  import '../styles/dashboard.css';
+  import { focusGroup } from './Proxies.svelte';
 
   const engine = $derived(app.status?.engine.state ?? 'stopped');
   const running = $derived(engine === 'running');
-  const subtitle = $derived(
-    running ? t('status.running', { route: t(`route.${app.status.routeMode}`) }) : t(`status.${engine}`),
-  );
+  const connecting = $derived(engine === 'starting' || (!running && !!app.busy.power));
+  const statusTone = $derived({ running: 'on', starting: 'wait', failed: 'bad' }[engine] ?? '');
+
+  let now = $state(Date.now());
+  $effect(() => {
+    if (!app.connectedAt) return;
+    now = Date.now();
+    const timer = setInterval(() => (now = Date.now()), 1000);
+    return () => clearInterval(timer);
+  });
+
+  const powerLabels = $derived([
+    { id: 'connect', text: t('home.connect') },
+    { id: 'disconnect', text: t('home.disconnect') },
+    { id: 'reconnect', text: t('home.reconnect') },
+    { id: 'connecting', text: t('home.connecting'), spinner: true },
+  ]);
+  const powerState = $derived(connecting ? 'connecting' : running ? 'disconnect' : engine === 'failed' ? 'reconnect' : 'connect');
 
   const selectable = $derived(app.groups.filter((g) => g.selectable));
   const group = $derived(
@@ -33,34 +45,54 @@
       selectable[0],
   );
   const node = $derived(running && group ? group.nodes.find((n) => n.name === group.now) : null);
-  const alternatives = $derived.by(() => {
+  const rank = (delay) => (delay ? delay : delay === 0 ? 1e9 : 1e8);
+  const nodeSections = $derived.by(() => {
     if (!node) return [];
-    const rank = (n) => (n.delay ? n.delay : n.delay === 0 ? 1e9 : 1e8);
-    return group.nodes
-      .filter((n) => n.name !== node.name)
-      .toSorted((a, b) => rank(a) - rank(b))
-      .slice(0, 4);
+    const nodes = {
+      title: t('home.switchTo'),
+      value: node.name,
+      close: true,
+      options: group.nodes
+        .toSorted((a, b) => rank(resolvedDelay(a)) - rank(resolvedDelay(b)))
+        .map((n) => ({ value: n.name, label: n.name, detail: formatDelay(resolvedDelay(n)) })),
+      onchange: (name) => act(`select:${group.name}`, 'select_node', { group: group.name, node: name }),
+    };
+    if (selectable.length < 2) return [nodes];
+    const groups = {
+      title: t('home.group'),
+      value: group.name,
+      options: selectable.map((g) => ({ value: g.name, label: g.name })),
+      onchange: (name) => (chosenGroup = name),
+    };
+    return [nodes, groups];
   });
 
   const profile = $derived(app.profiles.find((p) => p.selected));
   const usage = $derived(profile?.usage);
   const used = $derived(usage ? usage.upload + usage.download : 0);
-  const percent = $derived(usage?.total ? Math.min(100, Math.round((used / usage.total) * 100)) : null);
+  const profileTitle = (p) => (p.kind === 'links' ? t('profiles.links') : p.name);
+  const profileTip = $derived(
+    [
+      profile?.updatedAt && t('home.updated', { ago: formatAgo(profile.updatedAt) }),
+      usage?.expire && t('profiles.expire', { date: formatDate(usage.expire) }),
+    ]
+      .filter(Boolean)
+      .join(' · '),
+  );
 
   const entries = $derived(app.whitelist.entries);
   const failing = $derived(entries.filter((e) => e.result && e.result.outcome !== 'applied').length);
+  const applied = $derived(entries.filter((e) => e.result?.outcome === 'applied').length);
   const lastCheck = $derived(Math.max(0, ...entries.map((e) => e.result?.at ?? 0)));
   const whitelistStatus = $derived.by(() => {
     if (!app.whitelist.enabled) return { tone: '', text: t('home.whitelistOff') };
     if (!entries.length) return { tone: '', text: t('home.noEntries') };
     if (!lastCheck) return { tone: '', text: t('home.pending') };
     if (failing) return { tone: 'fair', text: t('home.issues', { count: failing }) };
-    return { tone: 'good', text: t('home.allGood', { ago: formatAgo(lastCheck) }) };
+    return { tone: 'good', text: t('whitelist.summary', { applied, total: entries.length }) };
   });
 
   const totals = $derived(app.totals);
-  const select = (name) => act(`select:${group.name}`, 'select_node', { group: group.name, node: name });
-  const profileTitle = (p) => (p.kind === 'links' ? t('profiles.links') : p.name);
 
   const titles = {
     currentNode: 'home.node',
@@ -75,8 +107,7 @@
     subscription: 'home.profile',
     exitIp: 'home.exitIp',
   };
-  const wide = new Set(['currentNode', 'speed', 'mode', 'subscription', 'exitIp']);
-  const blocks = {
+  const rows = {
     currentNode,
     speed,
     mode,
@@ -89,7 +120,8 @@
     subscription,
     exitIp,
   };
-  const cards = $derived(settings.value.dashboardCards.filter((id) => blocks[id]));
+  const cards = $derived(displayOrder(settings.value.dashboardCards.filter((id) => rows[id])));
+  const columns = $derived(arrangeCards(cards));
   const hidden = $derived(Object.keys(titles).filter((id) => !cards.includes(id)));
 
   let editing = $state(false);
@@ -106,77 +138,98 @@
   }
 
   function moveWithKeyboard(event, id) {
-    const direction = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[event.key];
+    const direction = { ArrowUp: -1, ArrowDown: 1 }[event.key];
     if (!direction) return;
     event.preventDefault();
     const over = cards[cards.indexOf(id) + direction];
     if (over) saveCards(moveCard(cards, id, over));
   }
+
+  function openGroup(name) {
+    focusGroup(name);
+    navigate('proxies');
+  }
+
+  const testBusy = $derived(!group || app.busy[`delay:${group.name}`] || group.nodes.some((n) => app.busy[`node:${n.name}`]));
 </script>
 
-<Page title={t('page.dashboard')} {subtitle}>
+<Page title={t('page.dashboard')}>
   {#snippet actions()}
-    <div class="tb-group glass">
+    {#if !editing}
       <button
         type="button"
+        class="icon-btn"
         title={t('home.test')}
         aria-label={t('home.test')}
-        disabled={!group || app.busy[`delay:${group?.name}`] || group.nodes.some((node) => app.busy[`node:${node.name}`])}
+        disabled={testBusy}
         onclick={() => testDelay(group.name)}
       >
-        {#if group && app.busy[`delay:${group.name}`]}<span class="spinner"></span>{:else}<Icon name="bolt" />{/if}
+        {#if group && app.busy[`delay:${group.name}`]}<span class="ring"></span>{:else}<Icon name="bolt" />{/if}
       </button>
-      <button
-        type="button"
-        class:on={editing}
-        title={editing ? t('home.done') : t('home.edit')}
-        aria-label={editing ? t('home.done') : t('home.edit')}
-        aria-pressed={editing}
-        onclick={() => (editing = !editing)}>{#if editing}{t('home.done')}{:else}<Icon name="grid" />{/if}</button
-      >
-    </div>
+    {/if}
+    <button
+      type="button"
+      class={editing ? 'btn primary' : 'icon-btn'}
+      title={editing ? t('home.done') : t('home.edit')}
+      aria-label={editing ? t('home.done') : t('home.edit')}
+      aria-pressed={editing}
+      onclick={() => (editing = !editing)}>{#if editing}{t('home.done')}{:else}<Icon name="edit" />{/if}</button
+    >
   {/snippet}
 
-  {#if engine === 'failed'}
-    <div class="card failure">
-      <Icon name="warning" />
-      <div class="grow">
-        <span class="strong">{t('status.failed')}</span>
-        <span class="sub selectable">{app.status.engine.message}</span>
+  <section class="group">
+    <div class="row status">
+      <span class="dot {statusTone}"></span>
+      <div class="grow status-text">
+        <div class="status-main">
+          <strong>{t(`status.${engine}`)}</strong>
+          {#if app.connectedAt}<span class="val">{formatElapsed(now - app.connectedAt)}</span>{/if}
+        </div>
+        {#if engine === 'failed'}<span class="bad-text selectable">{app.status.engine.message}</span>{/if}
       </div>
-      <button type="button" class="pill" disabled={app.busy.power} onclick={() => act('power', 'start')}
-        >{t('home.reconnect')}</button
+      <button
+        type="button"
+        class="btn power"
+        class:primary={!running && !connecting}
+        disabled={connecting || app.busy.power || !app.status}
+        aria-label={powerLabels.find((label) => label.id === powerState).text}
+        onclick={() => act('power', running ? 'stop' : 'start')}
       >
+        <span class="power-labels">
+          {#each powerLabels as label (label.id)}
+            <span class:on={label.id === powerState}>
+              {#if label.spinner}<span class="ring"></span>{/if}{label.text}
+            </span>
+          {/each}
+        </span>
+      </button>
     </div>
-  {/if}
+  </section>
 
-  <div class="dash" class:editing role="list" aria-label={t('page.dashboard')}>
-    {#each cards as id (id)}
-      <div
-        animate:flip={{ duration: motion(300) }}
-        transition:pop={{ from: 0.9, y: 0 }}
-        class="dash-item"
-        class:span2={wide.has(id)}
-        class:dragging={dragged === id}
-        class:drop-target={target === id && dragged !== id}
-        role="listitem"
-        data-card={id}
-        ondragover={(event) => {
-          if (!editing || !dragged) return;
-          event.preventDefault();
-          event.dataTransfer.dropEffect = 'move';
-          target = id;
-        }}
-        ondrop={(event) => {
-          if (!editing || !dragged) return;
-          event.preventDefault();
-          drop(id);
-        }}
-      >
-        {#if editing}
+  {#if editing}
+    <section class="group" role="list">
+      {#each cards as id (id)}
+        <div
+          class="row edit-row"
+          class:dragging={dragged === id}
+          class:drop-target={target === id && dragged !== id}
+          role="listitem"
+          ondragover={(event) => {
+            if (!dragged) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            target = id;
+          }}
+          ondrop={(event) => {
+            event.preventDefault();
+            drop(id);
+          }}
+          in:rowIn
+          out:rowOut
+        >
           <button
             type="button"
-            class="drag-card"
+            class="edit-grip"
             draggable="true"
             title={t('home.reorderCard', { name: t(titles[id]) })}
             aria-label={t('home.reorderCard', { name: t(titles[id]) })}
@@ -188,99 +241,66 @@
             }}
             ondragend={() => (dragged = target = null)}><Icon name="grip" /></button
           >
+          <span class="grow">{t(titles[id])}</span>
           <button
             type="button"
-            class="remove-card"
+            class="icon-btn"
             title={t('home.removeCard')}
-            aria-label={t('home.removeCard')}
-            onclick={() => saveCards(cards.filter((c) => c !== id))}><Icon name="minimize" /></button
+            aria-label={`${t('home.removeCard')} · ${t(titles[id])}`}
+            onclick={() => saveCards(cards.filter((c) => c !== id))}><Icon name="close" /></button
           >
-        {/if}
-        {@render blocks[id]()}
-      </div>
-    {/each}
-  </div>
-  {#if editing}
-    <h2 class="group-title">{t('home.addCards')}</h2>
-    <div class="add-cards">
-      {#each hidden as id (id)}
-        <button type="button" class="chip" onclick={() => saveCards([...cards, id])}
-          ><Icon name="plus" /><span>{t(titles[id])}</span></button
-        >
-      {:else}
-        <span class="sub">{t('home.allCards')}</span>
+        </div>
+      {/each}
+    </section>
+    {#if hidden.length}
+      <section>
+        <h2 class="section-title">{t('home.addCards')}</h2>
+        <div class="group">
+          {#each hidden as id (id)}
+            <button type="button" class="row" onclick={() => saveCards([...cards, id])} in:rowIn out:rowOut>
+              <span class="grow">{t(titles[id])}</span>
+              <Icon name="plus" class="chev" />
+            </button>
+          {/each}
+        </div>
+      </section>
+    {/if}
+  {:else}
+    <div class="cols">
+      {#each columns as sections, i (i)}
+        <div class="col">
+          {#each sections as section, s (s)}
+            <section class="group">
+              {#each section.cards as id (id)}
+                {@render rows[id]()}
+              {/each}
+            </section>
+          {/each}
+        </div>
       {/each}
     </div>
-    <p class="note">{t('home.editHint')}</p>
   {/if}
 </Page>
 
 {#snippet currentNode()}
-  <Card title={t('home.node')} icon="globe">
-    {#snippet accessory()}
-      {#if selectable.length > 1}
-        <Menu
-          small
-          label={t('home.group')}
-          value={group?.name}
-          options={selectable.map((g) => ({ value: g.name, label: g.name }))}
-          onchange={(name) => (chosenGroup = name)}
-        />
-      {/if}
-    {/snippet}
-    <div class="split end">
-      <div class="grow">
-        <span class="node-name">{node?.name ?? '—'}</span>
-        <span class="sub title">
-          {#if node}{[node.kind, t('home.nodeMeta', { group: group.name, count: group.nodes.length })]
-              .filter(Boolean)
-              .join(' · ')}{:else}{t(`status.${engine}`)}{/if}
-        </span>
-      </div>
-      {#if node}
-        <DelayButton {node} />
-      {/if}
-    </div>
-    {#if alternatives.length}
-      <div class="hr"></div>
-      <div class="chips">
-        <span class="sub">{t('home.switchTo')}</span>
-        {#each alternatives as n (n.name)}
-          <button
-            type="button"
-            class="chip"
-            disabled={app.busy[`select:${group.name}`]}
-            onclick={() => select(n.name)}
-          >
-            <span>{n.name}</span>{#if n.delay != null}<span class="mono tone-{delayTone(n.delay)}"
-                >{formatDelay(n.delay)}</span
-              >{/if}
-          </button>
-        {/each}
-      </div>
+  <div class="row">
+    <button type="button" class="row-hit" aria-label={t('home.node')} onclick={() => openGroup(group?.name)}></button>
+    <span class="grow clip">{t('home.node')}</span>
+    {#if node}
+      <SectionMenu label={t('home.switchTo')} sections={nodeSections} triggerClass="val-menu">
+        {#snippet trigger()}<span class="clip">{node.name}</span><Icon name="chevDown" class="chev-d" />{/snippet}
+      </SectionMenu>
+      <DelayButton {node} />
+    {:else}
+      <span class="val">—</span>
     {/if}
-  </Card>
-{/snippet}
-
-{#snippet speed()}
-  <Card title={t('home.speed')} icon="chart">
-    {#snippet accessory()}<span>{t('home.last60')}</span>{/snippet}
-    <div class="speed-values">
-      <div>
-        <Value text={formatRate(app.traffic.down)} />
-        <span class="caption"><span class="dot accent"></span>{t('home.download')}</span>
-      </div>
-      <div>
-        <Value text={formatRate(app.traffic.up)} />
-        <span class="caption"><span class="dot up"></span>{t('home.upload')}</span>
-      </div>
-    </div>
-    <SpeedChart history={app.history} />
-  </Card>
+    <Icon name="chevron" class="chev" />
+  </div>
 {/snippet}
 
 {#snippet mode()}
-  <Card title={t('home.mode')} icon="branch">
+  <div class="row">
+    <span class="grow clip">{t('home.mode')}</span>
     <Segmented
       label={t('home.mode')}
       options={['rule', 'global', 'direct'].map((value) => ({ value, label: t(`mode.${value}`) }))}
@@ -288,12 +308,12 @@
       disabled={app.busy.mode || !app.status}
       onchange={(mode) => act('mode', 'set_mode', { mode })}
     />
-    <span class="caption">{app.status ? t(`mode.${app.status.mode}Desc`) : ''}</span>
-  </Card>
+  </div>
 {/snippet}
 
 {#snippet takeover()}
-  <Card title={t('home.route')} icon="wifi">
+  <div class="row">
+    <span class="grow clip">{t('home.route')}</span>
     <Segmented
       label={t('home.route')}
       options={['tun', 'systemProxy'].map((value) => ({ value, label: t(`route.${value}`) }))}
@@ -301,116 +321,109 @@
       disabled={app.busy.route || !app.status}
       onchange={(routeMode) => act('route', 'set_route_mode', { routeMode })}
     />
-    <span class="caption"
-      ><span class="dot" class:good={running}></span>{running
-        ? t(`home.routeOn.${app.status.routeMode}`)
-        : t(`status.${engine}`)}</span
-    >
-  </Card>
+  </div>
 {/snippet}
 
 {#snippet whitelist()}
-  <Card title={t('home.whitelist')} icon="shield">
-    {#snippet accessory()}
-      <Switch
-        label={t('whitelist.enabled')}
-        checked={app.whitelist.enabled}
-        disabled={app.busy['wl:enabled']}
-        onchange={(enabled) => act('wl:enabled', 'set_whitelist_enabled', { enabled })}
-      />
-    {/snippet}
-    <Value text={`${entries.length} ${t('home.entryUnit')}`} />
-    <button type="button" class="caption link-caption" onclick={() => navigate('whitelist')}
-      ><span class="dot {whitelistStatus.tone}"></span><span class="title">{whitelistStatus.text}</span></button
-    >
-  </Card>
-{/snippet}
-
-{#snippet traffic()}
-  <Card title={t('home.traffic')} icon="updown">
-    <Value text={formatBytes(totals ? totals.uploadTotal + totals.downloadTotal : 0)} />
-    <span class="caption">↑ {formatBytes(totals?.uploadTotal ?? 0)} · ↓ {formatBytes(totals?.downloadTotal ?? 0)}</span>
-  </Card>
-{/snippet}
-
-{#snippet connections()}
-  <Card title={t('home.connections')} icon="link">
-    {#snippet accessory()}
-      <button type="button" class="plain-button" aria-label={t('page.activity')} onclick={() => navigate('activity')}
-        ><Icon name="chevron" /></button
-      >
-    {/snippet}
-    <Value text={`${totals?.items.length ?? 0} ${t('home.connectionUnit')}`.trim()} />
-    <span class="caption">{t('home.requestsTotal', { count: app.requestCount.toLocaleString() })}</span>
-  </Card>
-{/snippet}
-
-{#snippet memory()}
-  <Card title={t('home.memory')} icon="chip">
-    <Value text={app.memory ? formatBytes(app.memory) : '—'} />
-    <span class="caption">{t('home.memoryCaption')}</span>
-  </Card>
-{/snippet}
-
-{#snippet intranetIp()}
-  <Card title={t('home.lan')} icon="monitor">
-    <Value text={app.lan?.ip ?? '—'} size="small" />
-    <span class="caption title">{app.lan?.interface ?? ''}</span>
-  </Card>
+  <div class="row">
+    <button type="button" class="row-hit" aria-label={t('home.whitelist')} onclick={() => navigate('whitelist')}></button>
+    <span class="grow clip">{t('home.whitelist')}</span>
+    <span class="val clip" class:warn-text={whitelistStatus.tone === 'fair'}>{whitelistStatus.text}</span>
+    <Switch
+      label={t('whitelist.enabled')}
+      checked={app.whitelist.enabled}
+      disabled={app.busy['wl:enabled']}
+      onchange={(enabled) => act('wl:enabled', 'set_whitelist_enabled', { enabled })}
+    />
+    <Icon name="chevron" class="chev" />
+  </div>
 {/snippet}
 
 {#snippet subscription()}
-  <Card title={t('home.profile')} icon="stack">
-    {#snippet accessory()}
-      {#if profile?.updatedAt}<span>{t('home.updated', { ago: formatAgo(profile.updatedAt) })}</span>{/if}
-      {#if profile?.kind === 'subscription'}
+  <div class="row" title={profileTip}>
+    <button
+      type="button"
+      class="row-hit"
+      aria-label={profile ? profileTitle(profile) : t('home.addProfile')}
+      onclick={() => navigate('profiles')}
+    ></button>
+    {#if profile}
+      <span class="grow clip">{profileTitle(profile)}</span>
+      {#if usage?.total}<span class="val">{formatUsage(used, usage.total)}</span>{/if}
+      {#if profile.kind === 'subscription'}
         <button
           type="button"
-          class="round small"
+          class="icon-btn"
           title={t('home.update')}
           aria-label={t('home.update')}
           disabled={app.busy[`update:${profile.id}`]}
           onclick={() => act(`update:${profile.id}`, 'update_profile', { id: profile.id })}
+          ><Icon name="refresh" class={app.busy[`update:${profile.id}`] ? 'spin' : ''} /></button
         >
-          {#if app.busy[`update:${profile.id}`]}<span class="spinner"></span>{:else}<Icon name="refresh" />{/if}
-        </button>
       {/if}
-    {/snippet}
-    {#if !profile}
-      <button type="button" class="text-button start-aligned" onclick={() => navigate('profiles')}
-        >{t('home.addProfile')}</button
-      >
     {:else}
-      <div class="split spread">
-        <span class="title profile-name">{profileTitle(profile)}</span>
-        {#if percent != null}<span class="sub mono">{t('home.percent', { percent })}</span>{/if}
-      </div>
-      {#if percent != null}
-        <div class="bar"><span style:width="{percent}%"></span></div>
-        <div class="usage">
-          <span>{t('home.usedOf', { used: formatBytes(used), total: formatBytes(usage.total) })}</span>
-          {#if usage.expire}<span>{t('profiles.expire', { date: formatDate(usage.expire) })}</span>{/if}
-        </div>
-      {:else}
-        <span class="caption">{t('home.noUsage')}</span>
-      {/if}
+      <span class="grow clip">{t('home.addProfile')}</span>
     {/if}
-  </Card>
+    <Icon name="chevron" class="chev" />
+  </div>
 {/snippet}
 
 {#snippet exitIp()}
-  <Card title={t('home.exitIp')} icon="pin">
-    {#snippet accessory()}
-      <button
-        type="button"
-        class="round small"
-        title={t('home.refresh')}
-        aria-label={t('home.refresh')}
-        disabled={app.exitIpLoading}
-        onclick={() => refreshExitIp()}><Icon name="refresh" /></button
-      >
-    {/snippet}
-    <Value text={app.exitIp?.ip ?? (app.exitIpLoading ? '…' : '—')} size="medium" />
-    <span class="caption">{app.exitIp?.country ?? ''}</span>
-  </Card>
+  <div class="row">
+    <span class="grow clip">{t('home.exitIp')}</span>
+    <span class="val selectable">{app.exitIp?.ip ?? (app.exitIpLoading ? '…' : '—')}</span>
+    {#if app.exitIp?.country}<span class="val">{app.exitIp.country}</span>{/if}
+    <button
+      type="button"
+      class="icon-btn"
+      title={t('home.refresh')}
+      aria-label={t('home.refresh')}
+      disabled={app.exitIpLoading}
+      onclick={() => refreshExitIp()}><Icon name="refresh" class={app.exitIpLoading ? 'spin' : ''} /></button
+    >
+  </div>
+{/snippet}
+
+{#snippet intranetIp()}
+  <div class="row" title={app.lan?.interface ?? ''}>
+    <span class="grow clip">{t('home.lan')}</span>
+    <span class="val selectable">{app.lan?.ip ?? '—'}</span>
+  </div>
+{/snippet}
+
+{#snippet speed()}
+  <div class="row">
+    <span class="grow clip">{t('home.speed')}</span>
+    <span class="rate dn"><Icon name="down" />{formatRate(app.traffic.down)}</span>
+    <span class="rate up"><Icon name="up" />{formatRate(app.traffic.up)}</span>
+  </div>
+  <SpeedChart history={app.history} />
+{/snippet}
+
+{#snippet traffic()}
+  <div class="row">
+    <span class="grow clip">{t('home.traffic')}</span>
+    <span class="rate dn"><Icon name="down" />{formatBytes(totals?.downloadTotal ?? 0)}</span>
+    <span class="rate up"><Icon name="up" />{formatBytes(totals?.uploadTotal ?? 0)}</span>
+  </div>
+{/snippet}
+
+{#snippet connections()}
+  <button
+    type="button"
+    class="row"
+    title={t('home.requestsTotal', { count: app.requestCount.toLocaleString() })}
+    onclick={() => navigate('activity')}
+  >
+    <span class="grow clip">{t('home.connections')}</span>
+    <span class="val">{totals?.items.length ?? 0}</span>
+    <Icon name="chevron" class="chev" />
+  </button>
+{/snippet}
+
+{#snippet memory()}
+  <div class="row">
+    <span class="grow clip">{t('home.memory')}</span>
+    <span class="val">{app.memory ? formatBytes(app.memory) : '—'}</span>
+  </div>
 {/snippet}

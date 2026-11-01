@@ -21,16 +21,16 @@
 </script>
 
 {#if rules && !rules.length}
-  <EmptyState icon="rules" title={t('rules.empty')} detail={t('rules.emptyHint')} />
+  <EmptyState icon="rules" title={t('rules.empty')} />
 {:else if rules}
-  <div class="list">
+  <section class="tbl auto">
     {#each shown.slice(0, LIMIT) as rule, i (i)}
-      <div class="row">
-        <span class="tag">{rule.kind}</span>
-        <span class="label"><span class="title selectable">{rule.payload || '—'}</span></span>
-        <span class="trailing title">{rule.proxy}</span>
+      <div class="row t-rule">
+        <span class="val clip">{rule.kind}</span>
+        <span class="clip selectable" title={rule.payload}>{rule.payload || '—'}</span>
+        <span class="val clip">{rule.proxy}</span>
       </div>
     {/each}
-  </div>
-  {#if shown.length > LIMIT}<p class="note">{t('rules.more', { count: shown.length - LIMIT })}</p>{/if}
+    {#if shown.length > LIMIT}<div class="empty-row">{t('rules.more', { count: shown.length - LIMIT })}</div>{/if}
+  </section>
 {/if}

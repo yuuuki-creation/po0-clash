@@ -1,10 +1,10 @@
 <script>
   import Menu from '../Menu.svelte';
 
-  let { label, hint = '', value, options, onchange } = $props();
+  let { label, value, options, onchange } = $props();
 </script>
 
-<div class="row" class:tall={hint}>
-  <div class="label"><span>{label}</span>{#if hint}<span class="sub">{hint}</span>{/if}</div>
+<div class="row">
+  <span class="grow">{label}</span>
   <Menu {label} {value} {options} {onchange} />
 </div>
