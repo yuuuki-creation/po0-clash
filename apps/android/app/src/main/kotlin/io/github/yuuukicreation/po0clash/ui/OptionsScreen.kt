@@ -83,7 +83,8 @@ private fun portText(port: UShort) = if (port == 0.toUShort()) "" else port.toSt
 @Composable
 fun NetworkOptionsScreen(vm: AppViewModel, onBack: () -> Unit) {
     val o by vm.options.collectAsStateWithLifecycle()
-    val android by vm.androidSettings.collectAsStateWithLifecycle()
+    val settings by vm.appSettings.collectAsStateWithLifecycle()
+    val android = settings.androidVpn
     val set = vm::setOptions
     val stacks = listOf(
         null to stringResource(R.string.default_value),

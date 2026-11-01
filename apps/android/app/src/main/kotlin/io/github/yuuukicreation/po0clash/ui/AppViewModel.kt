@@ -7,9 +7,9 @@ import android.os.Process
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.yuuukicreation.po0clash.AndroidSettings
 import io.github.yuuukicreation.po0clash.R
 import io.github.yuuukicreation.po0clash.core.AppSettings
+import io.github.yuuukicreation.po0clash.core.AndroidVpnOptions
 import io.github.yuuukicreation.po0clash.core.Change
 import io.github.yuuukicreation.po0clash.core.EngineOptions
 import io.github.yuuukicreation.po0clash.core.Mode
@@ -44,7 +44,6 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     val busy = _busy.asStateFlow()
     private val _options = MutableStateFlow(core.engineOptions())
     val options = _options.asStateFlow()
-    val androidSettings = engine.settings.state
     val appSettings = engine.appSettings
     private val optionWriter = Dispatchers.IO.limitedParallelism(1)
     private val overrideWriter = Dispatchers.IO.limitedParallelism(1)
@@ -113,7 +112,7 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
 
     fun setAppSettings(change: (AppSettings) -> AppSettings) = engine.setAppSettings(change) { _messages.trySend(it.userMessage()) }
 
-    fun updateAndroid(change: (AndroidSettings) -> AndroidSettings) = engine.settings.update(change)
+    fun updateAndroid(change: (AndroidVpnOptions) -> AndroidVpnOptions) = setAppSettings { it.copy(androidVpn = change(it.androidVpn)) }
 
     fun toast(message: String) {
         _messages.trySend(message)

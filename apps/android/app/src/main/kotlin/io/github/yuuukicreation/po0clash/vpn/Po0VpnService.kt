@@ -20,7 +20,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import io.github.yuuukicreation.po0clash.AccessMode
-import io.github.yuuukicreation.po0clash.AndroidSettings
 import io.github.yuuukicreation.po0clash.Engine
 import io.github.yuuukicreation.po0clash.accessMode
 import io.github.yuuukicreation.po0clash.MainActivity
@@ -160,7 +159,8 @@ class Po0VpnService : VpnService() {
         setSession(getString(R.string.app_name))
         setMtu(VpnRoutes.MTU)
         addAddress(VpnRoutes.ADDRESS4, VpnRoutes.PREFIX4)
-        if (engine?.settings?.state?.value?.ipv6 != false) addAddress(VpnRoutes.ADDRESS6, VpnRoutes.PREFIX6)
+        val settings = checkNotNull(engine).appSettings.value.androidVpn
+        if (settings.ipv6) addAddress(VpnRoutes.ADDRESS6, VpnRoutes.PREFIX6)
         addDnsServer(VpnRoutes.DNS)
         if (Build.VERSION.SDK_INT >= 33) {
             addRoute("0.0.0.0", 0)
@@ -168,7 +168,6 @@ class Po0VpnService : VpnService() {
         } else {
             VpnRoutes.ipv4Excluding(VpnRoutes.PO0_API).forEach { addRoute(it.address, it.prefix) }
         }
-        val settings = engine?.settings?.state?.value ?: AndroidSettings()
         if (settings.ipv6) addRoute("::", 0)
         val access = engine?.appSettings?.value?.accessControl
         val mode = access?.accessMode ?: AccessMode.OFF

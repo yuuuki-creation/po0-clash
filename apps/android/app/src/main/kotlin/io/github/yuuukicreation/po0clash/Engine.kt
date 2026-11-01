@@ -106,8 +106,10 @@ class Engine(private val app: Application) {
 
     val vpnActive = MutableStateFlow(false)
     val vpnError = MutableStateFlow<String?>(null)
-    val settings = AndroidSettingsStore(app)
-    private val _appSettings = MutableStateFlow(core.appSettings())
+    private val _appSettings = MutableStateFlow(run {
+        migrateAndroidSettings(app, core)
+        core.appSettings()
+    })
     val appSettings = _appSettings.asStateFlow()
     private val appWriter = Dispatchers.IO.limitedParallelism(1)
     private val _ssid = MutableStateFlow<String?>(null)
