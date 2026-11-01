@@ -1,6 +1,5 @@
-原生重写（[ADR 0018](https://github.com/yuuuki-creation/po0-clash/blob/native/docs/adr/0018-native-rewrite.md)）的第一个正式版，取代 Flutter 版 6.4.4：
-macOS 用 SwiftUI，Windows 用 Tauri，Android 用 Jetpack Compose，共用一个 Rust 内核，代理引擎仍是 mihomo。
-Flutter 版今后只修严重问题。从 Flutter 版升级时，订阅和加白条目会自动导入。
+本版把三端界面换成贴近各平台习惯的传统样式，改用暖灰配色，并修复了一批连接、VPN 和设置保存的问题。
+从 7.0.0 或 Flutter 版都可以直接覆盖升级。
 
 ## 安装
 
@@ -9,7 +8,7 @@ Flutter 版今后只修严重问题。从 Flutter 版升级时，订阅和加白
 在终端运行：
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.0.0/install-macos-native.sh | bash
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.1.0/install-macos-native.sh | bash
 ```
 
 脚本会退出并替换已安装的 po0-clash（包括 Flutter 版），装到「应用程序」后启动。应用没有经过苹果公证，脚本会去掉下载带来的隔离标记。
@@ -17,7 +16,7 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
 
 ### Windows（10 / 11，x64）
 
-下载 `po0-clash-7.0.0-windows-x64-setup.exe` 运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
+下载 `po0-clash-7.1.0-windows-x64-setup.exe` 运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
 应用以管理员身份运行（虚拟网卡需要）。已装 Flutter 版时会先静默卸载它，订阅和加白条目保留并导入。
 
 ### Android（8.0 及以上）
@@ -27,8 +26,6 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
 可以直接覆盖安装 Flutter 版，订阅和加白条目会自动导入。覆盖之后不能直接装回 Flutter 版，要先卸载，应用数据会一起清除。
 
 ## 功能
-
-三端都是带侧边栏（手机上是标签栏）的主界面，外观按苹果的液态玻璃规范：玻璃只用在浮动的导航和控件层，内容是不透明的卡片。
 
 - 仪表盘：网络速度曲线、流量与连接数、内存、出口 IP、内网 IP、订阅用量、加白，卡片可增删排序。
 - 代理：标签式或列表式，排序、定位当前节点、单节点与整组测速。
@@ -42,16 +39,20 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
   快捷设置磁贴、外部启停 intent 和 TV 入口。
 - po0 与 ggy 自动加白照旧：不论是否连接都持续运行，加白请求始终从真实出口发出。
 
-## 相对 7.0.0-beta.2
+## 相对 7.0.0
 
-- 液态玻璃：macOS 26 上代理页的分组标签浮在玻璃上；Windows 的玻璃控件边缘有轻微折射和高光边；Android 13 起标签栏、状态条、
-  弹层和菜单有透镜折射，按住标签栏可以拖动换页，内容下滑时标签栏收成圆形。
-- 动画：页面切换（桌面端淡入，子页面和手机上是推入，Android 的返回手势跟手）、选中块滑动、连接按钮和状态的过渡、数字滚动、
-  按下和悬停的反馈。系统关掉动画（macOS「减弱动态效果」、Windows 动画效果、Android 动画时长缩放为 0）或关掉应用的页面切换动画时直接切换。
+- 新界面：去掉液态玻璃和浮动控件，改用系统字体、标准控件、列表和表格；Windows、macOS、Android 的圆角、分界线和动画各按平台习惯。
+- 暖灰配色：浅色和深色都换了新配色。默认强调色改为绿色，仍是系统蓝默认的会自动切换，选过其他颜色的不变；蓝色还在预设里。
+- 连接按钮：三端都放在仪表盘顶部的状态行。
+- 节点组多时更好用：桌面是可滚动的组列表，窄窗口是下拉框；Android 手机先选组再选节点，平板左右并排。
+- 窗口拉伸：桌面的导航和内容随窗口宽度调整，Android 宽屏改用侧边导航。
+- 修复内核：启停连接不再互相打断，等引擎确实退出后才结束会话；代理集缓存按配置和来源隔离；控制请求超时后不再卡住。
+- 修复 Android：分应用代理不再接受空名单，正确申请精确位置，备份包含 VPN 选项，Wi-Fi 暂停和恢复时保持连接意图，VPN 端口的设置和修改不再并发。
+- 修复 macOS：等特权引擎确认关闭后再继续。
+- 修复 Windows：应用设置的连续修改按顺序保存。
 
 ## 已知问题
 
-- macOS：管理员授权弹窗和开机自启只在 CI 中模拟过；动画没有在真机上看过。
-- Windows：只在测试虚拟机里验证过，安装程序没有签名。
-- Android：只在模拟器上测试过，Android 12 及更早系统上的玻璃降级没有跑过；订阅里把 DNS 写成 `system` 时无法解析；
-  关于页的开源许可只列了内核的依赖，没有列 Android 自己的依赖。
+- macOS：管理员授权弹窗和开机自启只在 CI 中模拟过。
+- Windows：安装程序没有签名。
+- Android：订阅里把 DNS 写成 `system` 时无法解析；关于页的开源许可只列了内核的依赖，没有列 Android 自己的依赖。
