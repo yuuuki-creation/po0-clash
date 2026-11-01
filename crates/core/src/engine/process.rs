@@ -112,7 +112,9 @@ impl Process {
 
 #[cfg(target_os = "macos")]
 pub(super) fn is_tun_runner(binary: &Path) -> bool {
-    binary.file_name().is_some_and(|name| name == "po0-tun-runner")
+    binary
+        .file_name()
+        .is_some_and(|name| name == "po0-tun-runner")
 }
 
 #[cfg(target_os = "macos")]
@@ -132,7 +134,9 @@ fn stop_tun_runner(child: &mut Child, signal: i32) -> std::io::Result<()> {
     loop {
         if let Some(status) = child.try_wait()? {
             return if status.code() == Some(70) || status.signal().is_some() {
-                Err(std::io::Error::other("TUN root engine exit was not confirmed"))
+                Err(std::io::Error::other(
+                    "TUN root engine exit was not confirmed",
+                ))
             } else {
                 Ok(())
             };

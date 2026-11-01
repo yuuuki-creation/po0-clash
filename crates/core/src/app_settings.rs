@@ -412,7 +412,10 @@ mod tests {
         assert!(!settings.android_vpn.system_proxy);
         assert!(settings.android_vpn.ipv6);
         let encoded = serde_json::to_string(&settings).unwrap();
-        assert_eq!(serde_json::from_str::<AppSettings>(&encoded).unwrap(), settings);
+        assert_eq!(
+            serde_json::from_str::<AppSettings>(&encoded).unwrap(),
+            settings
+        );
     }
 
     #[test]
@@ -440,7 +443,12 @@ mod tests {
         assert_eq!(moved.theme_color, DEFAULT_THEME_COLOR);
         assert_eq!(
             moved.theme_colors,
-            [DEFAULT_THEME_COLOR, LEGACY_DEFAULT_THEME_COLOR, 0xFF66_56D6, 0xFFFF_7800]
+            [
+                DEFAULT_THEME_COLOR,
+                LEGACY_DEFAULT_THEME_COLOR,
+                0xFF66_56D6,
+                0xFFFF_7800
+            ]
         );
 
         let chose_blue = AppSettings {

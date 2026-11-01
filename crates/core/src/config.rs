@@ -366,7 +366,10 @@ fn isolate_provider_caches(root: &mut Mapping, profile_id: &str) {
             ))
             .expect("provider identity serializes");
             let digest = Sha256::digest(identity.as_bytes());
-            provider.insert(key("path"), key(&format!("./providers/po0-{digest:x}.cache")));
+            provider.insert(
+                key("path"),
+                key(&format!("./providers/po0-{digest:x}.cache")),
+            );
         }
     }
 }
@@ -689,7 +692,12 @@ rules:
     fn http_provider_caches_follow_profile_and_source_identity() {
         let base = "proxy-providers:\n  p: {type: http, url: https://example.test/a, path: ./same.yaml}\n  local: {type: file, path: ./local.yaml}\nrule-providers:\n  p: {type: http, url: https://example.test/a, path: ./same.yaml, behavior: domain}\n";
         let rendered = |id: &str, content: &str| {
-            render_profile(content, params(Platform::Windows, RouteMode::SystemProxy, None), &EngineOptions::default(), id)
+            render_profile(
+                content,
+                params(Platform::Windows, RouteMode::SystemProxy, None),
+                &EngineOptions::default(),
+                id,
+            )
         };
         let a = rendered("a", base);
         let b = rendered("b", base);
@@ -702,7 +710,10 @@ rules:
             assert!(path.as_str().unwrap().starts_with("./providers/po0-"));
             assert_eq!(a[kind]["p"]["url"], "https://example.test/a");
         }
-        assert_ne!(a["proxy-providers"]["p"]["path"], a["rule-providers"]["p"]["path"]);
+        assert_ne!(
+            a["proxy-providers"]["p"]["path"],
+            a["rule-providers"]["p"]["path"]
+        );
         assert_eq!(a["proxy-providers"]["local"]["path"], "./local.yaml");
     }
 

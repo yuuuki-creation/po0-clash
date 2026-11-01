@@ -64,7 +64,10 @@ impl Pipe {
             remaining.as_millis().max(1).min(u32::MAX as u128 - 1) as u32
         });
         let mut transferred = 0;
-        if unsafe { GetOverlappedResultEx(handle, &raw const overlapped, &mut transferred, wait, 0) } != 0 {
+        if unsafe {
+            GetOverlappedResultEx(handle, &raw const overlapped, &mut transferred, wait, 0)
+        } != 0
+        {
             return Ok(transferred as usize);
         }
         let error = io::Error::last_os_error();
@@ -73,7 +76,8 @@ impl Pipe {
             CancelIoEx(handle, &raw const overlapped);
             GetOverlappedResult(handle, &raw const overlapped, &mut transferred, 1);
         }
-        if matches!(error.raw_os_error(), Some(code) if code == WAIT_TIMEOUT as i32 || code == ERROR_IO_INCOMPLETE as i32) {
+        if matches!(error.raw_os_error(), Some(code) if code == WAIT_TIMEOUT as i32 || code == ERROR_IO_INCOMPLETE as i32)
+        {
             Err(timed_out())
         } else {
             Err(error)
@@ -87,7 +91,13 @@ impl Read for Pipe {
             return Ok(0);
         }
         let result = self.transfer(|handle, overlapped| unsafe {
-            ReadFile(handle, buffer.as_mut_ptr().cast(), buffer.len().min(u32::MAX as usize) as u32, ptr::null_mut(), overlapped)
+            ReadFile(
+                handle,
+                buffer.as_mut_ptr().cast(),
+                buffer.len().min(u32::MAX as usize) as u32,
+                ptr::null_mut(),
+                overlapped,
+            )
         });
         match result {
             Err(error) if error.raw_os_error() == Some(ERROR_BROKEN_PIPE as i32) => Ok(0),
@@ -102,7 +112,13 @@ impl Write for Pipe {
             return Ok(0);
         }
         self.transfer(|handle, overlapped| unsafe {
-            WriteFile(handle, buffer.as_ptr().cast(), buffer.len().min(u32::MAX as usize) as u32, ptr::null_mut(), overlapped)
+            WriteFile(
+                handle,
+                buffer.as_ptr().cast(),
+                buffer.len().min(u32::MAX as usize) as u32,
+                ptr::null_mut(),
+                overlapped,
+            )
         })
     }
 
@@ -132,13 +148,25 @@ mod tests {
         let name = format!(r"\\.\pipe\po0-controller-test-{}", crate::util::random_id());
         let wide: Vec<_> = name.encode_utf16().chain(Some(0)).collect();
         let handle = unsafe {
-            CreateNamedPipeW(wide.as_ptr(), PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE | PIPE_WAIT, 1, 4096, 4096, 0, ptr::null())
+            CreateNamedPipeW(
+                wide.as_ptr(),
+                PIPE_ACCESS_DUPLEX,
+                PIPE_TYPE_BYTE | PIPE_WAIT,
+                1,
+                4096,
+                4096,
+                0,
+                ptr::null(),
+            )
         };
         assert_ne!(handle, INVALID_HANDLE_VALUE);
         let file = unsafe { File::from_raw_handle(handle) };
         let server = thread::spawn(move || {
             if unsafe { ConnectNamedPipe(file.as_raw_handle(), ptr::null_mut()) } == 0 {
-                assert_eq!(io::Error::last_os_error().raw_os_error(), Some(ERROR_PIPE_CONNECTED as i32));
+                assert_eq!(
+                    io::Error::last_os_error().raw_os_error(),
+                    Some(ERROR_PIPE_CONNECTED as i32)
+                );
             }
             if read_head {
                 let mut reader = BufReader::new(file.try_clone().unwrap());
@@ -159,23 +187,31 @@ mod tests {
     fn reads_named_pipe_responses() {
         let (release, released) = mpsc::channel();
         let (controller, server) = serve(true, move |mut file| {
-            file.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}").unwrap();
+            file.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}")
+                .unwrap();
             let _ = released.recv_timeout(Duration::from_secs(2));
         });
-        assert_eq!(controller.json("GET", "/version", None).unwrap(), serde_json::json!({}));
+        assert_eq!(
+            controller.json("GET", "/version", None).unwrap(),
+            serde_json::json!({})
+        );
         release.send(()).unwrap();
         server.join().unwrap();
     }
 
     #[test]
     fn cancels_a_stalled_response_head_or_body() {
-        for prefix in [b"".as_slice(), b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\nx"] {
+        for prefix in [
+            b"".as_slice(),
+            b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\nx",
+        ] {
             let (release, released) = mpsc::channel();
             let (controller, server) = serve(true, move |mut file| {
                 file.write_all(prefix).unwrap();
                 let _ = released.recv_timeout(Duration::from_secs(2));
             });
-            let result = controller.request_within("GET", "/version", None, Duration::from_millis(100));
+            let result =
+                controller.request_within("GET", "/version", None, Duration::from_millis(100));
             release.send(()).unwrap();
             server.join().unwrap();
             assert_eq!(result.unwrap_err().kind(), io::ErrorKind::TimedOut);
@@ -185,7 +221,8 @@ mod tests {
     #[test]
     fn a_slow_body_cannot_extend_the_request_deadline() {
         let (controller, server) = serve(true, |mut file| {
-            file.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n").unwrap();
+            file.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n")
+                .unwrap();
             for _ in 0..10 {
                 thread::sleep(Duration::from_millis(40));
                 if file.write_all(b"x").is_err() {
@@ -205,7 +242,8 @@ mod tests {
             let _ = released.recv_timeout(Duration::from_secs(2));
         });
         let body = serde_json::json!({ "config": "x".repeat(1 << 20) });
-        let result = controller.request_within("PUT", "/configs", Some(&body), Duration::from_millis(100));
+        let result =
+            controller.request_within("PUT", "/configs", Some(&body), Duration::from_millis(100));
         release.send(()).unwrap();
         server.join().unwrap();
         assert_eq!(result.unwrap_err().kind(), io::ErrorKind::TimedOut);

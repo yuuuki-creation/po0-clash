@@ -88,7 +88,10 @@ impl Runtime {
         };
         let mixed_port = mixed_port(preferred_port);
         let port_check = TcpListener::bind(("127.0.0.1", mixed_port)).map_err(|error| {
-            io::Error::new(error.kind(), format!("mixed proxy port {mixed_port}: {error}"))
+            io::Error::new(
+                error.kind(),
+                format!("mixed proxy port {mixed_port}: {error}"),
+            )
         })?;
         let direct_port = free_port()?;
         drop(port_check);
@@ -246,10 +249,18 @@ pub fn wait_ready(session: &Session, rendered: &str, log: &LogFile) -> Result<()
                 last_lines(log, 3)
             )));
         }
-        if session.controller().json_within("GET", "/version", None, remaining).is_ok() {
+        if session
+            .controller()
+            .json_within("GET", "/version", None, remaining)
+            .is_ok()
+        {
             break;
         }
-        thread::sleep(deadline.saturating_duration_since(Instant::now()).min(Duration::from_millis(100)));
+        thread::sleep(
+            deadline
+                .saturating_duration_since(Instant::now())
+                .min(Duration::from_millis(100)),
+        );
     }
     if cfg!(target_os = "android") {
         return Ok(());
@@ -398,7 +409,9 @@ pub fn recover(run_dir: &Path) -> Result<()> {
             loop {
                 let remaining = deadline.saturating_duration_since(Instant::now());
                 if remaining.is_zero() {
-                    return Err(CoreError::Engine("the previous engine is still running".into()));
+                    return Err(CoreError::Engine(
+                        "the previous engine is still running".into(),
+                    ));
                 }
                 if !controller_is_present(&probe, remaining.min(Duration::from_millis(250)))? {
                     break;
@@ -421,8 +434,19 @@ pub fn recover(run_dir: &Path) -> Result<()> {
 fn controller_is_present(controller: &Controller, timeout: Duration) -> Result<bool> {
     match controller.request_within("GET", "/version", None, timeout) {
         Ok(_) => Ok(true),
-        Err(error) if matches!(error.kind(), io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused | io::ErrorKind::NotConnected) => Ok(false),
-        Err(error) => Err(CoreError::Engine(format!("cannot check the previous engine: {error}"))),
+        Err(error)
+            if matches!(
+                error.kind(),
+                io::ErrorKind::NotFound
+                    | io::ErrorKind::ConnectionRefused
+                    | io::ErrorKind::NotConnected
+            ) =>
+        {
+            Ok(false)
+        }
+        Err(error) => Err(CoreError::Engine(format!(
+            "cannot check the previous engine: {error}"
+        ))),
     }
 }
 
@@ -462,9 +486,12 @@ mod tests {
             while !stop_server.load(Ordering::SeqCst) {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
-                        stream.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+                        stream
+                            .set_read_timeout(Some(Duration::from_secs(1)))
+                            .unwrap();
                         let _ = stream.read(&mut [0; 4096]);
-                        let _ = stream.write_all(b"HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n");
+                        let _ = stream
+                            .write_all(b"HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n");
                     }
                     Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
                         thread::sleep(Duration::from_millis(5));

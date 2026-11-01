@@ -11,7 +11,11 @@ fn temp_dir() -> PathBuf {
 }
 
 fn unused_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port()
+    TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port()
 }
 
 fn options(dir: &Path) -> CoreOptions {
@@ -318,8 +322,19 @@ fn an_unconfirmed_stop_keeps_the_session_and_recovery_record() {
     let core = Core::new(options(&dir)).unwrap();
     core.request_connection().unwrap();
     let confirmed = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let runtime = Runtime::new(Platform::MacOs, &core.paths.run, core.paths.home.clone(), None, unused_port()).unwrap();
-    let session = Arc::new(Session::new(runtime, engine::Runner::Controlled(confirmed.clone()), 1));
+    let runtime = Runtime::new(
+        Platform::MacOs,
+        &core.paths.run,
+        core.paths.home.clone(),
+        None,
+        unused_port(),
+    )
+    .unwrap();
+    let session = Arc::new(Session::new(
+        runtime,
+        engine::Runner::Controlled(confirmed.clone()),
+        1,
+    ));
     engine::save_record(&core.paths.run, &session);
     core.engine.install(session.clone());
     core.engine.set_state(EngineState::Running);
@@ -848,7 +863,10 @@ fn a_backup_restores_profiles_and_settings() {
     );
     assert_eq!(restored.status().mode, Mode::Rule);
     assert!(!restored.app_settings().pure_black);
-    assert_eq!(restored.app_settings().android_vpn, AndroidVpnOptions::default());
+    assert_eq!(
+        restored.app_settings().android_vpn,
+        AndroidVpnOptions::default()
+    );
 
     restored
         .set_app_settings(AppSettings {
@@ -903,21 +921,40 @@ fn restoring_statistics_mode_changes_which_traffic_is_counted() {
                     {"id": "direct", "metadata": {}, "upload": 500, "download": 5000, "chains": ["DIRECT"]},
                 ],
             }).to_string();
-            write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{body}", body.len()).unwrap();
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{body}",
+                body.len()
+            )
+            .unwrap();
         }
     });
     let controller = engine::Controller::new(engine::Endpoint::Unix(socket), String::new());
     let stopped = AtomicBool::new(false);
     for target in [true, false] {
-        core.set_app_settings(AppSettings { only_proxy_traffic: target, ..core.app_settings() }).unwrap();
+        core.set_app_settings(AppSettings {
+            only_proxy_traffic: target,
+            ..core.app_settings()
+        })
+        .unwrap();
         let saved = core.backup().unwrap();
-        core.set_app_settings(AppSettings { only_proxy_traffic: !target, ..core.app_settings() }).unwrap();
+        core.set_app_settings(AppSettings {
+            only_proxy_traffic: !target,
+            ..core.app_settings()
+        })
+        .unwrap();
         core.engine.monitor.poll(&controller, &stopped).unwrap();
-        assert_eq!(core.engine.monitor.connections().upload_total, if target { 600 } else { 100 });
+        assert_eq!(
+            core.engine.monitor.connections().upload_total,
+            if target { 600 } else { 100 }
+        );
         core.restore(saved, RestoreScope::All).unwrap();
         core.engine.monitor.poll(&controller, &stopped).unwrap();
         let counts = core.engine.monitor.connections();
-        assert_eq!((counts.upload_total, counts.download_total), if target { (100, 1000) } else { (600, 6000) });
+        assert_eq!(
+            (counts.upload_total, counts.download_total),
+            if target { (100, 1000) } else { (600, 6000) }
+        );
     }
     server.join().unwrap();
     core.shutdown();
@@ -931,16 +968,27 @@ fn engine_rejects_invalid_profile_without_changing_selection() {
     assert_eq!(std::env::consts::OS, "linux");
     let dir = temp_dir();
     let core = Core::new(options(&dir)).unwrap();
-    core.set_engine_options(EngineOptions { mixed_port: unused_port(), ..core.engine_options() }).unwrap();
+    core.set_engine_options(EngineOptions {
+        mixed_port: unused_port(),
+        ..core.engine_options()
+    })
+    .unwrap();
     let a = core.import_file("a.yaml".into(), "proxies: []\nproxy-groups: [{name: A, type: select, proxies: [DIRECT]}]\nrules: ['MATCH,A']\n".into()).unwrap();
     let b = core.import_file("b.yaml".into(), "proxies: []\nproxy-groups: [{name: B, type: select, proxies: [MISSING]}]\nrules: ['MATCH,B']\n".into()).unwrap();
     core.start(None).unwrap();
     for _ in 0..2 {
         assert!(core.select_profile(b.id.clone()).is_err());
         assert_eq!(core.status().profile_id.as_ref(), Some(&a.id));
-        assert!(core.profiles().iter().find(|p| p.id == a.id).unwrap().selected);
+        assert!(
+            core.profiles()
+                .iter()
+                .find(|p| p.id == a.id)
+                .unwrap()
+                .selected
+        );
         assert!(core.groups().unwrap().iter().any(|group| group.name == "A"));
-        let saved: Settings = serde_json::from_slice(&fs::read(dir.join("core/settings.json")).unwrap()).unwrap();
+        let saved: Settings =
+            serde_json::from_slice(&fs::read(dir.join("core/settings.json")).unwrap()).unwrap();
         assert_eq!(saved.current_profile.as_ref(), Some(&a.id));
     }
     core.shutdown();
@@ -954,7 +1002,11 @@ fn engine_does_not_reuse_another_profiles_provider_cache() {
     assert_eq!(std::env::consts::OS, "linux");
     let dir = temp_dir();
     let core = Core::new(options(&dir)).unwrap();
-    core.set_engine_options(EngineOptions { mixed_port: unused_port(), ..core.engine_options() }).unwrap();
+    core.set_engine_options(EngineOptions {
+        mixed_port: unused_port(),
+        ..core.engine_options()
+    })
+    .unwrap();
     let server = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = server.local_addr().unwrap().port();
     let requested = Arc::new(Mutex::new(Vec::new()));
@@ -966,26 +1018,54 @@ fn engine_does_not_reuse_another_profiles_provider_cache() {
             let request = String::from_utf8_lossy(&buffer[..length]);
             let path = request.split_whitespace().nth(1).unwrap().to_owned();
             let body = match path.as_str() {
-                "/proxy-a" => "proxies: [{name: nodeA, type: ss, server: 127.0.0.1, port: 1, cipher: aes-128-gcm, password: fixture}]\n",
-                "/proxy-b" => "proxies: [{name: nodeB, type: ss, server: 127.0.0.1, port: 1, cipher: aes-128-gcm, password: fixture}]\n",
+                "/proxy-a" => {
+                    "proxies: [{name: nodeA, type: ss, server: 127.0.0.1, port: 1, cipher: aes-128-gcm, password: fixture}]\n"
+                }
+                "/proxy-b" => {
+                    "proxies: [{name: nodeB, type: ss, server: 127.0.0.1, port: 1, cipher: aes-128-gcm, password: fixture}]\n"
+                }
                 "/rule-a" => "payload: ['a.invalid']\n",
                 "/rule-b" => "payload: ['b.invalid', 'c.invalid']\n",
                 _ => panic!("unexpected provider {path}"),
             };
             lock(&requests).push(path);
-            write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .unwrap();
         }
     });
-    let config = |suffix: &str| format!(
-        "proxy-providers:\n  p: {{type: http, url: http://127.0.0.1:{port}/proxy-{suffix}, path: ./same.yaml, interval: 3600, health-check: {{enable: false}}}}\nrule-providers:\n  r: {{type: http, behavior: domain, url: http://127.0.0.1:{port}/rule-{suffix}, path: ./same-rules.yaml, interval: 3600}}\nproxy-groups: [{{name: PROXY, type: select, use: [p]}}]\nrules: ['RULE-SET,r,DIRECT', 'MATCH,DIRECT']\n"
-    );
+    let config = |suffix: &str| {
+        format!(
+            "proxy-providers:\n  p: {{type: http, url: http://127.0.0.1:{port}/proxy-{suffix}, path: ./same.yaml, interval: 3600, health-check: {{enable: false}}}}\nrule-providers:\n  r: {{type: http, behavior: domain, url: http://127.0.0.1:{port}/rule-{suffix}, path: ./same-rules.yaml, interval: 3600}}\nproxy-groups: [{{name: PROXY, type: select, use: [p]}}]\nrules: ['RULE-SET,r,DIRECT', 'MATCH,DIRECT']\n"
+        )
+    };
     core.import_file("a.yaml".into(), config("a")).unwrap();
     let b = core.import_file("b.yaml".into(), config("b")).unwrap();
     core.start(None).unwrap();
     core.select_profile(b.id).unwrap();
-    let group = core.groups().unwrap().into_iter().find(|group| group.name == "PROXY").unwrap();
-    assert_eq!(group.nodes.into_iter().map(|node| node.name).collect::<Vec<_>>(), ["nodeB"]);
-    let rule = core.providers().unwrap().into_iter().find(|provider| provider.kind == ProviderKind::Rule && provider.name == "r").unwrap();
+    let group = core
+        .groups()
+        .unwrap()
+        .into_iter()
+        .find(|group| group.name == "PROXY")
+        .unwrap();
+    assert_eq!(
+        group
+            .nodes
+            .into_iter()
+            .map(|node| node.name)
+            .collect::<Vec<_>>(),
+        ["nodeB"]
+    );
+    let rule = core
+        .providers()
+        .unwrap()
+        .into_iter()
+        .find(|provider| provider.kind == ProviderKind::Rule && provider.name == "r")
+        .unwrap();
     assert_eq!(rule.count, 2);
     let mut paths = lock(&requested).clone();
     paths.sort();
@@ -1003,7 +1083,12 @@ fn engine_android_port_changes_require_disconnect_before_settings_or_restore() {
     let mut config = options(&dir);
     config.platform = Platform::Android;
     let core = Core::new(config).unwrap();
-    let profile = core.import_file("a.yaml".into(), "proxies: []\nrules: ['MATCH,DIRECT']\n".into()).unwrap();
+    let profile = core
+        .import_file(
+            "a.yaml".into(),
+            "proxies: []\nrules: ['MATCH,DIRECT']\n".into(),
+        )
+        .unwrap();
     let mut changed = core.engine_options();
     changed.mixed_port = unused_port();
     core.set_engine_options(changed.clone()).unwrap();
@@ -1011,13 +1096,23 @@ fn engine_android_port_changes_require_disconnect_before_settings_or_restore() {
     let mut current = changed.clone();
     current.mixed_port = unused_port();
     core.set_engine_options(current.clone()).unwrap();
-    core.save_profile_content(profile.id.clone(), "proxies: []\nrules: ['MATCH,REJECT']\n".into()).unwrap();
+    core.save_profile_content(
+        profile.id.clone(),
+        "proxies: []\nrules: ['MATCH,REJECT']\n".into(),
+    )
+    .unwrap();
     core.start(None).unwrap();
     let before = fs::read(dir.join("core/settings.json")).unwrap();
     let content = core.profile_content(profile.id.clone()).unwrap();
     assert_eq!(core.mixed_proxy_port(), current.mixed_port);
-    assert!(matches!(core.set_engine_options(changed), Err(CoreError::Invalid(_))));
-    assert!(matches!(core.restore(backup, RestoreScope::All), Err(CoreError::Invalid(_))));
+    assert!(matches!(
+        core.set_engine_options(changed),
+        Err(CoreError::Invalid(_))
+    ));
+    assert!(matches!(
+        core.restore(backup, RestoreScope::All),
+        Err(CoreError::Invalid(_))
+    ));
     assert_eq!(core.engine_options(), current);
     assert_eq!(fs::read(dir.join("core/settings.json")).unwrap(), before);
     assert_eq!(core.profile_content(profile.id).unwrap(), content);

@@ -316,7 +316,10 @@ impl Core {
 
     pub fn mixed_proxy_port(&self) -> u16 {
         self.engine.session().map_or_else(
-            || self.store.read(|s| engine::mixed_port(s.options.mixed_port)),
+            || {
+                self.store
+                    .read(|s| engine::mixed_port(s.options.mixed_port))
+            },
             |session| session.runtime.mixed_port,
         )
     }
@@ -502,7 +505,10 @@ impl Core {
             if !keep_intent {
                 self.set_connected(false);
             }
-            let stopped = self.engine.session().map_or(Ok(()), |session| self.teardown(&session));
+            let stopped = self
+                .engine
+                .session()
+                .map_or(Ok(()), |session| self.teardown(&session));
             if stopped.is_ok() {
                 self.engine.set_state(EngineState::Stopped);
                 logfile::info("engine stopped");
@@ -514,7 +520,8 @@ impl Core {
     fn teardown(&self, session: &Session) -> Result<()> {
         session.runner.stop().inspect_err(|error| {
             logfile::warn(error.to_string());
-            self.engine.set_state(EngineState::Failed(error.to_string()));
+            self.engine
+                .set_state(EngineState::Failed(error.to_string()));
         })?;
         session.release(&self.paths.run);
         self.engine.take();
@@ -681,8 +688,12 @@ impl Core {
     }
 
     fn apply_settings(&self, settings: &Settings) {
-        self.engine.monitor.set_log_level(settings.options.log_level);
-        self.engine.monitor.set_only_proxy(settings.app.only_proxy_traffic);
+        self.engine
+            .monitor
+            .set_log_level(settings.options.log_level);
+        self.engine
+            .monitor
+            .set_only_proxy(settings.app.only_proxy_traffic);
     }
 
     pub fn engine_options(&self) -> EngineOptions {
@@ -696,7 +707,8 @@ impl Core {
             let _requests = self.whitelist.suspend_requests();
             self.check_android_port(options.mixed_port)?;
             let proxy_changed = self.store.update(|s| {
-                let changed = engine::mixed_port(s.options.mixed_port) != engine::mixed_port(options.mixed_port)
+                let changed = engine::mixed_port(s.options.mixed_port)
+                    != engine::mixed_port(options.mixed_port)
                     || s.options.bypass_domains != options.bypass_domains
                     || s.options.auto_set_system_dns != options.auto_set_system_dns;
                 s.options = options;
@@ -922,7 +934,8 @@ impl Core {
                 attempted = true;
                 self.reload_settings(s)
             });
-            if attempted && result.is_err()
+            if attempted
+                && result.is_err()
                 && let Err(error) = self.reload_settings(&self.store.get())
             {
                 let mut message = format!("cannot restore the previous profile: {error}");
@@ -1957,7 +1970,8 @@ impl Core {
                     self.store_content(id, content)?;
                 }
                 let moved = s.route_mode != next.route_mode
-                    || engine::mixed_port(s.options.mixed_port) != engine::mixed_port(next.options.mixed_port)
+                    || engine::mixed_port(s.options.mixed_port)
+                        != engine::mixed_port(next.options.mixed_port)
                     || s.options.bypass_domains != next.options.bypass_domains
                     || s.options.auto_set_system_dns != next.options.auto_set_system_dns;
                 *s = next;

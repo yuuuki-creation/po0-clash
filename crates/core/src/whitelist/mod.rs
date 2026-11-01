@@ -265,7 +265,10 @@ impl Whitelist {
     }
 
     pub fn suspend_requests(&self) -> RwLockWriteGuard<'_, ()> {
-        self.shared.requests.write().unwrap_or_else(PoisonError::into_inner)
+        self.shared
+            .requests
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 
     fn kick(&self, reset_failures: bool) {
@@ -532,7 +535,11 @@ mod tests {
                 *lock(current) = "po0-direct".into();
                 transition.send(()).unwrap();
             });
-            assert!(transitioned.recv_timeout(Duration::from_millis(50)).is_err());
+            assert!(
+                transitioned
+                    .recv_timeout(Duration::from_millis(50))
+                    .is_err()
+            );
             finish.send(()).unwrap();
             transitioned.recv_timeout(Duration::from_secs(2)).unwrap();
         });
@@ -552,11 +559,18 @@ mod tests {
         let paused = whitelist.suspend_requests();
         let (sent, received) = std::sync::mpsc::channel();
         thread::scope(|scope| {
-            scope.spawn(|| whitelist.shared.with_route(|route| sent.send(route).unwrap()));
+            scope.spawn(|| {
+                whitelist
+                    .shared
+                    .with_route(|route| sent.send(route).unwrap())
+            });
             assert!(received.recv_timeout(Duration::from_millis(50)).is_err());
             *lock(&route) = "po0-direct".into();
             drop(paused);
-            assert_eq!(received.recv_timeout(Duration::from_secs(2)).unwrap(), "po0-direct");
+            assert_eq!(
+                received.recv_timeout(Duration::from_secs(2)).unwrap(),
+                "po0-direct"
+            );
         });
         whitelist.stop();
     }

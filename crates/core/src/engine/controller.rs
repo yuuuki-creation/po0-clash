@@ -43,7 +43,8 @@ struct UnixConnection {
 #[cfg(unix)]
 impl Read for UnixConnection {
     fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
-        self.stream.set_read_timeout(Some(self.timeout.remaining()?))?;
+        self.stream
+            .set_read_timeout(Some(self.timeout.remaining()?))?;
         self.stream.read(buffer)
     }
 }
@@ -51,7 +52,8 @@ impl Read for UnixConnection {
 #[cfg(unix)]
 impl Write for UnixConnection {
     fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
-        self.stream.set_write_timeout(Some(self.timeout.remaining()?))?;
+        self.stream
+            .set_write_timeout(Some(self.timeout.remaining()?))?;
         self.stream.write(buffer)
     }
 
@@ -366,7 +368,9 @@ mod tests {
         let server = thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
             let _ = stream.read(&mut [0; 4096]);
-            stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n").unwrap();
+            stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n")
+                .unwrap();
             for _ in 0..10 {
                 thread::sleep(Duration::from_millis(40));
                 if stream.write_all(b"x").is_err() {
@@ -375,8 +379,13 @@ mod tests {
             }
         });
         let controller = Controller::new(Endpoint::Unix(path), String::new());
-        let error = controller.request_within("GET", "/version", None, Duration::from_millis(100)).unwrap_err();
-        assert!(matches!(error.kind(), io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock));
+        let error = controller
+            .request_within("GET", "/version", None, Duration::from_millis(100))
+            .unwrap_err();
+        assert!(matches!(
+            error.kind(),
+            io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
+        ));
         server.join().unwrap();
         std::fs::remove_dir_all(dir).unwrap();
     }
