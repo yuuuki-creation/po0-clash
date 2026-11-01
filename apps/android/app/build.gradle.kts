@@ -177,7 +177,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons)
-    implementation(libs.backdrop)
     implementation(libs.androidsvg)
     implementation(libs.kotlinx.coroutines.android)
     implementation("${libs.jna.get()}@aar")

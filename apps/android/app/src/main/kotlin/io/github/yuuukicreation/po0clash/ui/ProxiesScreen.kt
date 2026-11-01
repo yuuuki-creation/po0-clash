@@ -1,61 +1,49 @@
 package io.github.yuuukicreation.po0clash.ui
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.yuuukicreation.po0clash.R
 import io.github.yuuukicreation.po0clash.core.GroupIconStyle
@@ -66,9 +54,6 @@ import io.github.yuuukicreation.po0clash.core.ProxiesLayout
 import io.github.yuuukicreation.po0clash.core.ProxiesSort
 import io.github.yuuukicreation.po0clash.core.ProxyGroup
 import io.github.yuuukicreation.po0clash.core.ProxyTileStyle
-import kotlinx.coroutines.launch
-
-private val tileShape = RoundedCornerShape(14.dp)
 
 private fun List<Node>.sortedBy(sort: ProxiesSort): List<Node> = when (sort) {
     ProxiesSort.PROFILE -> this
@@ -82,6 +67,12 @@ private fun ProxiesDensity.tileWidth() = when (this) {
     ProxiesDensity.TIGHT -> 110.dp
 }
 
+private fun ProxiesDensity.rowHeight() = when (this) {
+    ProxiesDensity.LOOSE -> 64.dp
+    ProxiesDensity.STANDARD -> 56.dp
+    ProxiesDensity.TIGHT -> 48.dp
+}
+
 /** The group that shows [node] as its choice, the group a user means by "current node". */
 fun currentGroup(groups: List<ProxyGroup>, node: String?): ProxyGroup? {
     node ?: return null
@@ -90,317 +81,393 @@ fun currentGroup(groups: List<ProxyGroup>, node: String?): ProxyGroup? {
         ?: groups.firstOrNull { group -> group.nodes.any { it.name == node } }
 }
 
+/** A group's delay is its current choice's, following nested groups down to a real node. */
+private fun ProxyGroup.delay(groups: Map<String, ProxyGroup>, depth: Int = 0): UInt? {
+    val choice = now ?: return null
+    val nested = groups[choice]
+    if (nested != null && depth < 8) return nested.delay(groups, depth + 1)
+    return nodes.firstOrNull { it.name == choice }?.delay
+}
+
+/** One query covers group names and nodes: a hit on the group's name keeps all its nodes, otherwise only the hits show. */
+internal fun ProxyGroup.matches(query: String) =
+    query.isEmpty() || name.contains(query, ignoreCase = true) || nodes.any { it.name.contains(query, ignoreCase = true) }
+
+internal fun ProxyGroup.shownNodes(query: String) =
+    if (query.isEmpty() || name.contains(query, ignoreCase = true)) nodes else nodes.filter { it.name.contains(query, ignoreCase = true) }
+
 @Composable
-fun ProxiesScreen(vm: AppViewModel) {
+fun ProxiesScreen(vm: AppViewModel, opened: String?, onOpen: (String?) -> Unit) {
     val engine = vm.engine
     val groups by engine.groups.collectAsStateWithLifecycle()
     val status by engine.status.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val settings by vm.appSettings.collectAsStateWithLifecycle()
     val sheets = LocalSheets.current
-    val scope = rememberCoroutineScope()
+    var query by rememberSaveable { mutableStateOf("") }
+    var searching by rememberSaveable { mutableStateOf(false) }
+    var locating by remember { mutableStateOf(false) }
     var expanded by rememberSaveable { mutableStateOf<List<String>?>(null) }
-    var tab by rememberSaveable { mutableStateOf<String?>(null) }
+    val wide = LocalWindowWidth.current.isExpanded
+    val twoLevel = settings.proxiesLayout == ProxiesLayout.TABS
+    val shown = status.mode != Mode.DIRECT && groups.isNotEmpty()
+    val needle = query.trim()
+    val visible = groups.filter { it.matches(needle) }
+    val current = groups.firstOrNull { it.name == opened }
+    val selected = current?.takeIf { it in visible } ?: visible.firstOrNull() ?: groups.firstOrNull()
+    val nested = remember(groups) { groups.associateBy { it.name } }
+    val onSecondLevel = twoLevel && current != null
+    val groupList = rememberLazyListState()
+    var listedGroup by remember { mutableStateOf(selected?.name) }
+    if (wide || current != null) listedGroup = selected?.name
+    val nodeList = remember(listedGroup) {
+        val index = selected?.let { it.nodes.sortedBy(settings.proxiesSort).indexOfFirst { node -> node.name == it.now } } ?: 0
+        LazyListState((index - 2).coerceAtLeast(0))
+    }
     val open = expanded ?: listOfNotNull(groups.firstOrNull()?.name)
-    val tabs = settings.proxiesLayout == ProxiesLayout.TABS
-    val selected = groups.firstOrNull { it.name == tab } ?: groups.firstOrNull()
-    val direct = status.mode == Mode.DIRECT
-    val testing = groups.any { AppViewModel.busyDelay(it.name) in busy }
-    val list = rememberLazyListState()
-    val shown = !direct && groups.isNotEmpty()
-
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val columns = ((maxWidth - 56.dp) / settings.proxiesDensity.tileWidth()).toInt().coerceAtLeast(1)
-        val itemIndex = { group: ProxyGroup, node: String ->
-            val row = group.nodes.sortedBy(settings.proxiesSort).indexOfFirst { it.name == node }.coerceAtLeast(0) / columns
-            if (tabs) {
-                3 + row
-            } else {
-                var index = 1
-                for ((i, g) in groups.withIndex()) {
-                    if (i > 0) index++
-                    if (g.name == group.name) break
-                    index += 1 + if (g.name in open) (g.nodes.size + columns - 1) / columns else 0
+    val anchor = rememberAnchor()
+    val viewMenu = proxyViewMenu(vm, anchor)
+    val sortMenu = listOf(
+        ProxiesSort.PROFILE to stringResource(R.string.sort_default),
+        ProxiesSort.DELAY to stringResource(R.string.sort_delay),
+        ProxiesSort.NAME to stringResource(R.string.sort_name),
+    ).map { (sort, label) ->
+        SheetAction(label, checked = settings.proxiesSort == sort) { vm.setAppSettings { it.copy(proxiesSort = sort) } }
+    }
+    val locateLabel = stringResource(R.string.locate_node)
+    val actions = listOf(
+        PageAction(LineIcons.Search, stringResource(R.string.search), enabled = shown) { searching = true },
+        PageAction(
+            LineIcons.Bolt,
+            stringResource(R.string.test_delay),
+            enabled = shown,
+            busy = if (onSecondLevel) AppViewModel.busyDelay(current.name) in busy else groups.any { AppViewModel.busyDelay(it.name) in busy },
+        ) {
+            if (onSecondLevel) vm.testDelay(current.name) else groups.forEach { vm.testDelay(it.name) }
+        },
+        PageAction(LineIcons.More, stringResource(R.string.more), enabled = shown, anchor = anchor) {
+            val main = groups.firstOrNull()
+            val locate = SheetAction(locateLabel) {
+                query = ""
+                searching = false
+                onOpen(main?.name)
+                if (!twoLevel && main != null && main.name !in open) expanded = open + main.name
+                locating = true
+            }
+            sheets.menu(anchor, listOf(locate) + sortMenu.mapIndexed { i, it -> it.copy(dividerBefore = i == 0) } + viewMenu)
+        },
+    )
+    BackHandler(enabled = searching) {
+        searching = false
+        query = ""
+    }
+    PageScaffold(
+        title = if (onSecondLevel) current.name else stringResource(R.string.proxies),
+        scrolled = if (onSecondLevel || wide) nodeList.canScrollBackward || groupList.canScrollBackward else groupList.canScrollBackward,
+        actions = actions,
+        onBack = if (onSecondLevel && !wide) ({ onOpen(null) }) else null,
+        search = if (searching) AppBarSearch(query, { query = it }, { searching = false; query = "" }) else null,
+        capped = false,
+    ) { padding ->
+        val groupRows = @Composable { list: LazyListState, chevron: Boolean, contentPadding: PaddingValues, modifier: Modifier ->
+            LazyColumn(modifier, state = list, contentPadding = contentPadding) {
+                if (visible.isEmpty()) item { ValueRow(0, 1, stringResource(R.string.no_match), "") }
+                itemsIndexed(visible, key = { _, it -> it.name }) { index, group ->
+                    ProxyGroupRow(group, index, visible.size, group.delay(nested), active = wide && group == selected, chevron, settings.groupIconStyle) {
+                        onOpen(group.name)
+                    }
                 }
-                index + 1 + row
             }
         }
-        val actions = listOf(
-            PageAction(LineIcons.Sort, stringResource(R.string.display), enabled = shown) { sheets.show { ProxiesDisplay(vm) } },
-            PageAction(LineIcons.Locate, stringResource(R.string.locate_node), enabled = shown && status.currentNode != null) {
-                val node = status.currentNode ?: return@PageAction
-                val group = currentGroup(groups, node) ?: return@PageAction
-                if (tabs) tab = group.name else if (group.name !in open) expanded = open + group.name
-                scope.launch { list.animateScrollToItem(itemIndex(group, node)) }
-            },
-            PageAction(LineIcons.Bolt, stringResource(R.string.test_all), enabled = shown, busy = testing) {
-                groups.forEach { vm.testDelay(it.name) }
-            },
-        )
-        PageScaffold(stringResource(R.string.proxies), list, actions = actions) { padding ->
-            LazyColumn(
-                state = list,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = padding,
-            ) {
-                item {
-                    PageTitle(
-                        stringResource(R.string.proxies),
-                        pluralStringResource(R.plurals.group_count, groups.size, groups.size).takeIf { shown },
-                    )
-                }
-                val groupItems = { group: ProxyGroup, open: Boolean, onToggle: (() -> Unit)? ->
-                    groupItems(
-                        group = group,
-                        nodes = group.nodes.sortedBy(settings.proxiesSort),
-                        expanded = open,
-                        testing = AppViewModel.busyDelay(group.name) in busy,
-                        columns = columns,
-                        style = settings.proxyTileStyle,
-                        showIcon = settings.groupIconStyle != GroupIconStyle.HIDDEN,
-                        onToggle = onToggle,
-                        onTest = { vm.testDelay(group.name) },
-                        onSelect = { vm.selectNode(group.name, it) },
-                        nodeTesting = { AppViewModel.busyNodeDelay(it) in busy },
-                        onTestNode = vm::testNodeDelay,
-                    )
-                }
-                when {
-                    direct -> item {
-                        EmptyCard(stringResource(R.string.direct_mode_title), stringResource(R.string.direct_mode_body), LineIcons.Unlink)
-                    }
-                    groups.isEmpty() || selected == null -> item {
-                        EmptyCard(stringResource(R.string.no_groups_title), stringResource(R.string.no_groups_body), LineIcons.Globe)
-                    }
-                    tabs -> {
-                        item(key = "tabs") { GroupTabs(groups, selected.name, settings.groupIconStyle) { tab = it } }
-                        groupItems(selected, true, null)
-                    }
-                    else -> groups.forEachIndexed { index, group ->
-                        if (index > 0) item(key = "gap:${group.name}") { Spacer(Modifier.height(12.dp)) }
-                        groupItems(group, group.name in open) {
-                            expanded = if (group.name in open) open - group.name else open + group.name
+        val nodeRows = @Composable { group: ProxyGroup, contentPadding: PaddingValues, modifier: Modifier ->
+            val nodes = group.shownNodes(needle).sortedBy(settings.proxiesSort)
+            val testing = AppViewModel.busyDelay(group.name) in busy
+            val showKind = LocalWindowWidth.current >= 600.dp
+            LaunchedEffect(locating) {
+                if (!locating) return@LaunchedEffect
+                nodes.indexOfFirst { it.name == group.now }.takeIf { it >= 0 }?.let { nodeList.animateScrollToItem(it) }
+                locating = false
+            }
+            LazyColumn(modifier, state = nodeList, contentPadding = contentPadding) {
+                if (nodes.isEmpty()) item { ValueRow(0, 1, stringResource(R.string.no_match), "") }
+                itemsIndexed(nodes, key = { _, it -> it.name }) { index, node ->
+                    GroupRow(
+                        index,
+                        nodes.size,
+                        onClick = if (group.selectable) ({ vm.selectNode(group.name, node.name) }) else null,
+                        minHeight = settings.proxiesDensity.rowHeight(),
+                    ) {
+                        Po0Radio(node.name == group.now)
+                        Text(node.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        if (settings.proxyTileStyle == ProxyTileStyle.DETAILED && showKind) {
+                            Text(node.kind, style = MaterialTheme.typography.bodyMedium, color = palette.ink2, maxLines = 1)
+                        }
+                        if (settings.proxyTileStyle != ProxyTileStyle.MINIMAL) {
+                            NodeDelay(nested[node.name]?.delay(nested) ?: node.delay, testing || AppViewModel.busyNodeDelay(node.name) in busy) {
+                                vm.testNodeDelay(node.name)
+                            }
                         }
                     }
                 }
             }
         }
-    }
-}
-
-/** FlClash's tabbed layout: one capsule per group, the chosen one lifted like a segmented control's thumb. */
-@Composable
-private fun GroupTabs(groups: List<ProxyGroup>, selected: String, iconStyle: GroupIconStyle, onSelect: (String) -> Unit) {
-    val colors = apple
-    LazyRow(
-        Modifier.fillMaxWidth().padding(bottom = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        items(groups, key = { it.name }) { group ->
-            val active = group.name == selected
-            val icon = rememberGroupIcon(group.icon.takeIf { iconStyle != GroupIconStyle.HIDDEN })
-            Row(
-                Modifier.height(34.dp).clip(CircleShape)
-                    .background(if (active) colors.card else colors.track)
-                    .clickable(role = Role.Tab, onClickLabel = group.name) { onSelect(group.name) }
-                    .padding(horizontal = if (icon != null && iconStyle == GroupIconStyle.ICON_ONLY) 8.dp else 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                icon?.let { Image(it, contentDescription = group.name.takeIf { iconStyle == GroupIconStyle.ICON_ONLY }, modifier = Modifier.size(20.dp).clip(RoundedCornerShape(5.dp))) }
-                if (icon == null || iconStyle != GroupIconStyle.ICON_ONLY) {
-                    Text(
-                        group.name,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
-                        color = if (active) colors.accentText else colors.label,
-                        maxLines = 1,
-                    )
+        when {
+            status.mode == Mode.DIRECT -> FullEmptyState(stringResource(R.string.direct_mode_title), LineIcons.Unlink, padding)
+            groups.isEmpty() || selected == null -> FullEmptyState(stringResource(R.string.no_groups_title), LineIcons.Globe, padding)
+            !twoLevel -> ExpandableGroups(
+                vm,
+                groupList,
+                visible,
+                needle,
+                nested,
+                open,
+                onToggle = { name -> expanded = if (name in open) open - name else open + name },
+                locating = locating,
+                onLocated = { locating = false },
+                padding = padding,
+            )
+            wide -> Row(Modifier.fillMaxSize()) {
+                val top = padding.calculateTopPadding()
+                val bottom = padding.calculateBottomPadding()
+                groupRows(groupList, false, PaddingValues(start = 16.dp, top = top, bottom = bottom), Modifier.width(340.dp + 16.dp))
+                nodeRows(selected, PaddingValues(start = 12.dp, end = 16.dp, top = top, bottom = bottom), Modifier.weight(1f))
+            }
+            else -> PushHost(
+                target = current?.name,
+                animate = settings.pageAnimation,
+                onBack = { onOpen(null) },
+                label = "proxyLevels",
+                backEnabled = !searching,
+            ) { name ->
+                val group = name?.let { nested[it] }
+                if (group == null) {
+                    groupRows(groupList, true, padding, Modifier.fillMaxSize())
+                } else {
+                    nodeRows(group, padding, Modifier.fillMaxSize())
                 }
             }
         }
     }
 }
 
-/** How the proxies page lays groups and nodes out, all kept in the core's app settings. */
 @Composable
-private fun ColumnScope.ProxiesDisplay(vm: AppViewModel) {
+private fun proxyViewMenu(vm: AppViewModel, anchor: Anchor): List<SheetAction> {
     val settings by vm.appSettings.collectAsStateWithLifecycle()
     val sheets = LocalSheets.current
-    SheetTitle(stringResource(R.string.display))
-    DisplayPicker(
-        stringResource(R.string.layout),
-        listOf(ProxiesLayout.TABS to stringResource(R.string.layout_tabs), ProxiesLayout.LIST to stringResource(R.string.layout_list)),
-        settings.proxiesLayout,
-    ) { v -> vm.setAppSettings { it.copy(proxiesLayout = v) } }
-    DisplayPicker(
-        stringResource(R.string.sort),
-        listOf(
-            ProxiesSort.PROFILE to stringResource(R.string.sort_default),
-            ProxiesSort.DELAY to stringResource(R.string.sort_delay),
-            ProxiesSort.NAME to stringResource(R.string.sort_name),
-        ),
-        settings.proxiesSort,
-    ) { v -> vm.setAppSettings { it.copy(proxiesSort = v) } }
-    DisplayPicker(
-        stringResource(R.string.density),
-        listOf(
-            ProxiesDensity.LOOSE to stringResource(R.string.density_loose),
-            ProxiesDensity.STANDARD to stringResource(R.string.density_standard),
-            ProxiesDensity.TIGHT to stringResource(R.string.density_tight),
-        ),
-        settings.proxiesDensity,
-    ) { v -> vm.setAppSettings { it.copy(proxiesDensity = v) } }
-    DisplayPicker(
-        stringResource(R.string.tile_style),
-        listOf(
-            ProxyTileStyle.DETAILED to stringResource(R.string.tile_detailed),
-            ProxyTileStyle.COMPACT to stringResource(R.string.tile_compact),
-            ProxyTileStyle.MINIMAL to stringResource(R.string.tile_minimal),
-        ),
-        settings.proxyTileStyle,
-    ) { v -> vm.setAppSettings { it.copy(proxyTileStyle = v) } }
-    DisplayPicker(
-        stringResource(R.string.group_icons),
-        listOf(
-            GroupIconStyle.STANDARD to stringResource(R.string.icon_standard),
-            GroupIconStyle.ICON_ONLY to stringResource(R.string.icon_only),
-            GroupIconStyle.HIDDEN to stringResource(R.string.icon_hidden),
-        ),
-        settings.groupIconStyle,
-    ) { v -> vm.setAppSettings { it.copy(groupIconStyle = v) } }
-    SheetDoneButton(onClick = sheets::dismiss)
+    fun <T> entry(label: String, options: List<Pair<T, String>>, selected: T, divider: Boolean = false, apply: (T) -> Unit) = SheetAction(
+        label,
+        value = options.firstOrNull { it.first == selected }?.second,
+        dividerBefore = divider,
+    ) {
+        sheets.menu(anchor, options.map { (value, text) -> SheetAction(text, checked = value == selected) { apply(value) } })
+    }
+    return listOf(
+        entry(
+            stringResource(R.string.layout),
+            listOf(ProxiesLayout.TABS to stringResource(R.string.layout_tabs), ProxiesLayout.LIST to stringResource(R.string.layout_list)),
+            settings.proxiesLayout,
+            divider = true,
+        ) { v -> vm.setAppSettings { it.copy(proxiesLayout = v) } },
+        entry(
+            stringResource(R.string.density),
+            listOf(
+                ProxiesDensity.LOOSE to stringResource(R.string.density_loose),
+                ProxiesDensity.STANDARD to stringResource(R.string.density_standard),
+                ProxiesDensity.TIGHT to stringResource(R.string.density_tight),
+            ),
+            settings.proxiesDensity,
+        ) { v -> vm.setAppSettings { it.copy(proxiesDensity = v) } },
+        entry(
+            stringResource(R.string.tile_style),
+            listOf(
+                ProxyTileStyle.DETAILED to stringResource(R.string.tile_detailed),
+                ProxyTileStyle.COMPACT to stringResource(R.string.tile_compact),
+                ProxyTileStyle.MINIMAL to stringResource(R.string.tile_minimal),
+            ),
+            settings.proxyTileStyle,
+        ) { v -> vm.setAppSettings { it.copy(proxyTileStyle = v) } },
+        entry(
+            stringResource(R.string.group_icons),
+            listOf(
+                GroupIconStyle.STANDARD to stringResource(R.string.icon_standard),
+                GroupIconStyle.ICON_ONLY to stringResource(R.string.icon_only),
+                GroupIconStyle.HIDDEN to stringResource(R.string.icon_hidden),
+            ),
+            settings.groupIconStyle,
+        ) { v -> vm.setAppSettings { it.copy(groupIconStyle = v) } },
+    )
 }
 
 @Composable
-private fun <T> DisplayPicker(label: String, options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = apple.secondaryLabel, modifier = Modifier.padding(start = 4.dp))
-        SegmentedPicker(options, selected, enabled = true, onSelect = onSelect)
+private fun ProxyGroupRow(
+    group: ProxyGroup,
+    index: Int,
+    count: Int,
+    delay: UInt?,
+    active: Boolean,
+    chevron: Boolean,
+    iconStyle: GroupIconStyle,
+    trailing: (@Composable () -> Unit)? = null,
+    onClick: () -> Unit,
+) {
+    val icon = rememberGroupIcon(group.icon.takeIf { iconStyle != GroupIconStyle.HIDDEN })
+    GroupRow(index, count, onClick = onClick, minHeight = 72.dp, fill = if (active) palette.sel else palette.card) {
+        icon?.let { Image(it, contentDescription = group.name, modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp))) }
+        Column(Modifier.weight(1f)) {
+            if (icon == null || iconStyle != GroupIconStyle.ICON_ONLY) {
+                Text(group.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            group.now?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = palette.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        }
+        DelayText(delay, placeholder = true)
+        trailing?.invoke()
+        if (chevron) Chevron()
     }
 }
 
-/** A group card split into lazy items (header, then one item per row of node tiles) so long node lists stay lazy. */
-private fun LazyListScope.groupItems(
+@Composable
+private fun NodeDelay(delay: UInt?, waiting: Boolean, onTest: () -> Unit) {
+    val shown by animateFloatAsState(if (waiting) 0.4f else 1f, tween(150), label = "delayWait")
+    Box(
+        Modifier.alpha(shown).clip(CircleShape).clickable(enabled = !waiting, onClick = onTest).padding(horizontal = 4.dp, vertical = 8.dp),
+    ) {
+        DelayText(delay, placeholder = true)
+    }
+}
+
+/** Data, so it changes at once: secondary text, warning from 600 ms, error for the core's 0 (timed out). */
+@Composable
+fun DelayText(delay: UInt?, style: TextStyle = MaterialTheme.typography.bodyMedium, placeholder: Boolean = false) {
+    val colors = palette
+    when {
+        delay == null -> if (placeholder) Text("—", style = style.tabular(), color = colors.ink2, maxLines = 1)
+        delay == 0u -> Text(stringResource(R.string.delay_timeout), style = style.tabular(), color = colors.bad, maxLines = 1)
+        else -> Text(
+            stringResource(R.string.delay_ms, delay.toInt()),
+            style = style.tabular(),
+            color = if (delay < 600u) colors.ink2 else colors.warn,
+            maxLines = 1,
+        )
+    }
+}
+
+/** The `list` layout: every group on one page, expanding into a grid of node tiles. */
+@Composable
+private fun ExpandableGroups(
+    vm: AppViewModel,
+    list: LazyListState,
+    groups: List<ProxyGroup>,
+    query: String,
+    nested: Map<String, ProxyGroup>,
+    open: List<String>,
+    onToggle: (String) -> Unit,
+    locating: Boolean,
+    onLocated: () -> Unit,
+    padding: PaddingValues,
+) {
+    val settings by vm.appSettings.collectAsStateWithLifecycle()
+    val busy by vm.busy.collectAsStateWithLifecycle()
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val columns = ((maxWidth - 56.dp) / settings.proxiesDensity.tileWidth()).toInt().coerceAtLeast(1)
+        val isOpen = { group: ProxyGroup -> group.name in open || query.isNotEmpty() }
+        LaunchedEffect(locating) {
+            if (!locating) return@LaunchedEffect
+            val main = groups.firstOrNull() ?: return@LaunchedEffect
+            val row = main.nodes.sortedBy(settings.proxiesSort).indexOfFirst { it.name == main.now }.coerceAtLeast(0) / columns
+            list.animateScrollToItem(1 + row)
+            onLocated()
+        }
+        LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = padding) {
+            if (groups.isEmpty()) item { ValueRow(0, 1, stringResource(R.string.no_match), "") }
+            groups.forEachIndexed { index, group ->
+                if (index > 0) item(key = "gap:${group.name}") { Spacer(Modifier.height(12.dp)) }
+                expandableGroup(
+                    group,
+                    group.shownNodes(query).sortedBy(settings.proxiesSort),
+                    isOpen(group),
+                    delay = group.delay(nested),
+                    testing = { AppViewModel.busyDelay(group.name) in busy },
+                    columns = columns,
+                    style = settings.proxyTileStyle,
+                    iconStyle = settings.groupIconStyle,
+                    onToggle = { onToggle(group.name) },
+                    onTest = { vm.testDelay(group.name) },
+                    onSelect = { vm.selectNode(group.name, it) },
+                    nodeDelay = { node -> nested[node.name]?.delay(nested) ?: node.delay },
+                    nodeTesting = { AppViewModel.busyNodeDelay(it) in busy },
+                    onTestNode = vm::testNodeDelay,
+                )
+            }
+        }
+    }
+}
+
+private fun LazyListScope.expandableGroup(
     group: ProxyGroup,
     nodes: List<Node>,
     expanded: Boolean,
-    testing: Boolean,
+    delay: UInt?,
+    testing: () -> Boolean,
     columns: Int,
     style: ProxyTileStyle,
-    showIcon: Boolean,
-    onToggle: (() -> Unit)?,
+    iconStyle: GroupIconStyle,
+    onToggle: () -> Unit,
     onTest: () -> Unit,
     onSelect: (String) -> Unit,
+    nodeDelay: (Node) -> UInt?,
     nodeTesting: (String) -> Boolean,
     onTestNode: (String) -> Unit,
 ) {
     val rows = if (expanded) nodes.chunked(columns) else emptyList()
     item(key = "group:${group.name}") {
         Box(itemMotion()) {
-            CardSlice(top = true, bottom = rows.isEmpty()) {
-                GroupHeader(group, expanded, testing, showIcon, onToggle, onTest)
-            }
+            ProxyGroupRow(
+                group,
+                0,
+                if (rows.isEmpty()) 1 else 2,
+                delay,
+                active = false,
+                chevron = false,
+                iconStyle = iconStyle,
+                trailing = {
+                    AppIconButton(LineIcons.Bolt, stringResource(R.string.test_delay), busy = testing(), onClick = onTest)
+                    AppIconButton(
+                        if (expanded) LineIcons.ChevronUp else LineIcons.ChevronDown,
+                        stringResource(if (expanded) R.string.collapse else R.string.expand),
+                        onClick = onToggle,
+                    )
+                },
+                onClick = onToggle,
+            )
         }
     }
-    items(rows.withIndex().toList(), key = { (index, _) -> "row:${group.name}:$index" }) { (index, row) ->
-        Box(itemMotion()) {
-            val last = index == rows.lastIndex
-            CardSlice(top = false, bottom = last) {
-                Row(
-                    Modifier.padding(start = 12.dp, end = 12.dp, bottom = if (last) 12.dp else 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    row.forEach { node ->
-                        NodeTile(
-                            node,
-                            style,
-                            selected = node.name == group.now,
-                            enabled = group.selectable,
-                            testing = nodeTesting(node.name),
-                            onTest = { onTestNode(node.name) },
-                            modifier = Modifier.weight(1f),
-                        ) { onSelect(node.name) }
-                    }
-                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
-                }
+    itemsIndexed(rows, key = { index, _ -> "row:${group.name}:$index" }) { index, row ->
+        val last = index == rows.lastIndex
+        Row(
+            itemMotion().padding(top = if (index == 0) 2.dp else 0.dp)
+                .clip(RoundedCornerShape(topStart = cornerOf(index == 0), topEnd = cornerOf(index == 0), bottomStart = if (last) 16.dp else 0.dp, bottomEnd = if (last) 16.dp else 0.dp))
+                .background(palette.card)
+                .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = if (last) 12.dp else 0.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            row.forEach { node ->
+                NodeTile(
+                    node,
+                    style,
+                    selected = node.name == group.now,
+                    enabled = group.selectable,
+                    delay = nodeDelay(node),
+                    testing = testing() || nodeTesting(node.name),
+                    onTest = { onTestNode(node.name) },
+                    modifier = Modifier.weight(1f),
+                ) { onSelect(node.name) }
             }
-        }
-    }
-}
-
-@Composable
-private fun CardSlice(top: Boolean, bottom: Boolean, content: @Composable () -> Unit) {
-    val topRadius: Dp = if (top) cardRadius else 0.dp
-    val bottomRadius: Dp = if (bottom) cardRadius else 0.dp
-    Column(
-        Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(topRadius, topRadius, bottomRadius, bottomRadius))
-            .background(apple.card),
-    ) {
-        content()
-    }
-}
-
-@Composable
-private fun GroupHeader(group: ProxyGroup, expanded: Boolean, testing: Boolean, showIcon: Boolean, onToggle: (() -> Unit)?, onTest: () -> Unit) {
-    val colors = apple
-    val icon = rememberGroupIcon(group.icon.takeIf { showIcon })
-    val now = group.nodes.firstOrNull { it.name == group.now }
-    Row(
-        Modifier.fillMaxWidth().then(if (onToggle != null) Modifier.clickable(onClick = onToggle) else Modifier)
-            .padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        icon?.let { Image(it, contentDescription = null, modifier = Modifier.padding(end = 4.dp).size(36.dp).clip(RoundedCornerShape(9.dp))) }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    group.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                Chip(group.kind)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    listOfNotNull(group.now, pluralStringResource(R.plurals.node_count, group.nodes.size, group.nodes.size).takeIf { expanded })
-                        .joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.secondaryLabel,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                if (!expanded) {
-                    now?.delay?.let {
-                        Text(" · ", style = MaterialTheme.typography.bodySmall, color = colors.secondaryLabel)
-                        DelayText(it, MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-        }
-        FillButton(LineIcons.Bolt, stringResource(R.string.test_delay), busy = testing, onClick = onTest)
-        if (onToggle != null) {
-            FillButton(if (expanded) LineIcons.ChevronUp else LineIcons.ChevronDown, stringResource(if (expanded) R.string.collapse else R.string.expand), onClick = onToggle)
+            repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
         }
     }
 }
 
-@Composable
-fun Chip(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, lineHeight = 16.sp),
-        fontWeight = FontWeight.Medium,
-        color = apple.secondaryLabel,
-        maxLines = 1,
-        modifier = Modifier.background(apple.track, RoundedCornerShape(6.dp)).padding(horizontal = 7.dp, vertical = 1.dp),
-    )
-}
+private fun cornerOf(first: Boolean): Dp = if (first) 4.dp else 0.dp
 
 @Composable
 private fun NodeTile(
@@ -408,81 +475,29 @@ private fun NodeTile(
     style: ProxyTileStyle,
     selected: Boolean,
     enabled: Boolean,
+    delay: UInt?,
     testing: Boolean,
     onTest: () -> Unit,
     modifier: Modifier,
     onClick: () -> Unit,
 ) {
-    val colors = apple
-    val small = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, lineHeight = 16.sp)
-    val delay = @Composable {
-        Box(
-            Modifier.heightIn(min = 18.dp).clip(CircleShape).clickable(enabled = !testing, onClick = onTest).padding(horizontal = 2.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            AnimatedContent(
-                if (testing) 0 else if (node.delay == null) 1 else 2,
-                transitionSpec = { (fadeIn(tween(180)) + scaleIn(initialScale = 0.8f)) togetherWith fadeOut(tween(100)) },
-                contentAlignment = Alignment.Center,
-                label = "delay",
-            ) { state ->
-                when (state) {
-                    0 -> CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.5.dp, color = colors.secondaryLabel)
-                    1 -> Icon(LineIcons.Bolt, contentDescription = stringResource(R.string.test_delay), tint = colors.secondaryLabel, modifier = Modifier.size(14.dp))
-                    else -> DelayText(node.delay, small.copy(fontWeight = FontWeight.Medium))
-                }
-            }
-        }
-    }
-    val fill by animateColorAsState(if (selected) colors.accentSoft else colors.cell, label = "tile")
-    val edge by animateColorAsState(if (selected) colors.accent else colors.accent.copy(alpha = 0f), label = "edge")
+    val colors = palette
+    val fill by animateColorAsState(if (selected) colors.sel else colors.bg, tween(150, easing = StandardEasing), label = "tile")
     Column(
-        modifier.clip(tileShape)
-            .background(fill)
-            .border(1.5.dp, edge, tileShape)
-            .clickable(enabled = enabled, onClick = onClick)
+        modifier.clip(RoundedCornerShape(12.dp)).background(fill).clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = if (style == ProxyTileStyle.DETAILED) 10.dp else 8.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                node.name,
-                style = if (style == ProxyTileStyle.MINIMAL) small.copy(fontWeight = FontWeight.SemiBold) else MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            if (style == ProxyTileStyle.COMPACT) {
-                delay()
-            } else {
-                AnimatedVisibility(selected, enter = scaleIn(spring(0.55f, 500f)) + fadeIn(), exit = scaleOut() + fadeOut()) {
-                    Icon(LineIcons.Check, contentDescription = stringResource(R.string.selected), tint = colors.accent, modifier = Modifier.size(14.dp))
-                }
-            }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Po0Radio(selected)
+            Text(node.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            if (style == ProxyTileStyle.COMPACT) NodeDelay(delay, testing, onTest)
         }
         if (style == ProxyTileStyle.DETAILED) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(node.kind, style = small, color = colors.secondaryLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                delay()
+                Text(node.kind, style = MaterialTheme.typography.bodyMedium, color = colors.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                NodeDelay(delay, testing, onTest)
             }
         }
-    }
-}
-
-/** Under 600 ms green, slower orange, 0 (the core's timeout) red; [dot] adds the status dot in front. */
-@Composable
-fun DelayText(delay: UInt?, style: TextStyle = MaterialTheme.typography.bodyMedium, dot: Boolean = false) {
-    if (delay == null) return
-    val colors = apple
-    val (text, color, dotColor) = when {
-        delay == 0u -> Triple(stringResource(R.string.delay_timeout), colors.red, colors.red)
-        delay < 600u -> Triple(stringResource(R.string.delay_ms, delay.toInt()), colors.greenText, colors.green)
-        else -> Triple(stringResource(R.string.delay_ms, delay.toInt()), colors.orange, colors.orange)
-    }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        val tint by animateColorAsState(color, label = "delay")
-        if (dot) Box(Modifier.size(7.dp).background(dotColor, CircleShape))
-        RollingText(text, style.tabular(), color = tint)
     }
 }

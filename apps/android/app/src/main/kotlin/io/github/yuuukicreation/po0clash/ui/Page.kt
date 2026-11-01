@@ -1,258 +1,199 @@
 package io.github.yuuukicreation.po0clash.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.LocalIndication
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.kyant.backdrop.backdrops.layerBackdrop
 import io.github.yuuukicreation.po0clash.R
 
-/** Space the floating status bar and tab bar take at the bottom of every page, navigation bar included. */
-val LocalBottomPadding = compositionLocalOf { 0.dp }
+/** The real window width, which picks the navigation (600) and the column count (840). */
+val LocalWindowWidth = compositionLocalOf { 0.dp }
 
-private val navHeight = 44.dp
-private val titleHeight = 41.dp
-val cardShape = RoundedCornerShape(cardRadius)
+/** Bottom space a page must leave itself: the system bar when a rail has no bottom bar to cover it. */
+val LocalBottomInset = compositionLocalOf { 0.dp }
+
+val Dp.isExpanded: Boolean get() = this >= 840.dp
+
+private val maxContentWidth = 1100.dp
+
+data class PageAction(
+    val icon: ImageVector,
+    val label: String,
+    val enabled: Boolean = true,
+    val busy: Boolean = false,
+    val anchor: Anchor? = null,
+    val onClick: () -> Unit,
+)
+
+class AppBarSearch(val query: String, val onQuery: (String) -> Unit, val onClose: () -> Unit)
 
 @Composable
 fun PageScaffold(
     title: String,
     state: LazyListState,
     actions: List<PageAction> = emptyList(),
-    extraBottom: Dp = 0.dp,
     onBack: (() -> Unit)? = null,
+    capped: Boolean = true,
+    fab: FabAction? = null,
     content: @Composable (PaddingValues) -> Unit,
-) {
-    val threshold = with(LocalDensity.current) { (titleHeight * 0.7f).roundToPx() }
-    val collapsed by remember(state) {
-        derivedStateOf { state.firstVisibleItemIndex > 0 || state.firstVisibleItemScrollOffset > threshold }
-    }
-    PageScaffold(title, collapsed, state.canScrollBackward, actions, extraBottom, onBack, content)
-}
+) = PageScaffold(title, state.canScrollBackward, actions, onBack, null, capped, fab, content)
 
 @Composable
 fun PageScaffold(
     title: String,
-    state: LazyGridState,
-    actions: List<PageAction> = emptyList(),
-    extraBottom: Dp = 0.dp,
-    onBack: (() -> Unit)? = null,
-    content: @Composable (PaddingValues) -> Unit,
-) {
-    val threshold = with(LocalDensity.current) { (titleHeight * 0.7f).roundToPx() }
-    val collapsed by remember(state) {
-        derivedStateOf { state.firstVisibleItemIndex > 0 || state.firstVisibleItemScrollOffset > threshold }
-    }
-    PageScaffold(title, collapsed, state.canScrollBackward, actions, extraBottom, onBack, content)
-}
-
-/**
- * An iOS page: the list (which puts [PageTitle] first and is recorded for the glass) scrolls under a navigation bar that has
- * no fill of its own. Once content runs under it the scroll edge effect fades in, and once the large title has
- * scrolled away its small centered copy takes over. [actions] sit at the bar's trailing end in one glass capsule, and
- * [onBack] adds the leading back button of a pushed page.
- */
-@Composable
-private fun PageScaffold(
-    title: String,
-    collapsed: Boolean,
     scrolled: Boolean,
-    actions: List<PageAction>,
-    extraBottom: Dp,
-    onBack: (() -> Unit)?,
+    actions: List<PageAction> = emptyList(),
+    onBack: (() -> Unit)? = null,
+    search: AppBarSearch? = null,
+    capped: Boolean = true,
+    fab: FabAction? = null,
     content: @Composable (PaddingValues) -> Unit,
 ) {
-    val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val padding = PaddingValues(
-        start = 16.dp,
-        end = 16.dp,
-        top = top + navHeight,
-        bottom = LocalBottomPadding.current + extraBottom + 16.dp,
-    )
-    val backdrop = rememberPageBackdrop()
-    Box(Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) { content(padding) }
-        CompositionLocalProvider(LocalBackdrop provides backdrop) { NavigationBar(title, top, collapsed, scrolled, actions, onBack) }
-    }
-}
-
-@Composable
-private fun NavigationBar(title: String, top: Dp, collapsed: Boolean, scrolled: Boolean, actions: List<PageAction>, onBack: (() -> Unit)?) {
-    ScrollEdge(scrolled, top + navHeight + 32.dp)
-    Box(Modifier.padding(top = top).fillMaxWidth().height(navHeight)) {
-        AnimatedVisibility(collapsed, Modifier.align(Alignment.Center), enter = fadeIn(), exit = fadeOut()) {
-            Text(
-                title,
-                style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 120.dp),
+    Column(Modifier.fillMaxSize()) {
+        AppBar(title, scrolled, actions, onBack, search)
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val side = if (capped) maxOf(16.dp, (maxWidth - maxContentWidth) / 2) else 16.dp
+            val bottom = LocalBottomInset.current
+            content(
+                PaddingValues(
+                    start = side,
+                    end = side,
+                    top = 4.dp,
+                    bottom = bottom + if (fab != null) 92.dp else 16.dp,
+                ),
             )
-        }
-        if (onBack != null) {
-            val back = PageAction(LineIcons.ChevronLeft, stringResource(R.string.back), onClick = onBack)
-            GlassButtonGroup(listOf(back), Modifier.align(Alignment.CenterStart).padding(start = 16.dp))
-        }
-        if (actions.isNotEmpty()) {
-            GlassButtonGroup(actions, Modifier.align(Alignment.CenterEnd).padding(end = 16.dp))
-        }
-    }
-}
-
-/** The large title, with an optional 15 pt summary line under it. */
-@Composable
-fun PageTitle(title: String, subtitle: String? = null) {
-    Column(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 2.dp, bottom = 14.dp)) {
-        Text(
-            title,
-            style = MaterialTheme.typography.headlineLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.height(titleHeight).wrapContentHeight(Alignment.CenterVertically),
-        )
-        if (subtitle != null) {
-            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = apple.secondaryLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-    }
-}
-
-@Composable
-fun ContentCard(
-    modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
-    spacing: Dp = 8.dp,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val sink by animateFloatAsState(if (pressed && !LocalReduceMotion.current) 0.97f else 1f, spring(0.6f, 600f), label = "card")
-    Column(
-        modifier.fillMaxWidth().graphicsLayer {
-            scaleX = sink
-            scaleY = sink
-        }.clip(cardShape).background(apple.card)
-            .then(if (onClick != null) Modifier.clickable(interaction, LocalIndication.current, onClick = onClick) else Modifier)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(spacing),
-        content = content,
-    )
-}
-
-/** A dashboard card: a small gray title with its monochrome icon, an optional note or button at the end, then the value. */
-@Composable
-fun InfoCard(
-    title: String,
-    icon: ImageVector,
-    modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
-    note: String? = null,
-    spacing: Dp = 4.dp,
-    trailing: (@Composable () -> Unit)? = null,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    val colors = apple
-    ContentCard(modifier, onClick, spacing) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = colors.secondaryLabel, modifier = Modifier.size(15.dp))
-            Text(
-                title,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.SemiBold,
-                color = colors.secondaryLabel,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).padding(start = 6.dp),
-            )
-            if (note != null) {
-                Text(note, style = MaterialTheme.typography.bodySmall.tabular(), fontWeight = FontWeight.Medium, color = colors.secondaryLabel, maxLines = 1)
+            if (fab != null) {
+                val above = if (LocalBottomInset.current > 0.dp || maxWidth >= 600.dp) 20.dp else 12.dp
+                Po0Fab(fab, Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = bottom + above))
             }
-            trailing?.invoke()
         }
-        content()
     }
 }
 
-/** A large semibold number with its small gray unit, as the spec sets values apart from their labels. */
 @Composable
-fun BigValue(value: String, unit: String? = null, large: Boolean = false) {
-    val colors = apple
-    Row(verticalAlignment = Alignment.Bottom) {
-        RollingText(
-            value,
-            (if (large) MaterialTheme.typography.displaySmall else MaterialTheme.typography.headlineSmall).tabular(),
-            Modifier.alignByBaseline(),
-        )
-        if (unit != null) {
-            Text(
-                unit,
-                style = if (large) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Medium,
-                color = colors.secondaryLabel,
-                maxLines = 1,
-                modifier = Modifier.alignByBaseline().padding(start = 3.dp),
+private fun AppBar(title: String, scrolled: Boolean, actions: List<PageAction>, onBack: (() -> Unit)?, search: AppBarSearch?) {
+    val colors = palette
+    val fill by animateColorAsState(if (scrolled) colors.card else colors.bg, tween(200), label = "appBar")
+    Box(Modifier.fillMaxWidth().background(fill).windowInsetsPadding(WindowInsets.statusBars)) {
+        Row(
+            Modifier.fillMaxWidth().height(64.dp).padding(start = 16.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (search != null) {
+                AppBarSearchField(search, Modifier.weight(1f).padding(end = 12.dp))
+                return@Row
+            }
+            if (onBack != null) AppIconButton(LineIcons.ChevronLeft, stringResource(R.string.back), onClick = onBack)
+            Crossfade(title, Modifier.weight(1f), tween(150), label = "appBarTitle") {
+                Text(it, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            actions.forEach { action ->
+                AppIconButton(
+                    action.icon,
+                    action.label,
+                    action.enabled,
+                    action.busy,
+                    action.anchor?.let { Modifier.anchor(it) } ?: Modifier,
+                    action.onClick,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppBarSearchField(search: AppBarSearch, modifier: Modifier) {
+    val colors = palette
+    val focus = remember { FocusRequester() }
+    val appear = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        focus.requestFocus()
+        appear.animateTo(1f, tween(200, easing = StandardEasing))
+    }
+    Row(
+        modifier.height(48.dp)
+            .graphicsLayer {
+                alpha = appear.value
+                scaleX = 0.9f + 0.1f * appear.value
+                transformOrigin = TransformOrigin(1f, 0.5f)
+            }
+            .background(colors.card, RoundedCornerShape(24.dp)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AppIconButton(LineIcons.ChevronLeft, stringResource(R.string.back), onClick = search.onClose)
+        Box(Modifier.weight(1f).padding(start = 4.dp, end = 16.dp)) {
+            if (search.query.isEmpty()) {
+                Text(stringResource(R.string.search), style = MaterialTheme.typography.bodyLarge, color = colors.ink2)
+            }
+            BasicTextField(
+                search.query,
+                search.onQuery,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.ink),
+                cursorBrush = SolidColor(colors.accent),
+                modifier = Modifier.fillMaxWidth().focusRequester(focus),
             )
         }
     }
 }
 
-/** iOS's content-unavailable view: a large gray symbol, a title and a short note, centered on the page rather than carded. */
+/** The in-page search field of Activity, Access control and Licenses; filtering is instant. */
 @Composable
-fun EmptyCard(title: String, detail: String, icon: ImageVector = LineIcons.Info) {
-    Column(
-        Modifier.fillMaxWidth().padding(top = 56.dp, bottom = 24.dp, start = 24.dp, end = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+fun SearchField(query: String, onChange: (String) -> Unit) {
+    val colors = palette
+    Row(
+        Modifier.fillMaxWidth().height(48.dp).background(colors.card, RoundedCornerShape(24.dp)).padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = apple.secondaryLabel, modifier = Modifier.padding(bottom = 6.dp).size(44.dp))
-        Text(title, style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp), fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
-        Text(detail, style = MaterialTheme.typography.bodyMedium, color = apple.secondaryLabel, textAlign = TextAlign.Center)
+        Icon(LineIcons.Search, contentDescription = null, tint = colors.ink2, modifier = Modifier.padding(end = 12.dp))
+        Box(Modifier.weight(1f)) {
+            if (query.isEmpty()) Text(stringResource(R.string.search), style = MaterialTheme.typography.bodyLarge, color = colors.ink2)
+            BasicTextField(
+                query,
+                onChange,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.ink),
+                cursorBrush = SolidColor(colors.accent),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }

@@ -5,16 +5,14 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Icon
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,9 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -100,7 +96,6 @@ fun AccessControlScreen(vm: AppViewModel, onBack: () -> Unit) {
         PageAction(LineIcons.Sliders, filterTitle, enabled = mode != AccessMode.OFF, anchor = filterAnchor) {
             sheets.menu(
                 filterAnchor,
-                filterTitle,
                 listOf(
                     SheetAction(filterLabels[0], checked = !access.hideSystemApps) { update { it.copy(hideSystemApps = !it.hideSystemApps) } },
                     SheetAction(filterLabels[1], checked = access.hideOfflineApps) { update { it.copy(hideOfflineApps = !it.hideOfflineApps) } },
@@ -111,14 +106,12 @@ fun AccessControlScreen(vm: AppViewModel, onBack: () -> Unit) {
         PageAction(LineIcons.Sort, sortTitle, enabled = mode != AccessMode.OFF, anchor = sortAnchor) {
             sheets.menu(
                 sortAnchor,
-                sortTitle,
                 AppSort.entries.mapIndexed { i, sort -> SheetAction(sortLabels[i], checked = access.sort == sort) { update { it.copy(sort = sort) } } },
             )
         },
         PageAction(LineIcons.More, moreTitle, enabled = mode != AccessMode.OFF, anchor = moreAnchor) {
             sheets.menu(
                 moreAnchor,
-                null,
                 listOf(
                     SheetAction(moreLabels[0]) { update { it.withSelected(it.selected + shown.map { app -> app.packageName }.filterNot(chosen::contains)) } },
                     SheetAction(moreLabels[1]) { update { it.withSelected(emptyList()) } },
@@ -131,21 +124,16 @@ fun AccessControlScreen(vm: AppViewModel, onBack: () -> Unit) {
             )
         },
     )
-    ToolPage(
-        stringResource(R.string.access_control),
-        onBack,
-        actions,
-        subtitle = pluralStringResource(R.plurals.app_count, chosen.size, chosen.size).takeIf { mode != AccessMode.OFF },
-    ) {
+    ToolPage(stringResource(R.string.access_control), onBack, actions) {
         item {
-            Column(Modifier.padding(bottom = 4.dp)) {
-                ChoiceRow(0, 1, stringResource(R.string.access_mode), modes, mode) { v -> update { it.withMode(v) } }
-                SectionFooter(stringResource(R.string.access_mode_detail))
-            }
+            ChoiceRow(0, 1, stringResource(R.string.access_mode), modes, mode) { v -> update { it.withMode(v) } }
         }
         if (mode == AccessMode.OFF) return@ToolPage
         item(key = "search") {
-            Box(Modifier.padding(top = 16.dp, bottom = 12.dp)) { SearchField(query) { query = it } }
+            Column(Modifier.padding(top = 12.dp)) {
+                SearchField(query) { query = it }
+                SectionHeader(pluralStringResource(R.plurals.app_count, chosen.size, chosen.size))
+            }
         }
         if (apps == null) {
             item { ValueRow(0, 1, stringResource(R.string.loading), "") }
@@ -178,33 +166,24 @@ private fun installedApps(pm: PackageManager, self: String): List<InstalledApp> 
 @Composable
 private fun AppRow(index: Int, count: Int, app: InstalledApp, checked: Boolean, onChange: (Boolean) -> Unit) {
     val context = LocalContext.current
-    val colors = apple
+    val colors = palette
     val icon by produceState<ImageBitmap?>(null, app.packageName) {
         value = withContext(Dispatchers.IO) {
             runCatching { app.info.loadIcon(context.packageManager).toBitmap(96, 96).asImageBitmap() }.getOrNull()
         }
     }
-    GroupRow(index, count, onClick = { onChange(!checked) }, inset = 62.dp) {
+    GroupRow(index, count, onClick = { onChange(!checked) }) {
         Box(Modifier.size(34.dp)) {
             icon?.let { Image(it, contentDescription = null, modifier = Modifier.size(34.dp)) }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(app.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(app.packageName, style = MaterialTheme.typography.bodySmall, color = colors.secondaryLabel, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+            Text(app.packageName, style = MaterialTheme.typography.bodyMedium, color = colors.ink2, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
         }
-        CheckCircle(checked)
-    }
-}
-
-@Composable
-fun CheckCircle(checked: Boolean, modifier: Modifier = Modifier) {
-    val colors = apple
-    Box(
-        modifier.size(24.dp).then(
-            if (checked) Modifier.background(colors.accent, CircleShape) else Modifier.border(1.5.dp, colors.chevron, CircleShape),
-        ),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (checked) Icon(LineIcons.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+        Checkbox(
+            checked,
+            null,
+            colors = CheckboxDefaults.colors(checkedColor = colors.accent, uncheckedColor = colors.ink2, checkmarkColor = colors.onAccent),
+        )
     }
 }

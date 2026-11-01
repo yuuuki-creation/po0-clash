@@ -4,10 +4,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,13 +40,6 @@ private val OverrideMode.label
         OverrideMode.CUSTOM -> R.string.override_custom
     }
 
-private val OverrideMode.detail
-    get() = when (this) {
-        OverrideMode.STANDARD -> R.string.override_standard_detail
-        OverrideMode.SCRIPT -> R.string.override_script_detail
-        OverrideMode.CUSTOM -> R.string.override_custom_detail
-    }
-
 /** FlClash's per-profile override; every change is saved at once and undone if the core rejects it. */
 @Composable
 fun OverrideScreen(vm: AppViewModel, profile: Profile, onBack: () -> Unit) {
@@ -72,7 +63,6 @@ fun OverrideScreen(vm: AppViewModel, profile: Profile, onBack: () -> Unit) {
         onBack,
         actions = listOf(PageAction(LineIcons.Check, stringResource(R.string.saving), enabled = false, busy = true) {})
             .filter { AppViewModel.busyOverride(profile.id) in busy },
-        subtitle = profileName(profile.kind, profile.name),
     ) {
         val current = draft
         if (current == null) {
@@ -86,7 +76,6 @@ fun OverrideScreen(vm: AppViewModel, profile: Profile, onBack: () -> Unit) {
                 current.mode,
                 enabled = true,
             ) { save(current.copy(mode = it)) }
-            SectionFooter(stringResource(current.mode.detail))
         }
         when (current.mode) {
             OverrideMode.STANDARD -> standardOverride(current, options.addedRules, targets, save)
@@ -120,13 +109,12 @@ private fun LazyListScope.standardOverride(
                 save(current.copy(matchTarget = it))
             }
         }
-        SectionFooter(stringResource(R.string.override_rules_detail))
     }
     item { SectionHeader(stringResource(R.string.global_rules)) }
     if (global.isEmpty()) {
         item {
             GroupRow(0, 1) {
-                Text(stringResource(R.string.no_global_rules), style = MaterialTheme.typography.bodyLarge, color = apple.secondaryLabel)
+                Text(stringResource(R.string.none), style = MaterialTheme.typography.bodyLarge, color = palette.ink2)
             }
         }
     }
@@ -134,16 +122,15 @@ private fun LazyListScope.standardOverride(
         GroupRow(index, global.size) {
             Text(
                 rule,
-                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
                 modifier = Modifier.weight(1f),
             )
-            AppleSwitch(rule !in current.disabledGlobalRules, { on ->
+            Po0Switch(rule !in current.disabledGlobalRules, { on ->
                 val others = current.disabledGlobalRules - rule
                 save(current.copy(disabledGlobalRules = if (on) others else others + rule))
             })
         }
     }
-    item { SectionFooter(stringResource(R.string.global_rules_detail)) }
 }
 
 private fun LazyListScope.scriptOverride(
@@ -160,14 +147,12 @@ private fun LazyListScope.scriptOverride(
         SectionHeader(stringResource(R.string.script))
         rows.forEachIndexed { index, script ->
             GroupRow(index, count, onClick = { save(current.copy(scriptId = script?.id)) }) {
+                Po0Radio(script?.id == current.scriptId)
                 Text(
                     script?.name ?: stringResource(R.string.none),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f),
                 )
-                if (script?.id == current.scriptId) {
-                    Icon(LineIcons.Check, contentDescription = null, tint = apple.accent, modifier = Modifier.size(18.dp))
-                }
             }
         }
         if (chosen != null) {
@@ -176,7 +161,6 @@ private fun LazyListScope.scriptOverride(
         ActionRow(count - 1, count, stringResource(R.string.new_script)) {
             sheets.show { ScriptSheet(vm, null) { save(current.copy(scriptId = it.id)) } }
         }
-        SectionFooter(stringResource(R.string.script_main_detail))
     }
 }
 
@@ -192,7 +176,7 @@ private fun LazyListScope.customOverride(
         val title = stringResource(R.string.proxy_groups)
         val lines = current.customGroups.lines().count(String::isNotBlank)
         SectionHeader(title)
-        NavRow(0, 1, null, title, if (lines == 0) stringResource(R.string.not_set) else pluralStringResource(R.plurals.line_count, lines, lines)) {
+        NavRow(0, 1, title, if (lines == 0) stringResource(R.string.not_set) else pluralStringResource(R.plurals.line_count, lines, lines)) {
             sheets.show {
                 ValueSheet(title, current.customGroups, multiline = true, hint = GROUPS_HINT, code = true) {
                     save(current.copy(customGroups = it))
@@ -203,20 +187,18 @@ private fun LazyListScope.customOverride(
         ListRow(0, 1, stringResource(R.string.rules), current.customRules, RULE_HINT, code = true) {
             save(current.copy(customRules = it))
         }
-        SectionFooter(stringResource(R.string.override_custom_footer))
     }
     item {
         val sheets = LocalSheets.current
-        val anchor = rememberAnchor()
         val copy = { vm.copyProfileParts(id) { groups, rules -> latest()?.let { save(it.copy(customGroups = groups, customRules = rules)) } } }
         val replace = stringResource(R.string.replace)
         val confirm = stringResource(R.string.copy_from_profile_confirm)
-        Column(Modifier.padding(top = 20.dp).anchor(anchor)) {
-            ActionRow(0, 1, stringResource(R.string.copy_from_profile), LineIcons.Download) {
+        Column(Modifier.padding(top = 12.dp)) {
+            ActionRow(0, 1, stringResource(R.string.copy_from_profile)) {
                 if (current.customGroups.isBlank() && current.customRules.isEmpty()) {
                     copy()
                 } else {
-                    sheets.menu(anchor, confirm, listOf(SheetAction(replace, destructive = true) { copy() }))
+                    sheets.confirm(confirm, replace) { copy() }
                 }
             }
         }
@@ -233,7 +215,6 @@ fun ScriptSheet(vm: AppViewModel, script: Script?, onSaved: (Script) -> Unit = {
     SheetTitle(stringResource(if (script == null) R.string.new_script else R.string.edit_script))
     SheetField(name, { name = it }, stringResource(R.string.script_name), multiline = false, keyboardType = KeyboardType.Text)
     SheetField(content, { content = it }, SCRIPT_TEMPLATE, multiline = true, code = true)
-    Text(stringResource(R.string.script_main_hint), style = MaterialTheme.typography.bodySmall, color = apple.secondaryLabel)
     SheetButtons(
         stringResource(R.string.save),
         enabled = name.isNotBlank() && AppViewModel.BUSY_SCRIPT !in busy,
@@ -256,7 +237,6 @@ fun ScriptLibrary(vm: AppViewModel) {
     SectionHeader(stringResource(R.string.override_scripts))
     scripts.forEachIndexed { index, script -> ScriptRow(index, count, script, vm) }
     ActionRow(scripts.size, count, stringResource(R.string.new_script)) { sheets.show { ScriptSheet(vm, null) } }
-    SectionFooter(stringResource(R.string.override_scripts_detail))
 }
 
 @Composable
@@ -268,14 +248,13 @@ private fun ScriptRow(index: Int, count: Int, script: Script, vm: AppViewModel) 
     val delete = stringResource(R.string.delete)
     val confirm = stringResource(R.string.delete_title, script.name)
     Column(Modifier.anchor(anchor)) {
-        NavRow(index, count, null, script.name, pluralStringResource(R.plurals.line_count, lines, lines)) {
+        NavRow(index, count, script.name, pluralStringResource(R.plurals.line_count, lines, lines)) {
             sheets.menu(
                 anchor,
-                script.name,
                 listOf(
                     SheetAction(edit) { sheets.show { ScriptSheet(vm, script) } },
                     SheetAction(delete, destructive = true) {
-                        sheets.menu(anchor, confirm, listOf(SheetAction(delete, destructive = true) { vm.removeScript(script.id) }))
+                        sheets.confirm(confirm, delete) { vm.removeScript(script.id) }
                     },
                 ),
             )
@@ -301,14 +280,12 @@ fun ShareNodesScreen(vm: AppViewModel, profile: Profile, onBack: () -> Unit) {
                 sheets.show { TextSheet(importTitle, linksHint, multiline = true, confirm = add) { text, _ -> vm.importLinks(text) } }
             },
         ),
-        subtitle = pluralStringResource(R.plurals.node_count, nodes.size, nodes.size),
     ) {
         itemsIndexed(nodes, key = { _, node -> node.name }) { index, node ->
             Box(itemMotion()) {
                 ShareNodeRow(index, nodes.size, node.name, node.kind, vm, profile.id)
             }
         }
-        item { SectionFooter(stringResource(R.string.share_nodes_detail)) }
     }
 }
 
@@ -326,7 +303,6 @@ private fun ShareNodeRow(index: Int, count: Int, name: String, kind: String, vm:
             onClick = {
                 sheets.menu(
                     anchor,
-                    name,
                     listOfNotNull(
                         SheetAction(rename) {
                             sheets.show {
@@ -334,14 +310,14 @@ private fun ShareNodeRow(index: Int, count: Int, name: String, kind: String, vm:
                             }
                         },
                         SheetAction(delete, destructive = true) {
-                            sheets.menu(anchor, confirm, listOf(SheetAction(delete, destructive = true) { vm.removeShareNode(id, name) }))
+                            sheets.confirm(confirm, delete) { vm.removeShareNode(id, name) }
                         }.takeIf { count > 1 },
                     ),
                 )
             },
         ) {
             RowText(name)
-            Text(kind.uppercase(), style = MaterialTheme.typography.labelMedium, color = apple.secondaryLabel)
+            Text(kind.uppercase(), style = MaterialTheme.typography.bodyMedium, color = palette.ink2)
         }
     }
 }

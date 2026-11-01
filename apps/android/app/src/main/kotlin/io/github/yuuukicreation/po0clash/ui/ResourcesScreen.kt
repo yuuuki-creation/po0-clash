@@ -39,18 +39,16 @@ fun ResourcesScreen(vm: AppViewModel, onBack: () -> Unit) {
             SectionHeader(stringResource(R.string.geo_files))
             geo.forEachIndexed { index, file ->
                 GroupRow(index, geo.size) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(file.name, style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            file.modified?.let { stringResource(R.string.updated, relativeTime(it)) } ?: stringResource(R.string.not_downloaded),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = apple.secondaryLabel,
-                        )
-                    }
-                    file.size?.let { Text(bytes(it), style = MaterialTheme.typography.bodyMedium.tabular(), color = apple.secondaryLabel) }
+                    Text(file.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, modifier = Modifier.weight(1f))
+                    Text(
+                        file.modified?.let { relativeTime(it) } ?: stringResource(R.string.not_downloaded),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = palette.ink2,
+                        maxLines = 1,
+                    )
+                    file.size?.let { Text(bytes(it), style = MaterialTheme.typography.bodyMedium.tabular(), color = palette.ink2, maxLines = 1) }
                 }
             }
-            SectionFooter(stringResource(R.string.geo_files_detail))
         }
         item {
             SectionHeader(stringResource(R.string.geo_settings))
@@ -92,8 +90,8 @@ fun ResourcesScreen(vm: AppViewModel, onBack: () -> Unit) {
 
 @Composable
 private fun ProviderRow(index: Int, count: Int, provider: Provider, busy: Boolean, onUpdate: () -> Unit) {
-    val colors = apple
-    GroupRow(index, count) {
+    val colors = palette
+    GroupRow(index, count, endPadding = if (provider.vehicle.equals("HTTP", ignoreCase = true)) 4.dp else 16.dp) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(provider.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val detail = listOfNotNull(
@@ -102,17 +100,17 @@ private fun ProviderRow(index: Int, count: Int, provider: Provider, busy: Boolea
                 stringResource(R.string.item_count, provider.count.toInt()),
                 provider.updatedAt?.let { relativeTime(it) },
             )
-            Text(detail.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.secondaryLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(detail.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = colors.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
             provider.usage?.takeIf { it.total > 0u }?.let { usage ->
                 Text(
                     stringResource(R.string.usage, bytes(usage.upload + usage.download), bytes(usage.total)),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.secondaryLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.ink2,
                 )
             }
         }
         if (provider.vehicle.equals("HTTP", ignoreCase = true)) {
-            FillButton(LineIcons.Refresh, stringResource(R.string.update), busy = busy, onClick = onUpdate)
+            AppIconButton(LineIcons.Refresh, stringResource(R.string.update), busy = busy, onClick = onUpdate)
         }
     }
 }
