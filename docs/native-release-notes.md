@@ -1,5 +1,5 @@
-本版把三端界面换成贴近各平台习惯的传统样式，改用暖灰配色，并修复了一批连接、VPN 和设置保存的问题。
-从 7.0.0 或 Flutter 版都可以直接覆盖升级。
+本版修复部分节点组无法切换节点，以及 Android 仪表盘网速曲线闪烁。
+从 7.0.0、7.1.0 或 Flutter 版都可以直接覆盖升级。
 
 ## 安装
 
@@ -8,7 +8,7 @@
 在终端运行：
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.1.0/install-macos-native.sh | bash
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.1.1/install-macos-native.sh | bash
 ```
 
 脚本会退出并替换已安装的 po0-clash（包括 Flutter 版），装到「应用程序」后启动。应用没有经过苹果公证，脚本会去掉下载带来的隔离标记。
@@ -19,12 +19,12 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
 在 PowerShell 里运行：
 
 ```powershell
-irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.1.0/install-windows-native.ps1 | iex
+irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.1.1/install-windows-native.ps1 | iex
 ```
 
 脚本会下载安装程序、校验 SHA-256、请求一次管理员权限，装好后打开应用。这样下载的文件没有网络来源标记，不会触发 SmartScreen 提示。
 
-也可以下载 `po0-clash-7.1.0-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
+也可以下载 `po0-clash-7.1.1-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
 
 **智能应用控制：** 这个功能开着时，未受信任签名的应用可能仍被拦截，命令安装也不一定能绕开，微软也不提供单个应用的例外。被拦时要在「Windows 安全中心 → 应用和浏览器控制 → 智能应用控制设置」里关闭它。
 
@@ -50,20 +50,15 @@ irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.1.0
   快捷设置磁贴、外部启停 intent 和 TV 入口。
 - po0 与 ggy 自动加白照旧：不论是否连接都持续运行，加白请求始终从真实出口发出。
 
-## 相对 7.0.0
+## 相对 7.1.0
 
-- 新界面：去掉液态玻璃和浮动控件，改用系统字体、标准控件、列表和表格；Windows、macOS、Android 的圆角、分界线和动画各按平台习惯。
-- 暖灰配色：浅色和深色都换了新配色。默认强调色改为绿色，仍是系统蓝默认的会自动切换，选过其他颜色的不变；蓝色还在预设里。
-- 连接按钮：三端都放在仪表盘顶部的状态行。
-- 节点组多时更好用：桌面是可滚动的组列表，窄窗口是下拉框；Android 手机先选组再选节点，平板左右并排。
-- 窗口拉伸：桌面的导航和内容随窗口宽度调整，Android 宽屏改用侧边导航。
-- 修复内核：启停连接不再互相打断，等引擎确实退出后才结束会话；代理集缓存按配置和来源隔离；控制请求超时后不再卡住。
-- 修复 Android：分应用代理不再接受空名单，正确申请精确位置，备份包含 VPN 选项，Wi-Fi 暂停和恢复时保持连接意图，VPN 端口的设置和修改不再并发。
-- 修复 macOS：等特权引擎确认关闭后再继续。
-- 修复 Windows：应用设置的连续修改按顺序保存。
+- 修复节点组切换：`URLTest`（自动选择）和 `Fallback`（故障转移）组现在可以手动选节点，三端相同。再点一次手动选的节点恢复自动选择；整组测速不会取消手动选择。所选节点不可用时，这两类组仍会改用其他节点。
+- 修复 Android：仪表盘的网速曲线不再每秒闪动一次。
 
 ## 已知问题
 
+- 7.1.1 的修复没有实测，只经过发版流水线里的编译和内核单元测试。
+- 节点组不标记当前是手动选择还是自动选择。
 - 新界面的验证有限：Android 只在模拟器上跑过，Windows 只在无头浏览器里用模拟数据走过流程，macOS 只有 CI 的编译和截图，都没有上真机。
 - 连接中不能取消，要等连接完成或失败后再断开。
 - macOS：管理员授权弹窗和开机自启只在 CI 中模拟过。
