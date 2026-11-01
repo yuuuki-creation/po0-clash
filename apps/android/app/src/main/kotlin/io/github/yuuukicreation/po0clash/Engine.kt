@@ -106,6 +106,7 @@ class Engine(private val app: Application) {
 
     val vpnActive = MutableStateFlow(false)
     val vpnError = MutableStateFlow<String?>(null)
+    val vpnOptionsLock = Any()
     private val _appSettings = MutableStateFlow(run {
         migrateAndroidSettings(app, core)
         core.appSettings()

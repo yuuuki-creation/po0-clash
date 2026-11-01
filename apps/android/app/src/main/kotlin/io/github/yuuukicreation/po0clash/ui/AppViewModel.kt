@@ -102,7 +102,7 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(optionWriter) {
             if (_options.value != next) return@launch
             try {
-                core.setEngineOptions(next)
+                synchronized(engine.vpnOptionsLock) { core.setEngineOptions(next) }
             } catch (e: Exception) {
                 _options.value = core.engineOptions()
                 _messages.send(e.userMessage())
@@ -131,8 +131,10 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
 
     fun restoreFromFile(uri: Uri, scope: RestoreScope) = launch(BUSY_BACKUP) {
         val data = checkNotNull(app.contentResolver.openInputStream(uri)).use { it.readBytes() }
-        core.restore(data, scope)
-        afterRestore()
+        synchronized(engine.vpnOptionsLock) {
+            core.restore(data, scope)
+            afterRestore()
+        }
     }
 
     fun checkWebdav() = launch(BUSY_WEBDAV) {
@@ -146,8 +148,10 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     }
 
     fun restoreFromWebdav(scope: RestoreScope) = launch(BUSY_BACKUP) {
-        core.restoreFromWebdav(scope)
-        afterRestore()
+        synchronized(engine.vpnOptionsLock) {
+            core.restoreFromWebdav(scope)
+            afterRestore()
+        }
     }
 
     private fun afterRestore(): String {

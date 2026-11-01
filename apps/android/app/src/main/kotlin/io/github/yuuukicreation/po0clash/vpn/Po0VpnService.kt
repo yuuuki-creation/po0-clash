@@ -76,13 +76,17 @@ class Po0VpnService : VpnService() {
         val generation = latestStart
         val engine = engine
         val restart = intent == null
-        if (intent?.action == ACTION_STOP || engine == null || (restart && !engine.core.wasConnected())) {
+        if (engine == null) {
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        if (intent?.action == ACTION_STOP || (restart && !engine.core.wasConnected())) {
             Log.i(TAG, "stop requested ($startId)")
-            engine?.vpnActive?.value = false
+            engine.vpnActive.value = false
             if (!restart) RestoreReceiver.disarm(this)
             scope.launch(worker) {
                 if (startId == latestStart) {
-                    engine?.let(::disconnect)
+                    disconnect(engine)
                     stopSelf()
                 }
             }
@@ -123,6 +127,10 @@ class Po0VpnService : VpnService() {
     }
 
     private fun connect(engine: Engine, startId: Int, fromApp: Boolean) {
+        synchronized(engine.vpnOptionsLock) { connectLocked(engine, startId, fromApp) }
+    }
+
+    private fun connectLocked(engine: Engine, startId: Int, fromApp: Boolean) {
         if (startId != latestStart) return
         when (vpnAction(engine.vpnActive.value, engine.onExcludedWifi, tunFd >= 0)) {
             VpnAction.NONE -> return
