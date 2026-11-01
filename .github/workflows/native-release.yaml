@@ -197,6 +197,7 @@ jobs:
           if [[ -f scripts/install-macos-native.sh ]]; then
             assets+=(scripts/install-macos-native.sh)
           fi
+          assets+=(scripts/install-windows-native.ps1)
           (cd dist && sha256sum *) > SHA256SUMS.txt
           assets+=(SHA256SUMS.txt)
           notes=docs/native-release-notes.md

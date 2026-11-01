@@ -16,7 +16,18 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
 
 ### Windows（10 / 11，x64）
 
-下载 `po0-clash-7.1.0-windows-x64-setup.exe` 运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
+在 PowerShell 里运行：
+
+```powershell
+irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.1.0/install-windows-native.ps1 | iex
+```
+
+脚本会下载安装程序、校验 SHA-256、请求一次管理员权限，装好后打开应用。这样下载的文件没有网络来源标记，不会触发 SmartScreen 提示。
+
+也可以下载 `po0-clash-7.1.0-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
+
+**智能应用控制：** 这个功能开着时，未受信任签名的应用可能仍被拦截，命令安装也不一定能绕开，微软也不提供单个应用的例外。被拦时要在「Windows 安全中心 → 应用和浏览器控制 → 智能应用控制设置」里关闭它。
+
 应用以管理员身份运行（虚拟网卡需要）。已装 Flutter 版时会先静默卸载它，订阅和加白条目保留并导入。
 
 ### Android（8.0 及以上）
