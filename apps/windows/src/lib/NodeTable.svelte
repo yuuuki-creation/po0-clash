@@ -16,7 +16,7 @@
       aria-pressed={selected}
       title={node.name}
       disabled={!group.selectable || app.busy[`select:${group.name}`]}
-      onclick={() => !selected && act(`select:${group.name}`, 'select_node', { group: group.name, node: node.name })}
+      onclick={() => (!selected || group.kind !== 'Selector') && act(`select:${group.name}`, 'select_node', { group: group.name, node: node.name })}
     ></button>
     <span class="clip">{node.name}</span>
     {#if tile === 'detailed'}<span class="val c-kind clip">{node.kind}</span>{/if}

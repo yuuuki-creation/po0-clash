@@ -40,7 +40,7 @@ Object.assign(app, {
   groups: [
     { name: 'Proxy', kind: 'Selector', selectable: true, now: nodes[1].name, nodes },
     { name: 'Streaming', kind: 'Selector', selectable: true, now: nodes[4].name, nodes: nodes.slice(3, 14) },
-    { name: 'Automatic', kind: 'URLTest', selectable: false, now: nodes[2].name, nodes: nodes.slice(0, 8) },
+    { name: 'Automatic', kind: 'URLTest', selectable: true, now: nodes[2].name, nodes: nodes.slice(0, 8) },
   ],
   profiles: [{ id: 'fixture', name: 'Example subscription', kind: 'subscription', selected: true, updatedAt: Date.now() / 1000, usage: { upload: 5e9, download: 25e9, total: 100e9 } }],
   connectedAt: Date.now() - 125000,

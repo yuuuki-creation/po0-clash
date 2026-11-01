@@ -116,7 +116,7 @@ extension Showcase {
                 return ProxyGroup(
                     name: spec.name,
                     kind: spec.kind,
-                    selectable: spec.kind == "Selector",
+                    selectable: ["Selector", "URLTest", "Fallback"].contains(spec.kind),
                     now: current[spec.name] ?? spec.members.first,
                     nodes: nodes,
                     icon: nil

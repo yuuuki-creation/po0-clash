@@ -54,6 +54,7 @@ const DELAY_TIMEOUT_MS: u32 = 5000;
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(180);
 const EXIT_IP_URL: &str = "https://www.cloudflare.com/cdn-cgi/trace";
 const GROUP_TYPES: &[&str] = &["Selector", "URLTest", "Fallback", "LoadBalance", "Relay"];
+const SELECTABLE_TYPES: &[&str] = &["Selector", "URLTest", "Fallback"];
 
 pub trait Listener: Send + Sync {
     fn on_change(&self, change: Change);
@@ -1488,7 +1489,7 @@ impl Core {
             .collect();
         Some(ProxyGroup {
             name: name.to_owned(),
-            selectable: kind == "Selector",
+            selectable: SELECTABLE_TYPES.contains(&kind.as_str()),
             now: group.get("now").and_then(Value::as_str).map(str::to_owned),
             icon: group
                 .get("icon")
@@ -1542,20 +1543,30 @@ impl Core {
     }
 
     pub fn select_node(&self, group: String, node: String) -> Result<()> {
+        let mut unpin = false;
         if let Some(session) = self.engine.session() {
+            let controller = session.controller();
             let path = format!("/proxies/{}", util::encode_component(&group));
-            session
-                .controller()
-                .json("PUT", &path, Some(&json!({ "name": node })))?;
+            let current = controller.json("GET", &path, None)?;
+            unpin = current.get("fixed").and_then(Value::as_str) == Some(node.as_str());
+            if unpin {
+                controller.json("DELETE", &path, None)?;
+            } else {
+                controller.json("PUT", &path, Some(&json!({ "name": node })))?;
+            }
             if self.store.read(|s| s.app.close_connections_on_switch) {
-                let _ = session.controller().json("DELETE", "/connections", None);
+                let _ = controller.json("DELETE", "/connections", None);
             }
             self.refresh_current_node(&session, self.store.read(|s| s.mode));
         }
         self.store.update(|s| {
             let id = s.current_profile.clone();
             if let Some(profile) = id.and_then(|id| s.profile_mut(&id)) {
-                profile.selections.insert(group.clone(), node.clone());
+                if unpin {
+                    profile.selections.remove(&group);
+                } else {
+                    profile.selections.insert(group.clone(), node.clone());
+                }
             }
             Ok(())
         })?;
@@ -1574,6 +1585,16 @@ impl Core {
             .controller()
             .json("GET", &path, None)
             .unwrap_or(Value::Null);
+        // mihomo's group test drops a URLTest or Fallback group's pin, so the user's choice goes back on.
+        let pinned = self
+            .store
+            .read(|s| s.current()?.selections.get(&group).cloned());
+        if let Some(node) = pinned {
+            let path = format!("/proxies/{}", util::encode_component(&group));
+            let _ = session
+                .controller()
+                .json("PUT", &path, Some(&json!({ "name": node })));
+        }
         let proxies = self.proxies(&session)?;
         let mut result = Self::build_group(&proxies, &group)
             .ok_or_else(|| CoreError::Invalid("no such group".into()))?;
