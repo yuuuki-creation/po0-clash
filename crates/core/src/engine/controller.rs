@@ -43,8 +43,12 @@ struct UnixConnection {
 #[cfg(unix)]
 impl Read for UnixConnection {
     fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
-        self.stream
-            .set_read_timeout(Some(self.timeout.remaining()?))?;
+        let remaining = self.timeout.remaining()?;
+        // macOS answers EINVAL once the peer has closed; buffered data can still be read and the read cannot block.
+        match self.stream.set_read_timeout(Some(remaining)) {
+            Err(error) if error.raw_os_error() != Some(libc::EINVAL) => return Err(error),
+            _ => {}
+        }
         self.stream.read(buffer)
     }
 }
@@ -296,6 +300,20 @@ mod tests {
     use super::*;
     use std::os::unix::net::UnixListener;
     use std::thread;
+
+    #[test]
+    fn reads_what_the_peer_sent_before_closing() {
+        let (stream, mut peer) = std::os::unix::net::UnixStream::pair().unwrap();
+        peer.write_all(b"reply").unwrap();
+        drop(peer);
+        let mut connection = UnixConnection {
+            stream,
+            timeout: Timeout::Idle(TIMEOUT),
+        };
+        let mut reply = String::new();
+        connection.read_to_string(&mut reply).unwrap();
+        assert_eq!(reply, "reply");
+    }
 
     fn serve(reply: &'static str) -> (Controller, thread::JoinHandle<String>) {
         let dir = std::env::temp_dir().join(format!("po0-ctl-{}", crate::util::random_id()));
