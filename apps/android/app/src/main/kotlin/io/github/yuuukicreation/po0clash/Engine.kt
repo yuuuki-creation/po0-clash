@@ -35,6 +35,7 @@ import io.github.yuuukicreation.po0clash.core.Po0Core
 import io.github.yuuukicreation.po0clash.core.ProxyGroup
 import io.github.yuuukicreation.po0clash.vpn.Po0VpnService
 import io.github.yuuukicreation.po0clash.vpn.VpnTileService
+import io.github.yuuukicreation.po0clash.vpn.shouldPauseForWifi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -114,12 +115,13 @@ class Engine(private val app: Application) {
     val appSettings = _appSettings.asStateFlow()
     private val appWriter = Dispatchers.IO.limitedParallelism(1)
     private val _ssid = MutableStateFlow<String?>(null)
+    private val _wifiPresent = MutableStateFlow(false)
 
     /** The Wi-Fi the device is on, when location permission lets us read its name. */
     val ssid = _ssid.asStateFlow()
     private var wifi: Network? = null
     val onExcludedWifi: Boolean
-        get() = _ssid.value?.let { it in appSettings.value.excludedSsids } == true
+        get() = shouldPauseForWifi(_wifiPresent.value, _ssid.value, appSettings.value.excludedSsids)
 
     /** Reads [read] once a second while collected; the engine's monitor refreshes at that pace while the screen is on. */
     fun <T> poll(read: Po0Core.() -> T): Flow<T> = flow {
@@ -267,14 +269,25 @@ class Engine(private val app: Application) {
         @RequiresApi(31)
         constructor(flags: Int) : super(flags)
 
+        override fun onAvailable(network: Network) {
+            if (wifi != network) wifiChanged(null)
+            wifi = network
+            _wifiPresent.value = true
+        }
+
         override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
             wifi = network
+            _wifiPresent.value = true
             val info = if (Build.VERSION.SDK_INT >= 31) caps.transportInfo as? WifiInfo else null
             wifiChanged(info?.ssid ?: legacySsid())
         }
 
         override fun onLost(network: Network) {
-            if (wifi == network) wifiChanged(null)
+            if (wifi == network) {
+                wifi = null
+                wifiChanged(null)
+                _wifiPresent.value = false
+            }
         }
     }
 
@@ -285,6 +298,7 @@ class Engine(private val app: Application) {
             connectivity.getNetworkCapabilities(network)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
         }
         wifi = current
+        _wifiPresent.value = current != null
         val info = if (Build.VERSION.SDK_INT >= 31 && current != null) {
             connectivity.getNetworkCapabilities(current)?.transportInfo as? WifiInfo
         } else {
@@ -299,8 +313,8 @@ class Engine(private val app: Application) {
         }
         connectivity.registerNetworkCallback(request, callback)
         scope.launch {
-            combine(_ssid, appSettings, vpnActive) { ssid, settings, active ->
-                active to (ssid != null && ssid in settings.excludedSsids)
+            combine(_ssid, _wifiPresent, appSettings, vpnActive) { ssid, present, settings, active ->
+                active to shouldPauseForWifi(present, ssid, settings.excludedSsids)
             }
                 .distinctUntilChanged()
                 .collect { (active, _) -> if (active) Po0VpnService.reconcile(app) }

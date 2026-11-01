@@ -155,7 +155,7 @@
     <string name="exclude_current_wifi">Исключить «%s»</string>
     <string name="count_unit" />
     <string name="error_no_allowed_apps">Выберите хотя бы одно установленное приложение для VPN.</string>
-    <string name="vpn_paused_wifi">VPN приостановлен в исключённой сети Wi-Fi</string>
+    <string name="vpn_paused_wifi">VPN приостановлен из-за исключений Wi-Fi</string>
     <string name="mixed_port_disconnect">Отключите VPN перед изменением смешанного порта.</string>
     <string name="excluded_wifi">Исключённые Wi-Fi</string>
     <string name="excluded_wifi_detail">В этих сетях Wi-Fi VPN отключается и подключается снова, когда вы их покидаете. Для чтения имени сети нужен доступ к геолокации.</string>
