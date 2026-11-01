@@ -150,16 +150,7 @@ impl Controller {
         Ok(BufReader::new(conn))
     }
 
-    pub fn request(
-        &self,
-        method: &str,
-        path: &str,
-        body: Option<&Value>,
-    ) -> io::Result<(u16, String)> {
-        self.request_within(method, path, body, TIMEOUT)
-    }
-
-    fn request_within(
+    pub(super) fn request_within(
         &self,
         method: &str,
         path: &str,

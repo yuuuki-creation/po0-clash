@@ -162,7 +162,7 @@ mod tests {
             file.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}").unwrap();
             let _ = released.recv_timeout(Duration::from_secs(2));
         });
-        assert_eq!(controller.request("GET", "/version", None).unwrap(), (200, "{}".into()));
+        assert_eq!(controller.json("GET", "/version", None).unwrap(), serde_json::json!({}));
         release.send(()).unwrap();
         server.join().unwrap();
     }

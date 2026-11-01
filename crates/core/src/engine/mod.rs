@@ -119,6 +119,8 @@ pub enum Runner {
     Process(process::Process),
     #[cfg(target_os = "android")]
     InProcess,
+    #[cfg(test)]
+    Controlled(Arc<AtomicBool>),
 }
 
 impl Runner {
@@ -128,28 +130,45 @@ impl Runner {
             Self::Process(process) => process.exited(),
             #[cfg(target_os = "android")]
             Self::InProcess => None,
+            #[cfg(test)]
+            Self::Controlled(_) => None,
         }
     }
 
-    pub fn stop(&self) {
+    pub fn stop(&self) -> Result<()> {
         match self {
             #[cfg(not(target_os = "android"))]
-            Self::Process(process) => process.stop(),
+            Self::Process(process) => process.stop().map_err(|error| {
+                CoreError::Engine(format!("cannot confirm the engine stopped: {error}"))
+            }),
             #[cfg(target_os = "android")]
-            Self::InProcess => inproc::stop(),
+            Self::InProcess => {
+                inproc::stop();
+                Ok(())
+            }
+            #[cfg(test)]
+            Self::Controlled(confirmed) => {
+                if confirmed.load(Ordering::SeqCst) {
+                    Ok(())
+                } else {
+                    Err(CoreError::Engine("engine exit is unconfirmed".into()))
+                }
+            }
         }
     }
 
     /// Ends the engine the way a crash would; an engine inside the app process cannot be killed alone.
-    pub fn kill(&self) -> bool {
+    pub fn kill(&self) -> Result<bool> {
         match self {
             #[cfg(not(target_os = "android"))]
             Self::Process(process) => {
-                process.kill();
-                true
+                process.kill()?;
+                Ok(true)
             }
             #[cfg(target_os = "android")]
-            Self::InProcess => false,
+            Self::InProcess => Ok(false),
+            #[cfg(test)]
+            Self::Controlled(_) => self.stop().map(|()| true),
         }
     }
 
@@ -159,6 +178,8 @@ impl Runner {
             Self::Process(process) => Some(process.id()),
             #[cfg(target_os = "android")]
             Self::InProcess => None,
+            #[cfg(test)]
+            Self::Controlled(_) => None,
         }
     }
 }
@@ -361,27 +382,48 @@ pub fn clear_record(run_dir: &Path) {
     let _ = fs::remove_file(record_path(run_dir));
 }
 
-pub fn recover(run_dir: &Path) {
+pub fn recover(run_dir: &Path) -> Result<()> {
     let Some(record) = fs::read(record_path(run_dir))
         .ok()
         .and_then(|bytes| serde_json::from_slice::<Record>(&bytes).ok())
     else {
-        return;
+        return Ok(());
     };
+    #[cfg(not(target_os = "android"))]
+    if let Some(pid) = record.pid {
+        let probe = Controller::new(Endpoint::parse(&record.endpoint), String::new());
+        if controller_is_present(&probe, Duration::from_secs(1))? {
+            process::kill_stale(pid);
+            let deadline = Instant::now() + Duration::from_secs(3);
+            loop {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    return Err(CoreError::Engine("the previous engine is still running".into()));
+                }
+                if !controller_is_present(&probe, remaining.min(Duration::from_millis(250)))? {
+                    break;
+                }
+                thread::sleep(remaining.min(Duration::from_millis(50)));
+            }
+        }
+    }
     if record.system_proxy && sysproxy::points_at(record.mixed_port) {
         sysproxy::clear(record.mixed_port);
     }
     if let Some(saved) = &record.system_dns {
         sysdns::restore(saved);
     }
-    #[cfg(not(target_os = "android"))]
-    if let Some(pid) = record.pid {
-        let probe = Controller::new(Endpoint::parse(&record.endpoint), String::new());
-        if probe.request("GET", "/version", None).is_ok() {
-            process::kill_stale(pid);
-        }
-    }
     clear_record(run_dir);
+    Ok(())
+}
+
+#[cfg(not(target_os = "android"))]
+fn controller_is_present(controller: &Controller, timeout: Duration) -> Result<bool> {
+    match controller.request_within("GET", "/version", None, timeout) {
+        Ok(_) => Ok(true),
+        Err(error) if matches!(error.kind(), io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused | io::ErrorKind::NotConnected) => Ok(false),
+        Err(error) => Err(CoreError::Engine(format!("cannot check the previous engine: {error}"))),
+    }
 }
 
 pub fn is_privileged(binary: &Path) -> bool {
@@ -398,5 +440,54 @@ pub fn is_privileged(binary: &Path) -> bool {
     {
         let _ = binary;
         false
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::io::{Read, Write};
+    use std::os::unix::net::UnixListener;
+
+    #[test]
+    fn recovery_keeps_the_record_until_the_old_controller_is_gone() {
+        let dir = std::env::temp_dir().join(format!("po0-recovery-{}", random_id()));
+        fs::create_dir_all(&dir).unwrap();
+        let socket = dir.join("ctl.sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let stopped = Arc::new(AtomicBool::new(false));
+        let stop_server = stopped.clone();
+        let server = thread::spawn(move || {
+            while !stop_server.load(Ordering::SeqCst) {
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        stream.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+                        let _ = stream.read(&mut [0; 4096]);
+                        let _ = stream.write_all(b"HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n");
+                    }
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(5));
+                    }
+                    Err(error) => panic!("{error}"),
+                }
+            }
+        });
+        let record = Record {
+            pid: Some(u32::MAX),
+            endpoint: socket.to_string_lossy().into_owned(),
+            mixed_port: 1,
+            system_proxy: false,
+            system_dns: None,
+        };
+        let saved = serde_json::to_vec(&record).unwrap();
+        fs::write(record_path(&dir), &saved).unwrap();
+        assert!(recover(&dir).is_err());
+        assert_eq!(fs::read(record_path(&dir)).unwrap(), saved);
+        stopped.store(true, Ordering::SeqCst);
+        server.join().unwrap();
+        recover(&dir).unwrap();
+        assert!(!record_path(&dir).exists());
+        fs::remove_dir_all(dir).unwrap();
     }
 }

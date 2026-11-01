@@ -158,7 +158,7 @@ impl Core {
             }
             store.save()?;
         }
-        engine::recover(&paths.run);
+        engine::recover(&paths.run)?;
         let whitelist_settings = store.read(|s| s.whitelist.clone());
         let core = Arc::new_cyclic(|me: &Weak<Core>| {
             let (route_core, notify_core) = (me.clone(), me.clone());
@@ -328,10 +328,10 @@ impl Core {
             let _ops = lock(&self.engine.ops);
             let _requests = self.whitelist.suspend_requests();
             if let Some(session) = self.engine.session() {
-                if session.runtime.tun_fd == tun_fd {
+                if session.runtime.tun_fd == tun_fd && self.engine.state() == EngineState::Running {
                     return Ok(());
                 }
-                self.teardown(&session);
+                self.teardown(&session)?;
             }
             self.start_locked(tun_fd)
         };
@@ -364,7 +364,7 @@ impl Core {
             .current()
             .cloned()
             .ok_or_else(|| CoreError::Invalid("add a subscription first".into()))?;
-        engine::recover(&self.paths.run);
+        engine::recover(&self.paths.run)?;
         let binary = lock(&self.mihomo_path).clone();
         let home = self.paths.home_for(binary.as_deref());
         let runtime = Runtime::new(
@@ -398,8 +398,12 @@ impl Core {
             Ok(())
         });
         if let Err(error) = ready {
+            if let Err(stop_error) = session.runner.stop() {
+                engine::save_record(&self.paths.run, &session);
+                self.engine.install(session);
+                return Err(CoreError::Engine(format!("{error}; {stop_error}")));
+            }
             session.release(&self.paths.run);
-            session.runner.stop();
             return Err(error);
         }
         engine::save_record(&self.paths.run, &session);
@@ -447,12 +451,14 @@ impl Core {
             if session.generation != generation {
                 return;
             }
-            self.engine.take();
-            session.release(&self.paths.run);
-            let message = format!(
+            let stopped = self.teardown(&session);
+            let mut message = format!(
                 "mihomo exited ({status}): {}",
                 engine::last_lines(&self.mihomo_log, 3)
             );
+            if let Err(error) = stopped {
+                message.push_str(&format!("; {error}"));
+            }
             logfile::warn(&message);
             self.engine.set_state(EngineState::Failed(message));
         }
@@ -493,22 +499,26 @@ impl Core {
         {
             let _ops = lock(&self.engine.ops);
             let _requests = self.whitelist.suspend_requests();
-            if let Some(session) = self.engine.take() {
-                self.teardown(&session);
-                logfile::info("engine stopped");
-            }
-            self.engine.set_state(EngineState::Stopped);
             if !keep_intent {
                 self.set_connected(false);
+            }
+            let stopped = self.engine.session().map_or(Ok(()), |session| self.teardown(&session));
+            if stopped.is_ok() {
+                self.engine.set_state(EngineState::Stopped);
+                logfile::info("engine stopped");
             }
         }
         self.emit(&[Change::Status, Change::Groups]);
     }
 
-    fn teardown(&self, session: &Session) {
-        self.engine.take();
+    fn teardown(&self, session: &Session) -> Result<()> {
+        session.runner.stop().inspect_err(|error| {
+            logfile::warn(error.to_string());
+            self.engine.set_state(EngineState::Failed(error.to_string()));
+        })?;
         session.release(&self.paths.run);
-        session.runner.stop();
+        self.engine.take();
+        Ok(())
     }
 
     fn restart(&self) -> Result<()> {
@@ -525,7 +535,7 @@ impl Core {
         match self.engine.session() {
             Some(session) => {
                 let tun_fd = session.runtime.tun_fd;
-                self.teardown(&session);
+                self.teardown(&session)?;
                 self.start_locked(tun_fd)
             }
             None => Ok(()),
@@ -549,7 +559,7 @@ impl Core {
         };
         match settings.current() {
             None => {
-                self.teardown(&session);
+                self.teardown(&session)?;
                 self.engine.set_state(EngineState::Stopped);
                 Ok(())
             }
@@ -915,11 +925,14 @@ impl Core {
             if attempted && result.is_err()
                 && let Err(error) = self.reload_settings(&self.store.get())
             {
-                if let Some(session) = self.engine.session() {
-                    self.teardown(&session);
+                let mut message = format!("cannot restore the previous profile: {error}");
+                if let Some(session) = self.engine.session()
+                    && let Err(stop_error) = self.teardown(&session)
+                {
+                    message.push_str(&format!("; {stop_error}"));
                 }
-                logfile::warn(format!("cannot restore the previous profile: {error}"));
-                self.engine.set_state(EngineState::Failed(error.to_string()));
+                logfile::warn(&message);
+                self.engine.set_state(EngineState::Failed(message));
             }
             result
         };
@@ -1625,7 +1638,7 @@ impl Core {
     // Developer mode.
 
     pub fn crash_engine(&self) -> Result<()> {
-        if self.live_session()?.runner.kill() {
+        if self.live_session()?.runner.kill()? {
             Ok(())
         } else {
             Err(CoreError::Invalid(

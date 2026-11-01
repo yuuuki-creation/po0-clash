@@ -313,6 +313,36 @@ fn pausing_preserves_connection_intent_and_stopping_clears_it() {
 }
 
 #[test]
+fn an_unconfirmed_stop_keeps_the_session_and_recovery_record() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    core.request_connection().unwrap();
+    let confirmed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let runtime = Runtime::new(Platform::MacOs, &core.paths.run, core.paths.home.clone(), None, unused_port()).unwrap();
+    let session = Arc::new(Session::new(runtime, engine::Runner::Controlled(confirmed.clone()), 1));
+    engine::save_record(&core.paths.run, &session);
+    core.engine.install(session.clone());
+    core.engine.set_state(EngineState::Running);
+    core.stop();
+    assert!(!core.was_connected());
+    assert!(matches!(core.status().engine, EngineState::Failed(_)));
+    assert_eq!(core.mixed_proxy_port(), session.runtime.mixed_port);
+    assert!(core.paths.run.join("session.json").exists());
+    assert!(core.engine.session().is_some());
+    assert!(matches!(core.start(None), Err(CoreError::Engine(_))));
+    core.on_exit(1, "unconfirmed");
+    assert!(core.engine.session().is_some());
+    assert!(core.paths.run.join("session.json").exists());
+    confirmed.store(true, Ordering::SeqCst);
+    core.stop();
+    assert_eq!(core.status().engine, EngineState::Stopped);
+    assert!(core.engine.session().is_none());
+    assert!(!core.paths.run.join("session.json").exists());
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn mixed_proxy_port_normalizes_zero_and_occupied_ports_fail() {
     let dir = temp_dir();
     let core = Core::new(options(&dir)).unwrap();
