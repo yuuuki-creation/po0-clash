@@ -10,6 +10,10 @@ fn temp_dir() -> PathBuf {
     dir
 }
 
+fn unused_port() -> u16 {
+    TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port()
+}
+
 fn options(dir: &Path) -> CoreOptions {
     CoreOptions {
         data_dir: dir.join("core"),
@@ -287,6 +291,48 @@ fn starting_without_a_profile_fails_cleanly() {
     assert!(matches!(core.status().engine, EngineState::Failed(_)));
     assert!(core.groups().unwrap().is_empty());
     assert_eq!(core.traffic(), Traffic::default());
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn pausing_preserves_connection_intent_and_stopping_clears_it() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    core.request_connection().unwrap();
+    core.pause();
+    assert!(core.was_connected());
+    assert_eq!(core.status().engine, EngineState::Stopped);
+    core.shutdown();
+    let reopened = Core::new(options(&dir)).unwrap();
+    assert!(reopened.was_connected());
+    reopened.stop();
+    assert!(!reopened.was_connected());
+    reopened.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn mixed_proxy_port_normalizes_zero_and_occupied_ports_fail() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    let mut settings = core.engine_options();
+    settings.mixed_port = 0;
+    core.set_engine_options(settings.clone()).unwrap();
+    assert_eq!(core.mixed_proxy_port(), DEFAULT_MIXED_PORT);
+    let occupied = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = occupied.local_addr().unwrap().port();
+    settings.mixed_port = port;
+    core.set_engine_options(settings).unwrap();
+    assert_eq!(core.mixed_proxy_port(), port);
+    let result = Runtime::new(
+        Platform::MacOs,
+        &dir.join("run"),
+        dir.join("engine"),
+        None,
+        port,
+    );
+    assert!(matches!(result, Err(error) if error.kind() == std::io::ErrorKind::AddrInUse));
     core.shutdown();
     fs::remove_dir_all(dir).unwrap();
 }
@@ -572,6 +618,7 @@ fn engine_runs_a_real_mihomo() {
     core.import_links(format!("ss://{userinfo}@127.0.0.1:{port}#local-ss"))
         .unwrap();
     let mut engine_options = core.engine_options();
+    engine_options.mixed_port = unused_port();
     engine_options.log_level = LogLevel::Info;
     core.set_engine_options(engine_options).unwrap();
     core.start(None).unwrap();
@@ -701,6 +748,11 @@ fn engine_waits_for_providers() {
         }
     });
     let core = Core::new(options(&dir)).unwrap();
+    core.set_engine_options(EngineOptions {
+        mixed_port: unused_port(),
+        ..core.engine_options()
+    })
+    .unwrap();
     core.import_file(
         "slow.yaml".into(),
         format!(
@@ -740,6 +792,11 @@ fn a_backup_restores_profiles_and_settings() {
     core.set_mode(Mode::Global).unwrap();
     core.set_app_settings(AppSettings {
         pure_black: true,
+        android_vpn: AndroidVpnOptions {
+            allow_bypass: true,
+            system_proxy: true,
+            ipv6: false,
+        },
         ..core.app_settings()
     })
     .unwrap();
@@ -761,6 +818,7 @@ fn a_backup_restores_profiles_and_settings() {
     );
     assert_eq!(restored.status().mode, Mode::Rule);
     assert!(!restored.app_settings().pure_black);
+    assert_eq!(restored.app_settings().android_vpn, AndroidVpnOptions::default());
 
     restored
         .set_app_settings(AppSettings {
@@ -775,6 +833,14 @@ fn a_backup_restores_profiles_and_settings() {
     assert!(profiles[0].selected);
     assert_eq!(restored.status().mode, Mode::Global);
     assert!(restored.app_settings().pure_black);
+    assert_eq!(
+        restored.app_settings().android_vpn,
+        AndroidVpnOptions {
+            allow_bypass: true,
+            system_proxy: true,
+            ipv6: false,
+        }
+    );
     assert!(restored.profile_content(local.id).is_err());
     assert!(
         restored
@@ -784,6 +850,105 @@ fn a_backup_restores_profiles_and_settings() {
     restored.shutdown();
     fs::remove_dir_all(dir).unwrap();
     fs::remove_dir_all(other).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn restoring_statistics_mode_changes_which_traffic_is_counted() {
+    use std::os::unix::net::UnixListener;
+    use std::sync::atomic::AtomicBool;
+
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    let socket = dir.join("monitor.sock");
+    let listener = UnixListener::bind(&socket).unwrap();
+    let server = thread::spawn(move || {
+        for _ in 0..4 {
+            let (mut stream, _) = listener.accept().unwrap();
+            let _ = stream.read(&mut [0; 4096]);
+            let body = json!({
+                "uploadTotal": 600, "downloadTotal": 6000,
+                "connections": [
+                    {"id": "proxy", "metadata": {}, "upload": 100, "download": 1000, "chains": ["node", "PROXY"]},
+                    {"id": "direct", "metadata": {}, "upload": 500, "download": 5000, "chains": ["DIRECT"]},
+                ],
+            }).to_string();
+            write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{body}", body.len()).unwrap();
+        }
+    });
+    let controller = engine::Controller::new(engine::Endpoint::Unix(socket), String::new());
+    let stopped = AtomicBool::new(false);
+    for target in [true, false] {
+        core.set_app_settings(AppSettings { only_proxy_traffic: target, ..core.app_settings() }).unwrap();
+        let saved = core.backup().unwrap();
+        core.set_app_settings(AppSettings { only_proxy_traffic: !target, ..core.app_settings() }).unwrap();
+        core.engine.monitor.poll(&controller, &stopped).unwrap();
+        assert_eq!(core.engine.monitor.connections().upload_total, if target { 600 } else { 100 });
+        core.restore(saved, RestoreScope::All).unwrap();
+        core.engine.monitor.poll(&controller, &stopped).unwrap();
+        let counts = core.engine.monitor.connections();
+        assert_eq!((counts.upload_total, counts.download_total), if target { (100, 1000) } else { (600, 6000) });
+    }
+    server.join().unwrap();
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+#[ignore = "needs MIHOMO_BIN on Linux"]
+fn engine_rejects_invalid_profile_without_changing_selection() {
+    assert_eq!(std::env::consts::OS, "linux");
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    core.set_engine_options(EngineOptions { mixed_port: unused_port(), ..core.engine_options() }).unwrap();
+    let a = core.import_file("a.yaml".into(), "proxies: []\nproxy-groups: [{name: A, type: select, proxies: [DIRECT]}]\nrules: ['MATCH,A']\n".into()).unwrap();
+    let b = core.import_file("b.yaml".into(), "proxies: []\nproxy-groups: [{name: B, type: select, proxies: [MISSING]}]\nrules: ['MATCH,B']\n".into()).unwrap();
+    core.start(None).unwrap();
+    for _ in 0..2 {
+        assert!(core.select_profile(b.id.clone()).is_err());
+        assert_eq!(core.status().profile_id.as_ref(), Some(&a.id));
+        assert!(core.profiles().iter().find(|p| p.id == a.id).unwrap().selected);
+        assert!(core.groups().unwrap().iter().any(|group| group.name == "A"));
+        let saved: Settings = serde_json::from_slice(&fs::read(dir.join("core/settings.json")).unwrap()).unwrap();
+        assert_eq!(saved.current_profile.as_ref(), Some(&a.id));
+    }
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+#[ignore = "needs MIHOMO_BIN on Linux"]
+fn engine_android_port_changes_require_disconnect_before_settings_or_restore() {
+    assert_eq!(std::env::consts::OS, "linux");
+    let dir = temp_dir();
+    let mut config = options(&dir);
+    config.platform = Platform::Android;
+    let core = Core::new(config).unwrap();
+    let profile = core.import_file("a.yaml".into(), "proxies: []\nrules: ['MATCH,DIRECT']\n".into()).unwrap();
+    let mut changed = core.engine_options();
+    changed.mixed_port = unused_port();
+    core.set_engine_options(changed.clone()).unwrap();
+    let backup = core.backup().unwrap();
+    let mut current = changed.clone();
+    current.mixed_port = unused_port();
+    core.set_engine_options(current.clone()).unwrap();
+    core.save_profile_content(profile.id.clone(), "proxies: []\nrules: ['MATCH,REJECT']\n".into()).unwrap();
+    core.start(None).unwrap();
+    let before = fs::read(dir.join("core/settings.json")).unwrap();
+    let content = core.profile_content(profile.id.clone()).unwrap();
+    assert_eq!(core.mixed_proxy_port(), current.mixed_port);
+    assert!(matches!(core.set_engine_options(changed), Err(CoreError::Invalid(_))));
+    assert!(matches!(core.restore(backup, RestoreScope::All), Err(CoreError::Invalid(_))));
+    assert_eq!(core.engine_options(), current);
+    assert_eq!(fs::read(dir.join("core/settings.json")).unwrap(), before);
+    assert_eq!(core.profile_content(profile.id).unwrap(), content);
+    assert_eq!(core.mixed_proxy_port(), current.mixed_port);
+    core.pause();
+    assert!(core.was_connected());
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
 }
 
 /// A WebDAV server holding one file, which answers each request on its own connection and logs its request line.

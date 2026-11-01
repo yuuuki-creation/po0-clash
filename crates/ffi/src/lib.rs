@@ -592,6 +592,33 @@ impl From<AccessControl> for core::AccessControl {
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
+pub struct AndroidVpnOptions {
+    pub allow_bypass: bool,
+    pub system_proxy: bool,
+    pub ipv6: bool,
+}
+
+impl From<core::AndroidVpnOptions> for AndroidVpnOptions {
+    fn from(v: core::AndroidVpnOptions) -> Self {
+        Self {
+            allow_bypass: v.allow_bypass,
+            system_proxy: v.system_proxy,
+            ipv6: v.ipv6,
+        }
+    }
+}
+
+impl From<AndroidVpnOptions> for core::AndroidVpnOptions {
+    fn from(v: AndroidVpnOptions) -> Self {
+        Self {
+            allow_bypass: v.allow_bypass,
+            system_proxy: v.system_proxy,
+            ipv6: v.ipv6,
+        }
+    }
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
 pub struct AppSettings {
     pub language: Option<String>,
     pub theme_mode: ThemeMode,
@@ -628,6 +655,7 @@ pub struct AppSettings {
     pub webdav: Option<WebDav>,
     pub restore_strategy: RestoreStrategy,
     pub access_control: AccessControl,
+    pub android_vpn: AndroidVpnOptions,
     pub excluded_ssids: Vec<String>,
 }
 
@@ -671,6 +699,7 @@ macro_rules! app_settings_from {
                     webdav: v.webdav.map(Into::into),
                     restore_strategy: v.restore_strategy.into(),
                     access_control: v.access_control.into(),
+                    android_vpn: v.android_vpn.into(),
                     excluded_ssids: v.excluded_ssids,
                 }
             }
@@ -1047,12 +1076,24 @@ impl Po0Core {
         self.inner.engine_options().into()
     }
 
+    pub fn mixed_proxy_port(&self) -> u16 {
+        self.inner.mixed_proxy_port()
+    }
+
     pub fn set_engine_options(&self, options: EngineOptions) -> Result<()> {
         Ok(self.inner.set_engine_options(options.into())?)
     }
 
     pub fn stop(&self) {
         self.inner.stop();
+    }
+
+    pub fn pause(&self) {
+        self.inner.pause();
+    }
+
+    pub fn request_connection(&self) -> Result<()> {
+        Ok(self.inner.request_connection()?)
     }
 
     pub fn was_connected(&self) -> bool {

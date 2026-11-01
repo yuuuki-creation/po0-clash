@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError, RwLock, RwLockWriteGuard};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -128,8 +128,16 @@ struct Shared {
     active: AtomicBool,
     stopped: AtomicBool,
     transport: Transport,
+    requests: RwLock<()>,
     route: RouteFn,
     notify: NotifyFn,
+}
+
+impl Shared {
+    fn with_route<T>(&self, request: impl FnOnce(String) -> T) -> T {
+        let _requests = self.requests.read().unwrap_or_else(PoisonError::into_inner);
+        request((self.route)())
+    }
 }
 
 struct Lane {
@@ -175,6 +183,7 @@ impl Whitelist {
             active: AtomicBool::new(true),
             stopped: AtomicBool::new(false),
             transport: Transport::default(),
+            requests: RwLock::new(()),
             route,
             notify,
         });
@@ -255,6 +264,10 @@ impl Whitelist {
         self.kick(false);
     }
 
+    pub fn suspend_requests(&self) -> RwLockWriteGuard<'_, ()> {
+        self.shared.requests.write().unwrap_or_else(PoisonError::into_inner)
+    }
+
     fn kick(&self, reset_failures: bool) {
         for lane in &self.lanes {
             let mut wake = lock(&lane.wake);
@@ -322,19 +335,24 @@ fn run(shared: &Shared, lane: &Lane) {
         let Some(entries) = entries_of(shared, lane.kind) else {
             continue;
         };
-        let client = Client {
-            transport: &shared.transport,
-            route: (shared.route)(),
-        };
-        let polled: Vec<_> = thread::scope(|scope| {
-            let handles: Vec<_> = entries
-                .iter()
-                .map(|(_, secret)| scope.spawn(|| client.poll(secret)))
-                .collect();
-            handles
-                .into_iter()
-                .map(|handle| handle.join().expect("whitelist request thread"))
-                .collect()
+        let polled: Vec<_> = shared.with_route(|route| {
+            if shared.stopped.load(Ordering::SeqCst) {
+                return Vec::new();
+            }
+            let client = Client {
+                transport: &shared.transport,
+                route,
+            };
+            thread::scope(|scope| {
+                let handles: Vec<_> = entries
+                    .iter()
+                    .map(|(_, secret)| scope.spawn(|| client.poll(secret)))
+                    .collect();
+                handles
+                    .into_iter()
+                    .map(|handle| handle.join().expect("whitelist request thread"))
+                    .collect()
+            })
         });
         let failed = polled
             .iter()
@@ -479,6 +497,67 @@ mod tests {
         let state = whitelist.state();
         assert!(!state.enabled);
         assert_eq!(state.entries[0].label, "pgnfw_abc…");
+        whitelist.stop();
+    }
+
+    #[test]
+    fn transitions_wait_for_a_request_that_already_captured_direct() {
+        let current = Mutex::new("DIRECT".to_owned());
+        let shared = Shared {
+            settings: Mutex::default(),
+            results: Mutex::default(),
+            results_path: PathBuf::new(),
+            active: AtomicBool::new(true),
+            stopped: AtomicBool::new(false),
+            transport: Transport::default(),
+            requests: RwLock::new(()),
+            route: Box::new(|| "DIRECT".to_owned()),
+            notify: Box::new(|| {}),
+        };
+        let (captured, capture) = std::sync::mpsc::channel();
+        let (finish, finished) = std::sync::mpsc::channel();
+        let (transition, transitioned) = std::sync::mpsc::channel();
+        let (shared, current) = (&shared, &current);
+        thread::scope(|scope| {
+            scope.spawn(move || {
+                shared.with_route(|route| {
+                    captured.send(route).unwrap();
+                    finished.recv().unwrap();
+                    assert_eq!(*lock(current), "DIRECT");
+                });
+            });
+            assert_eq!(capture.recv().unwrap(), "DIRECT");
+            scope.spawn(|| {
+                let _requests = shared.requests.write().unwrap();
+                *lock(current) = "po0-direct".into();
+                transition.send(()).unwrap();
+            });
+            assert!(transitioned.recv_timeout(Duration::from_millis(50)).is_err());
+            finish.send(()).unwrap();
+            transitioned.recv_timeout(Duration::from_secs(2)).unwrap();
+        });
+    }
+
+    #[test]
+    fn requests_take_the_route_after_a_transition_finishes() {
+        let route = Arc::new(Mutex::new("DIRECT".to_owned()));
+        let source = route.clone();
+        let dir = std::env::temp_dir().join(format!("po0-wl-{}", util::random_id()));
+        let whitelist = Whitelist::start(
+            WhitelistSettings::default(),
+            dir.join("results.json"),
+            Box::new(move || lock(&source).clone()),
+            Box::new(|| {}),
+        );
+        let paused = whitelist.suspend_requests();
+        let (sent, received) = std::sync::mpsc::channel();
+        thread::scope(|scope| {
+            scope.spawn(|| whitelist.shared.with_route(|route| sent.send(route).unwrap()));
+            assert!(received.recv_timeout(Duration::from_millis(50)).is_err());
+            *lock(&route) = "po0-direct".into();
+            drop(paused);
+            assert_eq!(received.recv_timeout(Duration::from_secs(2)).unwrap(), "po0-direct");
+        });
         whitelist.stop();
     }
 }

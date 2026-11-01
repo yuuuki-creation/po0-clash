@@ -179,6 +179,24 @@ pub enum AppSort {
     InstallTime,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AndroidVpnOptions {
+    pub allow_bypass: bool,
+    pub system_proxy: bool,
+    pub ipv6: bool,
+}
+
+impl Default for AndroidVpnOptions {
+    fn default() -> Self {
+        Self {
+            allow_bypass: false,
+            system_proxy: false,
+            ipv6: true,
+        }
+    }
+}
+
 /// Android's per-app proxy; each mode keeps its own list, as in the Flutter app.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -246,6 +264,7 @@ pub struct AppSettings {
     pub webdav: Option<WebDav>,
     pub restore_strategy: RestoreStrategy,
     pub access_control: AccessControl,
+    pub android_vpn: AndroidVpnOptions,
     pub excluded_ssids: Vec<String>,
 }
 
@@ -287,6 +306,7 @@ impl Default for AppSettings {
             webdav: None,
             restore_strategy: RestoreStrategy::Compatible,
             access_control: AccessControl::default(),
+            android_vpn: AndroidVpnOptions::default(),
             excluded_ssids: Vec::new(),
         }
     }
@@ -364,6 +384,18 @@ mod tests {
         assert_eq!(settings.proxies_layout, ProxiesLayout::Tabs);
         assert!(settings.close_connections_on_switch && settings.check_certificate);
         assert_eq!(settings.dashboard_cards.len(), DashboardCard::ALL.len());
+        assert_eq!(settings.android_vpn, AndroidVpnOptions::default());
+    }
+
+    #[test]
+    fn android_vpn_options_round_trip_and_missing_fields_keep_defaults() {
+        let settings: AppSettings =
+            serde_json::from_str(r#"{"androidVpn":{"allowBypass":true}}"#).unwrap();
+        assert!(settings.android_vpn.allow_bypass);
+        assert!(!settings.android_vpn.system_proxy);
+        assert!(settings.android_vpn.ipv6);
+        let encoded = serde_json::to_string(&settings).unwrap();
+        assert_eq!(serde_json::from_str::<AppSettings>(&encoded).unwrap(), settings);
     }
 
     #[test]

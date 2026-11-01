@@ -314,11 +314,19 @@ impl Core {
             .map(|session| session.runtime.proxy_url())
     }
 
+    pub fn mixed_proxy_port(&self) -> u16 {
+        self.engine.session().map_or_else(
+            || self.store.read(|s| engine::mixed_port(s.options.mixed_port)),
+            |session| session.runtime.mixed_port,
+        )
+    }
+
     // Engine lifecycle.
 
     pub fn start(&self, tun_fd: Option<i32>) -> Result<()> {
         let result = {
             let _ops = lock(&self.engine.ops);
+            let _requests = self.whitelist.suspend_requests();
             if let Some(session) = self.engine.session() {
                 if session.runtime.tun_fd == tun_fd {
                     return Ok(());
@@ -395,12 +403,7 @@ impl Core {
             return Err(error);
         }
         engine::save_record(&self.paths.run, &session);
-        self.engine
-            .monitor
-            .set_log_level(settings.options.log_level);
-        self.engine
-            .monitor
-            .set_only_proxy(settings.app.only_proxy_traffic);
+        self.apply_settings(&settings);
         session.watch(&self.engine.monitor);
         self.engine.install(session.clone());
         self.refresh_current_node(&session, settings.mode);
@@ -437,6 +440,7 @@ impl Core {
     fn on_exit(&self, generation: u64, status: &str) {
         {
             let _ops = lock(&self.engine.ops);
+            let _requests = self.whitelist.suspend_requests();
             let Some(session) = self.engine.session() else {
                 return;
             };
@@ -457,8 +461,20 @@ impl Core {
 
     /// The user's own stop; quitting the app goes through `shutdown`, which keeps the intent.
     pub fn stop(&self) {
-        self.stop_engine();
-        self.set_connected(false);
+        self.stop_engine(false);
+    }
+
+    /// Stops the session for a temporary network exclusion while keeping the user's connection intent.
+    pub fn pause(&self) {
+        self.stop_engine(true);
+    }
+
+    pub fn request_connection(&self) -> Result<()> {
+        let _ops = lock(&self.engine.ops);
+        self.store.update(|s| {
+            s.connected = true;
+            Ok(())
+        })
     }
 
     /// Whether the user left the proxy connected, so an app launched at login can reconnect.
@@ -473,14 +489,18 @@ impl Core {
         });
     }
 
-    fn stop_engine(&self) {
+    fn stop_engine(&self, keep_intent: bool) {
         {
             let _ops = lock(&self.engine.ops);
+            let _requests = self.whitelist.suspend_requests();
             if let Some(session) = self.engine.take() {
                 self.teardown(&session);
                 logfile::info("engine stopped");
             }
             self.engine.set_state(EngineState::Stopped);
+            if !keep_intent {
+                self.set_connected(false);
+            }
         }
         self.emit(&[Change::Status, Change::Groups]);
     }
@@ -494,46 +514,53 @@ impl Core {
     fn restart(&self) -> Result<()> {
         let result = {
             let _ops = lock(&self.engine.ops);
-            match self.engine.session() {
-                Some(session) => {
-                    let tun_fd = session.runtime.tun_fd;
-                    self.teardown(&session);
-                    self.start_locked(tun_fd)
-                }
-                None => Ok(()),
-            }
+            let _requests = self.whitelist.suspend_requests();
+            self.restart_locked()
         };
         self.emit(&[Change::Status, Change::Groups]);
         result
+    }
+
+    fn restart_locked(&self) -> Result<()> {
+        match self.engine.session() {
+            Some(session) => {
+                let tun_fd = session.runtime.tun_fd;
+                self.teardown(&session);
+                self.start_locked(tun_fd)
+            }
+            None => Ok(()),
+        }
     }
 
     /// Hot reload keeps TUN up; on Android a restart would close the VPN's descriptor.
     fn reload(&self) -> Result<()> {
         let result = {
             let _ops = lock(&self.engine.ops);
-            let Some(session) = self.engine.session() else {
-                return Ok(());
-            };
-            let settings = self.store.get();
-            match settings.current().cloned() {
-                None => {
-                    self.teardown(&session);
-                    self.engine.set_state(EngineState::Stopped);
-                    Ok(())
-                }
-                Some(profile) => {
-                    let rendered = self.render_config(&profile, &settings, &session.runtime)?;
-                    engine::load(session.controller(), &session.runtime.config(), &rendered).map(
-                        |()| {
-                            self.apply_selections(&session, &profile.selections);
-                            self.refresh_current_node(&session, settings.mode);
-                        },
-                    )
-                }
-            }
+            let _requests = self.whitelist.suspend_requests();
+            self.reload_settings(&self.store.get())
         };
         self.emit(&[Change::Status, Change::Groups]);
         result
+    }
+
+    fn reload_settings(&self, settings: &Settings) -> Result<()> {
+        let Some(session) = self.engine.session() else {
+            return Ok(());
+        };
+        match settings.current() {
+            None => {
+                self.teardown(&session);
+                self.engine.set_state(EngineState::Stopped);
+                Ok(())
+            }
+            Some(profile) => {
+                let rendered = self.render_config(profile, settings, &session.runtime)?;
+                engine::load(session.controller(), &session.runtime.config(), &rendered)?;
+                self.apply_selections(&session, &profile.selections);
+                self.refresh_current_node(&session, settings.mode);
+                Ok(())
+            }
+        }
     }
 
     /// The profile's config before po0's changes, and the share-link file it points at, if any.
@@ -633,13 +660,18 @@ impl Core {
 
     pub fn set_app_settings(&self, settings: AppSettings) -> Result<()> {
         let settings = settings.validated()?;
-        self.engine
-            .monitor
-            .set_only_proxy(settings.only_proxy_traffic);
+        let _ops = lock(&self.engine.ops);
         self.store.update(|s| {
             s.app = settings;
             Ok(())
-        })
+        })?;
+        self.apply_settings(&self.store.get());
+        Ok(())
+    }
+
+    fn apply_settings(&self, settings: &Settings) {
+        self.engine.monitor.set_log_level(settings.options.log_level);
+        self.engine.monitor.set_only_proxy(settings.app.only_proxy_traffic);
     }
 
     pub fn engine_options(&self) -> EngineOptions {
@@ -648,19 +680,39 @@ impl Core {
 
     /// A new mixed port moves the system proxy, so desktops restart for it; everything else hot-reloads.
     pub fn set_engine_options(&self, options: EngineOptions) -> Result<()> {
-        self.engine.monitor.set_log_level(options.log_level);
-        let proxy_changed = self.store.update(|s| {
-            let changed = s.options.mixed_port != options.mixed_port
-                || s.options.bypass_domains != options.bypass_domains
-                || s.options.auto_set_system_dns != options.auto_set_system_dns;
-            s.options = options;
-            Ok(changed)
-        })?;
-        if proxy_changed && self.platform != Platform::Android {
-            self.restart()
-        } else {
-            self.reload()
+        let result = {
+            let _ops = lock(&self.engine.ops);
+            let _requests = self.whitelist.suspend_requests();
+            self.check_android_port(options.mixed_port)?;
+            let proxy_changed = self.store.update(|s| {
+                let changed = engine::mixed_port(s.options.mixed_port) != engine::mixed_port(options.mixed_port)
+                    || s.options.bypass_domains != options.bypass_domains
+                    || s.options.auto_set_system_dns != options.auto_set_system_dns;
+                s.options = options;
+                Ok(changed)
+            })?;
+            let settings = self.store.get();
+            self.apply_settings(&settings);
+            if proxy_changed && self.platform != Platform::Android {
+                self.restart_locked()
+            } else {
+                self.reload_settings(&settings)
+            }
+        };
+        self.emit(&[Change::Status, Change::Groups]);
+        result
+    }
+
+    fn check_android_port(&self, preferred: u16) -> Result<()> {
+        if self.platform == Platform::Android
+            && let Some(session) = self.engine.session()
+            && session.runtime.mixed_port != engine::mixed_port(preferred)
+        {
+            return Err(CoreError::Invalid(
+                "disconnect the VPN before changing the mixed proxy port".into(),
+            ));
         }
+        Ok(())
     }
 
     pub fn set_mode(&self, mode: Mode) -> Result<()> {
@@ -844,17 +896,34 @@ impl Core {
     }
 
     pub fn select_profile(&self, id: String) -> Result<()> {
-        let changed = self.store.update(|s| {
-            if s.profile(&id).is_none() {
-                return Err(CoreError::Invalid("no such profile".into()));
+        let result = {
+            let _ops = lock(&self.engine.ops);
+            let _requests = self.whitelist.suspend_requests();
+            let mut attempted = false;
+            let result = self.store.update(|s| {
+                if s.profile(&id).is_none() {
+                    return Err(CoreError::Invalid("no such profile".into()));
+                }
+                if s.current_profile.as_deref() == Some(id.as_str()) {
+                    return Ok(());
+                }
+                s.current_profile = Some(id.clone());
+                attempted = true;
+                self.reload_settings(s)
+            });
+            if attempted && result.is_err()
+                && let Err(error) = self.reload_settings(&self.store.get())
+            {
+                if let Some(session) = self.engine.session() {
+                    self.teardown(&session);
+                }
+                logfile::warn(format!("cannot restore the previous profile: {error}"));
+                self.engine.set_state(EngineState::Failed(error.to_string()));
             }
-            let changed = s.current_profile.as_deref() != Some(id.as_str());
-            s.current_profile = Some(id.clone());
-            Ok(changed)
-        })?;
-        let reloaded = if changed { self.reload() } else { Ok(()) };
+            result
+        };
         self.emit(&[Change::Profiles, Change::Status]);
-        reloaded
+        result
     }
 
     /// A config or a list of share links read from a file the user picked.
@@ -1824,13 +1893,16 @@ impl Core {
 
     pub fn network_changed(&self) {
         logfile::info("network changed");
-        if let Some(session) = self.engine.session()
-            && self.patches_system_dns(&self.store.get())
         {
-            let mut saved = lock(&session.system_dns);
-            *saved = sysdns::refresh(saved.take());
-            drop(saved);
-            engine::save_record(&self.paths.run, &session);
+            let _ops = lock(&self.engine.ops);
+            if let Some(session) = self.engine.session()
+                && self.patches_system_dns(&self.store.get())
+            {
+                let mut saved = lock(&session.system_dns);
+                *saved = sysdns::refresh(saved.take());
+                drop(saved);
+                engine::save_record(&self.paths.run, &session);
+            }
         }
         self.whitelist.network_changed();
         self.emit(&[Change::Status]);
@@ -1862,30 +1934,37 @@ impl Core {
     /// Merges or replaces the profiles as the restore strategy setting says, and the engine, if it runs,
     /// moves onto the result.
     pub fn restore(&self, data: Vec<u8>, scope: RestoreScope) -> Result<()> {
-        let backup = Backup::from_zip(&data, &self.paths.run)?;
-        let count = backup.files.len();
-        for (id, content) in &backup.files {
-            self.store_content(id, content)?;
-        }
-        let (before, dropped) = self.store.update(|s| {
-            let before = (s.route_mode, s.options.mixed_port);
-            let (next, dropped) = backup.restore_into(s, scope, s.app.restore_strategy);
-            *s = next;
-            Ok((before, dropped))
-        })?;
-        for id in &dropped {
-            let _ = fs::remove_file(self.paths.yaml(id));
-            let _ = fs::remove_file(self.paths.links(id));
-        }
-        logfile::info(format!("restored {count} profiles from a backup"));
-        let after = self.store.get();
-        let moved = (after.route_mode, after.options.mixed_port) != before;
-        self.engine.monitor.set_log_level(after.options.log_level);
-        self.whitelist.update(after.whitelist);
-        let applied = if moved && self.platform != Platform::Android {
-            self.restart()
-        } else {
-            self.reload()
+        let mut backup = Backup::from_zip(&data, &self.paths.run)?;
+        let files = std::mem::take(&mut backup.files);
+        let applied = {
+            let _ops = lock(&self.engine.ops);
+            let _requests = self.whitelist.suspend_requests();
+            let (moved, dropped) = self.store.update(|s| {
+                let (next, dropped) = backup.restore_into(s, scope, s.app.restore_strategy);
+                self.check_android_port(next.options.mixed_port)?;
+                for (id, content) in &files {
+                    self.store_content(id, content)?;
+                }
+                let moved = s.route_mode != next.route_mode
+                    || engine::mixed_port(s.options.mixed_port) != engine::mixed_port(next.options.mixed_port)
+                    || s.options.bypass_domains != next.options.bypass_domains
+                    || s.options.auto_set_system_dns != next.options.auto_set_system_dns;
+                *s = next;
+                Ok((moved, dropped))
+            })?;
+            for id in &dropped {
+                let _ = fs::remove_file(self.paths.yaml(id));
+                let _ = fs::remove_file(self.paths.links(id));
+            }
+            logfile::info(format!("restored {} profiles from a backup", files.len()));
+            let after = self.store.get();
+            self.apply_settings(&after);
+            self.whitelist.update(after.whitelist.clone());
+            if moved && self.platform != Platform::Android {
+                self.restart_locked()
+            } else {
+                self.reload_settings(&after)
+            }
         };
         self.emit(&[
             Change::Profiles,
@@ -2005,7 +2084,7 @@ impl Core {
     }
 
     pub fn shutdown(&self) {
-        self.stop_engine();
+        self.stop_engine(true);
         self.whitelist.stop();
         *lock(&self.updater.stopped) = true;
         self.updater.signal.notify_all();

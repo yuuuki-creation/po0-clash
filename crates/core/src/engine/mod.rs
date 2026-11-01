@@ -48,6 +48,14 @@ fn free_port() -> io::Result<u16> {
     Ok(TcpListener::bind(("127.0.0.1", 0))?.local_addr()?.port())
 }
 
+pub fn mixed_port(preferred: u16) -> u16 {
+    if preferred == 0 {
+        DEFAULT_MIXED_PORT
+    } else {
+        preferred
+    }
+}
+
 fn socket_path(run_dir: &Path) -> PathBuf {
     let path = run_dir.join("ctl.sock");
     // sun_path holds 104 bytes on macOS.
@@ -78,20 +86,17 @@ impl Runtime {
             Platform::Windows => Endpoint::Pipe(format!(r"\\.\pipe\po0clash-{}", random_id())),
             Platform::MacOs | Platform::Android => Endpoint::Unix(socket_path(run_dir)),
         };
-        let preferred_port = if preferred_port == 0 {
-            DEFAULT_MIXED_PORT
-        } else {
-            preferred_port
-        };
-        let mixed_port = match TcpListener::bind(("127.0.0.1", preferred_port)) {
-            Ok(_) => preferred_port,
-            Err(_) => free_port()?,
-        };
+        let mixed_port = mixed_port(preferred_port);
+        let port_check = TcpListener::bind(("127.0.0.1", mixed_port)).map_err(|error| {
+            io::Error::new(error.kind(), format!("mixed proxy port {mixed_port}: {error}"))
+        })?;
+        let direct_port = free_port()?;
+        drop(port_check);
         Ok(Self {
             home,
             controller: Controller::new(endpoint, random_secret(32)),
             direct: DirectListener {
-                port: free_port()?,
+                port: direct_port,
                 username: random_secret(12),
                 password: random_secret(24),
             },
