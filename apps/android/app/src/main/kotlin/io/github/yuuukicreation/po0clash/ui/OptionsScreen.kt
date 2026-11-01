@@ -70,6 +70,7 @@ fun BasicOptionsScreen(vm: AppViewModel, onBack: () -> Unit) {
             SwitchRow(5, 6, stringResource(R.string.external_controller), o.externalController, stringResource(R.string.external_controller_detail)) { v ->
                 set { it.copy(externalController = v) }
             }
+            SectionFooter(stringResource(R.string.mixed_port_disconnect))
         }
         item {
             SectionHeader("Hosts")

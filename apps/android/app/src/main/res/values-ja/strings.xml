@@ -155,6 +155,8 @@
     <string name="exclude_current_wifi">「%s」を除外</string>
     <string name="count_unit">個</string>
     <string name="error_no_allowed_apps">VPN を使用するインストール済みアプリを少なくとも 1 つ選択してください。</string>
+    <string name="vpn_paused_wifi">除外した Wi-Fi で VPN を一時停止中</string>
+    <string name="mixed_port_disconnect">混合ポートを変更する前に VPN を切断してください。</string>
     <string name="excluded_wifi">除外する Wi-Fi</string>
     <string name="excluded_wifi_detail">これらの Wi-Fi では VPN を切断し、離れると再接続します。ネットワーク名の取得には位置情報の権限が必要です。</string>
     <string name="excluded_wifi_hint">Wi-Fi 名（SSID）を 1 行に 1 つ</string>

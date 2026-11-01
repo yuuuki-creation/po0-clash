@@ -117,7 +117,8 @@ class Engine(private val app: Application) {
     /** The Wi-Fi the device is on, when location permission lets us read its name. */
     val ssid = _ssid.asStateFlow()
     private var wifi: Network? = null
-    private var pausedOnWifi = false
+    val onExcludedWifi: Boolean
+        get() = _ssid.value?.let { it in appSettings.value.excludedSsids } == true
 
     /** Reads [read] once a second while collected; the engine's monitor refreshes at that pace while the screen is on. */
     fun <T> poll(read: Po0Core.() -> T): Flow<T> = flow {
@@ -277,17 +278,31 @@ class Engine(private val app: Application) {
     }
 
     private fun watchWifi() {
+        val connectivity = app.getSystemService(ConnectivityManager::class.java)
+        @Suppress("DEPRECATION")
+        val current = connectivity.allNetworks.firstOrNull { network ->
+            connectivity.getNetworkCapabilities(network)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+        }
+        wifi = current
+        val info = if (Build.VERSION.SDK_INT >= 31 && current != null) {
+            connectivity.getNetworkCapabilities(current)?.transportInfo as? WifiInfo
+        } else {
+            null
+        }
+        wifiChanged(info?.ssid ?: legacySsid())
         val request = NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI).build()
         val callback = if (Build.VERSION.SDK_INT >= 31) {
             WifiCallback(ConnectivityManager.NetworkCallback.FLAG_INCLUDE_LOCATION_INFO)
         } else {
             WifiCallback()
         }
-        app.getSystemService(ConnectivityManager::class.java).registerNetworkCallback(request, callback)
+        connectivity.registerNetworkCallback(request, callback)
         scope.launch {
-            combine(_ssid, appSettings) { ssid, settings -> ssid != null && ssid in settings.excludedSsids }
+            combine(_ssid, appSettings, vpnActive) { ssid, settings, active ->
+                active to (ssid != null && ssid in settings.excludedSsids)
+            }
                 .distinctUntilChanged()
-                .collect(::onExcludedWifi)
+                .collect { (active, _) -> if (active) Po0VpnService.reconcile(app) }
         }
     }
 
@@ -300,16 +315,6 @@ class Engine(private val app: Application) {
 
     private fun wifiChanged(raw: String?) {
         _ssid.value = raw?.removeSurrounding("\"")?.takeUnless { it.isBlank() || it == WifiManager.UNKNOWN_SSID }
-    }
-
-    private fun onExcludedWifi(excluded: Boolean) {
-        if (excluded && vpnActive.value) {
-            pausedOnWifi = true
-            Po0VpnService.stop(app)
-        } else if (!excluded && pausedOnWifi) {
-            pausedOnWifi = false
-            if (VpnService.prepare(app) == null) runCatching { Po0VpnService.start(app) }
-        }
     }
 
     private fun physicalChanged(edit: MutableSet<Network>.() -> Unit) {

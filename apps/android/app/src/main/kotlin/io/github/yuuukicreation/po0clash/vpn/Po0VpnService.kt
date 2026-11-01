@@ -71,7 +71,9 @@ class Po0VpnService : VpnService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        latestStart = startId
+        val reconcile = intent?.action == ACTION_RECONCILE
+        if (!reconcile) latestStart = startId
+        val generation = latestStart
         val engine = engine
         val restart = intent == null
         if (intent?.action == ACTION_STOP || engine == null || (restart && !engine.core.wasConnected())) {
@@ -79,14 +81,16 @@ class Po0VpnService : VpnService() {
             engine?.vpnActive?.value = false
             if (!restart) RestoreReceiver.disarm(this)
             scope.launch(worker) {
-                if (startId == latestStart) engine?.let(::disconnect)
-                stopSelf(startId)
+                if (startId == latestStart) {
+                    engine?.let(::disconnect)
+                    stopSelf()
+                }
             }
             return START_NOT_STICKY
         }
         val fromApp = intent?.getBooleanExtra(EXTRA_FROM_APP, false) == true
         Log.i(TAG, "connect requested ($startId, action=${intent?.action}, fromApp=$fromApp)")
-        engine.vpnActive.value = true
+        if (!reconcile) engine.vpnActive.value = true
         engine.vpnError.value = null
         try {
             ServiceCompat.startForeground(
@@ -97,22 +101,48 @@ class Po0VpnService : VpnService() {
             )
             foreground = true
         } catch (e: IllegalStateException) {
-            fail(engine, startId, e.userMessage(), fromApp)
+            fail(engine, generation, e.userMessage(), fromApp)
             return START_NOT_STICKY
         }
-        scope.launch(worker) { connect(engine, startId, fromApp) }
+        if (reconcile && !engine.vpnActive.value) {
+            scope.launch(worker) { if (!engine.vpnActive.value) stopSelf() }
+            return START_NOT_STICKY
+        }
+        scope.launch(worker) {
+            if (generation != latestStart) return@launch
+            try {
+                if (!reconcile && !restart) engine.core.requestConnection()
+                if (!engine.core.wasConnected()) return@launch
+                RestoreReceiver.arm(this@Po0VpnService)
+                connect(engine, generation, fromApp)
+            } catch (e: Exception) {
+                fail(engine, generation, e.userMessage(), fromApp)
+            }
+        }
         return START_STICKY
     }
 
     private fun connect(engine: Engine, startId: Int, fromApp: Boolean) {
         if (startId != latestStart) return
-        if (tunFd >= 0 && engine.core.status().engine == EngineState.Running) return
-        disconnect(engine)
+        when (vpnAction(engine.vpnActive.value, engine.onExcludedWifi, tunFd >= 0)) {
+            VpnAction.NONE -> return
+            VpnAction.PAUSE -> {
+                pause(engine)
+                notificationManager().notify(NOTIFICATION_ID, notification(engine.status.value))
+                return
+            }
+            VpnAction.START -> Unit
+        }
+        pause(engine)
         val pfd = try {
             builder().establish()
         } catch (e: Exception) {
+            if (startId == latestStart) disconnect(engine)
             return fail(engine, startId, e.userMessage(), fromApp)
-        } ?: return fail(engine, startId, getString(R.string.error_vpn_permission), fromApp)
+        } ?: run {
+            if (startId == latestStart) disconnect(engine)
+            return fail(engine, startId, getString(R.string.error_vpn_permission), fromApp)
+        }
         val fd = pfd.detachFd()
         try {
             engine.core.start(fd)
@@ -122,15 +152,26 @@ class Po0VpnService : VpnService() {
             RestoreReceiver.arm(this)
         } catch (e: Exception) {
             releaseTun(fd)
+            if (startId == latestStart) disconnect(engine)
             fail(engine, startId, e.userMessage(), fromApp)
         }
     }
 
     private fun disconnect(engine: Engine) {
         engine.core.stop()
+        releaseTun()
+        engine.updateTile()
+    }
+
+    private fun pause(engine: Engine) {
+        engine.core.pause()
+        releaseTun()
+        engine.updateTile()
+    }
+
+    private fun releaseTun() {
         if (tunFd >= 0) releaseTun(tunFd)
         tunFd = -1
-        engine.updateTile()
     }
 
     // Starts without the app on screen (always-on VPN, the tile, a restart) report their failure as a notification.
@@ -139,11 +180,12 @@ class Po0VpnService : VpnService() {
         if (startId != latestStart) return
         engine.vpnError.value = message
         engine.vpnActive.value = false
+        RestoreReceiver.disarm(this)
         engine.updateTile()
         foreground = false
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         if (!fromApp) notificationManager().notify(FAILURE_ID, failureNotification(message))
-        stopSelf(startId)
+        stopSelf()
     }
 
     // mihomo owns the descriptor once it starts and closes it on stop; this closes it only if nobody did.
@@ -188,7 +230,7 @@ class Po0VpnService : VpnService() {
         }
         if (settings.allowBypass) allowBypass()
         if (settings.systemProxy && Build.VERSION.SDK_INT >= 29) {
-            engine?.let { setHttpProxy(ProxyInfo.buildDirectProxy("127.0.0.1", it.core.engineOptions().mixedPort.toInt())) }
+            engine?.let { setHttpProxy(ProxyInfo.buildDirectProxy("127.0.0.1", it.core.mixedProxyPort().toInt())) }
         }
         if (Build.VERSION.SDK_INT >= 29) setMetered(false)
         setConfigureIntent(openAppIntent())
@@ -196,11 +238,14 @@ class Po0VpnService : VpnService() {
 
     override fun onRevoke() {
         Log.i(TAG, "revoked")
+        latestStart = -1
         engine?.vpnActive?.value = false
         RestoreReceiver.disarm(this)
         scope.launch(worker) {
-            engine?.let(::disconnect)
-            stopSelf()
+            if (latestStart == -1) {
+                engine?.let(::disconnect)
+                stopSelf()
+            }
         }
     }
 
@@ -229,7 +274,9 @@ class Po0VpnService : VpnService() {
     /** FlClash's ongoing notification; [speed] adds the current rates while the screen is on. */
     private fun notification(status: Status, speed: Traffic? = null): Notification {
         notificationManager()
-        val text = when (val state = status.engine) {
+        val text = if (engine?.onExcludedWifi == true && engine?.vpnActive?.value == true) {
+            getString(R.string.vpn_paused_wifi)
+        } else when (val state = status.engine) {
             EngineState.Running -> listOfNotNull(
                 status.currentNode?.let { getString(R.string.notification_running, it) } ?: getString(R.string.state_running),
                 speed?.let { "↑ ${rate(it.up)} ↓ ${rate(it.down)}" },
@@ -271,6 +318,7 @@ class Po0VpnService : VpnService() {
     companion object {
         private const val TAG = "po0-vpn"
         private const val ACTION_STOP = "io.github.yuuukicreation.po0clash.STOP"
+        private const val ACTION_RECONCILE = "io.github.yuuukicreation.po0clash.RECONCILE"
         private const val CHANNEL_ID = "vpn"
         private const val ALERT_CHANNEL_ID = "alerts"
         private const val NOTIFICATION_ID = 1
@@ -285,6 +333,12 @@ class Po0VpnService : VpnService() {
         fun stop(context: Context) {
             runCatching {
                 context.startService(Intent(context, Po0VpnService::class.java).setAction(ACTION_STOP))
+            }
+        }
+
+        fun reconcile(context: Context) {
+            runCatching {
+                ContextCompat.startForegroundService(context, Intent(context, Po0VpnService::class.java).setAction(ACTION_RECONCILE))
             }
         }
     }
