@@ -428,4 +428,5 @@ export default {
   'profiles.addLabel': 'Add',
   'profiles.more': 'More',
   'color.pine': 'Pine',
+  'nodes.count': '{count} nodes',
 };

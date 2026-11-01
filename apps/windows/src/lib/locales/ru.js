@@ -428,4 +428,5 @@ export default {
   'profiles.addLabel': 'Добавить',
   'profiles.more': 'Ещё',
   'color.pine': 'Хвойный',
+  'nodes.count': 'Узлов: {count}',
 };

@@ -49,6 +49,20 @@ const withDelays = (group) => ({
   nodes: group.nodes.map((node) => ({ ...node, delay: delays.get(node.name) ?? node.delay ?? null })),
 });
 
+/** A group listed as a node has no delay of its own, so it shows the delay of the node it currently routes to. */
+export function resolvedDelay(node) {
+  let { name, delay } = node;
+  const seen = new Set();
+  while (delay == null && !seen.has(name)) {
+    seen.add(name);
+    const group = app.groups.find((g) => g.name === name);
+    if (!group?.now) break;
+    name = group.now;
+    delay = group.nodes.find((n) => n.name === name)?.delay;
+  }
+  return delay ?? null;
+}
+
 export const isTestingNode = (name) =>
   !!app.busy[`node:${name}`] ||
   app.groups.some((group) => app.busy[`delay:${group.name}`] && group.nodes.some((node) => node.name === name));

@@ -428,4 +428,5 @@ export default {
   'profiles.addLabel': '添加',
   'profiles.more': '更多',
   'color.pine': '松绿',
+  'nodes.count': '{count} 个节点',
 };

@@ -35,7 +35,7 @@
 
   function open(id) {
     if (rail) app.pane = false;
-    navigate(id);
+    if (app.page !== id || app.tool) navigate(id);
   }
 </script>
 

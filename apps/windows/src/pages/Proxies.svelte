@@ -18,7 +18,7 @@
 <script>
   import { tick } from 'svelte';
   import { slide } from 'svelte/transition';
-  import { app, testDelay } from '../lib/core.svelte.js';
+  import { app, resolvedDelay, testDelay } from '../lib/core.svelte.js';
   import { easeIn } from '../lib/easing.js';
   import { formatDelay, t } from '../lib/i18n.js';
   import EmptyState from '../lib/EmptyState.svelte';
@@ -42,7 +42,7 @@
   const rank = (delay) => (delay ? delay : delay === 0 ? 1e9 : 1e8);
   const sorters = {
     profile: null,
-    delay: (a, b) => rank(a.delay) - rank(b.delay),
+    delay: (a, b) => rank(resolvedDelay(a)) - rank(resolvedDelay(b)),
     name: (a, b) => a.name.localeCompare(b.name),
   };
 
@@ -56,7 +56,7 @@
       }),
   );
   const current = $derived(
-    groups.find((g) => g.name === view.tab) ?? groups.find((g) => g.now === app.status?.currentNode) ?? groups[0],
+    groups.find((g) => g.name === view.tab) ?? groups.find((g) => g.selectable && g.now === app.status?.currentNode) ?? groups[0],
   );
   const testingCurrent = $derived(
     !!current && (app.busy[`delay:${current.name}`] || current.nodes.some((node) => app.busy[`node:${node.name}`])),
@@ -97,7 +97,7 @@
     revealSelection(motion(1) ? 'smooth' : 'auto');
   }
 
-  const delayOf = (group) => group.nodes.find((n) => n.name === group.now)?.delay;
+  const delayOf = (group) => resolvedDelay(group.nodes.find((n) => n.name === group.now) ?? {});
 
   const viewSections = $derived([
     {

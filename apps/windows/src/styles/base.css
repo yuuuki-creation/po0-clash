@@ -101,6 +101,10 @@ p {
   color: var(--bad);
 }
 
+.warn-text {
+  color: var(--warn);
+}
+
 .scroll {
   overflow-y: auto;
   scrollbar-width: thin;
@@ -120,6 +124,10 @@ p {
   width: 100%;
   min-height: var(--row);
   padding: 0 var(--pad);
+}
+
+.row > .grow.clip {
+  min-width: 72px;
 }
 
 .row-hit {
@@ -178,12 +186,6 @@ p {
   align-items: stretch;
   gap: 8px;
   padding: 12px var(--pad);
-}
-
-.group .row.top {
-  align-items: flex-start;
-  padding-top: 12px;
-  padding-bottom: 12px;
 }
 
 .stack {

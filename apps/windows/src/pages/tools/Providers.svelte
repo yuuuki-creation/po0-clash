@@ -1,7 +1,7 @@
 <script>
   import { invoke } from '@tauri-apps/api/core';
   import { act, app } from '../../lib/core.svelte.js';
-  import { formatAgo, formatBytes, t } from '../../lib/i18n.js';
+  import { formatAgo, formatUsage, t } from '../../lib/i18n.js';
   import EmptyState from '../../lib/EmptyState.svelte';
   import Icon from '../../lib/Icon.svelte';
 
@@ -46,7 +46,7 @@
               <span class="bar-track"
                 ><span class="bar-fill" style:width="{Math.min(100, ((usage.upload + usage.download) / usage.total) * 100)}%"></span></span
               >
-              <span class="val">{formatBytes(usage.upload + usage.download)} / {formatBytes(usage.total)}</span>
+              <span class="val">{formatUsage(usage.upload + usage.download, usage.total)}</span>
             </span>
           {/if}
           {#if provider.vehicle === 'HTTP'}

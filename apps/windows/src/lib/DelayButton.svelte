@@ -1,10 +1,11 @@
 <script>
-  import { isTestingNode, testNode } from './core.svelte.js';
+  import { isTestingNode, resolvedDelay, testNode } from './core.svelte.js';
   import { delayTone, formatDelay, t } from './i18n.js';
 
   let { node, minimal = false } = $props();
   const testing = $derived(isTestingNode(node.name));
-  const tone = $derived(delayTone(node.delay));
+  const delay = $derived(resolvedDelay(node));
+  const tone = $derived(delayTone(delay));
 </script>
 
 <button
@@ -17,5 +18,5 @@
   disabled={testing}
   onclick={() => testNode(node.name)}
 >
-  {#if minimal}<span class="dot small {tone}"></span>{:else}{formatDelay(node.delay) || '—'}{/if}
+  {#if minimal}<span class="dot small {tone}"></span>{:else}{formatDelay(delay) || '—'}{/if}
 </button>

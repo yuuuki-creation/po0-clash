@@ -1,6 +1,7 @@
 <script>
+  import { invoke } from '@tauri-apps/api/core';
   import { act, app, notify } from '../lib/core.svelte.js';
-  import { formatBytes, formatDate, formatTime, t } from '../lib/i18n.js';
+  import { formatDate, formatTime, formatUsage, t } from '../lib/i18n.js';
   import Dialog from '../lib/Dialog.svelte';
   import EmptyState from '../lib/EmptyState.svelte';
   import Icon from '../lib/Icon.svelte';
@@ -20,6 +21,7 @@
   let picker = $state();
   let dragged = $state(null);
   let target = $state(null);
+  let nodeCounts = $state({});
 
   const title = (profile) => (profile.kind === 'links' ? t('profiles.links') : profile.name);
   const subject = $derived.by(() => {
@@ -31,6 +33,12 @@
   const subscriptions = $derived(app.profiles.filter((p) => p.kind === 'subscription'));
   const updating = $derived(subscriptions.some((p) => app.busy[`update:${p.id}`]));
   const update = (profile) => act(`update:${profile.id}`, 'update_profile', { id: profile.id });
+
+  $effect(() => {
+    for (const { id, kind } of app.profiles) {
+      if (kind === 'links') invoke('share_nodes', { id }).then((nodes) => (nodeCounts[id] = nodes.length), () => {});
+    }
+  });
 
   async function add(event) {
     event.preventDefault();
@@ -164,8 +172,8 @@
       <EmptyState icon="profiles" title={t('profiles.empty')} />
     {:else}
       {@const reorderable = app.profiles.length > 1}
-      <section class="tbl auto">
-        <div class="row t-prof thead" class:reorderable>
+      <section class="tbl auto" role="list">
+        <div class="row t-prof thead" class:reorderable role="presentation">
           {#if reorderable}<span></span>{/if}
           <span>{t('table.name')}</span><span>{t('table.usage')}</span><span class="c-until">{t('table.expires')}</span><span
           ></span>
@@ -212,7 +220,9 @@
                 <span class="bar-track"
                   ><span class="bar-fill" style:width="{Math.min(100, (used(profile.usage) / profile.usage.total) * 100)}%"></span></span
                 >
-                <span class="val">{formatBytes(used(profile.usage))} / {formatBytes(profile.usage.total)}</span>
+                <span class="val">{formatUsage(used(profile.usage), profile.usage.total)}</span>
+              {:else if nodeCounts[profile.id] != null}
+                <span class="val">{t('nodes.count', { count: nodeCounts[profile.id] })}</span>
               {/if}
             </span>
             <span class="val c-until">{profile.usage?.expire ? formatDate(profile.usage.expire) : ''}</span>

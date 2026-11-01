@@ -3,9 +3,9 @@
 </script>
 
 <script>
-  import { act, app, refreshExitIp, testDelay } from '../lib/core.svelte.js';
+  import { act, app, refreshExitIp, resolvedDelay, testDelay } from '../lib/core.svelte.js';
   import { arrangeCards, displayOrder, moveCard } from '../lib/dashboard-cards.js';
-  import { formatAgo, formatBytes, formatDate, formatDelay, formatElapsed, formatRate, t } from '../lib/i18n.js';
+  import { formatAgo, formatBytes, formatDate, formatDelay, formatElapsed, formatRate, formatUsage, t } from '../lib/i18n.js';
   import DelayButton from '../lib/DelayButton.svelte';
   import Icon from '../lib/Icon.svelte';
   import { navigate, rowIn, rowOut } from '../lib/motion.svelte.js';
@@ -19,7 +19,7 @@
 
   const engine = $derived(app.status?.engine.state ?? 'stopped');
   const running = $derived(engine === 'running');
-  const starting = $derived(engine === 'starting' || !!app.busy.power);
+  const connecting = $derived(engine === 'starting' || (!running && !!app.busy.power));
   const statusTone = $derived({ running: 'on', starting: 'wait', failed: 'bad' }[engine] ?? '');
 
   let now = $state(Date.now());
@@ -36,7 +36,7 @@
     { id: 'reconnect', text: t('home.reconnect') },
     { id: 'connecting', text: t('home.connecting'), spinner: true },
   ]);
-  const powerState = $derived(starting ? 'connecting' : running ? 'disconnect' : engine === 'failed' ? 'reconnect' : 'connect');
+  const powerState = $derived(connecting ? 'connecting' : running ? 'disconnect' : engine === 'failed' ? 'reconnect' : 'connect');
 
   const selectable = $derived(app.groups.filter((g) => g.selectable));
   const group = $derived(
@@ -45,7 +45,7 @@
       selectable[0],
   );
   const node = $derived(running && group ? group.nodes.find((n) => n.name === group.now) : null);
-  const rank = (n) => (n.delay ? n.delay : n.delay === 0 ? 1e9 : 1e8);
+  const rank = (delay) => (delay ? delay : delay === 0 ? 1e9 : 1e8);
   const nodeSections = $derived.by(() => {
     if (!node) return [];
     const nodes = {
@@ -53,8 +53,8 @@
       value: node.name,
       close: true,
       options: group.nodes
-        .toSorted((a, b) => rank(a) - rank(b))
-        .map((n) => ({ value: n.name, label: n.name, detail: formatDelay(n.delay) })),
+        .toSorted((a, b) => rank(resolvedDelay(a)) - rank(resolvedDelay(b)))
+        .map((n) => ({ value: n.name, label: n.name, detail: formatDelay(resolvedDelay(n)) })),
       onchange: (name) => act(`select:${group.name}`, 'select_node', { group: group.name, node: name }),
     };
     if (selectable.length < 2) return [nodes];
@@ -183,15 +183,15 @@
       <div class="grow status-text">
         <div class="status-main">
           <strong>{t(`status.${engine}`)}</strong>
-          {#if app.connectedAt}<span class="val mono">{formatElapsed(now - app.connectedAt)}</span>{/if}
+          {#if app.connectedAt}<span class="val">{formatElapsed(now - app.connectedAt)}</span>{/if}
         </div>
         {#if engine === 'failed'}<span class="bad-text selectable">{app.status.engine.message}</span>{/if}
       </div>
       <button
         type="button"
         class="btn power"
-        class:primary={!running && !starting}
-        disabled={starting || !app.status}
+        class:primary={!running && !connecting}
+        disabled={connecting || app.busy.power || !app.status}
         aria-label={powerLabels.find((label) => label.id === powerState).text}
         onclick={() => act('power', running ? 'stop' : 'start')}
       >
@@ -207,7 +207,7 @@
   </section>
 
   {#if editing}
-    <section class="group">
+    <section class="group" role="list">
       {#each cards as id (id)}
         <div
           class="row edit-row"
@@ -328,7 +328,7 @@
   <div class="row">
     <button type="button" class="row-hit" aria-label={t('home.whitelist')} onclick={() => navigate('whitelist')}></button>
     <span class="grow clip">{t('home.whitelist')}</span>
-    <span class="val clip" class:bad-text={whitelistStatus.tone === 'fair'}>{whitelistStatus.text}</span>
+    <span class="val clip" class:warn-text={whitelistStatus.tone === 'fair'}>{whitelistStatus.text}</span>
     <Switch
       label={t('whitelist.enabled')}
       checked={app.whitelist.enabled}
@@ -349,7 +349,7 @@
     ></button>
     {#if profile}
       <span class="grow clip">{profileTitle(profile)}</span>
-      {#if usage?.total}<span class="val">{formatBytes(used)} / {formatBytes(usage.total)}</span>{/if}
+      {#if usage?.total}<span class="val">{formatUsage(used, usage.total)}</span>{/if}
       {#if profile.kind === 'subscription'}
         <button
           type="button"

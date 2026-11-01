@@ -428,4 +428,5 @@ export default {
   'profiles.addLabel': '追加',
   'profiles.more': 'その他',
   'color.pine': '松葉色',
+  'nodes.count': '{count} ノード',
 };

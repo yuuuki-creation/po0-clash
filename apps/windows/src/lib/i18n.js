@@ -34,6 +34,12 @@ export function formatBytes(n) {
 
 export const formatRate = (n) => `${formatBytes(n)}/s`;
 
+export function formatUsage(used, total) {
+  const [value, unit] = formatBytes(used).split(' ');
+  const whole = formatBytes(total);
+  return whole.endsWith(` ${unit}`) ? `${value} / ${whole}` : `${value} ${unit} / ${whole}`;
+}
+
 export const formatDate = (unix) => new Date(unix * 1000).toLocaleDateString(tag);
 
 export function formatTime(unix) {
