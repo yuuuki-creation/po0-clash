@@ -267,20 +267,15 @@ private const val HISTORY = 60
 private fun SpeedChart(history: List<Traffic>, modifier: Modifier) {
     val colors = palette
     val reduce = LocalReduceMotion.current
-    val progress = remember { Animatable(1f) }
-    LaunchedEffect(history, reduce) {
-        if (reduce || history.size < 2) {
-            progress.snapTo(1f)
-        } else {
-            progress.snapTo(0f)
-            progress.animateTo(1f, tween(1000, easing = LinearEasing))
-        }
-    }
+    // Made in the composition that brings the sample: an effect only starts after that frame has drawn it at the old offset.
+    val progress = remember(history, reduce) { Animatable(if (reduce || history.size < 2) 1f else 0f) }
+    LaunchedEffect(progress) { progress.animateTo(1f, tween(1000, easing = LinearEasing)) }
     Canvas(modifier.fillMaxWidth().height(96.dp).background(colors.card)) {
         val bottom = size.height - 4.dp.toPx()
         val span = bottom - 6.dp.toPx()
         val top = maxOf(history.maxOfOrNull { maxOf(it.up, it.down) }?.toFloat()?.times(1.1f) ?: 0f, 1024f)
-        val step = size.width / (HISTORY - 1)
+        // The core keeps 60 samples, so one of them always waits past an edge and the line's left end never pops in.
+        val step = size.width / (HISTORY - 2)
         val slide = step * (1f - progress.value)
         val start = size.width - step * (history.size - 1) + slide
         fun line(value: (Traffic) -> ULong) = Path().apply {
