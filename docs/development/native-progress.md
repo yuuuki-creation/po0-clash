@@ -1,17 +1,25 @@
 # 原生重写进度
 
-计划见 [native-rewrite.md](native-rewrite.md)。本页记录 2026-10-29 第一轮暂停时的状态；第二轮已按各平台的「下一步」继续。
+计划见 [native-rewrite.md](native-rewrite.md)，功能缺口逐项见 [native-feature-parity.md](native-feature-parity.md)。
+本页按 native-v7.1.1（`878bbda`）的代码和 CI 记录核对（2026-11-02），写的是验证情况和未完成的工作。
+
+## 未完成
+
+- 真机验证：7.1.0 重做的界面没有上过真机。Android 只在模拟器上跑过，Windows 只在无头浏览器里用模拟数据走过流程，macOS 只有
+  CI 的编译和截图。7.1.1 的修复只经过发版流水线的编译和内核单元测试。
+- 删除 Flutter 目录：要等三端都替换完成（[native-rewrite.md](native-rewrite.md)）。
+- ggy 改用只读查询接口：现在仍然 GET 加白链接。2026-10-03 的记录是等 ggy 的查询接口返回当前 IP。
+
+ADR 0020 要求清单在某平台做完才覆盖升级 Flutter 版，但 7.0.0 起的正式版已经可以覆盖升级，清单还没做完。
 
 ## 分支
 
 | 分支 | 内容 | 状态 |
 |---|---|---|
-| `native` | 共享内核 `crates/core`、`crates/ffi`，mihomo 子模块，文档 | 已验证，三端的基础 |
-| `native-macos` | `apps/macos`、`native-macos.yaml` | CI 通过，没有在真机上试过连接 |
-| `native-windows` | `apps/windows`、`native-windows.yaml` | 能交叉编译、安装、启动；引擎冒烟测试没跑通 |
-| `native-android` | `apps/android`、`mihomo/android` | 模拟器上完整走通过；液态玻璃改版后没有重测 |
+| `native-ui`、远端 `native` | 内核、mihomo 接入和三端原生版 | 同在 `878bbda`（7.1.1） |
+| `main` | Flutter 6.4.4 | 没有合入原生版 |
 
-三个平台分支都还没有合入 `native`。`native-android` 里有 WIP 提交和两次 merge，合入前先整理历史。
+`codex/native-*`、`native-ui-android`、`native-ui-macos`、`native-ui-windows` 的提交都已进入 `native-ui`。
 
 ## 共享内核
 
@@ -19,9 +27,10 @@
 入口）、po0 与 ggy 加白调度、引擎控制（Unix 套接字 / 命名管道；Android 进程内的 libmihomo）、系统代理、滚动日志、
 诊断导出、从 Flutter 版导入订阅和加白条目。UniFFI 的错误类型是 flat error，Kotlin 里是 `CoreException.Invalid(message)`。
 
-验证：59 个单元测试；真实 mihomo v1.19.33 的集成测试（本地 shadowsocks 节点，覆盖启动、策略组、延迟测试、出口 IP、
+验证：131 个单元测试（其中 6 个默认跳过，需要真实引擎或外部网络）；真实 mihomo v1.19.33 的集成测试（本地 shadowsocks 节点，覆盖启动、策略组、延迟测试、出口 IP、
 模式切换、热重载、选节点、崩溃检测与重启）；真实 po0 接口的证书校验；Windows 交叉编译的 clippy；Android 发版构建。
-Ubuntu 上的 `native-core.yaml` 通过，macOS 的 CI 里内核测试和真实引擎测试也通过。
+Ubuntu 上的 `native-core.yaml` 在 `878bbda` 通过。macOS 的 CI 跑内核单元测试和两个 `cfg(unix)` 的真实引擎测试，另外三个只在 Linux 上编译。真实 po0 接口的证书校验
+（`the_po0_certificate_verifies`）没有工作流会跑。
 
 三端第一轮反馈已在 8b84b14 处理：setuid 的 mihomo 用单独的 `mihomo-root` 目录，分享链接文件移出 `providers/`，崩溃记录移到
 `run/`；首次启动就写出 `settings.json`；新增 `was_connected()`，开机自启后据此恢复连接；加白的最近结果跨重启保留；网络变化和
@@ -33,7 +42,7 @@ Ubuntu 上的 `native-core.yaml` 通过，macOS 的 CI 里内核测试和真实�
 provider 里的节点，策略组改为合并 `/providers/proxies`，分享链接节点因此有了类型和测速结果。
 
 仍待处理：Windows 下的引擎路径（命名管道、Job Object、系统代理、名为 `po0-clash` 的 TUN 网卡）只靠应用在测试虚拟机里的
-冒烟测试覆盖，内核的集成测试目前只在 Unix 上跑。
+冒烟测试覆盖，内核的集成测试目前只在 Unix 上跑。`engine/process.rs` 里的 `po0-tun-runner` 分支已没有调用方。
 
 ## macOS
 
@@ -41,17 +50,17 @@ provider 里的节点，策略组改为合并 `/providers/proxies`，分享链�
 
 - SwiftPM 包，最低 macOS 13，不显示程序坞图标，中英文跟随系统，用真实内核绑定。
 - 菜单栏窗口：连接开关与状态、当前节点、出口 IP、速率、模式、系统代理 / 虚拟网卡、切换订阅、选节点与测延迟、加白开关和摘要、
-  失败时的「重新连接」。原来的设置窗口已并入主窗口（ADR 0019）：侧边栏导航的仪表盘、代理、订阅、加白、设置，结构接近 FlClash；主窗口还没在真机上看过，
+  失败时的「重新连接」。原来的设置窗口已并入主窗口（ADR 0019）：侧边栏导航的仪表盘、代理、配置、加白、活动、工具，结构接近 FlClash；主窗口还没在真机上看过，
   只有 CI 截图。
 - 虚拟网卡：首次使用时用一次管理员授权把 mihomo 装到 `/Library/Application Support/io.github.yuuukicreation.po0clash/mihomo`
   （root:wheel、4755，SHA-256 与包内一致才复用），取消授权就退回系统代理。
 - 开机自启后，如果用户上次是连接状态（内核的 `wasConnected()`），自动重新连接；手动打开不会自动连接。
 - 菜单窗口每次打开都刷新（除了 onAppear 还跟踪窗口的遮挡状态）。
 - 旧数据：Flutter 版的偏好在 UserDefaults 里，应用导出成 `core/legacy_shared_preferences.json` 交给内核。
-- 液态玻璃：只在浮动控件层用玻璃，内容是不透明的分组卡片，浅色、深色和中文截图已核对（主窗口之前的版本）。
-- 动效：新页面淡入并上浮 10 pt；连接按钮的图标替换、计时数字滚动、胶囊外形用弹簧过渡；延迟和流量等数字滚动；节点卡片和胶囊
-  按钮有悬停高亮和按下微缩；代理页的分组标签栏浮在玻璃上，选中块在标签间滑动。系统开了「减弱动态效果」或关掉页面切换动画时
-  不移动。CI 截图只能看静态画面，动画本身没有在真机上看过。
+- 界面按 [ADR 0021](../adr/0021-native-ui-traditional.md) 重做（f546668）：暖灰配色，连接按钮在状态行，没有玻璃。CI 截图只能看
+  静态画面，动画和实际观感没有在真机上看过。
+- `native-macos.yaml` 在 `878bbda` 上 build、macos-26、macos-15-intel 通过，macos-14 被取消，整次运行记为 cancelled，所以重做后的
+  界面还没有通过 macos-14 的检查。
 - 安装脚本 `scripts/install-macos-native.sh`：默认装最新的 `native-v*` 发布（含测试版），也可指定版本或本地 zip；核对
   SHA-256、应用 ID、架构和签名，退出并替换已装的原生版或 Flutter 版，移除隔离属性后打开。随 `native-v7.0.0-beta.1` 发布。
 - CI 的检查矩阵（只下载产物、不编译）在 macOS 26.x arm64、macOS 14.8 arm64、macOS 15.7 Intel 上都通过：
@@ -65,17 +74,17 @@ provider 里的节点，策略组改为合并 `/providers/proxies`，分享链�
 这个镜像）、Flutter 版真实运行时被安装脚本退出（CI 用假进程，真机上第一次给 po0-clash 发 Apple 事件可能要求用户同意，
 超时后脚本改发 SIGTERM，这时 Flutter 版来不及清除系统代理）。
 
-下一步：在真机上用 `native-v7.0.0-beta.1` 的安装命令覆盖 Flutter 版，试管理员授权、开机自启和系统代理的清理。
+下一步：在真机上用 `native-v7.1.1` 的安装命令覆盖 Flutter 版，看新界面，试管理员授权、开机自启和系统代理的清理。
 
 ## Windows
 
-`native-windows` 尚未合入。构建已移到东京（`apps/windows/scripts/cross-build.sh`，约 5 分钟），东京的 Windows 11 测试虚拟机
+本节的虚拟机验证都在 ADR 0021 的界面重做（a150937）之前，重做后的界面只在无头浏览器里用模拟数据走过流程。
+构建在东京（`apps/windows/scripts/cross-build.sh`，约 5 分钟），东京的 Windows 11 测试虚拟机
 （Docker 容器 `po0-winvm`，从东京 `ssh -p 2222` 进入，测试脚本在 `/srv/build/po0-native-windows/vm`）里验证过：系统代理和虚拟网卡两种
 模式下流量都经过节点、断开后系统代理与网卡清理干净；从 Flutter 6.4.4 覆盖升级（静默卸载旧版，保留数据并导入）；开机自启后按
-`was_connected()` 重连；液态玻璃界面的中英文和深浅色截图。管理员权限下 WebView2 的调试端口只认 HKLM 策略。
+`was_connected()` 重连。管理员权限下 WebView2 的调试端口只认 HKLM 策略。
 
-主界面按 [native-design.md](native-design.md) 重做（ADR 0019、0020）：仿访达的无边框窗口、悬浮玻璃侧边栏、统一工具栏里的
-启动按钮，4 列仪表盘（当前节点快速切换、速度曲线、流量 / 连接 / 内存 / 内网 IP），代理页的搜索、排序、布局、定位与单节点测速，
+重做前的主界面（ADR 0019、0020）：4 列仪表盘（当前节点快速切换、速度曲线、流量 / 连接 / 内存 / 内网 IP），代理页的搜索、排序、布局、定位与单节点测速，
 活动页的请求 / 连接 / 日志表格，工具页的分组表单（基础配置、网络、DNS、高级、资源、代理集与规则集、规则、外观、应用、关于），
 配置页的文件导入、编辑、预览、导出与排序；全部自绘菜单。在测试虚拟机里通过界面走通：连接与断开、快速切换节点、单节点与全部
 测速、模式切换、搜索与布局、定位、修改日志级别并写回内核、资源 / 代理集 / 规则 / 网络 / DNS / 高级各页读取内核数据、清空请求；
@@ -90,12 +99,11 @@ provider 里的节点，策略组改为合并 `/providers/proxies`，分享链�
 不再有「即将推出」：五个快捷键用真实按键录制并在窗口隐藏时触发，录制时不触发，冲突移位、只按 Shift 的提示、清除和被占用时的
 提示都对；连点版本号开启开发者模式，消息、日志、崩溃测试（引擎变为失败后能重连）、清理缓存、清除数据（应用自动重启、数据清空）
 都走通。b363cdf 的启动流程在 Windows 上正常，系统代理与虚拟网卡下流量都经过节点、断开后清理干净；分享链接节点有了类型和
-测速结果，GLOBAL 默认选第一个策略组。液态玻璃与动效（玻璃边缘折射、高光边，View Transitions 页面转场，选中块与滑块的移动，
-菜单、对话框、列表和卡片的进出，数字补间）已经加上，在虚拟机里确认转场方向正确、工具栏不随页面移动、Windows 关掉动画效果后
-全部停下；中英文、深浅色截图已核对。内核在一次测速之后
+测速结果，GLOBAL 默认选第一个策略组。内核在一次测速之后
 通知的策略组不带延迟，界面保留最近一次测速结果。
 
-待处理：用 `scripts/smoke.mjs` 重跑一遍冒烟测试；签名；托盘菜单截图。
+待处理：在虚拟机里验证重做后的界面；用 `scripts/smoke.mjs` 重跑一遍冒烟测试（`native-windows.yaml` 最近一次运行在 10-29，失败）；
+`apps/windows/tests` 接入 CI，现在任何工作流都不跑；安装程序签名；补齐托盘菜单后截图。
 
 ## Android
 
@@ -103,22 +111,15 @@ provider 里的节点，策略组改为合并 `/providers/proxies`，分享链�
 
 - `mihomo/android`：Go c-shared 库，C 接口为 `po0_mihomo_start/stop/free`；start 等控制器可连才返回，stop 关掉全部入口和 TUN。
   必须带 `cmfa` 编译标签（否则 TUN 要读只有 root 能读的 `packages.xml`），库在 `init()` 里恢复 `/configs` 接口供内核热重载。
-- Gradle 一条 `./gradlew assembleRelease` 编出 mihomo、内核和绑定；compileSdk 37、targetSdk 36，Compose BOM 2026.09.00、
-  Haze 2.0.1。同一把签名 key，按 ABI 分包，三个分包的 versionCode 都大于 Flutter 6.4.4 对应的分包；版本名暂为 7.0.0-alpha1，
-  正式版本号由维护者定。
+- Gradle 一条 `./gradlew assembleRelease` 编出 mihomo、内核和绑定；compileSdk 37、targetSdk 36，Compose BOM 2026.09.00。
+  同一把签名 key，按 ABI 分包，三个分包的 versionCode 都大于 Flutter 6.4.4 对应的分包。
 - 模拟器上走通：VPN 路由（排除 po0 地址）与应用自身绕过 VPN、流量走节点、切节点 / 模式 / 测速、三轮断开重连无残留 fd、
   启动失败与重新连接、快捷设置磁贴（真实点击）、导出诊断、加白请求与结果跨进程保留、进程重建后按 `wasConnected()` 自动连回。
 - 从 Flutter 6.4.4 覆盖升级：导入 2 条订阅（当前订阅对应正确）和 2 条加白条目，缺内容的订阅在连接时先下载，重启后不重复导入。
 - API 30 上手动拆分路由：tun0 上 33 条路由，po0 地址走物理网卡，相邻地址仍走 VPN。
 - 网络变化只监听物理网络（排除自己的 VPN）并去抖 1 秒；VPN 服务指令按 start id 只执行最新的一条。
-- 主界面按 [native-design.md](native-design.md) 重做：34 号大标题加 15 号副标题，右上角 44 高的玻璃按钮组；悬浮标签栏
-  （距底 30、左右 20、高 62，细线条图标，选中项强调色加浅色选中块）；标签栏上方是底部状态条（状态圆点、已连接 / 未连接、
-  「时长 · 节点」或失败原因，右边实心圆形启停按钮），取代原来的浮动按钮；内容区底部留出两条栏的高度。颜色、字号、圆角 22
-  的白底卡片都照规范的表，图标是规范设计稿里的线性图标（`LineIcons.kt`）。API 31 以下玻璃用近不透明的底色。
-- 仪表盘依次是网络速度（`traffic_history` 画最近 60 秒，下载强调色线加淡色面积，上传灰线）、出站模式、当前节点（点进代理），
-  流量与连接并排，内存与出口 IP 并排，订阅、自动加白；右上角测当前节点所在组。代理页是策略组卡片加两列节点块，选中节点强调色
-  描边加对勾，延迟 <600ms 绿、更高橙、超时红；右上角排序（默认 / 延迟 / 名称）、定位到当前节点、全部测速；点节点延迟单独测速。
-  工具页首组是「活动」（显示连接数），然后配置、应用、其他三组。
+- 界面按 [ADR 0021](../adr/0021-native-ui-traditional.md) 重做（453a919）：Material 3 版式、暖灰配色，连接按钮在状态行，宽屏用
+  导航栏和左右两栏，没有玻璃。本节的模拟器验证大多在重做之前。`selectable` 为假的组仍列出全部节点，只是不能点，和设计稿不同。
 - 功能对齐（[native-feature-parity.md](native-feature-parity.md)）里内核已有的项都接上了：活动页的请求 / 连接 / 日志（搜索、
   点开看连接详情、断开单个或全部、日志级别筛选与导出）；EngineOptions 的全部字段做成基础配置、网络（虚拟网卡）、DNS（覆写开关
   与完整设置）、高级（追加规则）四个表单，改动立刻显示、只把最后一次写进内核；资源页有 Geo 文件信息与更新、加载方式、
@@ -132,8 +133,8 @@ provider 里的节点，策略组改为合并 `/providers/proxies`，分享链�
   简体中文 / English，存 BCP 47 标签，API 33 起用系统的分应用语言，更早的版本在 Activity 上换 Configuration）、应用页的开关
   （自动连接、最近任务中隐藏、通知栏停止按钮、页面切换动画、标签栏文字、日志捕获、切换节点后断开、只统计代理流量、校验证书、
   自动检查更新）、代理页显示方式（标签式 / 列表式，默认标签式；排序、疏密、节点卡片样式）、仪表盘卡片的顺序与显隐
-  （右上角「编辑仪表盘」）、分应用代理和排除的 Wi-Fi。关掉日志捕获时活动页不显示日志。只有允许绕过、VPN 内系统代理、VPN IPv6
-  三项内核没有字段，仍存在 Android 的 SharedPreferences。仪表盘加了「内网 IP」（`intranet_ip()`，网络变化时重读）和
+  （右上角「编辑仪表盘」）、分应用代理和排除的 Wi-Fi。关掉日志捕获时活动页不显示日志。允许绕过、VPN 内系统代理、VPN IPv6
+  三项存在内核的 `android_vpn` 里，老版本 SharedPreferences 里的值启动时迁移一次。仪表盘加了「内网 IP」（`intranet_ip()`，网络变化时重读）和
   「网络接管」（VPN 开关）。模拟器上验证过：主题色即时生效、语言切换、排除 Wi-Fi 写进 settings.json 并断开 / 重连。
 - 策略组图标（配置里的 `icon`：图片地址、内联 SVG 或 base64）显示在标签和组卡片上，按 `group_icon_style` 显示为图标加名称、
   仅图标或不显示，读不出来时就不显示图标。SVG 用 AndroidSVG 解码，下载的图标缓存在 cacheDir；应用自己的 Java 网络请求只有这一处，
@@ -155,16 +156,10 @@ provider 里的节点，策略组改为合并 `/providers/proxies`，分享链�
 - 关于页：图标、版本（连点五次开开发者模式）、检查更新（启动时按「自动检查更新」查一次，有新版弹出说明与下载页）、项目与上游
   链接、开源许可（可搜索）。开发者页：开发者模式开关、消息测试、日志测试、清理缓存、清除数据（重启应用）；Android 的内核在
   应用进程里，没有崩溃测试。通知栏在亮屏且已连接时每秒显示上下行速率。语言加了日文、俄文。工具页不再有「即将推出」。
-- 液态玻璃与动效：浮动层（标签栏、状态条、顶部按钮组、弹层、菜单、提示）改用 Kyant0/backdrop 2.0.1 代替 Haze，页面内容和
-  浮动层分层录制，互不读自己。API 33 起有透镜折射与高光边，31–32 只模糊，更早用不透明底色。按住玻璃控件略胀大并跟手；标签栏
-  选中块按住时成透镜、可拖动选页，内容下滑时收成圆形、状态条并到同一行（iOS 26 的 minimize 与 bottom accessory）；推入页用
-  SeekableTransitionState，返回手势拖着页面走、取消会弹回；标签切换淡入淡出；列表项、卡片的增删移动用 animateItem；节点选中
-  描边与对勾、状态条的状态与按钮、延迟与大数值（数字滚动）都有过渡；列表行按下是 iOS 的灰色底而不是水波纹，可点的卡片按下
-  微缩；空状态改为居中的图标、标题和说明；弹层和菜单用更厚的玻璃。系统关掉动画（动画时长缩放为 0）时推入、标签切换、收起、
-  按压变形全部直接切换，模拟器上录屏确认没有中间帧。
 
 没有验证：真机 arm64、always-on VPN、开发者页的「清除数据」（会清掉 NL 模拟器上的测试数据，没跑）、电视遥控器操作。
 
-已知问题：`cmfa` 标签下订阅里写 `system` 的 DNS 解析不了；同时连着 Wi-Fi 和移动数据时，移动数据的变化也会触发一轮加白请求。
+已知问题：`cmfa` 标签下订阅里写 `system` 的 DNS 解析不了（`mihomo/android` 没有调用 `UpdateSystemDNS`）；同时连着 Wi-Fi 和移动数据时，
+移动数据的变化也会触发一轮加白请求；路由地址的表单不起作用，内核的 Android 分支不写这一项，VPN 的路由是写死的。
 
-下一步：在 arm64 真机上装 `app-arm64-v8a-release.apk` 走一遍；发版前由维护者定版本号。
+下一步：在 arm64 真机上装 `po0-clash-7.1.1-android-arm64-v8a.apk` 走一遍。
