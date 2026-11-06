@@ -214,9 +214,31 @@ fun ConnectButton(label: String, primary: Boolean, busy: Boolean, enabled: Boole
         modifier = Modifier.size(128.dp, 40.dp).semantics { contentDescription = label },
     ) {
         if (busy) {
-            SmallProgress(size = 14.dp, color = contentColor)
-            Spacer(Modifier.width(6.dp))
+            Box(Modifier.padding(end = 6.dp)) {
+                SmallProgress(size = 14.dp, color = contentColor)
+            }
         }
         Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+data class FabAction(val icon: ImageVector, val label: String, val busy: Boolean = false, val onClick: () -> Unit)
+
+@Composable
+fun Po0Fab(action: FabAction, modifier: Modifier = Modifier) {
+    val colors = palette
+    FloatingActionButton(
+        onClick = action.onClick,
+        modifier = modifier.size(56.dp),
+        shape = RoundedCornerShape(16.dp),
+        containerColor = colors.sel,
+        contentColor = colors.onSel,
+        elevation = FloatingActionButtonDefaults.elevation(3.dp, 3.dp, 3.dp, 3.dp),
+    ) {
+        if (action.busy) {
+            SmallProgress(color = colors.onSel)
+        } else {
+            Icon(action.icon, contentDescription = action.label, modifier = Modifier.size(24.dp))
+        }
     }
 }
