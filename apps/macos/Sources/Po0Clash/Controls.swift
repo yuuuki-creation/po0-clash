@@ -126,7 +126,7 @@ struct Ring: View {
     var body: some View {
         Circle()
             .trim(from: 0, to: 0.75)
-            .strokeBorder(style: StrokeStyle(lineWidth: 2, lineCap: .round))
+            .stroke(style: StrokeStyle(lineWidth: 2, lineCap: .round))
             .frame(width: 14, height: 14)
             .rotationEffect(.degrees(turned ? 360 : 0))
             .animation(reduceMotion ? nil : Animation.linear(duration: 0.8).repeatForever(autoreverses: false), value: turned)
