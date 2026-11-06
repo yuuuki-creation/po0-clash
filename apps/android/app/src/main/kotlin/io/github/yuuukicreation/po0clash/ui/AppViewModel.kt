@@ -23,6 +23,7 @@ import io.github.yuuukicreation.po0clash.core.ShareNode
 import io.github.yuuukicreation.po0clash.engine
 import io.github.yuuukicreation.po0clash.userMessage
 import io.github.yuuukicreation.po0clash.vpn.Po0VpnService
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,6 +48,7 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     val appSettings = engine.appSettings
     private val optionWriter = Dispatchers.IO.limitedParallelism(1)
     private val overrideWriter = Dispatchers.IO.limitedParallelism(1)
+    private val delayTester = Dispatchers.IO.limitedParallelism(4)
     private val _scripts = MutableStateFlow(emptyList<Script>())
     val scripts = _scripts.asStateFlow()
     private val _shareNodes = MutableStateFlow(emptyList<ShareNode>())
@@ -56,10 +58,10 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     /** A newer release to offer, and whether the automatic check found it. */
     val release = _release.asStateFlow()
 
-    private fun launch(key: String, block: () -> String?) {
+    private fun launch(key: String, dispatcher: CoroutineDispatcher = Dispatchers.IO, block: () -> String?) {
         if (key in _busy.value) return
         _busy.update { it + key }
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(dispatcher) {
             try {
                 block()?.let { _messages.send(it) }
             } catch (e: Exception) {
@@ -86,7 +88,7 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
         null
     }
 
-    fun testDelay(group: String) = launch(busyDelay(group)) {
+    fun testDelay(group: String) = launch(busyDelay(group), delayTester) {
         engine.replaceGroup(core.testDelay(group))
         null
     }

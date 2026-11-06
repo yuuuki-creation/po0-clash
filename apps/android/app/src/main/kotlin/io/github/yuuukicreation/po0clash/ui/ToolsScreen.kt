@@ -169,6 +169,7 @@ fun ToolPage(
             state = list,
             modifier = Modifier.fillMaxSize(),
             contentPadding = padding,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
             content = content,
         )
     }

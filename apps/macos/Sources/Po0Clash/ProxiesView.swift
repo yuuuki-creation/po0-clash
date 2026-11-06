@@ -106,7 +106,7 @@ struct ProxiesView: View {
         let testAll = MenuEntry.action(
             String(localized: "Test all"),
             enabled: model.testing.isEmpty && !model.groups.isEmpty,
-            perform: { for group in model.groups { model.testDelay(group.name) } }
+            perform: { model.testAllDelays() }
         )
         return [
             MenuEntry.submenu(String(localized: "Mode"), modes),
@@ -141,9 +141,13 @@ struct ProxiesView: View {
         Button {
             if let group = testedGroup { model.testDelay(group.name) }
         } label: {
-            HStack(spacing: 8) {
-                if testing { Ring() }
-                Text(testing ? LocalizedStringKey("Testing…") : LocalizedStringKey("Test delay"))
+            ZStack {
+                Text("Test delay").opacity(testing ? 0 : 1)
+                HStack(spacing: 8) {
+                    Ring()
+                    Text("Testing…")
+                }
+                .opacity(testing ? 1 : 0)
             }
         }
         .disabled(testing || testedGroup == nil)
@@ -174,7 +178,7 @@ struct ProxiesView: View {
                         iconStyle: iconStyle,
                         locateRequest: locateRequest
                     ) { selectedGroup = $0 }
-                    .frame(width: 220)
+                    .frame(width: 230)
                     nodeTable
                 }
             }
@@ -409,7 +413,7 @@ private struct GroupPaneRowStyle: ButtonStyle {
             .foregroundStyle(Color.ink)
             .background(
                 configuration.isPressed ? Color.press : selected ? Color.listSelection : Color.clear,
-                in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
             )
             .contentShape(Rectangle())
     }
@@ -422,17 +426,18 @@ private struct GroupPaneRow: View {
     var body: some View {
         HStack(spacing: 8) {
             GroupIcon(group: group, style: iconStyle)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(verbatim: group.name).lineLimit(1)
-                Text(verbatim: group.now ?? group.kind)
-                    .foregroundStyle(Color.ink2)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            Spacer(minLength: 0)
+            Text(verbatim: group.name)
+                .font(.system(size: 14, weight: .medium))
+                .lineLimit(1)
+            Spacer(minLength: 6)
+            Text(verbatim: group.now ?? group.kind)
+                .font(.system(size: 13))
+                .foregroundStyle(Color.ink2)
+                .lineLimit(1)
+                .truncationMode(.middle)
         }
         .padding(.horizontal, 10)
-        .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
     }
 }
 
@@ -461,11 +466,14 @@ private struct GroupIcon: View {
 }
 
 private struct NodeTable: View {
+    @EnvironmentObject private var model: AppModel
     let group: ProxyGroup
     let nodes: [Node]
     let columns: NodeColumns
     let rowHeight: CGFloat
     let locateRequest: Int
+
+    private var groupBusy: Bool { model.testingGroups.contains(group.name) }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -478,8 +486,18 @@ private struct NodeTable: View {
                 .tableHeader()
             } rows: {
                 ForEach(Array(nodes.enumerated()), id: \.element.name) { index, node in
-                    NodeRow(group: group, node: node, columns: columns, height: rowHeight, zebra: index % 2 == 0)
-                        .id(nodeAnchor(group.name, node.name))
+                    let busy = groupBusy || model.testingNodes.contains(node.name)
+                    NodeRow(
+                        node: node,
+                        selected: node.name == group.now,
+                        busy: busy,
+                        columns: columns,
+                        height: rowHeight,
+                        zebra: index % 2 == 0,
+                        select: group.selectable ? { model.selectNode(group: group.name, node: node.name) } : nil,
+                        testNode: { model.testNodeDelay(node.name) }
+                    )
+                    .id(nodeAnchor(group.name, node.name))
                 }
             }
             .onAppear { reveal(proxy) }
@@ -495,23 +513,14 @@ private struct NodeTable: View {
 }
 
 private struct NodeRow: View {
-    @EnvironmentObject private var model: AppModel
-    let group: ProxyGroup
     let node: Node
+    let selected: Bool
+    let busy: Bool
     let columns: NodeColumns
     let height: CGFloat
     let zebra: Bool
-
-    private var selected: Bool { node.name == group.now }
-
-    private var busy: Bool {
-        model.testingGroups.contains(group.name) || model.testingNodes.contains(node.name)
-    }
-
-    private var select: (() -> Void)? {
-        guard group.selectable else { return nil }
-        return { model.selectNode(group: group.name, node: node.name) }
-    }
+    let select: (() -> Void)?
+    let testNode: () -> Void
 
     var body: some View {
         ColumnsLayout(columns: columns.widths) {
@@ -525,12 +534,12 @@ private struct NodeRow: View {
                 Text(verbatim: node.kind).foregroundStyle(Color.ink2).lineLimit(1).allowsHitTesting(false)
             }
             if columns.showsDelay {
-                DelayCell(node: node, busy: busy)
+                DelayCell(node: node, busy: busy, action: testNode)
             }
         }
         .tableRow(height: height, zebra: zebra, hit: select)
         .contextMenu {
-            Button("Test delay") { model.testNodeDelay(node.name) }
+            Button("Test delay", action: testNode)
                 .disabled(busy)
         }
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -539,17 +548,18 @@ private struct NodeRow: View {
 
 /// Clicking the delay tests that one node; clicking the rest of the row selects it.
 private struct DelayCell: View {
-    @EnvironmentObject private var model: AppModel
     let node: Node
     let busy: Bool
+    let action: () -> Void
 
     var body: some View {
-        Button {
-            model.testNodeDelay(node.name)
-        } label: {
+        Button(action: action) {
             Text(verbatim: Format.delay(node) ?? "—")
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Format.delayTint(node.delay))
                 .lineLimit(1)
+                .padding(.horizontal, 6)
+                .frame(minWidth: 56, minHeight: 22)
                 .opacity(busy ? 0.4 : 1)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .contentShape(Rectangle())
@@ -581,8 +591,18 @@ private struct GroupSection: View {
             if expanded {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(nodes.enumerated()), id: \.element.name) { index, node in
-                        NodeRow(group: group, node: node, columns: columns, height: rowHeight, zebra: index % 2 == 0)
-                            .id(nodeAnchor(group.name, node.name))
+                        let busy = testing || model.testingNodes.contains(node.name)
+                        NodeRow(
+                            node: node,
+                            selected: node.name == group.now,
+                            busy: busy,
+                            columns: columns,
+                            height: rowHeight,
+                            zebra: index % 2 == 0,
+                            select: group.selectable ? { model.selectNode(group: group.name, node: node.name) } : nil,
+                            testNode: { model.testNodeDelay(node.name) }
+                        )
+                        .id(nodeAnchor(group.name, node.name))
                     }
                 }
                 .transition(.rowFold)

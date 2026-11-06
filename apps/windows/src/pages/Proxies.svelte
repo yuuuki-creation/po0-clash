@@ -97,6 +97,17 @@
     revealSelection(motion(1) ? 'smooth' : 'auto');
   }
 
+  async function testAll() {
+    const queue = [...app.groups];
+    const workers = Array.from({ length: Math.min(4, queue.length) }, async () => {
+      while (queue.length) {
+        const next = queue.shift();
+        if (next) await testDelay(next.name);
+      }
+    });
+    await Promise.all(workers);
+  }
+
   const delayOf = (group) => resolvedDelay(group.nodes.find((n) => n.name === group.now) ?? {});
 
   const viewSections = $derived([
@@ -128,7 +139,7 @@
       close: true,
       value: null,
       options: [{ value: 'testAll', label: t('proxies.testAll'), disabled: testingAny }],
-      onchange: () => app.groups.forEach((g) => testDelay(g.name)),
+      onchange: testAll,
     },
   ]);
 </script>
@@ -154,8 +165,17 @@
         {#snippet trigger()}<Icon name="moreH" />{/snippet}
       </SectionMenu>
       {#if tabs}
-        <button type="button" class="btn" disabled={!current || testingCurrent} onclick={() => testDelay(current.name)}>
-          {#if testingCurrent}<span class="ring"></span>{t('proxies.testing')}{:else}{t('proxies.test')}{/if}
+        <button
+          type="button"
+          class="btn"
+          disabled={!current || testingCurrent}
+          aria-label={testingCurrent ? t('proxies.testing') : t('proxies.test')}
+          onclick={() => testDelay(current.name)}
+        >
+          <span class="power-labels">
+            <span class:on={!testingCurrent}>{t('proxies.test')}</span>
+            <span class:on={testingCurrent}><span class="ring"></span>{t('proxies.testing')}</span>
+          </span>
         </button>
       {/if}
     {/if}

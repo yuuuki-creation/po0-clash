@@ -15,17 +15,21 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,10 +43,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.yuuukicreation.po0clash.R
@@ -68,9 +75,9 @@ private fun ProxiesDensity.tileWidth() = when (this) {
 }
 
 private fun ProxiesDensity.rowHeight() = when (this) {
-    ProxiesDensity.LOOSE -> 64.dp
-    ProxiesDensity.STANDARD -> 56.dp
-    ProxiesDensity.TIGHT -> 48.dp
+    ProxiesDensity.LOOSE -> 60.dp
+    ProxiesDensity.STANDARD -> 52.dp
+    ProxiesDensity.TIGHT -> 44.dp
 }
 
 /** The group that shows [node] as its choice, the group a user means by "current node". */
@@ -116,13 +123,15 @@ fun ProxiesScreen(vm: AppViewModel, opened: String?, onOpen: (String?) -> Unit) 
     val current = groups.firstOrNull { it.name == opened }
     val selected = current?.takeIf { it in visible } ?: visible.firstOrNull() ?: groups.firstOrNull()
     val nested = remember(groups) { groups.associateBy { it.name } }
-    val onSecondLevel = twoLevel && current != null
     val groupList = rememberLazyListState()
-    var listedGroup by remember { mutableStateOf(selected?.name) }
-    if (wide || current != null) listedGroup = selected?.name
-    val nodeList = remember(listedGroup) {
+    val groupTabs = rememberLazyListState()
+    val nodeList = remember(selected?.name) {
         val index = selected?.let { it.nodes.sortedBy(settings.proxiesSort).indexOfFirst { node -> node.name == it.now } } ?: 0
         LazyListState((index - 2).coerceAtLeast(0))
+    }
+    LaunchedEffect(selected?.name, visible.size) {
+        val index = visible.indexOfFirst { it.name == selected?.name }
+        if (index >= 0) groupTabs.animateScrollToItem(index)
     }
     val open = expanded ?: listOfNotNull(groups.firstOrNull()?.name)
     val anchor = rememberAnchor()
@@ -141,9 +150,9 @@ fun ProxiesScreen(vm: AppViewModel, opened: String?, onOpen: (String?) -> Unit) 
             LineIcons.Bolt,
             stringResource(R.string.test_delay),
             enabled = shown,
-            busy = if (onSecondLevel) AppViewModel.busyDelay(current.name) in busy else groups.any { AppViewModel.busyDelay(it.name) in busy },
+            busy = if (twoLevel && selected != null) AppViewModel.busyDelay(selected.name) in busy else groups.any { AppViewModel.busyDelay(it.name) in busy },
         ) {
-            if (onSecondLevel) vm.testDelay(current.name) else groups.forEach { vm.testDelay(it.name) }
+            if (twoLevel && selected != null) vm.testDelay(selected.name) else groups.forEach { vm.testDelay(it.name) }
         },
         PageAction(LineIcons.More, stringResource(R.string.more), enabled = shown, anchor = anchor) {
             val main = groups.firstOrNull()
@@ -162,10 +171,9 @@ fun ProxiesScreen(vm: AppViewModel, opened: String?, onOpen: (String?) -> Unit) 
         query = ""
     }
     PageScaffold(
-        title = if (onSecondLevel) current.name else stringResource(R.string.proxies),
-        scrolled = if (onSecondLevel || wide) nodeList.canScrollBackward || groupList.canScrollBackward else groupList.canScrollBackward,
+        title = stringResource(R.string.proxies),
+        scrolled = if (twoLevel) nodeList.canScrollBackward || groupList.canScrollBackward else groupList.canScrollBackward,
         actions = actions,
-        onBack = if (onSecondLevel && !wide) ({ onOpen(null) }) else null,
         search = if (searching) AppBarSearch(query, { query = it }, { searching = false; query = "" }) else null,
         capped = false,
     ) { padding ->
@@ -173,7 +181,7 @@ fun ProxiesScreen(vm: AppViewModel, opened: String?, onOpen: (String?) -> Unit) 
             LazyColumn(modifier, state = list, contentPadding = contentPadding) {
                 if (visible.isEmpty()) item { ValueRow(0, 1, stringResource(R.string.no_match), "") }
                 itemsIndexed(visible, key = { _, it -> it.name }) { index, group ->
-                    ProxyGroupRow(group, index, visible.size, group.delay(nested), active = wide && group == selected, chevron, settings.groupIconStyle) {
+                    ProxyGroupRow(group, index, visible.size, group.delay(nested), active = group == selected, chevron, settings.groupIconStyle) {
                         onOpen(group.name)
                     }
                 }
@@ -229,23 +237,71 @@ fun ProxiesScreen(vm: AppViewModel, opened: String?, onOpen: (String?) -> Unit) 
             wide -> Row(Modifier.fillMaxSize()) {
                 val top = padding.calculateTopPadding()
                 val bottom = padding.calculateBottomPadding()
-                groupRows(groupList, false, PaddingValues(start = 16.dp, top = top, bottom = bottom), Modifier.width(340.dp + 16.dp))
+                groupRows(groupList, false, PaddingValues(start = 16.dp, top = top, bottom = bottom), Modifier.width(260.dp + 16.dp))
                 nodeRows(selected, PaddingValues(start = 12.dp, end = 16.dp, top = top, bottom = bottom), Modifier.weight(1f))
             }
-            else -> PushHost(
-                target = current?.name,
-                animate = settings.pageAnimation,
-                onBack = { onOpen(null) },
-                label = "proxyLevels",
-                backEnabled = !searching,
-            ) { name ->
-                val group = name?.let { nested[it] }
-                if (group == null) {
-                    groupRows(groupList, true, padding, Modifier.fillMaxSize())
-                } else {
-                    nodeRows(group, padding, Modifier.fillMaxSize())
-                }
+            else -> Column(Modifier.fillMaxSize()) {
+                val top = padding.calculateTopPadding()
+                val bottom = padding.calculateBottomPadding()
+                GroupTabStrip(
+                    groups = visible,
+                    selected = selected,
+                    iconStyle = settings.groupIconStyle,
+                    state = groupTabs,
+                    modifier = Modifier.padding(top = top, bottom = 8.dp),
+                    onSelect = { onOpen(it.name) },
+                )
+                nodeRows(selected, PaddingValues(start = 16.dp, end = 16.dp, bottom = bottom), Modifier.weight(1f))
             }
+        }
+    }
+}
+
+@Composable
+private fun GroupTabStrip(
+    groups: List<ProxyGroup>,
+    selected: ProxyGroup,
+    iconStyle: GroupIconStyle,
+    state: LazyListState,
+    modifier: Modifier = Modifier,
+    onSelect: (ProxyGroup) -> Unit,
+) {
+    val colors = palette
+    LazyRow(
+        state = state,
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        itemsIndexed(groups, key = { _, it -> it.name }) { _, group ->
+            val active = group.name == selected.name
+            val icon = rememberGroupIcon(group.icon.takeIf { iconStyle != GroupIconStyle.HIDDEN })
+            FilterChip(
+                selected = active,
+                onClick = { onSelect(group) },
+                leadingIcon = icon?.let {
+                    { Image(it, contentDescription = group.name, modifier = Modifier.size(18.dp).clip(RoundedCornerShape(4.dp))) }
+                },
+                label = {
+                    Text(
+                        group.name,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium),
+                        maxLines = 1,
+                    )
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = colors.card,
+                    labelColor = colors.ink,
+                    selectedContainerColor = colors.sel,
+                    selectedLabelColor = colors.onSel,
+                ),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = active,
+                    borderColor = colors.line,
+                    selectedBorderColor = colors.sel,
+                ),
+            )
         }
     }
 }
@@ -311,16 +367,33 @@ private fun ProxyGroupRow(
     onClick: () -> Unit,
 ) {
     val icon = rememberGroupIcon(group.icon.takeIf { iconStyle != GroupIconStyle.HIDDEN })
-    GroupRow(index, count, onClick = onClick, minHeight = 72.dp, fill = if (active) palette.sel else palette.card) {
-        icon?.let { Image(it, contentDescription = group.name, modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp))) }
+    GroupRow(
+        index,
+        count,
+        onClick = onClick,
+        minHeight = 60.dp,
+        endPadding = if (trailing != null) 4.dp else 16.dp,
+        fill = if (active) palette.sel else palette.card,
+    ) {
+        icon?.let { Image(it, contentDescription = group.name, modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp))) }
         Column(Modifier.weight(1f)) {
             if (icon == null || iconStyle != GroupIconStyle.ICON_ONLY) {
-                Text(group.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    group.name,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium),
+                    color = if (active) palette.onSel else palette.ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
-            group.now?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = palette.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            group.now?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = palette.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
         DelayText(delay, placeholder = true)
-        trailing?.invoke()
+        if (trailing != null) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                trailing()
+            }
+        }
         if (chevron) Chevron()
     }
 }
@@ -329,25 +402,46 @@ private fun ProxyGroupRow(
 private fun NodeDelay(delay: UInt?, waiting: Boolean, onTest: () -> Unit) {
     val shown by animateFloatAsState(if (waiting) 0.4f else 1f, tween(150), label = "delayWait")
     Box(
-        Modifier.alpha(shown).clip(CircleShape).clickable(enabled = !waiting, onClick = onTest).padding(horizontal = 4.dp, vertical = 8.dp),
+        Modifier.alpha(shown).clip(RoundedCornerShape(6.dp)).clickable(enabled = !waiting, onClick = onTest).padding(horizontal = 2.dp, vertical = 2.dp),
     ) {
         DelayText(delay, placeholder = true)
     }
 }
 
-/** Data, so it changes at once: secondary text, warning from 600 ms, error for the core's 0 (timed out). */
 @Composable
-fun DelayText(delay: UInt?, style: TextStyle = MaterialTheme.typography.bodyMedium, placeholder: Boolean = false) {
+fun DelayText(delay: UInt?, style: TextStyle = MaterialTheme.typography.labelMedium, placeholder: Boolean = false) {
     val colors = palette
+    val cell = Modifier.widthIn(min = 56.dp).padding(horizontal = 6.dp, vertical = 2.dp)
     when {
-        delay == null -> if (placeholder) Text("—", style = style.tabular(), color = colors.ink2, maxLines = 1)
-        delay == 0u -> Text(stringResource(R.string.delay_timeout), style = style.tabular(), color = colors.bad, maxLines = 1)
-        else -> Text(
-            stringResource(R.string.delay_ms, delay.toInt()),
+        delay == null -> if (placeholder) {
+            Text(
+                "—",
+                style = style.tabular(),
+                color = colors.ink3,
+                textAlign = TextAlign.End,
+                maxLines = 1,
+                modifier = cell,
+            )
+        }
+        delay == 0u -> Text(
+            stringResource(R.string.delay_timeout),
             style = style.tabular(),
-            color = if (delay < 600u) colors.ink2 else colors.warn,
+            color = colors.bad,
+            textAlign = TextAlign.End,
             maxLines = 1,
+            modifier = cell,
         )
+        else -> {
+            val good = delay < 600u
+            Text(
+                stringResource(R.string.delay_ms, delay.toInt()),
+                style = style.tabular(),
+                color = if (good) colors.ink2 else colors.warn,
+                textAlign = TextAlign.End,
+                maxLines = 1,
+                modifier = cell,
+            )
+        }
     }
 }
 
@@ -443,10 +537,18 @@ private fun LazyListScope.expandableGroup(
     }
     itemsIndexed(rows, key = { index, _ -> "row:${group.name}:$index" }) { index, row ->
         val last = index == rows.lastIndex
+        val lineColor = palette.line
         Row(
-            itemMotion().padding(top = if (index == 0) 2.dp else 0.dp)
-                .clip(RoundedCornerShape(topStart = cornerOf(index == 0), topEnd = cornerOf(index == 0), bottomStart = if (last) 16.dp else 0.dp, bottomEnd = if (last) 16.dp else 0.dp))
+            itemMotion()
+                .clip(RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomStart = if (last) 12.dp else 0.dp, bottomEnd = if (last) 12.dp else 0.dp))
                 .background(palette.card)
+                .drawWithContent {
+                    drawContent()
+                    if (index == 0) {
+                        val stroke = 1.dp.toPx()
+                        drawLine(lineColor, Offset(0f, stroke / 2f), Offset(size.width, stroke / 2f), stroke)
+                    }
+                }
                 .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = if (last) 12.dp else 0.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -467,8 +569,6 @@ private fun LazyListScope.expandableGroup(
     }
 }
 
-private fun cornerOf(first: Boolean): Dp = if (first) 4.dp else 0.dp
-
 @Composable
 private fun NodeTile(
     node: Node,
@@ -484,9 +584,9 @@ private fun NodeTile(
     val colors = palette
     val fill by animateColorAsState(if (selected) colors.sel else colors.bg, tween(150, easing = StandardEasing), label = "tile")
     Column(
-        modifier.clip(RoundedCornerShape(12.dp)).background(fill).clickable(enabled = enabled, onClick = onClick)
+        modifier.clip(RoundedCornerShape(8.dp)).background(fill).clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = if (style == ProxyTileStyle.DETAILED) 10.dp else 8.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Po0Radio(selected)
@@ -495,7 +595,7 @@ private fun NodeTile(
         }
         if (style == ProxyTileStyle.DETAILED) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(node.kind, style = MaterialTheme.typography.bodyMedium, color = colors.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(node.kind, style = MaterialTheme.typography.bodySmall, color = colors.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 NodeDelay(delay, testing, onTest)
             }
         }

@@ -1,8 +1,8 @@
-export const DEFAULT_ACCENT = 0xff24694c;
+export const DEFAULT_ACCENT = 0xff0064e0;
 
-export const CARD_DARK = 0x252421;
+export const CARD_DARK = 0x2b2b2b;
 const ON_ACCENT_LIGHT = 0xffffff;
-const ON_ACCENT_DARK = 0x0d1f16;
+const ON_ACCENT_DARK = 0x0a1317;
 const READABLE = 4.5;
 const NEARLY_READABLE = 3;
 

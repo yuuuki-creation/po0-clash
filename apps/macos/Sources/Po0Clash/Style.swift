@@ -50,7 +50,17 @@ enum Format {
         switch delay {
         case 0?: return .bad
         case let delay? where delay >= 600: return .warn
-        default: return .ink2
+        case _?: return .good
+        case nil: return .ink3
+        }
+    }
+
+    static func delayBackground(_ delay: UInt32?) -> Color {
+        switch delay {
+        case 0?: return .badMuted
+        case let delay? where delay >= 600: return .warnMuted
+        case _?: return .goodMuted
+        case nil: return .clear
         }
     }
 
@@ -94,9 +104,13 @@ extension NSColor {
         }
     }
 
-    static let pageBackground = token(light: 0xEFECE8, dark: 0x181714, black: 0x000000)
-    static let inkText = token(light: 0x211F1C, dark: 0xF3F1EE)
-    static let badText = token(light: 0xAF2B25, dark: 0xFB9890)
+    static let pageBackground = NSColor(name: nil) { appearance in
+        let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        if isDark, Theme.pureBlack { return .black }
+        return .windowBackgroundColor
+    }
+    static let inkText = NSColor.labelColor
+    static let badText = NSColor.systemRed
 
     convenience init(argb: UInt32) {
         self.init(
@@ -110,30 +124,36 @@ extension NSColor {
 
 extension Color {
     static let page = Color(nsColor: .pageBackground)
-    static let side = Color(light: 0xE5E3DE, dark: 0x201F1C, black: 0x0E0E0D)
-    static let card = Color(light: 0xFEFDFC, dark: 0x252421, black: 0x171614)
-    static let zebra = Color(light: 0xF7F5F0, dark: 0x2B2A27, black: 0x1D1C1A)
-    static let track = Color(light: 0xE2DFDA, dark: 0x32302D, black: 0x262523)
-    static let controlSurface = Color(light: 0xFEFDFC, dark: 0x2F2E2B, black: 0x232220)
-    static let segmentThumb = Color(light: 0xFEFDFC, dark: 0x373532, black: 0x2C2B28)
-    static let switchOff = Color(light: 0xADAAA6, dark: 0x656360)
-    static let dialogSurface = Color(light: 0xFBFAF8, dark: 0x282623, black: 0x1A1918)
+    static let side = Color(light: 0xF5F5F7, dark: 0x1E1E1E, black: 0x000000)
+    static let card = Color(light: 0xFFFFFF, dark: 0x262629, black: 0x121316)
+    static let zebra = Color.clear
+    static let neutral = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.08, darkAlpha: 0.14)
+    static let hover = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.04, darkAlpha: 0.06)
+    static let track = neutral
+    static let controlSurface = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.06, darkAlpha: 0.12)
+    static let segmentThumb = Color(light: 0xFFFFFF, dark: 0x3A3A3C, black: 0x1C1C1E)
+    static let switchOff = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.16, darkAlpha: 0.24)
+    static let dialogSurface = Color(light: 0xFFFFFF, dark: 0x2C2C2E, black: 0x1B1C20)
 
-    static let ink = Color(nsColor: .inkText)
-    static let ink2 = Color(light: 0x575551, dark: 0xB9B7B3)
-    static let ink3 = Color(light: 0x888681, dark: 0x888682)
-    static let warn = Color(light: 0x875800, dark: 0xEBC573)
-    static let bad = Color(nsColor: .badText)
+    static let ink = Color(nsColor: .labelColor)
+    static let ink2 = Color(nsColor: .secondaryLabelColor)
+    static let ink3 = Color(nsColor: .tertiaryLabelColor)
+    static let good = Color(nsColor: .systemGreen)
+    static let warn = Color(nsColor: .systemOrange)
+    static let bad = Color(nsColor: .systemRed)
+    static let goodMuted = Color(light: 0x28CD41, dark: 0x30D158, lightAlpha: 0.15, darkAlpha: 0.22)
+    static let warnMuted = Color(light: 0xFF9500, dark: 0xFF9F0A, lightAlpha: 0.15, darkAlpha: 0.22)
+    static let badMuted = Color(light: 0xFF3B30, dark: 0xFF453A, lightAlpha: 0.15, darkAlpha: 0.22)
 
-    static let line = Color(light: 0x211F1C, dark: 0xF3F1EE, lightAlpha: 0.11, darkAlpha: 0.127)
-    static let stroke = Color(light: 0x211F1C, dark: 0xF3F1EE, lightAlpha: 0.07, darkAlpha: 0.07)
-    static let press = Color(light: 0x211F1C, dark: 0xF3F1EE, lightAlpha: 0.07, darkAlpha: 0.07)
-    static let listSelection = Color(light: 0x211F1C, dark: 0xF3F1EE, lightAlpha: 0.08, darkAlpha: 0.08)
-    static let controlRing = Color(light: 0x211F1C, dark: 0xF3F1EE, lightAlpha: 0.18, darkAlpha: 0.18)
-    static let segmentRing = Color(light: 0x211F1C, dark: 0xF3F1EE, lightAlpha: 0.1, darkAlpha: 0.1)
-    static let controlShadow = Color(light: 0x000000, dark: 0x000000, lightAlpha: 0.07, darkAlpha: 0.3)
-    static let thumbShadow = Color(light: 0x000000, dark: 0x000000, lightAlpha: 0.18, darkAlpha: 0.4)
-    static let scrim = Color(light: 0x000000, dark: 0x000000, lightAlpha: 0.32, darkAlpha: 0.5)
+    static let line = Color(nsColor: .separatorColor)
+    static let stroke = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.08, darkAlpha: 0.10)
+    static let press = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.10, darkAlpha: 0.14)
+    static let listSelection = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.09, darkAlpha: 0.15)
+    static let controlRing = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.12, darkAlpha: 0.16)
+    static let segmentRing = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.08, darkAlpha: 0.12)
+    static let controlShadow = Color.clear
+    static let thumbShadow = Color(light: 0x000000, dark: 0x000000, lightAlpha: 0.12, darkAlpha: 0.36)
+    static let scrim = Color(light: 0x000000, dark: 0x000000, lightAlpha: 0.32, darkAlpha: 0.56)
 
     init(light: UInt32, dark: UInt32, black: UInt32? = nil, lightAlpha: CGFloat = 1, darkAlpha: CGFloat = 1) {
         self.init(nsColor: .token(light: light, dark: dark, black: black, lightAlpha: lightAlpha, darkAlpha: darkAlpha))
@@ -153,9 +173,9 @@ enum Theme {
     private static var appliedColor: UInt32?
 
     // crates/core/src/app_settings.rs keeps the same list as THEME_COLOR_PRESETS.
-    static let defaultColor: UInt32 = 0xFF24_694C
+    static let defaultColor: UInt32 = 0xFF00_64E0
     static let presets: [UInt32] = [
-        defaultColor, 0xFF00_7AFF, 0xFF58_56D6, 0xFFAF_52DE, 0xFFFF_2D55, 0xFFFF_9500, 0xFF34_C759, 0xFF30_B0C7,
+        defaultColor, 0xFF24_694C, 0xFF58_56D6, 0xFFAF_52DE, 0xFFFF_2D55, 0xFFFF_9500, 0xFF34_C759, 0xFF30_B0C7,
         0xFF8E_8E93,
     ]
 
@@ -204,8 +224,8 @@ enum Theme {
     /// The other presets are Apple's system colours, so they keep their dark-mode variants.
     static func nsAccent(_ argb: UInt32) -> NSColor {
         switch argb {
+        case 0xFF00_64E0, 0xFF00_7AFF: return .token(light: 0x0064E0, dark: 0x0171E3)
         case 0xFF24_694C: return .token(light: 0x24694C, dark: 0x80CEA8)
-        case 0xFF00_7AFF: return .systemBlue
         case 0xFF58_56D6: return .systemIndigo
         case 0xFFAF_52DE: return .systemPurple
         case 0xFFFF_2D55: return .systemPink
@@ -225,7 +245,7 @@ enum Theme {
             appearance.performAsCurrentDrawingAppearance {
                 luminance = Theme.relativeLuminance(accent)
             }
-            return luminance > 0.3 ? NSColor(srgbRed: 0x0D / 255, green: 0x1F / 255, blue: 0x16 / 255, alpha: 1) : .white
+            return luminance > 0.3 ? NSColor(srgbRed: 0x0A / 255, green: 0x13 / 255, blue: 0x17 / 255, alpha: 1) : .white
         }
     }
 

@@ -470,19 +470,48 @@ final class AppModel: ObservableObject {
         let profile = status?.profileId
         testingGroups.insert(group)
         Task {
-            defer { testingGroups.remove(group) }
-            do {
-                let tested = try await client.testDelay(group)
-                guard profile == status?.profileId else { return }
-                for node in tested.nodes {
-                    if let delay = node.delay { measuredDelays[node.name] = delay }
+            await runGroupDelay(group, profile: profile, client: client)
+        }
+    }
+
+    func testAllDelays() {
+        guard let client else { return }
+        let names = groups.map(\.name).filter { !testingGroups.contains($0) }
+        guard !names.isEmpty else { return }
+        let profile = status?.profileId
+        for name in names { testingGroups.insert(name) }
+        Task {
+            var index = 0
+            await withTaskGroup(of: Void.self) { taskGroup in
+                let workers = min(4, names.count)
+                for _ in 0..<workers {
+                    let name = names[index]
+                    index += 1
+                    taskGroup.addTask { await self.runGroupDelay(name, profile: profile, client: client) }
                 }
-                groups = groups.map { current in
-                    withMeasuredDelays(current.name == group ? tested : current)
+                while await taskGroup.next() != nil {
+                    guard index < names.count else { continue }
+                    let name = names[index]
+                    index += 1
+                    taskGroup.addTask { await self.runGroupDelay(name, profile: profile, client: client) }
                 }
-            } catch {
-                notice = describe(error)
             }
+        }
+    }
+
+    private func runGroupDelay(_ group: String, profile: String?, client: CoreClient) async {
+        defer { testingGroups.remove(group) }
+        do {
+            let tested = try await client.testDelay(group)
+            guard profile == status?.profileId else { return }
+            for node in tested.nodes {
+                if let delay = node.delay { measuredDelays[node.name] = delay }
+            }
+            groups = groups.map { current in
+                withMeasuredDelays(current.name == group ? tested : current)
+            }
+        } catch {
+            notice = describe(error)
         }
     }
 
@@ -906,16 +935,21 @@ final class AppModel: ObservableObject {
 
     private func pollTraffic() async {
         guard let client else { return }
-        traffic = try? await client.traffic()
+        let nextTraffic = try? await client.traffic()
+        if traffic != nextTraffic { traffic = nextTraffic }
         guard visibleSurfaces.contains(.dashboard) else { return }
-        trafficHistory = (try? await client.trafficHistory()) ?? []
-        memory = (try? await client.memory()) ?? 0
-        if let connections = try? await client.connections() {
-            connectionSummary = ConnectionSummary(
+        let nextHistory = (try? await client.trafficHistory()) ?? []
+        let nextMemory = (try? await client.memory()) ?? 0
+        let nextConnections = try? await client.connections()
+        if trafficHistory != nextHistory { trafficHistory = nextHistory }
+        if memory != nextMemory { memory = nextMemory }
+        if let connections = nextConnections {
+            let nextSummary = ConnectionSummary(
                 count: connections.items.count,
                 upload: connections.uploadTotal,
                 download: connections.downloadTotal
             )
+            if connectionSummary != nextSummary { connectionSummary = nextSummary }
         }
     }
 

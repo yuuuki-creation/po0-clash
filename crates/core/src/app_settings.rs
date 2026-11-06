@@ -2,14 +2,15 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::error::{CoreError, Result};
 
-pub const DEFAULT_THEME_COLOR: u32 = 0xFF24_694C;
+pub const DEFAULT_THEME_COLOR: u32 = 0xFF00_64E0;
 
-/// The default before ADR 0021. Settings files save it even when nobody chose it.
+/// Previous default theme colors; settings files save them even when nobody chose them.
+const PINE_DEFAULT_THEME_COLOR: u32 = 0xFF24_694C;
 const LEGACY_DEFAULT_THEME_COLOR: u32 = 0xFF00_7AFF;
 
 pub const THEME_COLOR_PRESETS: [u32; 9] = [
     DEFAULT_THEME_COLOR,
-    LEGACY_DEFAULT_THEME_COLOR,
+    PINE_DEFAULT_THEME_COLOR,
     0xFF58_56D6,
     0xFFAF_52DE,
     0xFFFF_2D55,
@@ -379,10 +380,12 @@ pub(crate) fn lenient<'de, D: Deserializer<'de>>(
 
 /// A list led by the old default predates ADR 0021; choosing blue later leaves the new default first.
 fn adopt_default_theme_color(mut settings: AppSettings) -> AppSettings {
-    if settings.theme_colors.first() == Some(&LEGACY_DEFAULT_THEME_COLOR) {
+    if let Some(&first @ (LEGACY_DEFAULT_THEME_COLOR | PINE_DEFAULT_THEME_COLOR)) =
+        settings.theme_colors.first()
+    {
         settings.theme_colors.insert(0, DEFAULT_THEME_COLOR);
         dedup(&mut settings.theme_colors);
-        if settings.theme_color == LEGACY_DEFAULT_THEME_COLOR {
+        if settings.theme_color == first {
             settings.theme_color = DEFAULT_THEME_COLOR;
         }
     }

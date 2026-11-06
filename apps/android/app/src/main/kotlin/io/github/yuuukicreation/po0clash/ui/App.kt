@@ -3,11 +3,7 @@ package io.github.yuuukicreation.po0clash.ui
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -20,7 +16,6 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBars
@@ -30,11 +25,15 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -50,10 +49,8 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -152,20 +149,46 @@ fun App(onConnect: () -> Unit, vm: AppViewModel = viewModel()) {
 private fun Toasts(state: SnackbarHostState, modifier: Modifier) {
     val colors = palette
     SnackbarHost(state, modifier.padding(bottom = LocalBottomInset.current)) { data ->
-        Snackbar(data, shape = RoundedCornerShape(4.dp), containerColor = colors.ink, contentColor = colors.bg)
+        Snackbar(data, shape = RoundedCornerShape(8.dp), containerColor = colors.ink, contentColor = colors.bg)
     }
 }
 
 @Composable
 private fun BottomNav(selected: Page, labels: Boolean, onSelect: (Page) -> Unit) {
     val colors = palette
-    val inset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    Column(Modifier.fillMaxWidth().background(colors.card)) {
-        Spacer(Modifier.fillMaxWidth().height(1.dp).background(colors.line))
-        Row(Modifier.fillMaxWidth().selectableGroup().padding(top = 10.dp, bottom = maxOf(14.dp, inset))) {
-            Page.entries.forEach { page ->
-                NavItem(page, page == selected, labels, Modifier.weight(1f)) { onSelect(page) }
-            }
+    NavigationBar(
+        containerColor = colors.card,
+        contentColor = colors.ink,
+        tonalElevation = 0.dp,
+    ) {
+        Page.entries.forEach { page ->
+            val active = page == selected
+            val title = stringResource(page.label)
+            NavigationBarItem(
+                selected = active,
+                onClick = { onSelect(page) },
+                icon = { Icon(page.icon, contentDescription = title.takeIf { !labels }, modifier = Modifier.size(22.dp)) },
+                label = if (labels) {
+                    {
+                        Text(
+                            title,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                            maxLines = 1,
+                        )
+                    }
+                } else {
+                    null
+                },
+                alwaysShowLabel = labels,
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = colors.onSel,
+                    selectedTextColor = colors.ink,
+                    indicatorColor = colors.sel,
+                    unselectedIconColor = colors.ink2,
+                    unselectedTextColor = colors.ink2,
+                ),
+            )
         }
     }
 }
@@ -173,46 +196,44 @@ private fun BottomNav(selected: Page, labels: Boolean, onSelect: (Page) -> Unit)
 @Composable
 private fun NavRail(selected: Page, labels: Boolean, onSelect: (Page) -> Unit) {
     val colors = palette
-    Row(Modifier.fillMaxHeight().background(colors.card).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Start))) {
-        Column(
-            Modifier.fillMaxHeight().width(88.dp).selectableGroup(),
-            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+    Row(Modifier.fillMaxHeight().background(colors.card)) {
+        NavigationRail(
+            containerColor = colors.card,
+            contentColor = colors.ink,
         ) {
+            Spacer(Modifier.weight(1f))
             Page.entries.forEach { page ->
-                NavItem(page, page == selected, labels, Modifier.fillMaxWidth()) { onSelect(page) }
+                val active = page == selected
+                val title = stringResource(page.label)
+                NavigationRailItem(
+                    selected = active,
+                    onClick = { onSelect(page) },
+                    icon = { Icon(page.icon, contentDescription = title.takeIf { !labels }, modifier = Modifier.size(22.dp)) },
+                    label = if (labels) {
+                        {
+                            Text(
+                                title,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                                maxLines = 1,
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                    alwaysShowLabel = labels,
+                    colors = NavigationRailItemDefaults.colors(
+                        selectedIconColor = colors.onSel,
+                        selectedTextColor = colors.ink,
+                        indicatorColor = colors.sel,
+                        unselectedIconColor = colors.ink2,
+                        unselectedTextColor = colors.ink2,
+                    ),
+                )
             }
+            Spacer(Modifier.weight(1f))
         }
         Spacer(Modifier.fillMaxHeight().width(1.dp).background(colors.line))
-    }
-}
-
-@Composable
-private fun NavItem(page: Page, selected: Boolean, labels: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val colors = palette
-    val width by animateFloatAsState(if (selected) 1f else 0.4f, tween(300, easing = StandardEasing), label = "pillWidth")
-    val shown by animateFloatAsState(if (selected) 1f else 0f, tween(100), label = "pillAlpha")
-    Column(
-        modifier.selectable(selected, remember { MutableInteractionSource() }, indication = null, role = Role.Tab, onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Box(Modifier.size(56.dp, 32.dp), contentAlignment = Alignment.Center) {
-            Box(
-                Modifier.fillMaxSize().graphicsLayer {
-                    scaleX = width
-                    alpha = shown
-                }.background(colors.sel, RoundedCornerShape(16.dp)),
-            )
-            Icon(page.icon, stringResource(page.label).takeIf { !labels }, tint = if (selected) colors.onSel else colors.ink, modifier = Modifier.size(22.dp))
-        }
-        if (labels) {
-            Text(
-                stringResource(page.label),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                maxLines = 1,
-            )
-        }
     }
 }
 

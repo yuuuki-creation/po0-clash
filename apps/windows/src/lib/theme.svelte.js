@@ -3,8 +3,8 @@ import { accentTokens } from './accent.js';
 import { settings } from './settings.svelte.js';
 
 export const presets = [
+  ['blue', '#0064E0'],
   ['pine', '#24694C'],
-  ['blue', '#007AFF'],
   ['indigo', '#5856D6'],
   ['purple', '#AF52DE'],
   ['pink', '#FF2D55'],

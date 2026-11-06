@@ -26,7 +26,7 @@ fun NavRow(
     onClick: () -> Unit,
 ) {
     GroupRow(index, count, onClick = if (busy) null else onClick) {
-        Text(label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = if (value == null) Modifier.weight(1f) else Modifier)
+        Text(label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         if (value != null) RowValue(value)
         if (busy) {
             SmallProgress()

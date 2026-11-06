@@ -7,15 +7,18 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
@@ -30,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -188,7 +192,7 @@ private fun StatusRow(vm: AppViewModel, onConnect: () -> Unit, count: Int, colum
     val since = connectedAt
     val starting = active && since == null
     val (dot, title) = when {
-        active && since != null -> colors.accent to stringResource(R.string.state_running)
+        active && since != null -> colors.good to stringResource(R.string.state_running)
         starting -> colors.warn to stringResource(R.string.state_starting)
         failure != null -> colors.bad to stringResource(R.string.state_failed)
         else -> colors.ink3 to stringResource(R.string.state_stopped)
@@ -250,13 +254,21 @@ private fun Rate(icon: ImageVector, tint: Color, label: String, value: String) {
 private fun SpeedGroup(history: List<Traffic>?) {
     val colors = palette
     val now = history?.lastOrNull()
+    val lineColor = colors.line
     Column {
         GroupRow(0, 2) {
             Text(stringResource(R.string.network_speed), style = MaterialTheme.typography.bodyLarge, maxLines = 1, modifier = Modifier.weight(1f))
             Rate(LineIcons.ArrowDown, colors.accent, stringResource(R.string.download), "${bytes(now?.down ?: 0u)}/s")
             Rate(LineIcons.ArrowUp, colors.ink2, stringResource(R.string.upload), "${bytes(now?.up ?: 0u)}/s")
         }
-        SpeedChart(history.orEmpty(), Modifier.padding(top = 2.dp).clip(segmentShape(1, 2)))
+        SpeedChart(
+            history.orEmpty(),
+            Modifier.clip(segmentShape(1, 2)).drawWithContent {
+                drawContent()
+                val stroke = 1.dp.toPx()
+                drawLine(lineColor, Offset(0f, stroke / 2f), Offset(size.width, stroke / 2f), stroke)
+            },
+        )
     }
 }
 
@@ -267,14 +279,12 @@ private const val HISTORY = 60
 private fun SpeedChart(history: List<Traffic>, modifier: Modifier) {
     val colors = palette
     val reduce = LocalReduceMotion.current
-    // Made in the composition that brings the sample: an effect only starts after that frame has drawn it at the old offset.
     val progress = remember(history, reduce) { Animatable(if (reduce || history.size < 2) 1f else 0f) }
     LaunchedEffect(progress) { progress.animateTo(1f, tween(1000, easing = LinearEasing)) }
     Canvas(modifier.fillMaxWidth().height(96.dp).background(colors.card)) {
         val bottom = size.height - 4.dp.toPx()
         val span = bottom - 6.dp.toPx()
         val top = maxOf(history.maxOfOrNull { maxOf(it.up, it.down) }?.toFloat()?.times(1.1f) ?: 0f, 1024f)
-        // The core keeps 60 samples, so one of them always waits past an edge and the line's left end never pops in.
         val step = size.width / (HISTORY - 2)
         val slide = step * (1f - progress.value)
         val start = size.width - step * (history.size - 1) + slide
@@ -323,18 +333,29 @@ private fun CardRow(
             val profiles by engine.profiles.collectAsStateWithLifecycle()
             val current = profiles.firstOrNull { it.selected }
             val usage = current?.usage?.takeIf { it.total > 0u }
-            LinkRow(
-                index,
-                count,
-                columns,
-                current?.let { profileName(it.kind, it.name) } ?: stringResource(if (profiles.isEmpty()) R.string.add_subscription else R.string.no_profile),
-                usage?.let { "${bytes(it.upload + it.download)} / ${bytes(it.total)}" },
-            ) { onOpen(Page.PROFILES) }
+            val title = current?.let { profileName(it.kind, it.name) } ?: stringResource(if (profiles.isEmpty()) R.string.add_subscription else R.string.no_profile)
+            if (usage == null) {
+                LinkRow(index, count, columns, title, null) { onOpen(Page.PROFILES) }
+            } else {
+                val fraction = ((usage.upload + usage.download).toDouble() / usage.total.toDouble()).toFloat().coerceIn(0f, 1f)
+                GroupRow(index, count, columns = columns, onClick = { onOpen(Page.PROFILES) }) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            Text("${bytes(usage.upload + usage.download)} / ${bytes(usage.total)}", style = MaterialTheme.typography.bodyMedium.tabular(), color = palette.ink2, maxLines = 1)
+                        }
+                        Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(palette.track)) {
+                            Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().clip(CircleShape).background(palette.accent))
+                        }
+                    }
+                    Chevron()
+                }
+            }
         }
         DashboardCard.EXIT_IP -> {
             val exitIp by engine.exitIp.collectAsStateWithLifecycle()
             GroupRow(index, count, columns = columns, onClick = engine::refreshExitIp) {
-                Text(stringResource(R.string.exit_ip), style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+                Text(stringResource(R.string.exit_ip), style = MaterialTheme.typography.bodyLarge, maxLines = 1, modifier = Modifier.weight(1f))
                 RowValue(exitIp?.let { listOfNotNull(it.country, it.ip).joinToString(" · ") } ?: "—", TextOverflow.MiddleEllipsis)
             }
         }
@@ -374,7 +395,7 @@ private fun CardRow(
 @Composable
 private fun LinkRow(index: Int, count: Int, columns: Int, label: String, value: String?, onClick: () -> Unit) {
     GroupRow(index, count, columns = columns, onClick = onClick) {
-        Text(label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = if (value == null) Modifier.weight(1f) else Modifier)
+        Text(label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         value?.let { RowValue(it) }
         Chevron()
     }
@@ -398,7 +419,7 @@ private fun NodeRow(vm: AppViewModel, index: Int, count: Int, columns: Int, onCl
             textAlign = TextAlign.End,
             modifier = Modifier.weight(1f),
         )
-        if (name != null) DelayText(node?.delay)
+        if (name != null) DelayText(node?.delay, placeholder = true)
         Chevron()
     }
 }

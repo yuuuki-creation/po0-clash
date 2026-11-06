@@ -212,7 +212,7 @@ private fun ColorSwatches(colors: List<UInt>, selected: UInt, onSelect: (UInt) -
     val ink = palette.ink
     val track = palette.track
     FlowRow(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(card).padding(16.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(card).padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -246,7 +246,7 @@ private fun ColorSheet(title: String, onAdd: (UInt) -> Unit) {
     SheetTitle(title)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.size(38.dp).clip(CircleShape).background(argb?.let { Color(it.toInt()) } ?: palette.track))
-        Box(Modifier.weight(1f)) { SheetField(text, { text = it.take(7) }, "#24694C", multiline = false, keyboardType = KeyboardType.Ascii) }
+        Box(Modifier.weight(1f)) { SheetField(text, { text = it.take(7) }, "#0064E0", multiline = false, keyboardType = KeyboardType.Ascii) }
     }
     SheetButtons(stringResource(R.string.add), enabled = argb != null, onCancel = sheets::dismiss) {
         sheets.dismiss()

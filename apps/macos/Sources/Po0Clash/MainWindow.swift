@@ -178,9 +178,9 @@ extension EnvironmentValues {
 }
 
 struct MainView: View {
-    @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var navigation: Navigation
     @EnvironmentObject private var dialogs: DialogCenter
+    @Environment(\.onAccent) private var onAccent
 
     var body: some View {
         GeometryReader { proxy in
@@ -205,18 +205,12 @@ struct MainView: View {
                     .offset(x: visible ? 0 : -Ui.sidebarWidth)
                     .allowsHitTesting(dialogs.stack.isEmpty)
                 DialogLayer()
-                connectShortcut
+                MainModelBridge()
             }
             .motion(Motion.sidebar, value: visible)
         }
         .ignoresSafeArea()
         .background(Color.page)
-        .dialog(item: Binding(
-            get: { model.notice.map { Notice(text: $0) } },
-            set: { if $0 == nil { model.notice = nil } }
-        )) { notice in
-            NoticeDialog(text: notice.text)
-        }
         .onChange(of: navigation.page) { page in
             if page != .tools { navigation.tools = [] }
         }
@@ -248,8 +242,8 @@ struct MainView: View {
                         if narrow { navigation.sidebarToggled = false }
                     }
                 ),
-                accent: Theme.nsAccent(model.themeColor),
-                onAccent: Theme.nsOnAccent(model.themeColor),
+                accent: Color.accentColor,
+                onAccent: onAccent,
                 enabled: dialogs.stack.isEmpty
             )
             .padding(.horizontal, 10)
@@ -262,9 +256,13 @@ struct MainView: View {
             Rectangle().fill(Color.line).frame(width: 1)
         }
     }
+}
 
-    /// The connect button moved to the dashboard's status row; its shortcut still works from every page.
-    private var connectShortcut: some View {
+private struct MainModelBridge: View {
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var dialogs: DialogCenter
+
+    var body: some View {
         Button {
             model.setConnected(!model.isOn)
         } label: {
@@ -276,6 +274,12 @@ struct MainView: View {
         .frame(width: 0, height: 0)
         .opacity(0)
         .accessibilityHidden(true)
+        .dialog(item: Binding(
+            get: { model.notice.map { Notice(text: $0) } },
+            set: { if $0 == nil { model.notice = nil } }
+        )) { notice in
+            NoticeDialog(text: notice.text)
+        }
     }
 }
 

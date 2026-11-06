@@ -5,6 +5,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -113,7 +114,7 @@ private fun AppBar(title: String, scrolled: Boolean, actions: List<PageAction>, 
     val fill by animateColorAsState(if (scrolled) colors.card else colors.bg, tween(200), label = "appBar")
     Box(Modifier.fillMaxWidth().background(fill).windowInsetsPadding(WindowInsets.statusBars)) {
         Row(
-            Modifier.fillMaxWidth().height(64.dp).padding(start = 16.dp, end = 4.dp),
+            Modifier.fillMaxWidth().height(56.dp).padding(start = 16.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
@@ -144,18 +145,20 @@ private fun AppBarSearchField(search: AppBarSearch, modifier: Modifier) {
     val colors = palette
     val focus = remember { FocusRequester() }
     val appear = remember { Animatable(0f) }
+    val shape = RoundedCornerShape(8.dp)
     LaunchedEffect(Unit) {
         focus.requestFocus()
         appear.animateTo(1f, tween(200, easing = StandardEasing))
     }
     Row(
-        modifier.height(48.dp)
+        modifier.height(44.dp)
             .graphicsLayer {
                 alpha = appear.value
                 scaleX = 0.9f + 0.1f * appear.value
                 transformOrigin = TransformOrigin(1f, 0.5f)
             }
-            .background(colors.card, RoundedCornerShape(24.dp)),
+            .background(colors.card, shape)
+            .border(1.dp, colors.line, shape),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AppIconButton(LineIcons.ChevronLeft, stringResource(R.string.back), onClick = search.onClose)
@@ -179,11 +182,12 @@ private fun AppBarSearchField(search: AppBarSearch, modifier: Modifier) {
 @Composable
 fun SearchField(query: String, onChange: (String) -> Unit) {
     val colors = palette
+    val shape = RoundedCornerShape(8.dp)
     Row(
-        Modifier.fillMaxWidth().height(48.dp).background(colors.card, RoundedCornerShape(24.dp)).padding(horizontal = 16.dp),
+        Modifier.fillMaxWidth().height(44.dp).background(colors.card, shape).border(1.dp, colors.line, shape).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(LineIcons.Search, contentDescription = null, tint = colors.ink2, modifier = Modifier.padding(end = 12.dp))
+        Icon(LineIcons.Search, contentDescription = null, tint = colors.ink2, modifier = Modifier.padding(end = 10.dp))
         Box(Modifier.weight(1f)) {
             if (query.isEmpty()) Text(stringResource(R.string.search), style = MaterialTheme.typography.bodyLarge, color = colors.ink2)
             BasicTextField(

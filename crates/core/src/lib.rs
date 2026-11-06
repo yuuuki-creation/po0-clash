@@ -1519,10 +1519,27 @@ impl Core {
     }
 
     fn refresh_current_node(&self, session: &Session, mode: Mode) {
-        let node = self.proxies(session).ok().and_then(|proxies| {
-            let first = Self::group_names(&proxies, mode).into_iter().next()?;
-            Self::resolve_node(&proxies, &first)
-        });
+        if let Ok(proxies) = self.proxies(session) {
+            self.refresh_current_node_from(session, mode, &proxies);
+        } else {
+            session.set_current_node(if mode == Mode::Direct {
+                Some("DIRECT".into())
+            } else {
+                None
+            });
+        }
+    }
+
+    fn refresh_current_node_from(
+        &self,
+        session: &Session,
+        mode: Mode,
+        proxies: &serde_json::Map<String, Value>,
+    ) {
+        let node = Self::group_names(proxies, mode)
+            .into_iter()
+            .next()
+            .and_then(|first| Self::resolve_node(proxies, &first));
         session.set_current_node(if mode == Mode::Direct {
             Some("DIRECT".into())
         } else {
@@ -1601,8 +1618,8 @@ impl Core {
         for node in &mut result.nodes {
             node.delay = Some(delays.get(&node.name).and_then(Value::as_u64).unwrap_or(0) as u32);
         }
-        self.refresh_current_node(&session, self.store.read(|s| s.mode));
-        self.emit(&[Change::Status, Change::Groups]);
+        self.refresh_current_node_from(&session, self.store.read(|s| s.mode), &proxies);
+        self.emit(&[Change::Status]);
         Ok(result)
     }
 
@@ -1613,21 +1630,28 @@ impl Core {
             &resources::provider_path(ProviderKind::Proxy, None),
             None,
         )?;
-        let provider = resources::provider_of(&providers, &node)
-            .ok_or_else(|| CoreError::Invalid("no such node".into()))?;
-        let path = format!(
-            "{}/{}/healthcheck?{}",
-            resources::provider_path(ProviderKind::Proxy, Some(&provider)),
-            util::encode_component(&node),
-            self.delay_query()
-        );
+        let path = match resources::provider_of(&providers, &node) {
+            Some(provider) => format!(
+                "{}/{}/healthcheck?{}",
+                resources::provider_path(ProviderKind::Proxy, Some(&provider)),
+                util::encode_component(&node),
+                self.delay_query()
+            ),
+            None => {
+                let proxy_path = format!("/proxies/{}", util::encode_component(&node));
+                if session.controller().json("GET", &proxy_path, None).is_err() {
+                    return Err(CoreError::Invalid("no such node".into()));
+                }
+                format!("{proxy_path}/delay?{}", self.delay_query())
+            }
+        };
         let delay = session
             .controller()
             .json("GET", &path, None)
             .ok()
             .and_then(|value| value.get("delay")?.as_u64())
             .unwrap_or(0);
-        self.emit(&[Change::Groups]);
+        self.emit(&[Change::Status]);
         Ok(delay as u32)
     }
 

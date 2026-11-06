@@ -53,8 +53,8 @@ fn page_color(window: &tauri::WebviewWindow, settings: &po0::AppSettings) -> Col
     };
     match (dark, settings.pure_black) {
         (true, true) => Color(0x00, 0x00, 0x00, 0xFF),
-        (true, false) => Color(0x18, 0x17, 0x14, 0xFF),
-        _ => Color(0xEF, 0xEC, 0xE8, 0xFF),
+        (true, false) => Color(0x20, 0x20, 0x20, 0xFF),
+        _ => Color(0xF3, 0xF3, 0xF3, 0xFF),
     }
 }
 

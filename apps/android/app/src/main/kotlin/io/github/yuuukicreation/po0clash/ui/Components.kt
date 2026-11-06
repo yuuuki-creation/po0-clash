@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
@@ -34,6 +35,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -52,12 +55,11 @@ import io.github.yuuukicreation.po0clash.R
 import java.text.DateFormat
 import java.util.Date
 
-/** Rows are segments: outer corners of the whole group 16, every other corner 4. */
 fun segmentShape(index: Int, count: Int, columns: Int = 1): Shape {
     val row = index / columns
     val column = index % columns
     val lastRow = (count - 1) / columns
-    fun corner(outer: Boolean) = if (outer) 16.dp else 4.dp
+    fun corner(outer: Boolean) = if (outer) 16.dp else 0.dp
     return RoundedCornerShape(
         topStart = corner(row == 0 && column == 0),
         topEnd = corner(row == 0 && column == columns - 1),
@@ -66,25 +68,34 @@ fun segmentShape(index: Int, count: Int, columns: Int = 1): Shape {
     )
 }
 
-/** One row of a group; each row is its own lazy item when the list is long, so it carries its own 2 dp gap. */
 @Composable
 fun GroupRow(
     index: Int,
     count: Int,
     onClick: (() -> Unit)? = null,
     columns: Int = 1,
-    minHeight: Dp = 56.dp,
+    minHeight: Dp = 52.dp,
     endPadding: Dp = 16.dp,
     fill: Color = palette.card,
     content: @Composable RowScope.() -> Unit,
 ) {
-    val gapTop = if (index >= columns) 2.dp else 0.dp
-    val gapStart = if (index % columns > 0) 2.dp else 0.dp
+    val lineColor = palette.line
+    val hasTopDivider = index >= columns
+    val hasStartDivider = index % columns > 0
     Row(
         Modifier.fillMaxWidth().then(if (columns > 1) Modifier.fillMaxHeight() else Modifier)
-            .padding(start = gapStart, top = gapTop)
             .clip(segmentShape(index, count, columns))
             .background(fill)
+            .drawWithContent {
+                drawContent()
+                val stroke = 1.dp.toPx()
+                if (hasTopDivider) {
+                    drawLine(lineColor, Offset(0f, stroke / 2f), Offset(size.width, stroke / 2f), stroke)
+                }
+                if (hasStartDivider) {
+                    drawLine(lineColor, Offset(stroke / 2f, 0f), Offset(stroke / 2f, size.height), stroke)
+                }
+            }
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .heightIn(min = minHeight)
             .padding(start = 16.dp, end = endPadding, top = 8.dp, bottom = 8.dp),
@@ -126,7 +137,7 @@ fun RowScope.RowValue(value: String, overflow: TextOverflow = TextOverflow.Ellip
         textAlign = TextAlign.End,
         maxLines = 1,
         overflow = overflow,
-        modifier = Modifier.weight(1f),
+        modifier = Modifier.widthIn(max = 220.dp),
     )
 }
 
@@ -138,7 +149,7 @@ fun Chevron() {
 @Composable
 fun ValueRow(index: Int, count: Int, label: String, value: String, columns: Int = 1) {
     GroupRow(index, count, columns = columns) {
-        Text(label, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+        Text(label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         RowValue(value)
     }
 }
@@ -157,7 +168,7 @@ fun SectionHeader(text: String, top: Dp = 12.dp) {
         text,
         style = MaterialTheme.typography.labelLarge,
         color = palette.ink2,
-        modifier = Modifier.padding(top = top, bottom = 8.dp),
+        modifier = Modifier.padding(top = top, bottom = 6.dp),
     )
 }
 
@@ -214,7 +225,7 @@ fun SheetField(
             capitalization = KeyboardCapitalization.None,
         ),
         visualTransformation = if (keyboardType == KeyboardType.Password) PasswordVisualTransformation() else VisualTransformation.None,
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = colors.accent,
             unfocusedBorderColor = colors.outline,

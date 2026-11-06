@@ -3,17 +3,17 @@ import SwiftUI
 
 /// The macOS sizes of docs/design/native-ui.
 enum Ui {
-    static let font = Font.system(size: 14)
-    static let boldFont = Font.system(size: 14, weight: .semibold)
-    static let codeFont = Font.system(size: 14, design: .monospaced)
+    static let font = Font.system(size: 13)
+    static let boldFont = Font.system(size: 13, weight: .semibold)
+    static let codeFont = Font.system(size: 12, design: .monospaced)
     static let control: CGFloat = 28
-    static let row: CGFloat = 44
-    static let tableRow: CGFloat = 32
+    static let row: CGFloat = 42
+    static let tableRow: CGFloat = 34
     static let padding: CGFloat = 14
     static let block: CGFloat = 14
     static let pageInset: CGFloat = 20
     static let maxWidth: CGFloat = 1100
-    static let sidebarWidth: CGFloat = 200
+    static let sidebarWidth: CGFloat = 212
     static let columnWidth: CGFloat = 340
     static let groupRadius: CGFloat = 10
     static let controlRadius: CGFloat = 6
@@ -41,13 +41,11 @@ private struct ActionButtonBody: View {
         configuration.label
             .font(Ui.font)
             .lineLimit(1)
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 10)
             .frame(minHeight: Ui.control)
             .foregroundStyle(primary ? onAccent : Color.ink)
             .background(primary ? Color.accentColor : Color.controlSurface, in: shape)
-            .overlay(shape.stroke(Color.controlRing, lineWidth: 0.5))
-            .compositingGroup()
-            .shadow(color: Color.controlShadow, radius: 0.5, y: 1)
+            .overlay(shape.stroke(primary ? Color.clear : Color.controlRing, lineWidth: 0.5))
             .brightness(configuration.isPressed ? -0.08 : 0)
             .opacity(isEnabled ? 1 : 0.5)
             .contentShape(shape)
@@ -128,11 +126,13 @@ struct Ring: View {
     var body: some View {
         Circle()
             .trim(from: 0, to: 0.75)
-            .stroke(style: StrokeStyle(lineWidth: 2))
+            .strokeBorder(style: StrokeStyle(lineWidth: 2, lineCap: .round))
             .frame(width: 14, height: 14)
             .rotationEffect(.degrees(turned ? 360 : 0))
             .animation(reduceMotion ? nil : Animation.linear(duration: 0.8).repeatForever(autoreverses: false), value: turned)
-            .onAppear { turned = true }
+            .onAppear {
+                DispatchQueue.main.async { turned = true }
+            }
     }
 }
 
@@ -392,43 +392,12 @@ struct SwitchControl: View {
     @Binding var isOn: Bool
 
     var body: some View {
-        Button {
-            isOn.toggle()
-        } label: {
-            EmptyView()
-        }
-        .buttonStyle(SwitchStyle(isOn: isOn))
-        .accessibilityValue(isOn ? Text("On") : Text("Off"))
-    }
-}
-
-private struct SwitchStyle: ButtonStyle {
-    let isOn: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        SwitchBody(isOn: isOn, pressed: configuration.isPressed)
-    }
-}
-
-private struct SwitchBody: View {
-    let isOn: Bool
-    let pressed: Bool
-    @Environment(\.isEnabled) private var isEnabled
-
-    var body: some View {
-        ZStack(alignment: isOn ? .trailing : .leading) {
-            Capsule().fill(isOn ? Color.accentColor : Color.switchOff).motion(Motion.fill, value: isOn)
-            Capsule()
-                .fill(Color.white)
-                .frame(width: pressed ? 22 : 18, height: 18)
-                .shadow(color: Color.black.opacity(0.3), radius: 1, y: 1)
-                .padding(2)
-                .motion(Motion.control, value: isOn)
-                .motion(Motion.press, value: pressed)
-        }
-        .frame(width: 38, height: 22)
-        .opacity(isEnabled ? 1 : 0.5)
-        .contentShape(Capsule())
+        Toggle("", isOn: $isOn)
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .tint(Color.accentColor)
+            .accessibilityValue(isOn ? Text("On") : Text("Off"))
     }
 }
 
@@ -469,64 +438,26 @@ struct Segment<Value> {
 struct SegmentedControl<Value: Equatable>: View {
     @Binding var selection: Value
     let segments: [Segment<Value>]
-    @Environment(\.isEnabled) private var isEnabled
 
-    private var selectedIndex: Int {
-        segments.firstIndex { $0.value == selection } ?? 0
+    private var selectedIndex: Binding<Int> {
+        Binding(
+            get: { segments.firstIndex { $0.value == selection } ?? 0 },
+            set: { index in
+                guard segments.indices.contains(index) else { return }
+                selection = segments[index].value
+            }
+        )
     }
 
     var body: some View {
-        EqualWidthRow() {
+        Picker("", selection: selectedIndex) {
             ForEach(segments.indices, id: \.self) { index in
-                Button {
-                    selection = segments[index].value
-                } label: {
-                    Text(segments[index].title)
-                        .lineLimit(1)
-                        .padding(.horizontal, 12)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: Ui.control - 4)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(index == selectedIndex ? .isSelected : [])
+                Text(segments[index].title).tag(index)
             }
         }
-        .background(
-            GeometryReader { proxy in
-                let width = proxy.size.width / CGFloat(max(segments.count, 1))
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(Color.segmentThumb)
-                    .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(Color.segmentRing, lineWidth: 0.5))
-                    .shadow(color: Color.thumbShadow, radius: 1, y: 1)
-                    .frame(width: width, height: proxy.size.height)
-                    .offset(x: width * CGFloat(selectedIndex))
-                    .motion(Motion.control, value: selectedIndex)
-            }
-        )
-        .padding(2)
-        .background(Color.track, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-        .opacity(isEnabled ? 1 : 0.5)
+        .labelsHidden()
+        .pickerStyle(.segmented)
         .fixedSize()
-    }
-}
-
-private struct EqualWidthRow: Layout {
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
-        let width = sizes.map(\.width).max() ?? 0
-        return CGSize(width: width * CGFloat(subviews.count), height: sizes.map(\.height).max() ?? 0)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        guard !subviews.isEmpty else { return }
-        let width = bounds.width / CGFloat(subviews.count)
-        for (index, subview) in subviews.enumerated() {
-            subview.place(
-                at: CGPoint(x: bounds.minX + width * CGFloat(index), y: bounds.minY),
-                proposal: ProposedViewSize(width: width, height: bounds.height)
-            )
-        }
     }
 }
 
@@ -798,8 +729,8 @@ struct MenuEntries: View {
 
 struct DownChevron: View {
     var body: some View {
-        Image(systemName: "chevron.down")
-            .font(.system(size: 11, weight: .semibold))
+        Image(systemName: "chevron.up.chevron.down")
+            .font(.system(size: 10, weight: .bold))
             .foregroundStyle(Color.ink2)
     }
 }
@@ -925,7 +856,9 @@ extension View {
                     }
                 }
             )
-            .background(zebra ? Color.zebra : Color.clear)
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(Color.line).frame(height: 1)
+            }
     }
 
     func tableHeader() -> some View {
