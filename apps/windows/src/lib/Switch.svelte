@@ -9,5 +9,5 @@
   aria-checked={checked}
   aria-label={label}
   {disabled}
-  onclick={() => onchange(!checked)}><span></span></button
+  onclick={() => onchange(!checked)}></button
 >

@@ -126,13 +126,10 @@ extension Color {
     static let page = Color(nsColor: .pageBackground)
     static let side = Color(light: 0xF5F5F7, dark: 0x1E1E1E, black: 0x000000)
     static let card = Color(light: 0xFFFFFF, dark: 0x262629, black: 0x121316)
-    static let zebra = Color.clear
     static let neutral = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.08, darkAlpha: 0.14)
     static let hover = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.04, darkAlpha: 0.06)
     static let track = neutral
     static let controlSurface = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.06, darkAlpha: 0.12)
-    static let segmentThumb = Color(light: 0xFFFFFF, dark: 0x3A3A3C, black: 0x1C1C1E)
-    static let switchOff = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.16, darkAlpha: 0.24)
     static let dialogSurface = Color(light: 0xFFFFFF, dark: 0x2C2C2E, black: 0x1B1C20)
 
     static let ink = Color(nsColor: .labelColor)
@@ -150,9 +147,6 @@ extension Color {
     static let press = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.10, darkAlpha: 0.14)
     static let listSelection = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.09, darkAlpha: 0.15)
     static let controlRing = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.12, darkAlpha: 0.16)
-    static let segmentRing = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.08, darkAlpha: 0.12)
-    static let controlShadow = Color.clear
-    static let thumbShadow = Color(light: 0x000000, dark: 0x000000, lightAlpha: 0.12, darkAlpha: 0.36)
     static let scrim = Color(light: 0x000000, dark: 0x000000, lightAlpha: 0.32, darkAlpha: 0.56)
 
     init(light: UInt32, dark: UInt32, black: UInt32? = nil, lightAlpha: CGFloat = 1, darkAlpha: CGFloat = 1) {
@@ -172,7 +166,6 @@ enum Theme {
     static var pureBlack = false
     private static var appliedColor: UInt32?
 
-    // crates/core/src/app_settings.rs keeps the same list as THEME_COLOR_PRESETS.
     static let defaultColor: UInt32 = 0xFF00_64E0
     static let presets: [UInt32] = [
         defaultColor, 0xFF24_694C, 0xFF58_56D6, 0xFFAF_52DE, 0xFFFF_2D55, 0xFFFF_9500, 0xFF34_C759, 0xFF30_B0C7,

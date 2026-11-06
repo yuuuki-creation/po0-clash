@@ -61,7 +61,6 @@
   --shadow-low: 0 2px 4px rgba(0, 0, 0, 0.04);
   --shadow-med: 0 8px 16px rgba(0, 0, 0, 0.14);
   --shadow-high: 0 32px 64px rgba(0, 0, 0, 0.1876), 0 2px 21px rgba(0, 0, 0, 0.1474);
-  --shadow-inset-selected: inset 0 0 0 1.5px rgba(0, 95, 184, 0.45);
 
   --bg: var(--color-background-body);
   --card: var(--color-background-card);
@@ -130,7 +129,6 @@
   --shadow-low: 0 2px 4px rgba(0, 0, 0, 0.26);
   --shadow-med: 0 8px 16px rgba(0, 0, 0, 0.28);
   --shadow-high: 0 32px 64px rgba(0, 0, 0, 0.37), 0 2px 21px rgba(0, 0, 0, 0.37);
-  --shadow-inset-selected: inset 0 0 0 1.5px rgba(96, 205, 255, 0.55);
 
   --bg: var(--color-background-body);
   --card: var(--color-background-card);

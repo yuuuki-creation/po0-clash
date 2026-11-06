@@ -223,55 +223,6 @@
   color: var(--ink3);
 }
 
-.tabs {
-  position: relative;
-  display: inline-grid;
-  flex: none;
-  grid-auto-columns: minmax(72px, 1fr);
-  grid-auto-flow: column;
-}
-
-.tabs button {
-  height: 36px;
-  padding: 0 12px;
-  border-radius: var(--radius-element);
-  color: var(--ink2);
-  font-weight: 500;
-  text-align: center;
-  white-space: nowrap;
-  transition: background 90ms;
-}
-
-.tabs button:hover {
-  background: var(--hover);
-}
-
-.tabs button.act {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.tabs-ind {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  display: flex;
-  justify-content: center;
-  width: calc(100% / var(--n));
-  height: 3px;
-  pointer-events: none;
-  transform: translateX(calc(100% * var(--i)));
-  transition: transform 167ms var(--ease-in);
-}
-
-.tabs-ind::before {
-  content: '';
-  width: 24px;
-  height: 3px;
-  border-radius: var(--radius-full);
-  background: var(--accent);
-}
-
 .switch {
   position: relative;
   flex: none;

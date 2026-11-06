@@ -3,8 +3,6 @@ use serde::{Deserialize, Deserializer, Serialize};
 use crate::error::{CoreError, Result};
 
 pub const DEFAULT_THEME_COLOR: u32 = 0xFF00_64E0;
-
-/// Previous default theme colors; settings files save them even when nobody chose them.
 const PINE_DEFAULT_THEME_COLOR: u32 = 0xFF24_694C;
 const LEGACY_DEFAULT_THEME_COLOR: u32 = 0xFF00_7AFF;
 

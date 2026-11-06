@@ -32,7 +32,6 @@ import androidx.core.view.WindowCompat
 import io.github.yuuukicreation.po0clash.core.AppSettings
 import io.github.yuuukicreation.po0clash.core.ThemeMode
 
-/** The Astryx 0.7.9 tokens from docs/design/native-ui/demo/src/colors.css (`.and.*.pal-b`). */
 @Immutable
 data class Po0Colors(
     val bg: Color,
@@ -51,12 +50,9 @@ data class Po0Colors(
     val goodMuted: Color,
     val warnMuted: Color,
     val badMuted: Color,
-    val cardHi: Color,
     val outline: Color,
     val sel: Color,
     val onSel: Color,
-    val fab: Color,
-    val onFab: Color,
     val sheet: Color,
     val dark: Boolean,
 )
@@ -78,12 +74,9 @@ private val Light = Po0Colors(
     goodMuted = Color(0x26146C2E),
     warnMuted = Color(0x26835500),
     badMuted = Color(0x26BA1A1A),
-    cardHi = Color(0xFFE6E8EE),
     outline = Color(0xFF73777F),
     sel = Color(0xFFD1E4FF),
     onSel = Color(0xFF001D36),
-    fab = Color(0xFF0061A4),
-    onFab = Color.White,
     sheet = Color(0xFFF2F3FA),
     dark = false,
 )
@@ -105,12 +98,9 @@ private val Dark = Po0Colors(
     goodMuted = Color(0x336DD58C),
     warnMuted = Color(0x33FFB951),
     badMuted = Color(0x33FFB4AB),
-    cardHi = Color(0xFF33353A),
     outline = Color(0xFF8D9199),
     sel = Color(0xFF00497D),
     onSel = Color(0xFFD1E4FF),
-    fab = Color(0xFF0171E3),
-    onFab = Color.White,
     sheet = Color(0xFF282A2F),
     dark = true,
 )
@@ -135,7 +125,6 @@ private val typography = Typography(
 fun TextStyle.tabular() = copy(fontFeatureSettings = "tnum")
 
 private const val DEFAULT_ACCENT = 0xFF0064E0u
-private const val PINE_ACCENT = 0xFF24694Cu
 
 private fun contrast(a: Color, b: Color): Float {
     val (hi, lo) = listOf(a.luminance(), b.luminance()).sortedDescending()
@@ -151,18 +140,6 @@ private val onAccentChoices = listOf(Color.White, Color(0xFF0A1317))
 fun Po0Colors.withAccent(argb: UInt?, pureBlack: Boolean): Po0Colors {
     val base = if (pureBlack && dark) copy(bg = Color.Black, card = Color(0xFF121316)) else this
     if (argb == null || argb == DEFAULT_ACCENT) return base
-    if (argb == PINE_ACCENT) {
-        val accent = if (dark) Color(0xFF80CEA8) else Color(0xFF24694C)
-        val onAccent = if (dark) Color(0xFF0D1F16) else Color.White
-        return base.copy(
-            accent = accent,
-            onAccent = onAccent,
-            sel = accent.copy(alpha = if (dark) 0.22f else 0.14f),
-            onSel = accent,
-            fab = Color(0xFF24694C),
-            onFab = Color.White,
-        )
-    }
     val chosen = Color(argb.toInt())
     val steps = generateSequence(0f) { it + 0.05f }.takeWhile { it <= 1f }
     val accent = steps.map { lerp(chosen, ink, it) }.first { contrast(it, card) >= 4.5f }
@@ -172,8 +149,6 @@ fun Po0Colors.withAccent(argb: UInt?, pureBlack: Boolean): Po0Colors {
         onAccent = onAccent,
         sel = accent.copy(alpha = if (dark) 0.22f else 0.14f),
         onSel = accent,
-        fab = accent,
-        onFab = onAccent,
     )
 }
 
@@ -197,12 +172,9 @@ private fun lerp(a: Po0Colors, b: Po0Colors, t: Float) = Po0Colors(
     goodMuted = lerp(a.goodMuted, b.goodMuted, t),
     warnMuted = lerp(a.warnMuted, b.warnMuted, t),
     badMuted = lerp(a.badMuted, b.badMuted, t),
-    cardHi = lerp(a.cardHi, b.cardHi, t),
     outline = lerp(a.outline, b.outline, t),
     sel = lerp(a.sel, b.sel, t),
     onSel = lerp(a.onSel, b.onSel, t),
-    fab = lerp(a.fab, b.fab, t),
-    onFab = lerp(a.onFab, b.onFab, t),
     sheet = lerp(a.sheet, b.sheet, t),
     dark = b.dark,
 )
