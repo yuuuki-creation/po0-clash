@@ -29,7 +29,7 @@ struct ProxiesView: View {
                 Text("Global").tag(Mode.global)
                 Text("Direct").tag(Mode.direct)
             }
-            .pickerStyle(.segmented)
+            .themedSegments()
             .labelsHidden()
             .frame(width: 190)
             Button {

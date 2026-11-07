@@ -356,21 +356,10 @@ final class AppModel: ObservableObject {
         await failure { try await $0.removeShareNode(id, name) }
     }
 
-    func licenses() async -> [License] {
-        (try? await client?.licenses()) ?? []
-    }
-
-    func scripts() async -> [Script] {
-        (try? await client?.scripts()) ?? []
-    }
-
-    func saveScript(_ script: Script) async -> Result<Script, MessageError> {
-        await outcome { try await $0.saveScript(script) }
-    }
-
-    func removeScript(_ id: String) async -> String? {
-        await failure { try await $0.removeScript(id) }
-    }
+    func licenses() async -> [License] { (try? await client?.licenses()) ?? [] }
+    func scripts() async -> [Script] { (try? await client?.scripts()) ?? [] }
+    func saveScript(_ script: Script) async -> Result<Script, MessageError> { await outcome { try await $0.saveScript(script) } }
+    func removeScript(_ id: String) async -> String? { await failure { try await $0.removeScript(id) } }
 
     private func outcome<T>(_ body: (CoreClient) async throws -> T) async -> Result<T, MessageError> {
         guard let client else { return .failure(MessageError(launchError ?? "")) }
@@ -858,16 +847,6 @@ final class AppModel: ObservableObject {
         updateTrafficTimer()
     }
 
-    private func refreshProfiles() async {
-        guard let client, let next = try? await client.profiles() else { return }
-        profiles = next
-    }
-
-    private func refreshGroups() async {
-        guard let client else { return }
-        groups = ((try? await client.groups()) ?? []).map(withMeasuredDelays)
-    }
-
     private func withMeasuredDelays(_ source: ProxyGroup) -> ProxyGroup {
         var group = source
         group.nodes = group.nodes.map { source in
@@ -878,15 +857,10 @@ final class AppModel: ObservableObject {
         return group
     }
 
-    private func refreshWhitelist() async {
-        guard let client, let next = try? await client.whitelist() else { return }
-        whitelist = next
-    }
-
-    private func refreshIntranetIp() async {
-        guard let client else { return }
-        intranetIp = try? await client.intranetIp()
-    }
+    private func refreshWhitelist() async { guard let client, let next = try? await client.whitelist() else { return }; whitelist = next }
+    private func refreshIntranetIp() async { guard let client else { return }; intranetIp = try? await client.intranetIp() }
+    private func refreshProfiles() async { guard let client, let next = try? await client.profiles() else { return }; profiles = next }
+    private func refreshGroups() async { guard let client else { return }; groups = ((try? await client.groups()) ?? []).map(withMeasuredDelays) }
 
     private func refreshExitIp(refresh: Bool = false) {
         guard let client else { return }

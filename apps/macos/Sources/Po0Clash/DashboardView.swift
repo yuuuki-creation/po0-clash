@@ -70,40 +70,40 @@ struct DashboardView: View {
                     }
                     DashboardGrid(spacing: 12) {
                         ForEach(cards, id: \.self) { card in
-                            VStack(spacing: 0) {
-                                if editing {
-                                    HStack {
-                                        DashboardDragHandle {
-                                            previewCards = cards
-                                            draggedCard = card
-                                        } ended: {
-                                            previewCards = nil
-                                            draggedCard = nil
+                            card.view
+                                .allowsHitTesting(!editing)
+                                .overlay(alignment: .top) {
+                                    if editing {
+                                        HStack {
+                                            DashboardDragHandle {
+                                                previewCards = cards
+                                                draggedCard = card
+                                            } ended: {
+                                                previewCards = nil
+                                                draggedCard = nil
+                                            }
+                                            .frame(width: 28, height: 28)
+                                            Spacer()
+                                            Button {
+                                                save(cards.filter { $0 != card })
+                                            } label: {
+                                                Image(systemName: "minus.circle.fill").foregroundStyle(.red)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .help("Remove")
                                         }
-                                        .frame(width: 28, height: 28)
-                                        Spacer()
-                                        Button {
-                                            save(cards.filter { $0 != card })
-                                        } label: {
-                                            Image(systemName: "minus.circle.fill").foregroundStyle(.red)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .help("Remove")
+                                        .padding(.horizontal, 12)
+                                        .padding(.top, 8)
                                     }
-                                    .padding(.horizontal, 10)
-                                    .cardSurface()
                                 }
-                                card.view
-                                    .allowsHitTesting(!editing)
-                            }
-                            .dashboardSpan(card.span)
-                            .opacity(draggedCard == card ? 0.55 : 1)
-                            .onDrop(of: [.text], delegate: DashboardDropTarget(
-                                card: card,
-                                dragged: $draggedCard,
-                                cards: Binding(get: { cards }, set: { previewCards = $0 }),
-                                save: save
-                            ))
+                                .dashboardSpan(card.span)
+                                .opacity(draggedCard == card ? 0.55 : 1)
+                                .onDrop(of: [.text], delegate: DashboardDropTarget(
+                                    card: card,
+                                    dragged: $draggedCard,
+                                    cards: Binding(get: { cards }, set: { previewCards = $0 }),
+                                    save: save
+                                ))
                         }
                     }
                     .motion(value: cards)

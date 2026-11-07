@@ -18,7 +18,7 @@
 <script>
   import { tick } from 'svelte';
   import { slide } from 'svelte/transition';
-  import { app, resolvedDelay, testDelay } from '../lib/core.svelte.js';
+  import { app, rankDelay, resolvedDelay, testDelay } from '../lib/core.svelte.js';
   import { easeIn } from '../lib/easing.js';
   import { formatDelay, t } from '../lib/i18n.js';
   import EmptyState from '../lib/EmptyState.svelte';
@@ -39,10 +39,9 @@
   const query = $derived(view.query.trim().toLowerCase());
   const hit = (text) => text.toLowerCase().includes(query);
 
-  const rank = (delay) => (delay ? delay : delay === 0 ? 1e9 : 1e8);
   const sorters = {
     profile: null,
-    delay: (a, b) => rank(resolvedDelay(a)) - rank(resolvedDelay(b)),
+    delay: (a, b) => rankDelay(resolvedDelay(a)) - rankDelay(resolvedDelay(b)),
     name: (a, b) => a.name.localeCompare(b.name),
   };
 
@@ -79,7 +78,7 @@
   function revealSelection(behavior) {
     tick().then(() => {
       document
-        .querySelectorAll('.group-pane .sel, .tbl .t-node.sel')
+        .querySelectorAll('.group-pane .sel, .node-tile.sel')
         .forEach((row) => row.scrollIntoView({ block: 'nearest', behavior }));
     });
   }

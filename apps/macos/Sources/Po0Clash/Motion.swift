@@ -86,32 +86,6 @@ struct PageEntrance: ViewModifier {
 }
 
 extension View {
-    @ViewBuilder
-    func liquidGlass<S: Shape>(in shape: S) -> some View {
-        #if compiler(>=6.2)
-        if #available(macOS 26, *) {
-            glassEffect(.regular, in: shape)
-        } else {
-            self
-        }
-        #else
-        self
-        #endif
-    }
-
-    @ViewBuilder
-    func floatingGlass<S: Shape>(in shape: S) -> some View {
-        #if compiler(>=6.2)
-        if #available(macOS 26, *) {
-            glassEffect(.regular, in: shape)
-        } else {
-            background(Color.controlFill, in: shape)
-        }
-        #else
-        background(Color.controlFill, in: shape)
-        #endif
-    }
-
     /// On macOS 26 a pinned header lets the content scroll under its glass, as the toolbar does; before, it stays opaque.
     @ViewBuilder
     func pinnedHeaderBackground() -> some View {

@@ -193,12 +193,6 @@
   text-align: right;
 }
 
-.t-node {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 110px 72px;
-  gap: 12px;
-}
-
 .node-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
@@ -294,27 +288,6 @@
 
 .tbl.compact .node-tile .c-kind,
 .tbl.minimal .node-tile .c-kind {
-  display: none;
-}
-
-.t-node > :first-of-type {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.t-node > :last-child {
-  justify-self: end;
-  text-align: right;
-}
-
-.tbl.compact .t-node,
-.tbl.minimal .t-node {
-  grid-template-columns: minmax(0, 1fr) 72px;
-}
-
-.tbl.compact .c-kind,
-.tbl.minimal .c-kind {
   display: none;
 }
 
@@ -469,14 +442,6 @@
 
   .groups-bar {
     display: flex;
-  }
-
-  .t-node {
-    grid-template-columns: minmax(0, 1fr) 72px;
-  }
-
-  .t-node .c-kind {
-    display: none;
   }
 
   .t-conn {

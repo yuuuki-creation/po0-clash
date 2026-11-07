@@ -1,5 +1,5 @@
-本版把三端界面改为各平台的原生控件与设计规范（macOS SwiftUI / AppKit HIG、Android Jetpack Compose Material 3、Windows 11 WinUI 3 Fluent 2），并修复部分细节。
-从 7.0.0、7.1.0、7.1.1 或 Flutter 版都可以直接覆盖升级。
+本版重新设计并实现了三端原生界面（macOS 26 原生 Liquid Glass 液态玻璃与 Bento 仪表盘、Android Material 3 Expressive 卡片网格、Windows 11 WinUI 3 Fluent 2 Bento 卡片网格），并修复部分交互细节。
+从 7.0.0、7.1.0、7.1.1、7.2.0 或 Flutter 版都可以直接覆盖升级。
 
 ## 安装
 
@@ -8,7 +8,7 @@
 在终端运行：
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.2.0/install-macos-native.sh | bash
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.3.0/install-macos-native.sh | bash
 ```
 
 脚本会退出并替换已安装的 po0-clash（包括 Flutter 版），装到「应用程序」后启动。应用没有经过苹果公证，脚本会去掉下载带来的隔离标记。
@@ -19,12 +19,12 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
 在 PowerShell 里运行：
 
 ```powershell
-irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.2.0/install-windows-native.ps1 | iex
+irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.3.0/install-windows-native.ps1 | iex
 ```
 
 脚本会下载安装程序、校验 SHA-256、请求一次管理员权限，装好后打开应用。这样下载的文件没有网络来源标记，不会触发 SmartScreen 提示。
 
-也可以下载 `po0-clash-7.2.0-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
+也可以下载 `po0-clash-7.3.0-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
 
 **智能应用控制：** 这个功能开着时，未受信任签名的应用可能仍被拦截，命令安装也不一定能绕开，微软也不提供单个应用的例外。被拦时要在「Windows 安全中心 → 应用和浏览器控制 → 智能应用控制设置」里关闭它。
 
@@ -50,12 +50,11 @@ irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v7.2.0
   快捷设置磁贴、外部启停 intent 和 TV 入口。
 - po0 与 ggy 自动加白照旧：不论是否连接都持续运行，加白请求始终从真实出口发出。
 
-## 相对 7.1.1
+## 相对 7.2.0
 
-- macOS：全面改用原生 SwiftUI `Toggle(.switch)`、`Picker(.segmented)`、`NSPopUpButton` 菜单样式、AppKit 动态语义色与 13pt 系统设置字号，移除自绘控件。
-- Android：全面改用官方 `androidx.compose.material3` 组件（`NavigationBar`、`NavigationRail`、`Switch`、`RadioButton`、`SingleChoiceSegmentedButtonRow`、`Button`、`FloatingActionButton`、`FilterChip`）与 Material 3 `ColorScheme`。
-- Windows：全面改用 Windows 11 WinUI 3（Fluent 2）视觉规范（Mica 底色、`4px` / `8px` 圆角、`NavigationView` 左侧 `3px × 16px` 强调色指示条、`40×20px` `ToggleSwitch`、底部 `2px` 焦点输入线）。
-- 发版流水线补齐 `install-windows-native.ps1` 资产上传，并修复 Android 连接中进度圆环比例与 macOS 状态圆点动画重置。
+- macOS：采用 macOS 26 原生 Liquid Glass 液态玻璃架构（`NavigationSplitView` 悬浮毛玻璃侧边栏、统一 `NSToolbar` 与 `ToolbarSpacer`、`GlassEffectContainer`、`.buttonStyle(.glassProminent)` / `.buttonStyle(.glass)`、`.glassEffect(.regular, in: ...)`、`Form(.grouped)`，以及带强调色 SF Symbols 徽标的 Bento 响应式仪表盘卡片网格与代理节点卡片网格）。
+- Android：重塑为 Material 3 Expressive 卡片网格布局（顶部全宽状态英雄卡片、带 28dp 强调色图标徽章与大字号等宽指标的 `LazyVerticalGrid` 仪表盘卡片、双列圆角代理节点卡片与彩色延迟胶囊、带 34dp 彩色图标徽章的设置分组卡片）。
+- Windows：重塑为 Windows 11 WinUI 3（Fluent 2）Bento 四列响应式卡片网格与 SettingsCard 布局（顶部全宽连接横幅、带彩色图标徽章与快速切节点胶囊的 Bento 仪表盘卡片、自适应多列代理节点卡片网格、双列分组工具设置卡片）。
 
 ## 已知问题
 

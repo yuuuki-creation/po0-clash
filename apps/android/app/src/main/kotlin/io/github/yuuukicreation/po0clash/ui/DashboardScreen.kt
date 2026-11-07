@@ -104,27 +104,6 @@ private fun wideSpanCards(cards: List<DashboardCard>): Set<DashboardCard> {
 
 fun shownCards(saved: List<DashboardCard>) = if (saved == DashboardCard.entries) designOrder else saved
 
-sealed interface DashboardBlock {
-    data class Rows(val cards: List<DashboardCard>, val status: Boolean = false) : DashboardBlock
-    data object ModePicker : DashboardBlock
-    data object SpeedChart : DashboardBlock
-}
-
-/** The status row always opens the page; neighbouring plain rows then share one segmented group. */
-fun dashboardBlocks(cards: List<DashboardCard>): List<DashboardBlock> {
-    val blocks = mutableListOf<DashboardBlock>(DashboardBlock.Rows(emptyList(), status = true))
-    cards.forEach { card ->
-        val last = blocks.last()
-        when {
-            card == DashboardCard.MODE -> blocks += DashboardBlock.ModePicker
-            card == DashboardCard.SPEED -> blocks += DashboardBlock.SpeedChart
-            last is DashboardBlock.Rows -> blocks[blocks.lastIndex] = last.copy(cards = last.cards + card)
-            else -> blocks += DashboardBlock.Rows(listOf(card))
-        }
-    }
-    return blocks
-}
-
 private class Snapshot(val history: List<Traffic>, val memory: ULong, val connections: Connections)
 
 @Composable
@@ -180,7 +159,7 @@ fun DashboardScreen(vm: AppViewModel, onConnect: () -> Unit, onOpen: (Page) -> U
                                 snapshot = snapshot,
                                 onConnect = onConnect,
                                 onOpen = onOpen,
-                                onOpenGroup = { onOpenGroup(groups.firstOrNull()?.name) },
+                                onOpenGroup = { onOpenGroup((group ?: groups.firstOrNull())?.name) },
                             )
                         }
                     }

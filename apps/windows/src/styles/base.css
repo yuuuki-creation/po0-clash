@@ -136,13 +136,13 @@ p {
   z-index: 0;
 }
 
-.row:has(.row-hit) > :not(.row-hit) {
+:is(.row, .node-tile):has(.row-hit) > :not(.row-hit) {
   position: relative;
   z-index: 1;
   pointer-events: none;
 }
 
-.row:has(.row-hit) :is(.icon-btn, .btn, .switch, .seg, .delay-btn, .val-menu) {
+:is(.row, .node-tile):has(.row-hit) :is(.icon-btn, .btn, .switch, .seg, .delay-btn, .val-menu) {
   pointer-events: auto;
 }
 

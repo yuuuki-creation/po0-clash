@@ -2,33 +2,30 @@ package io.github.yuuukicreation.po0clash.ui
 
 import io.github.yuuukicreation.po0clash.core.DashboardCard
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DashboardBlocksTest {
     @Test
-    fun untouchedCoreDefaultShowsTheDesignOrder() {
-        val blocks = dashboardBlocks(shownCards(DashboardCard.entries))
+    fun untouchedCoreDefaultShowsTheDesignOrderAndPacksWithNoSingleColumnTail() {
+        val cards = shownCards(DashboardCard.entries)
+        val wide = wideSpanCards(cards)
 
-        assertEquals(DashboardBlock.Rows(listOf(DashboardCard.CURRENT_NODE), status = true), blocks[0])
-        assertEquals(DashboardBlock.ModePicker, blocks[1])
-        assertEquals(DashboardBlock.SpeedChart, blocks[2])
-        assertEquals(DashboardCard.WHITELIST, (blocks[3] as DashboardBlock.Rows).cards.first())
-        assertEquals(DashboardCard.TAKEOVER, (blocks[3] as DashboardBlock.Rows).cards.last())
+        assertEquals(DashboardCard.CURRENT_NODE, cards.first())
+        assertTrue(DashboardCard.CURRENT_NODE in wide)
+        assertTrue(DashboardCard.SPEED in wide)
+        assertTrue(DashboardCard.SUBSCRIPTION in wide)
+        assertTrue(DashboardCard.WHITELIST in wide)
     }
 
     @Test
-    fun customizedOrderIsKeptAndStatusStaysFirst() {
+    fun customizedOrderIsKeptAndOddNarrowRunPromotesItsTrailingCard() {
         val cards = listOf(DashboardCard.SPEED, DashboardCard.MEMORY, DashboardCard.MODE, DashboardCard.TRAFFIC)
+        val shown = shownCards(cards)
+        val wide = wideSpanCards(shown)
 
-        assertEquals(
-            listOf(
-                DashboardBlock.Rows(emptyList(), status = true),
-                DashboardBlock.SpeedChart,
-                DashboardBlock.Rows(listOf(DashboardCard.MEMORY)),
-                DashboardBlock.ModePicker,
-                DashboardBlock.Rows(listOf(DashboardCard.TRAFFIC)),
-            ),
-            dashboardBlocks(shownCards(cards)),
-        )
+        assertEquals(cards, shown)
+        assertEquals(setOf(DashboardCard.SPEED, DashboardCard.MEMORY, DashboardCard.MODE, DashboardCard.TRAFFIC), wide)
     }
 }
+

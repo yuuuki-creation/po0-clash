@@ -3,7 +3,7 @@
 </script>
 
 <script>
-  import { act, app, refreshExitIp, resolvedDelay, testDelay } from '../lib/core.svelte.js';
+  import { act, app, rankDelay, refreshExitIp, resolvedDelay, testDelay } from '../lib/core.svelte.js';
   import { displayOrder, moveCard } from '../lib/dashboard-cards.js';
   import { formatAgo, formatBytes, formatDate, formatDelay, formatElapsed, formatRate, formatUsage, t } from '../lib/i18n.js';
   import Card from '../lib/Card.svelte';
@@ -47,13 +47,12 @@
       selectable[0],
   );
   const node = $derived(running && group ? group.nodes.find((n) => n.name === group.now) : null);
-  const rank = (delay) => (delay ? delay : delay === 0 ? 1e9 : 1e8);
   const alternatives = $derived.by(() => {
     if (!group) return [];
     const currentName = node?.name ?? group.now;
     return group.nodes
       .filter((n) => n.name !== currentName)
-      .toSorted((a, b) => rank(resolvedDelay(a)) - rank(resolvedDelay(b)))
+      .toSorted((a, b) => rankDelay(resolvedDelay(a)) - rankDelay(resolvedDelay(b)))
       .slice(0, 3);
   });
   const nodeSections = $derived.by(() => {
@@ -63,7 +62,7 @@
       value: node.name,
       close: true,
       options: group.nodes
-        .toSorted((a, b) => rank(resolvedDelay(a)) - rank(resolvedDelay(b)))
+        .toSorted((a, b) => rankDelay(resolvedDelay(a)) - rankDelay(resolvedDelay(b)))
         .map((n) => ({ value: n.name, label: n.name, detail: formatDelay(resolvedDelay(n)) })),
       onchange: (name) => act(`select:${group.name}`, 'select_node', { group: group.name, node: name }),
     };

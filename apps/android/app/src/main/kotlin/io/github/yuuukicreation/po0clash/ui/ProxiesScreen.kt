@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -74,12 +75,6 @@ private fun ProxiesDensity.tileWidth() = when (this) {
     ProxiesDensity.LOOSE -> 180.dp
     ProxiesDensity.STANDARD -> 150.dp
     ProxiesDensity.TIGHT -> 110.dp
-}
-
-private fun ProxiesDensity.rowHeight() = when (this) {
-    ProxiesDensity.LOOSE -> 60.dp
-    ProxiesDensity.STANDARD -> 52.dp
-    ProxiesDensity.TIGHT -> 44.dp
 }
 
 /** The group that shows [node] as its choice, the group a user means by "current node". */
@@ -409,12 +404,23 @@ private fun ProxyGroupRow(
 }
 
 @Composable
-private fun NodeDelay(delay: UInt?, waiting: Boolean, onTest: () -> Unit) {
+private fun NodeDelay(delay: UInt?, waiting: Boolean, onTest: () -> Unit, minimal: Boolean = false) {
     val shown by animateFloatAsState(if (waiting) 0.4f else 1f, tween(150), label = "delayWait")
+    val colors = palette
     Box(
         Modifier.alpha(shown).clip(RoundedCornerShape(6.dp)).clickable(enabled = !waiting, onClick = onTest).padding(horizontal = 2.dp, vertical = 2.dp),
     ) {
-        DelayText(delay, placeholder = true)
+        if (minimal) {
+            val dotColor = when {
+                delay == null -> colors.ink3
+                delay == 0u -> colors.bad
+                delay < 600u -> colors.good
+                else -> colors.warn
+            }
+            Box(Modifier.padding(4.dp).size(8.dp).background(dotColor, CircleShape))
+        } else {
+            DelayText(delay, placeholder = true)
+        }
     }
 }
 
@@ -616,7 +622,9 @@ private fun NodeTile(
             if (selected) {
                 Icon(LineIcons.Check, contentDescription = null, tint = colors.accent, modifier = Modifier.size(16.dp))
             }
-            if (style == ProxyTileStyle.COMPACT) NodeDelay(delay, testing, onTest)
+            if (style != ProxyTileStyle.DETAILED) {
+                NodeDelay(delay, testing, onTest, minimal = style == ProxyTileStyle.MINIMAL)
+            }
         }
         if (style == ProxyTileStyle.DETAILED) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {

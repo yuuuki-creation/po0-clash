@@ -63,6 +63,9 @@ export function resolvedDelay(node) {
   return delay ?? null;
 }
 
+export const rankDelay = (delay) => (delay ? delay : delay === 0 ? 1e9 : 1e8);
+
+
 export const isTestingNode = (name) =>
   !!app.busy[`node:${name}`] ||
   app.groups.some((group) => app.busy[`delay:${group.name}`] && group.nodes.some((node) => node.name === name));
