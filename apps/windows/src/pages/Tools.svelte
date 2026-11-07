@@ -35,6 +35,24 @@
     ],
     [{ id: 'network', entries: ['basic', 'networkSettings', 'dns', 'advanced', 'resources', 'providers', 'rules', 'loopback'] }],
   ];
+  const toolIcons = {
+    language: 'language',
+    appearance: 'appearance',
+    application: 'window',
+    hotkeys: 'keyboard',
+    backup: 'drive',
+    diagnostics: 'doc',
+    developer: 'hammer',
+    about: 'info',
+    basic: 'sliders',
+    networkSettings: 'network',
+    dns: 'dns',
+    advanced: 'gears',
+    resources: 'box',
+    providers: 'providers',
+    rules: 'rules',
+    loopback: 'loop',
+  };
   const engineForms = { basic: Basic, networkSettings: Network, dns: Dns, advanced: Advanced, resources: Resources };
   const pages = {
     appearance: Appearance,
@@ -112,13 +130,15 @@
               <div class="group">
                 {#each section.entries.filter((id) => id !== 'developer' || s.developerMode) as id (id)}
                   {#if id === 'diagnostics'}
-                    <div class="row">
+                    <div class="row tool-row">
+                      <span class="tool-icon"><Icon name={toolIcons[id]} /></span>
                       <span class="grow clip">{t('tools.diagnostics')}</span>
                       <button type="button" class="btn" disabled={app.busy.diagnostics} onclick={exportDiagnostics}>{t('tools.export')}</button>
                     </div>
                   {:else if id === 'appearance'}
-                    <div class="row">
+                    <div class="row tool-row">
                       <button type="button" class="row-hit" aria-label={t('tools.appearance')} onclick={() => navigate('tools', id, 'drill')}></button>
+                      <span class="tool-icon"><Icon name={toolIcons[id]} /></span>
                       <span class="grow clip">{t('tools.appearance')}</span>
                       <Segmented
                         label={t('ap.mode')}
@@ -129,7 +149,8 @@
                       <Icon name="chevron" class="chev" />
                     </div>
                   {:else}
-                    <button type="button" class="row" onclick={() => navigate('tools', id, 'drill')}>
+                    <button type="button" class="row tool-row" onclick={() => navigate('tools', id, 'drill')}>
+                      <span class="tool-icon"><Icon name={toolIcons[id]} /></span>
                       <span class="grow clip">{t(`tools.${id}`)}</span>
                       {#if id === 'about'}<span class="val">{app.version}</span>{:else if id === 'language'}<span class="val">{languageLabel}</span>{/if}
                       <Icon name="chevron" class="chev" />

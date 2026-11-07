@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -33,21 +34,21 @@ import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.flow.flowOf
 
-enum class Tool(@param:StringRes val label: Int) {
-    ACTIVITY(R.string.activity),
-    BASIC(R.string.basic_config),
-    NETWORK(R.string.network),
-    DNS(R.string.dns),
-    ADVANCED(R.string.advanced),
-    ON_DEMAND(R.string.on_demand),
-    APPEARANCE(R.string.appearance),
-    LANGUAGE(R.string.language),
-    APPLICATION(R.string.application),
-    ACCESS(R.string.access_control),
-    RESOURCES(R.string.resources),
-    BACKUP(R.string.backup),
-    DEVELOPER(R.string.developer),
-    ABOUT(R.string.about),
+enum class Tool(@param:StringRes val label: Int, val icon: ImageVector) {
+    ACTIVITY(R.string.activity, LineIcons.Activity),
+    BASIC(R.string.basic_config, LineIcons.Sliders),
+    NETWORK(R.string.network, LineIcons.Wifi),
+    DNS(R.string.dns, LineIcons.Server),
+    ADVANCED(R.string.advanced, LineIcons.Wrench),
+    ON_DEMAND(R.string.on_demand, LineIcons.Wifi),
+    APPEARANCE(R.string.appearance, LineIcons.Appearance),
+    LANGUAGE(R.string.language, LineIcons.Languages),
+    APPLICATION(R.string.application, LineIcons.Smartphone),
+    ACCESS(R.string.access_control, LineIcons.ShieldCheck),
+    RESOURCES(R.string.resources, LineIcons.Database),
+    BACKUP(R.string.backup, LineIcons.CloudUpload),
+    DEVELOPER(R.string.developer, LineIcons.Terminal),
+    ABOUT(R.string.about, LineIcons.Info),
 }
 
 private val settingTools = listOf(Tool.LANGUAGE, Tool.APPEARANCE, Tool.APPLICATION, Tool.ACCESS)
@@ -108,7 +109,9 @@ private fun ToolList(vm: AppViewModel, onOpen: (Tool) -> Unit) {
         Tool.ACCESS to stringResource(settings.accessControl.accessMode.label),
     )
     val tools = @Composable { list: List<Tool> ->
-        list.forEachIndexed { index, tool -> NavRow(index, list.size, stringResource(tool.label), values[tool]) { onOpen(tool) } }
+        list.forEachIndexed { index, tool ->
+            NavRow(index, list.size, stringResource(tool.label), values[tool], icon = tool.icon) { onOpen(tool) }
+        }
     }
     val settingSection = @Composable {
         Column {
@@ -120,8 +123,17 @@ private fun ToolList(vm: AppViewModel, onOpen: (Tool) -> Unit) {
         val other = listOfNotNull(Tool.ACTIVITY, Tool.BACKUP, Tool.DEVELOPER.takeIf { settings.developerMode }, Tool.ABOUT)
         Column {
             SectionHeader(stringResource(R.string.other), top = 0.dp)
-            other.forEachIndexed { index, tool -> NavRow(index, other.size + 1, stringResource(tool.label), values[tool]) { onOpen(tool) } }
-            NavRow(other.size, other.size + 1, stringResource(R.string.export_diagnostics), busy = AppViewModel.BUSY_DIAGNOSTICS in busy, chevron = false) {
+            other.forEachIndexed { index, tool ->
+                NavRow(index, other.size + 1, stringResource(tool.label), values[tool], icon = tool.icon) { onOpen(tool) }
+            }
+            NavRow(
+                other.size,
+                other.size + 1,
+                stringResource(R.string.export_diagnostics),
+                icon = LineIcons.FileText,
+                busy = AppViewModel.BUSY_DIAGNOSTICS in busy,
+                chevron = false,
+            ) {
                 val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
                 export.launch("po0-clash-diagnostics-$stamp.txt")
             }

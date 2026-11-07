@@ -134,28 +134,6 @@ final class AppModel: ObservableObject {
 
     var hasCore: Bool { client != nil }
 
-    /// With no core behind it the refreshes find nothing to read, so this data stays until the app quits.
-    func adoptSample(_ sample: Showcase.Sample) {
-        appSettings = sample.settings
-        engineOptions = sample.engineOptions
-        status = sample.status
-        groups = sample.groups
-        profiles = sample.profiles
-        whitelist = sample.whitelist
-        traffic = sample.traffic
-        trafficHistory = sample.trafficHistory
-        memory = sample.memory
-        connectionSummary = ConnectionSummary(
-            count: sample.connections.items.count,
-            upload: sample.connections.uploadTotal,
-            download: sample.connections.downloadTotal
-        )
-        exitIp = sample.exitIp
-        ipQuality = sample.ipQuality
-        intranetIp = sample.intranetIp
-        connectedAt = Date().addingTimeInterval(-3725)
-    }
-
     /// For pages that poll the core themselves, such as Activity.
     var core: CoreClient? { client }
 
@@ -470,37 +448,41 @@ final class AppModel: ObservableObject {
         let profile = status?.profileId
         testingGroups.insert(group)
         Task {
-            await runGroupDelay(group, profile: profile, client: client)
+            defer { testingGroups.remove(group) }
+            await runGroupDelayTest(group, client: client, profile: profile)
         }
     }
 
     func testAllDelays() {
         guard let client else { return }
-        let names = groups.map(\.name).filter { !testingGroups.contains($0) }
-        guard !names.isEmpty else { return }
+        let pending = groups.map(\.name).filter { !testingGroups.contains($0) }
+        guard !pending.isEmpty else { return }
         let profile = status?.profileId
-        for name in names { testingGroups.insert(name) }
+        testingGroups.formUnion(pending)
         Task {
-            var index = 0
             await withTaskGroup(of: Void.self) { taskGroup in
-                let workers = min(4, names.count)
-                for _ in 0..<workers {
-                    let name = names[index]
-                    index += 1
-                    taskGroup.addTask { await self.runGroupDelay(name, profile: profile, client: client) }
+                var iterator = pending.makeIterator()
+                for _ in 0..<min(4, pending.count) {
+                    if let next = iterator.next() {
+                        taskGroup.addTask { @MainActor in
+                            defer { self.testingGroups.remove(next) }
+                            await self.runGroupDelayTest(next, client: client, profile: profile)
+                        }
+                    }
                 }
                 while await taskGroup.next() != nil {
-                    guard index < names.count else { continue }
-                    let name = names[index]
-                    index += 1
-                    taskGroup.addTask { await self.runGroupDelay(name, profile: profile, client: client) }
+                    if let next = iterator.next() {
+                        taskGroup.addTask { @MainActor in
+                            defer { self.testingGroups.remove(next) }
+                            await self.runGroupDelayTest(next, client: client, profile: profile)
+                        }
+                    }
                 }
             }
         }
     }
 
-    private func runGroupDelay(_ group: String, profile: String?, client: CoreClient) async {
-        defer { testingGroups.remove(group) }
+    private func runGroupDelayTest(_ group: String, client: CoreClient, profile: String?) async {
         do {
             let tested = try await client.testDelay(group)
             guard profile == status?.profileId else { return }
@@ -939,11 +921,10 @@ final class AppModel: ObservableObject {
         if traffic != nextTraffic { traffic = nextTraffic }
         guard visibleSurfaces.contains(.dashboard) else { return }
         let nextHistory = (try? await client.trafficHistory()) ?? []
-        let nextMemory = (try? await client.memory()) ?? 0
-        let nextConnections = try? await client.connections()
         if trafficHistory != nextHistory { trafficHistory = nextHistory }
+        let nextMemory = (try? await client.memory()) ?? 0
         if memory != nextMemory { memory = nextMemory }
-        if let connections = nextConnections {
+        if let connections = try? await client.connections() {
             let nextSummary = ConnectionSummary(
                 count: connections.items.count,
                 upload: connections.uploadTotal,

@@ -7,6 +7,17 @@ enum Page: String, CaseIterable, Identifiable {
 
     var id: Self { self }
 
+    var title: LocalizedStringKey {
+        switch self {
+        case .dashboard: return "Dashboard"
+        case .proxies: return "Proxies"
+        case .profiles: return "Profiles"
+        case .whitelist: return "Whitelist"
+        case .activity: return "Activity"
+        case .tools: return "Tools"
+        }
+    }
+
     /// The title for AppKit, which cannot take a `LocalizedStringKey`.
     var name: String {
         NSLocalizedString(rawValue.capitalized, comment: "")
@@ -27,8 +38,6 @@ enum Page: String, CaseIterable, Identifiable {
 final class Navigation: ObservableObject {
     @Published var page: Page = .dashboard
     @Published var tools: [ToolsPage] = []
-    /// The toolbar button's state: it hides a docked sidebar and shows a collapsed one over the content.
-    @Published var sidebarToggled = false
 }
 
 /// An AppKit-owned window so a login launch can stay in the menu bar and the Dock icon only shows while it is open;
@@ -38,9 +47,8 @@ final class MainWindow: NSObject, NSWindowDelegate {
     static let shared = MainWindow()
 
     let navigation = Navigation()
-    let dialogs = DialogCenter()
     private var window: NSWindow?
-    private var titleWatch: Any?
+    private var titleWatches: [Any] = []
 
     func show(_ page: Page? = nil) {
         if let page { navigation.page = page }
@@ -48,7 +56,6 @@ final class MainWindow: NSObject, NSWindowDelegate {
         NSApp.setActivationPolicy(.regular)
         activateApp()
         window?.makeKeyAndOrderFront(nil)
-        placeTrafficLights()
     }
 
     func toggle() {
@@ -69,290 +76,267 @@ final class MainWindow: NSObject, NSWindowDelegate {
         NSApp.setActivationPolicy(.accessory)
     }
 
-    func windowDidResize(_ notification: Notification) {
-        placeTrafficLights()
-    }
-
-    func windowDidBecomeKey(_ notification: Notification) {
-        placeTrafficLights()
-    }
-
-    func windowDidExitFullScreen(_ notification: Notification) {
-        placeTrafficLights()
-    }
-
     private func build() {
         let root = MainView()
             .modifier(AppTheme())
             .environmentObject(AppModel.shared)
             .environmentObject(navigation)
-            .environmentObject(dialogs)
-        let host = NSHostingController(rootView: root)
-        // The window's limits are set below; SwiftUI's would follow whatever page is showing.
-        host.sizingOptions = []
-        let window = NSWindow(contentViewController: host)
+        let window = NSWindow(contentViewController: NSHostingController(rootView: root))
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-        window.titlebarSeparatorStyle = .none
-        window.backgroundColor = .pageBackground
+        window.toolbarStyle = .unified
+        if #unavailable(macOS 14) {
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+        }
         window.tabbingMode = .disallowed
         window.isReleasedWhenClosed = false
-        window.contentMinSize = NSSize(width: 620, height: 480)
-        window.setContentSize(Showcase.windowSize ?? NSSize(width: 1180, height: 760))
+        window.contentMinSize = NSSize(width: 760, height: 520)
+        window.setContentSize(NSSize(width: 1180, height: 760))
         window.center()
-        if Showcase.windowSize == nil { window.setFrameAutosaveName("main") }
+        window.setFrameAutosaveName("main")
         window.delegate = self
-        window.title = navigation.page.name
         self.window = window
-        titleWatch = navigation.$page.sink { _ in
-            Task { @MainActor in MainWindow.shared.keepTitle() }
-        }
+        titleWatches = [
+            window.observe(\.title) { _, _ in Task { @MainActor in MainWindow.shared.keepTitle() } },
+            navigation.$page.sink { _ in Task { @MainActor in MainWindow.shared.keepTitle() } },
+        ]
     }
 
+    /// SwiftUI leaves the proxies list "Untitled" while that page's subtitle still bridges, so AppKit puts it back.
     private func keepTitle() {
-        window?.title = navigation.page.name
-        placeTrafficLights()
-    }
-
-    /// AppKit centres the traffic lights in its own 28 pt title bar; the design's toolbar row is 48 tall.
-    private func placeTrafficLights() {
-        guard let window, !window.styleMask.contains(.fullScreen),
-              let close = window.standardWindowButton(.closeButton) else { return }
-        let height: CGFloat = 48
-        var container: NSView? = close.superview
-        while let view = container, String(describing: type(of: view)) != "NSTitlebarContainerView" {
-            container = view.superview
-        }
-        guard let container else { return }
-        container.frame = NSRect(x: 0, y: window.frame.height - height, width: window.frame.width, height: height)
-        var ancestor = close.superview
-        while let view = ancestor, view !== container {
-            view.frame = container.bounds
-            ancestor = view.superview
-        }
-        let buttons: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
-        for (index, kind) in buttons.enumerated() {
-            guard let button = window.standardWindowButton(kind) else { continue }
-            button.setFrameOrigin(NSPoint(x: 18 + CGFloat(index) * 20, y: (height - button.frame.height) / 2))
-        }
-    }
-}
-
-/// Drags the window from a toolbar or sidebar gap: hosted SwiftUI content takes those clicks from the title bar.
-struct WindowDragArea: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView { DragView() }
-
-    func updateNSView(_ view: NSView, context: Context) {}
-
-    private final class DragView: NSView {
-        override func mouseDown(with event: NSEvent) {
-            guard event.clickCount == 2 else {
-                window?.performDrag(with: event)
-                return
-            }
-            switch UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick") {
-            case "Minimize": window?.performMiniaturize(nil)
-            case "None": break
-            default: window?.performZoom(nil)
-            }
-        }
-    }
-}
-
-private struct Notice: Identifiable {
-    let text: String
-    var id: String { text }
-}
-
-private struct ToolbarInsetKey: EnvironmentKey {
-    static let defaultValue = false
-}
-
-extension EnvironmentValues {
-    /// No docked sidebar sits under the traffic lights, so the toolbar has to clear them itself.
-    var toolbarClearsLights: Bool {
-        get { self[ToolbarInsetKey.self] }
-        set { self[ToolbarInsetKey.self] = newValue }
+        guard let window, navigation.page != .tools else { return }
+        if window.title != navigation.page.name { window.title = navigation.page.name }
     }
 }
 
 struct MainView: View {
-    @EnvironmentObject private var navigation: Navigation
-    @EnvironmentObject private var dialogs: DialogCenter
-    @Environment(\.onAccent) private var onAccent
-
-    var body: some View {
-        GeometryReader { proxy in
-            let narrow = proxy.size.width < 760
-            let visible = narrow ? navigation.sidebarToggled : !navigation.sidebarToggled
-            let docked = visible && !narrow
-            let contentWidth = proxy.size.width - (docked ? Ui.sidebarWidth : 0) - Ui.pageInset * 2
-            ZStack(alignment: .topLeading) {
-                page
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(.leading, docked ? Ui.sidebarWidth : 0)
-                    .environment(\.compactContent, contentWidth <= 700)
-                    .environment(\.toolbarClearsLights, !docked)
-                    .allowsHitTesting(dialogs.stack.isEmpty)
-                if narrow && visible {
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .onTapGesture { navigation.sidebarToggled = false }
-                }
-                sidebar(narrow: narrow)
-                    .shadow(color: narrow && visible ? Color.black.opacity(0.22) : Color.clear, radius: 12, y: 8)
-                    .offset(x: visible ? 0 : -Ui.sidebarWidth)
-                    .allowsHitTesting(dialogs.stack.isEmpty)
-                DialogLayer()
-                MainModelBridge()
-            }
-            .motion(Motion.sidebar, value: visible)
-        }
-        .ignoresSafeArea()
-        .background(Color.page)
-        .onChange(of: navigation.page) { page in
-            if page != .tools { navigation.tools = [] }
-        }
-    }
-
-    private var page: some View {
-        Group {
-            switch navigation.page {
-            case .dashboard: DashboardView()
-            case .proxies: ProxiesView()
-            case .profiles: SubscriptionsView()
-            case .whitelist: WhitelistView()
-            case .activity: ActivityView()
-            case .tools: ToolsView()
-            }
-        }
-        .id(navigation.page)
-    }
-
-    /// Choosing a page closes the sidebar only where it covers the content.
-    private func sidebar(narrow: Bool) -> some View {
-        VStack(spacing: 0) {
-            WindowDragArea().frame(height: 48)
-            Sidebar(
-                page: Binding(
-                    get: { navigation.page },
-                    set: { page in
-                        navigation.page = page
-                        if narrow { navigation.sidebarToggled = false }
-                    }
-                ),
-                accent: Color.accentColor,
-                onAccent: onAccent,
-                enabled: dialogs.stack.isEmpty
-            )
-            .padding(.horizontal, 10)
-            .padding(.bottom, 12)
-        }
-        .frame(width: Ui.sidebarWidth)
-        .frame(maxHeight: .infinity)
-        .background(Color.side)
-        .overlay(alignment: .trailing) {
-            Rectangle().fill(Color.line).frame(width: 1)
-        }
-    }
-}
-
-private struct MainModelBridge: View {
     @EnvironmentObject private var model: AppModel
-    @EnvironmentObject private var dialogs: DialogCenter
+    @EnvironmentObject private var navigation: Navigation
+    @State private var columns = NavigationSplitViewVisibility.all
 
     var body: some View {
-        Button {
-            model.setConnected(!model.isOn)
-        } label: {
-            EmptyView()
+        NavigationSplitView(columnVisibility: $columns) {
+            Sidebar(page: $navigation.page, accent: Theme.nsAccent(model.themeColor))
+                .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
+                // The window title bridges from the sidebar column; the detail's own title alone left it "Untitled".
+                .navigationTitle(navigation.page.title)
+        } detail: {
+            Group {
+                switch navigation.page {
+                case .dashboard: DashboardView()
+                case .proxies: ProxiesView()
+                case .profiles: SubscriptionsView()
+                case .whitelist: WhitelistView()
+                case .activity: ActivityView()
+                case .tools: ToolsView()
+                }
+            }
+            .modifier(PageEntrance(enabled: model.appSettings?.pageAnimation ?? true))
+            .id(navigation.page)
+            .navigationTitle(navigation.page.title)
         }
-        .buttonStyle(.plain)
-        .keyboardShortcut(.return, modifiers: .command)
-        .disabled(model.busy || model.status == nil || !dialogs.stack.isEmpty)
-        .frame(width: 0, height: 0)
-        .opacity(0)
-        .accessibilityHidden(true)
-        .dialog(item: Binding(
-            get: { model.notice.map { Notice(text: $0) } },
-            set: { if $0 == nil { model.notice = nil } }
-        )) { notice in
-            NoticeDialog(text: notice.text)
+        .navigationTitle(navigation.page.title)
+        .alert(
+            model.notice ?? "",
+            isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })
+        ) {
+            Button("OK") { model.notice = nil }
+        }
+        // macOS 13 gets no toolbar, so nothing could bring a collapsed sidebar back.
+        .onChange(of: columns) { visibility in
+            if #unavailable(macOS 14) {
+                if visibility != .all { columns = .all }
+            }
         }
     }
 }
 
-/// A page: the toolbar row, then its content. The hairline under the row shows only once the content has scrolled.
+/// macOS 13's hosting controller cannot bridge a toolbar into the window, so it gets the toolbar items as a header row.
 struct PageScaffold<Actions: View, Content: View>: View {
-    private let title: LocalizedStringKey
-    private let capped: Bool
-    private let back: (() -> Void)?
+    let title: LocalizedStringKey
+    var subtitle: String?
+    var back: (() -> Void)?
     private let actions: Actions
     private let content: Content
-    @EnvironmentObject private var navigation: Navigation
-    @Environment(\.toolbarClearsLights) private var clearsLights
-    @State private var scrolled = false
 
     init(
         _ title: LocalizedStringKey,
-        capped: Bool = true,
+        subtitle: String? = nil,
         back: (() -> Void)? = nil,
         @ViewBuilder actions: () -> Actions,
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
-        self.capped = capped
+        self.subtitle = subtitle
         self.back = back
         self.actions = actions()
         self.content = content()
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            toolbar
+        if #available(macOS 14, *) {
             content
-                .environment(\.pageScrolled, $scrolled)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.pageBackground)
+                .navigationTitle(title)
+                .navigationSubtitle(subtitle ?? "")
+                .navigationBarBackButtonHidden(back != nil)
+                .toolbar {
+                    if let back {
+                        ToolbarItem(placement: .navigation) {
+                            Button(action: back) {
+                                Label("Back", systemImage: "chevron.backward")
+                            }
+                            .help("Back")
+                        }
+                    }
+                }
+                .modifier(PageToolbar(actions: actions))
+        } else {
+            VStack(spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    if let back {
+                        Button(action: back) {
+                            Image(systemName: "chevron.backward")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Back")
+                    }
+                    Text(title).font(.title2.weight(.semibold))
+                    if let subtitle { Text(subtitle).foregroundStyle(.secondary) }
+                    Spacer()
+                    ControlBar { actions }
+                    ConnectButton()
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                content.frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .background(Color.pageBackground)
         }
     }
+}
 
-    private var toolbar: some View {
-        HStack(spacing: 12) {
-            IconButton(symbol: "sidebar.left", help: "Sidebar") { navigation.sidebarToggled.toggle() }
-            if let back {
-                IconButton(symbol: "chevron.backward", help: "Back", action: back)
+/// The page's own actions share one glass group; the connect button, on every page, gets its own after a gap.
+private struct PageToolbar<Actions: View>: ViewModifier {
+    let actions: Actions
+
+    func body(content: Content) -> some View {
+        #if compiler(>=6.2)
+        if #available(macOS 26, *) {
+            content.toolbar {
+                ToolbarItemGroup(placement: .primaryAction) { actions }
+                ToolbarSpacer(.fixed, placement: .primaryAction)
+                ToolbarItem(placement: .primaryAction) { ConnectButton() }
             }
-            Text(title)
-                .font(.system(size: 16, weight: .semibold))
-                .lineLimit(1)
-                .allowsHitTesting(false)
-            Spacer(minLength: 8)
-            HStack(spacing: 8) { actions }
+        } else {
+            content.toolbar {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    actions
+                    ConnectButton()
+                }
+            }
         }
-        .padding(.leading, clearsLights ? 88 : Ui.pageInset)
-        .padding(.trailing, Ui.pageInset)
-        .frame(minHeight: 48)
-        .frame(maxWidth: capped ? Ui.maxWidth + Ui.pageInset * 2 : .infinity)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.line)
-                .frame(height: 1)
-                .opacity(scrolled ? 1 : 0)
-                .motion(Motion.hairline, value: scrolled)
+        #else
+        content.toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                actions
+                ConnectButton()
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(WindowDragArea())
+        #endif
+    }
+}
+
+/// FlClash's start button, moved into the toolbar so it never covers content: the elapsed time while connected.
+struct ConnectButton: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        Button {
+            model.setConnected(!model.isOn)
+        } label: {
+            HStack(spacing: 6) {
+                if model.busy || (model.isOn && !model.isRunning) {
+                    ProgressView().controlSize(.small)
+                        .transition(.scale(scale: 0.6).combined(with: .opacity))
+                } else {
+                    Image(systemName: model.isOn ? "stop.fill" : "play.fill")
+                        .replacingSymbol()
+                        .transition(.scale(scale: 0.6).combined(with: .opacity))
+                }
+                if let since = model.connectedAt {
+                    TimelineView(.periodic(from: since, by: 1)) { context in
+                        Text(Format.elapsed(since, now: context.date))
+                            .monospacedDigit()
+                            .rollingDigits()
+                            .motion(Motion.quick, value: context.date)
+                    }
+                    .transition(.opacity)
+                } else {
+                    Text(model.isOn ? LocalizedStringKey("Connecting…") : LocalizedStringKey("Connect"))
+                        .transition(.opacity)
+                }
+            }
+            .font(.system(size: 13, weight: .semibold))
+            .padding(.horizontal, 4)
+            .motion(value: ConnectPhase(model))
+        }
+        .glassButton(prominent: true)
+        .buttonBorderShapeCapsule()
+        .disabled(model.busy || model.status == nil)
+        .help(model.isOn ? LocalizedStringKey("Disconnect") : LocalizedStringKey("Connect"))
+        .keyboardShortcut(.return, modifiers: .command)
+        .contextMenu {
+            Button("Restart Engine") { model.reconnect() }
+                .disabled(!model.isOn || model.busy)
+        }
+    }
+}
+
+/// What the connect button shows; its glass capsule reshapes with a spring whenever this changes.
+private struct ConnectPhase: Equatable {
+    let busy: Bool
+    let on: Bool
+    let connected: Bool
+
+    @MainActor init(_ model: AppModel) {
+        busy = model.busy || (model.isOn && !model.isRunning)
+        on = model.isOn
+        connected = model.connectedAt != nil
     }
 }
 
 extension PageScaffold where Actions == EmptyView {
     init(
         _ title: LocalizedStringKey,
-        capped: Bool = true,
+        subtitle: String? = nil,
         back: (() -> Void)? = nil,
         @ViewBuilder content: () -> Content
     ) {
-        self.init(title, capped: capped, back: back, actions: { EmptyView() }, content: content)
+        self.init(title, subtitle: subtitle, back: back, actions: { EmptyView() }, content: content)
+    }
+}
+
+struct EmptyState: View {
+    let title: LocalizedStringKey
+    let symbol: String
+    let detail: LocalizedStringKey
+
+    var body: some View {
+        if #available(macOS 14, *) {
+            ContentUnavailableView {
+                Label(title, systemImage: symbol)
+            } description: {
+                Text(detail)
+            }
+        } else {
+            VStack(spacing: 6) {
+                Image(systemName: symbol).font(.largeTitle).foregroundStyle(.secondary)
+                Text(title).font(.headline)
+                Text(detail).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 }

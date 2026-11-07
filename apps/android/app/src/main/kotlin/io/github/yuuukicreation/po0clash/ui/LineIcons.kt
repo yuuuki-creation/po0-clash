@@ -22,6 +22,9 @@ object LineIcons {
     val ChevronRight = icon("M9 5l7 7-7 7")
     val ChevronLeft = icon("M15 5l-7 7 7 7")
     val Check = icon("M5 12.5l4.5 4.5L19 7.5")
+    val Chart = icon("m7 15 3-3 3 3 5-6", "M3 3v18h18")
+    val Branch = icon(circle(6, 18, 2.5), circle(18, 6, 2.5), "M6 3v12.5", "M18 8.5a9.5 9.5 0 0 1-9.5 9.5")
+    val UpDown = icon("M7 20V4", "m3 8 4-4 4 4", "M17 4v16", "m21 16-4 4-4-4")
     val ArrowDown = icon("M12 5v14M7 14l5 5 5-5")
     val ArrowUp = icon("M12 19V5M7 10l5-5 5 5")
     val Link = icon(
@@ -39,7 +42,25 @@ object LineIcons {
         "M14 2.5V8h5.5",
         "M8.5 13h7M8.5 17h5",
     )
+    val Wifi = icon("M5 12.5a10 10 0 0 1 14 0", "M2 9a14.5 14.5 0 0 1 20 0", "M8.5 16a5 5 0 0 1 7 0", "M12 19.5h.01")
+    val Server = icon(rect(3, 3.5, 18, 7, 2), rect(3, 13.5, 18, 7, 2), "M7 7h.01M7 17h.01")
+    val Wrench = icon(
+        "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z",
+    )
+    val Appearance = icon(circle(12, 12, 9), "F:M12 3a9 9 0 0 0 0 18z")
+    val Languages = icon("m5 8 6 6", "m4 14 6-6 2-3", "M2 5h12", "M7 2h1", "m22 22-5-10-5 10", "M14 18h6")
+    val Smartphone = icon(rect(6, 2.5, 12, 19, 2.5), "M11 18h2")
+    val Database = icon(
+        "M4 5.5a8 3 0 1 0 16 0a8 3 0 1 0-16 0z",
+        "M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13",
+        "M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3",
+    )
+    val CloudUpload = icon("M12 13v8", "m8 17 4-4 4 4", "M20 16.6A5 5 0 0 0 18 7h-1.3A8 8 0 1 0 4 15.3")
+    val Terminal = icon("m4 17 6-6-6-6", "M12 19h8")
     val Info = icon(circle(12, 12, 9.5), "M12 16.5v-5", "M12 7.5h.01")
+    val Chip = icon(rect(6, 6, 12, 12, 2), "M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4")
+    val Pin = icon("M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z", circle(12, 10, 3))
+    val Lan = icon(rect(9, 2.5, 6, 5, 1), rect(2.5, 16.5, 6, 5, 1), rect(15.5, 16.5, 6, 5, 1), "M12 7.5v4.5M5.5 16.5V12h13v4.5")
     val Refresh = icon("M20 11a8 8 0 1 0-2.3 6M20 5v6h-6")
     val Plus = icon("M12 5v14M5 12h14")
     val Trash = icon("M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13")

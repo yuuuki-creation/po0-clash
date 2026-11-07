@@ -1,13 +1,11 @@
 import Po0FFI
 import SwiftUI
 
-extension Script: Identifiable {}
-
 /// FlClash's per-profile override: rules added in front of the profile's own, an override script, or proxy groups
 /// and rules that replace the profile's.
-struct ProfileOverrideDialog: View {
+struct ProfileOverrideSheet: View {
     @EnvironmentObject private var model: AppModel
-    @Environment(\.dismissDialog) private var dismiss
+    @Environment(\.dismiss) private var dismiss
     let profile: Profile
     @State private var draft: ProfileOverride?
     @State private var scripts: [Script] = []
@@ -16,46 +14,53 @@ struct ProfileOverrideDialog: View {
     @State private var saving = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            DialogTitle(title: "Profile Override", detail: profile.title)
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Profile Override").font(.headline)
+                Text(verbatim: profile.title).font(.caption).foregroundStyle(.secondary)
+            }
             if let overrides = Binding($draft) {
-                SegmentedControl(
-                    selection: overrides.mode,
-                    segments: [OverrideMode.standard, .script, .custom].map { Segment($0, $0.title) }
-                )
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Ui.block) {
-                        switch overrides.wrappedValue.mode {
-                        case .standard:
-                            StandardOverride(overrides: overrides)
-                        case .script:
-                            ScriptOverride(overrides: overrides, scripts: scripts) { editing = $0 }
-                        case .custom:
-                            CustomOverride(overrides: overrides, profile: profile, error: $error)
-                        }
+                Picker("Mode", selection: overrides.mode) {
+                    ForEach([OverrideMode.standard, .script, .custom], id: \.self) { mode in
+                        Text(mode.title).tag(mode)
                     }
                 }
+                .themedSegments()
+                .labelsHidden()
+                Text(overrides.wrappedValue.mode.detail).font(.caption).foregroundStyle(.secondary)
+                switch overrides.wrappedValue.mode {
+                case .standard:
+                    StandardOverride(overrides: overrides)
+                case .script:
+                    ScriptOverride(overrides: overrides, scripts: scripts) { editing = $0 }
+                case .custom:
+                    CustomOverride(overrides: overrides, profile: profile, error: $error)
+                }
             } else {
-                Ring().frame(maxWidth: .infinity, maxHeight: .infinity)
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            if let error { ErrorText(message: error) }
-            DialogActions {
-                if saving { Ring() }
-                Button("Cancel") { dismiss() }
+            if let error {
+                Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled)
+            }
+            HStack {
+                Spacer()
+                if saving { ProgressView().controlSize(.small) }
+                Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button("Save", action: save)
-                    .buttonStyle(ActionButtonStyle(primary: true))
                     .keyboardShortcut("s", modifiers: .command)
                     .disabled(draft == nil || saving)
             }
         }
-        .frame(maxWidth: 640, maxHeight: 620)
-        .dialog(item: $editing) { sheet in
-            ScriptEditorDialog(script: sheet.script) { saved in
+        .padding(20)
+        .frame(width: 640, height: 620)
+        .sheet(item: $editing) { sheet in
+            ScriptEditorSheet(script: sheet.script) { saved in
                 scripts.removeAll { $0.id == saved.id }
                 scripts.append(saved)
                 draft?.scriptId = saved.id
             }
+            .environmentObject(model)
         }
         .task {
             scripts = await model.scripts()
@@ -83,25 +88,33 @@ private struct StandardOverride: View {
     @Binding var overrides: ProfileOverride
 
     var body: some View {
-        SettingsSection("Added rules") {
-            RulesField(rules: $overrides.addedRules)
-                .frame(height: 130)
-                .padding(Ui.padding)
-            FieldRow("MATCH target") {
+        Form {
+            Section {
+                RulesField(rules: $overrides.addedRules).frame(height: 130)
                 TextField("MATCH target", text: Binding(
                     get: { overrides.matchTarget ?? "" },
                     set: { overrides.matchTarget = $0.isEmpty ? nil : $0 }
                 ), prompt: Text("Where the profile's final rule goes"))
+            } header: {
+                Text("Added rules")
+            } footer: {
+                Text("One per line, matched before the global rules and the profile's own. A rule whose target is MATCH goes to the MATCH target.")
+                    .foregroundStyle(.secondary)
             }
-        }
-        let global = model.engineOptions?.addedRules ?? []
-        if !global.isEmpty {
-            SettingsSection("Global rules") {
+            Section("Global rules") {
+                let global = model.engineOptions?.addedRules ?? []
+                if global.isEmpty {
+                    Text("No global rules. Add them in Tools › Advanced.").foregroundStyle(.secondary)
+                }
                 ForEach(global, id: \.self) { rule in
-                    ToggleRow(verbatim: rule, isOn: enabled(rule)).font(Ui.codeFont)
+                    Toggle(isOn: enabled(rule)) {
+                        Text(verbatim: rule).font(.system(size: 12, design: .monospaced))
+                    }
                 }
             }
         }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
     }
 
     private func enabled(_ rule: String) -> Binding<Bool> {
@@ -121,22 +134,29 @@ private struct ScriptOverride: View {
     let edit: (ScriptSheet) -> Void
 
     var body: some View {
-        RowGroup {
-            OptionRow(
-                "Script",
-                selection: $overrides.scriptId,
-                options: [Option<String?>(nil, String(localized: "None"))]
-                    + scripts.map { Option<String?>($0.id, $0.name) }
-            )
-            Row {
-                Spacer()
-                Button("Edit Script…") {
-                    if let script = scripts.first(where: { $0.id == overrides.scriptId }) { edit(.edit(script)) }
+        Form {
+            Section {
+                Picker("Script", selection: $overrides.scriptId) {
+                    Text("None").tag(String?.none)
+                    ForEach(scripts, id: \.id) { script in
+                        Text(verbatim: script.name).tag(Optional(script.id))
+                    }
                 }
-                .disabled(overrides.scriptId == nil)
-                Button("New Script…") { edit(.new) }
+                HStack {
+                    Spacer()
+                    Button("Edit Script…") {
+                        if let script = scripts.first(where: { $0.id == overrides.scriptId }) { edit(.edit(script)) }
+                    }
+                    .disabled(overrides.scriptId == nil)
+                    Button("New Script…") { edit(.new) }
+                }
+            } footer: {
+                Text("The script's main(config) gets the profile's config before po0-clash's settings and returns the config to use. Scripts are kept in Tools › Advanced.")
+                    .foregroundStyle(.secondary)
             }
         }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
     }
 }
 
@@ -148,29 +168,34 @@ private struct CustomOverride: View {
     @State private var confirming = false
 
     var body: some View {
-        SettingsSection("Proxy groups") {
-            CodeField(text: $overrides.customGroups)
-                .frame(height: 150)
-                .padding(Ui.padding)
-        }
-        SettingsSection("Rules") {
-            RulesField(rules: $overrides.customRules)
-                .frame(height: 130)
-                .padding(Ui.padding)
-        }
-        DialogActions {
-            Button("Copy from Profile") {
-                if overrides.customGroups.isBlank && overrides.customRules.allSatisfy(\.isBlank) {
-                    fill()
-                } else {
-                    confirming = true
+        Form {
+            Section("Proxy groups") {
+                CodeField(text: $overrides.customGroups).frame(height: 150)
+            }
+            Section {
+                RulesField(rules: $overrides.customRules).frame(height: 130)
+            } header: {
+                Text("Rules")
+            } footer: {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Proxy groups are a YAML list. Left empty, the profile keeps its own groups or rules.")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Copy from Profile") {
+                        if overrides.customGroups.isBlank && overrides.customRules.allSatisfy(\.isBlank) {
+                            fill()
+                        } else {
+                            confirming = true
+                        }
+                    }
                 }
             }
         }
-        .dialog(isPresented: $confirming, closesOnScrimClick: true) {
-            ConfirmDialog(title: String(localized: "Replace with the profile's own groups and rules?"), confirm: "Replace") {
-                fill()
-            }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .alert("Replace with the profile's own groups and rules?", isPresented: $confirming) {
+            Button("Replace", role: .destructive, action: fill)
+            Button("Cancel", role: .cancel) {}
         }
     }
 
@@ -194,22 +219,30 @@ struct ScriptsSection: View {
     let remove: (Script) -> Void
 
     var body: some View {
-        SettingsSection("Override scripts") {
+        Section {
             ForEach(scripts, id: \.id) { script in
-                Row {
-                    Text(verbatim: script.name).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-                    Text("\(script.content.split(separator: "\n").count) lines").foregroundStyle(Color.ink2)
-                    Button("Edit…") { edit(.edit(script)) }
-                    Button("Delete…") { remove(script) }
+                LabeledContent {
+                    HStack {
+                        Button("Edit…") { edit(.edit(script)) }
+                        Button("Delete…") { remove(script) }
+                    }
+                } label: {
+                    Text(verbatim: script.name)
+                    Text("\(script.content.split(separator: "\n").count) lines")
                 }
             }
-            Row {
+            HStack {
                 if scripts.isEmpty {
-                    Text("No scripts yet.").foregroundStyle(Color.ink2)
+                    Text("No scripts yet.").foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button("New Script…") { edit(.new) }
             }
+        } header: {
+            Text("Override scripts")
+        } footer: {
+            Text("A profile runs a script once you choose it in the profile's Override settings.")
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -230,9 +263,9 @@ enum ScriptSheet: Identifiable {
     }
 }
 
-struct ScriptEditorDialog: View {
+struct ScriptEditorSheet: View {
     @EnvironmentObject private var model: AppModel
-    @Environment(\.dismissDialog) private var dismiss
+    @Environment(\.dismiss) private var dismiss
     let script: Script?
     let saved: (Script) -> Void
     @State private var name: String
@@ -248,22 +281,28 @@ struct ScriptEditorDialog: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            DialogTitle(title: script == nil ? LocalizedStringKey("New Script") : LocalizedStringKey("Edit Script"))
-            TextField("Name", text: $name).fieldChrome(autofocus: true)
+        VStack(alignment: .leading, spacing: 12) {
+            Text(script == nil ? LocalizedStringKey("New Script") : LocalizedStringKey("Edit Script")).font(.headline)
+            TextField("Name", text: $name).textFieldStyle(.roundedBorder)
             CodeField(text: $content)
-            if let error { ErrorText(message: error) }
-            DialogActions {
-                if saving { Ring() }
-                Button("Cancel") { dismiss() }
+            Text("main(config) receives the profile's config as an object and returns the config to use.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if let error {
+                Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled)
+            }
+            HStack {
+                Spacer()
+                if saving { ProgressView().controlSize(.small) }
+                Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button("Save", action: save)
-                    .buttonStyle(ActionButtonStyle(primary: true))
                     .keyboardShortcut("s", modifiers: .command)
                     .disabled(name.isBlank || saving)
             }
         }
-        .frame(maxWidth: 640, maxHeight: 520)
+        .padding(20)
+        .frame(width: 640, height: 520)
     }
 
     private func save() {
@@ -297,7 +336,9 @@ private struct CodeField: View {
     @Binding var text: String
 
     var body: some View {
-        CodeEditor(text: $text).editorChrome()
+        CodeEditor(text: $text)
+            .background(Color.tileBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.cardEdge))
     }
 }
 
@@ -307,6 +348,14 @@ private extension OverrideMode {
         case .standard: return "Standard"
         case .script: return "Script"
         case .custom: return "Custom"
+        }
+    }
+
+    var detail: LocalizedStringKey {
+        switch self {
+        case .standard: return "Adds rules in front of the profile's own."
+        case .script: return "Rewrites the profile's config with a script."
+        case .custom: return "Replaces the profile's proxy groups and rules with your own."
         }
     }
 }

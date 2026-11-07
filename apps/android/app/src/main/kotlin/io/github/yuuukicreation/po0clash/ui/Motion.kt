@@ -21,6 +21,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.foundation.lazy.grid.LazyGridItemScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -104,6 +105,18 @@ fun <T : Any> PushHost(
 
 @Composable
 fun LazyItemScope.itemMotion(): Modifier =
+    if (LocalReduceMotion.current) {
+        Modifier
+    } else {
+        Modifier.animateItem(
+            fadeInSpec = tween(250, easing = EnterEasing),
+            placementSpec = tween(250, easing = StandardEasing),
+            fadeOutSpec = tween(200, easing = ExitEasing),
+        )
+    }
+
+@Composable
+fun LazyGridItemScope.itemMotion(): Modifier =
     if (LocalReduceMotion.current) {
         Modifier
     } else {

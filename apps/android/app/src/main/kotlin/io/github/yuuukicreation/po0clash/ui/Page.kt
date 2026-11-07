@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
@@ -73,8 +74,21 @@ fun PageScaffold(
     onBack: (() -> Unit)? = null,
     capped: Boolean = true,
     fab: FabAction? = null,
+    subtitle: String? = null,
     content: @Composable (PaddingValues) -> Unit,
-) = PageScaffold(title, state.canScrollBackward, actions, onBack, null, capped, fab, content)
+) = PageScaffold(title, state.canScrollBackward, actions, onBack, null, capped, fab, subtitle, content)
+
+@Composable
+fun PageScaffold(
+    title: String,
+    state: LazyGridState,
+    actions: List<PageAction> = emptyList(),
+    onBack: (() -> Unit)? = null,
+    capped: Boolean = true,
+    fab: FabAction? = null,
+    subtitle: String? = null,
+    content: @Composable (PaddingValues) -> Unit,
+) = PageScaffold(title, state.canScrollBackward, actions, onBack, null, capped, fab, subtitle, content)
 
 @Composable
 fun PageScaffold(
@@ -85,10 +99,11 @@ fun PageScaffold(
     search: AppBarSearch? = null,
     capped: Boolean = true,
     fab: FabAction? = null,
+    subtitle: String? = null,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
-        AppBar(title, scrolled, actions, onBack, search)
+        AppBar(title, subtitle, scrolled, actions, onBack, search)
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val side = if (capped) maxOf(16.dp, (maxWidth - maxContentWidth) / 2) else 16.dp
             val bottom = LocalBottomInset.current
@@ -96,7 +111,7 @@ fun PageScaffold(
                 PaddingValues(
                     start = side,
                     end = side,
-                    top = 4.dp,
+                    top = 6.dp,
                     bottom = bottom + if (fab != null) 92.dp else 16.dp,
                 ),
             )
@@ -109,22 +124,34 @@ fun PageScaffold(
 }
 
 @Composable
-private fun AppBar(title: String, scrolled: Boolean, actions: List<PageAction>, onBack: (() -> Unit)?, search: AppBarSearch?) {
+private fun AppBar(
+    title: String,
+    subtitle: String?,
+    scrolled: Boolean,
+    actions: List<PageAction>,
+    onBack: (() -> Unit)?,
+    search: AppBarSearch?,
+) {
     val colors = palette
     val fill by animateColorAsState(if (scrolled) colors.card else colors.bg, tween(200), label = "appBar")
     Box(Modifier.fillMaxWidth().background(fill).windowInsetsPadding(WindowInsets.statusBars)) {
         Row(
-            Modifier.fillMaxWidth().height(56.dp).padding(start = 16.dp, end = 4.dp),
+            Modifier.fillMaxWidth().height(if (subtitle != null) 64.dp else 56.dp).padding(start = 16.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             if (search != null) {
-                AppBarSearchField(search, Modifier.weight(1f).padding(end = 12.dp))
+                AppBarSearchField(search, Modifier.weight(1f).padding(end = 8.dp))
                 return@Row
             }
             if (onBack != null) AppIconButton(LineIcons.ChevronLeft, stringResource(R.string.back), onClick = onBack)
-            Crossfade(title, Modifier.weight(1f), tween(150), label = "appBarTitle") {
-                Text(it, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Column(Modifier.weight(1f)) {
+                Crossfade(title, animationSpec = tween(150), label = "appBarTitle") {
+                    Text(it, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                if (!subtitle.isNullOrEmpty()) {
+                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = colors.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
             actions.forEach { action ->
                 AppIconButton(

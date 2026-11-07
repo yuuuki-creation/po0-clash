@@ -42,7 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         let atLogin = LaunchAtLogin.launchedAtLogin
-        if !Showcase.usesSample { AppModel.shared.launch(atLogin: atLogin) }
+        AppModel.shared.launch(atLogin: atLogin)
         Showcase.run()
     }
 

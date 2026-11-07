@@ -220,11 +220,6 @@
         {/each}
       </section>
       <section class="tbl {s.proxiesDensity} {s.proxyTileStyle}" aria-label={current?.name}>
-        <div class="row t-node thead">
-          <span>{t('table.name')}</span>
-          {#if s.proxyTileStyle === 'detailed'}<span class="c-kind">{t('table.type')}</span>{/if}
-          <span>{t('table.delay')}</span>
-        </div>
         {#if current}
           {#key current.name}
             <NodeTable group={current} nodes={current.shown} tile={s.proxyTileStyle} />

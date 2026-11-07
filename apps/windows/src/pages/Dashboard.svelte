@@ -4,8 +4,9 @@
 
 <script>
   import { act, app, refreshExitIp, resolvedDelay, testDelay } from '../lib/core.svelte.js';
-  import { arrangeCards, displayOrder, moveCard } from '../lib/dashboard-cards.js';
+  import { displayOrder, moveCard } from '../lib/dashboard-cards.js';
   import { formatAgo, formatBytes, formatDate, formatDelay, formatElapsed, formatRate, formatUsage, t } from '../lib/i18n.js';
+  import Card from '../lib/Card.svelte';
   import DelayButton from '../lib/DelayButton.svelte';
   import Icon from '../lib/Icon.svelte';
   import { navigate, rowIn, rowOut } from '../lib/motion.svelte.js';
@@ -15,6 +16,7 @@
   import { settings, updateSettings } from '../lib/settings.svelte.js';
   import SpeedChart from '../lib/SpeedChart.svelte';
   import Switch from '../lib/Switch.svelte';
+  import Value from '../lib/Value.svelte';
   import { focusGroup } from './Proxies.svelte';
 
   const engine = $derived(app.status?.engine.state ?? 'stopped');
@@ -46,6 +48,14 @@
   );
   const node = $derived(running && group ? group.nodes.find((n) => n.name === group.now) : null);
   const rank = (delay) => (delay ? delay : delay === 0 ? 1e9 : 1e8);
+  const alternatives = $derived.by(() => {
+    if (!group) return [];
+    const currentName = node?.name ?? group.now;
+    return group.nodes
+      .filter((n) => n.name !== currentName)
+      .toSorted((a, b) => rank(resolvedDelay(a)) - rank(resolvedDelay(b)))
+      .slice(0, 3);
+  });
   const nodeSections = $derived.by(() => {
     if (!node) return [];
     const nodes = {
@@ -70,6 +80,7 @@
   const profile = $derived(app.profiles.find((p) => p.selected));
   const usage = $derived(profile?.usage);
   const used = $derived(usage ? usage.upload + usage.download : 0);
+  const percent = $derived(usage?.total ? Math.min(100, Math.round((used / usage.total) * 100)) : null);
   const profileTitle = (p) => (p.kind === 'links' ? t('profiles.links') : p.name);
   const profileTip = $derived(
     [
@@ -107,6 +118,7 @@
     subscription: 'home.profile',
     exitIp: 'home.exitIp',
   };
+  const wide = new Set(['currentNode', 'speed', 'subscription', 'mode', 'traffic']);
   const rows = {
     currentNode,
     speed,
@@ -121,7 +133,6 @@
     exitIp,
   };
   const cards = $derived(displayOrder(settings.value.dashboardCards.filter((id) => rows[id])));
-  const columns = $derived(arrangeCards(cards));
   const hidden = $derived(Object.keys(titles).filter((id) => !cards.includes(id)));
 
   let editing = $state(false);
@@ -177,33 +188,39 @@
     >
   {/snippet}
 
-  <section class="group">
-    <div class="row status">
-      <span class="dot {statusTone}"></span>
-      <div class="grow status-text">
-        <div class="status-main">
-          <strong>{t(`status.${engine}`)}</strong>
-          {#if app.connectedAt}<span class="val">{formatElapsed(now - app.connectedAt)}</span>{/if}
-        </div>
-        {#if engine === 'failed'}<span class="bad-text selectable">{app.status.engine.message}</span>{/if}
-      </div>
-      <button
-        type="button"
-        class="btn power"
-        class:primary={!running && !connecting}
-        disabled={connecting || app.busy.power || !app.status}
-        aria-label={powerLabels.find((label) => label.id === powerState).text}
-        onclick={() => act('power', running ? 'stop' : 'start')}
-      >
-        <span class="power-labels">
-          {#each powerLabels as label (label.id)}
-            <span class:on={label.id === powerState}>
-              {#if label.spinner}<span class="ring"></span>{/if}{label.text}
-            </span>
-          {/each}
-        </span>
-      </button>
+  <section class="hero-banner {statusTone}">
+    <div class="hero-badge {statusTone}">
+      <Icon name={running ? 'whitelist' : connecting ? 'bolt' : engine === 'failed' ? 'warning' : 'proxies'} />
     </div>
+    <div class="grow status-text">
+      <div class="status-main">
+        <strong>{t(`status.${engine}`)}</strong>
+        {#if app.connectedAt}<span class="hero-timer">{formatElapsed(now - app.connectedAt)}</span>{/if}
+      </div>
+      {#if engine === 'failed'}
+        <span class="bad-text selectable">{app.status.engine.message}</span>
+      {:else}
+        <span class="hero-sub clip">
+          {[profile && profileTitle(profile), group?.now, app.status?.routeMode && t(`route.${app.status.routeMode}`)].filter(Boolean).join(' · ') || t('home.addProfile')}
+        </span>
+      {/if}
+    </div>
+    <button
+      type="button"
+      class="btn power"
+      class:primary={!running && !connecting}
+      disabled={connecting || app.busy.power || !app.status}
+      aria-label={powerLabels.find((label) => label.id === powerState).text}
+      onclick={() => act('power', running ? 'stop' : 'start')}
+    >
+      <span class="power-labels">
+        {#each powerLabels as label (label.id)}
+          <span class:on={label.id === powerState}>
+            {#if label.spinner}<span class="ring"></span>{/if}{label.text}
+          </span>
+        {/each}
+      </span>
+    </button>
   </section>
 
   {#if editing}
@@ -266,41 +283,76 @@
       </section>
     {/if}
   {:else}
-    <div class="cols">
-      {#each columns as sections, i (i)}
-        <div class="col">
-          {#each sections as section, s (s)}
-            <section class="group">
-              {#each section.cards as id (id)}
-                {@render rows[id]()}
-              {/each}
-            </section>
-          {/each}
-        </div>
+    <div class="bento-grid">
+      {#each cards as id (id)}
+        {@render rows[id]()}
       {/each}
     </div>
   {/if}
 </Page>
 
 {#snippet currentNode()}
-  <div class="row">
-    <button type="button" class="row-hit" aria-label={t('home.node')} onclick={() => openGroup(group?.name)}></button>
-    <span class="grow clip">{t('home.node')}</span>
-    {#if node}
-      <SectionMenu label={t('home.switchTo')} sections={nodeSections} triggerClass="val-menu">
-        {#snippet trigger()}<span class="clip">{node.name}</span><Icon name="chevDown" class="chev-d" />{/snippet}
-      </SectionMenu>
-      <DelayButton {node} />
-    {:else}
-      <span class="val">—</span>
+  <Card title={t('home.node')} icon="proxies" span={wide.has('currentNode')}>
+    {#snippet accessory()}
+      {#if group}
+        <button type="button" class="card-pill" onclick={() => openGroup(group.name)}>
+          <span class="clip">{group.name}</span><Icon name="chevron" />
+        </button>
+      {/if}
+    {/snippet}
+    <div class="node-hero">
+      <div class="node-main">
+        {#if node}
+          <SectionMenu label={t('home.switchTo')} sections={nodeSections} triggerClass="node-title-btn">
+            {#snippet trigger()}<span class="clip">{node.name}</span><Icon name="chevDown" class="chev-d" />{/snippet}
+          </SectionMenu>
+        {:else}
+          <button type="button" class="node-title-btn" onclick={() => openGroup(group?.name)}>
+            <span class="clip">{group?.now ?? '—'}</span>
+          </button>
+        {/if}
+        {#if node}
+          <DelayButton {node} />
+        {/if}
+      </div>
+      <span class="card-sub clip">{[node?.kind ?? group?.kind, group && `${group.nodes.length}`].filter(Boolean).join(' · ') || '—'}</span>
+    </div>
+    {#if group && alternatives.length}
+      <div class="quick-nodes">
+        {#each alternatives as alt (alt.name)}
+          <button
+            type="button"
+            class="quick-chip"
+            disabled={!group.selectable || app.busy[`select:${group.name}`]}
+            onclick={() => act(`select:${group.name}`, 'select_node', { group: group.name, node: alt.name })}
+          >
+            <span class="clip">{alt.name}</span>
+            {#if resolvedDelay(alt) != null}<span class="chip-delay">{formatDelay(resolvedDelay(alt))}</span>{/if}
+          </button>
+        {/each}
+      </div>
     {/if}
-    <Icon name="chevron" class="chev" />
-  </div>
+  </Card>
+{/snippet}
+
+{#snippet speed()}
+  <Card title={t('home.speed')} icon="chart" span={wide.has('speed')}>
+    <div class="speed-metrics">
+      <div class="speed-col">
+        <Value text={formatRate(app.traffic.down)} size="large" />
+        <span class="rate-legend dn"><span class="legend-dot dn"></span>↓</span>
+      </div>
+      <div class="speed-col">
+        <Value text={formatRate(app.traffic.up)} size="large" />
+        <span class="rate-legend up"><span class="legend-dot up"></span>↑</span>
+      </div>
+    </div>
+    <SpeedChart history={app.history} />
+  </Card>
 {/snippet}
 
 {#snippet mode()}
-  <div class="row">
-    <span class="grow clip">{t('home.mode')}</span>
+  <Card title={t('home.mode')} icon="branch" span={wide.has('mode')}>
     <Segmented
       label={t('home.mode')}
       options={['rule', 'global', 'direct'].map((value) => ({ value, label: t(`mode.${value}`) }))}
@@ -308,12 +360,12 @@
       disabled={app.busy.mode || !app.status}
       onchange={(mode) => act('mode', 'set_mode', { mode })}
     />
-  </div>
+    <span class="card-sub">{t(`mode.${app.status?.mode ?? 'rule'}`)}</span>
+  </Card>
 {/snippet}
 
 {#snippet takeover()}
-  <div class="row">
-    <span class="grow clip">{t('home.route')}</span>
+  <Card title={t('home.route')} icon="wifi" span={wide.has('takeover')}>
     <Segmented
       label={t('home.route')}
       options={['tun', 'systemProxy'].map((value) => ({ value, label: t(`route.${value}`) }))}
@@ -321,109 +373,120 @@
       disabled={app.busy.route || !app.status}
       onchange={(routeMode) => act('route', 'set_route_mode', { routeMode })}
     />
-  </div>
+    <span class="card-sub">{t(`route.${app.status?.routeMode ?? 'systemProxy'}`)}</span>
+  </Card>
 {/snippet}
 
 {#snippet whitelist()}
-  <div class="row">
-    <button type="button" class="row-hit" aria-label={t('home.whitelist')} onclick={() => navigate('whitelist')}></button>
-    <span class="grow clip">{t('home.whitelist')}</span>
-    <span class="val clip" class:warn-text={whitelistStatus.tone === 'fair'}>{whitelistStatus.text}</span>
-    <Switch
-      label={t('whitelist.enabled')}
-      checked={app.whitelist.enabled}
-      disabled={app.busy['wl:enabled']}
-      onchange={(enabled) => act('wl:enabled', 'set_whitelist_enabled', { enabled })}
-    />
-    <Icon name="chevron" class="chev" />
-  </div>
+  <Card title={t('home.whitelist')} icon="whitelist" span={wide.has('whitelist')}>
+    {#snippet accessory()}
+      <Switch
+        label={t('whitelist.enabled')}
+        checked={app.whitelist.enabled}
+        disabled={app.busy['wl:enabled']}
+        onchange={(enabled) => act('wl:enabled', 'set_whitelist_enabled', { enabled })}
+      />
+    {/snippet}
+    <button type="button" class="card-click" onclick={() => navigate('whitelist')}>
+      <Value text={`${entries.length}`} />
+      <span class="card-sub clip" class:warn-text={whitelistStatus.tone === 'fair'}>{whitelistStatus.text}</span>
+    </button>
+  </Card>
 {/snippet}
 
 {#snippet subscription()}
-  <div class="row" title={profileTip}>
-    <button
-      type="button"
-      class="row-hit"
-      aria-label={profile ? profileTitle(profile) : t('home.addProfile')}
-      onclick={() => navigate('profiles')}
-    ></button>
-    {#if profile}
-      <span class="grow clip">{profileTitle(profile)}</span>
-      {#if usage?.total}<span class="val">{formatUsage(used, usage.total)}</span>{/if}
-      {#if profile.kind === 'subscription'}
+  <Card title={t('home.profile')} icon="profiles" span={wide.has('subscription')}>
+    {#snippet accessory()}
+      {#if profile?.updatedAt}<span class="card-note">{t('home.updated', { ago: formatAgo(profile.updatedAt) })}</span>{/if}
+      {#if profile?.kind === 'subscription'}
         <button
           type="button"
-          class="icon-btn"
+          class="icon-btn sm"
           title={t('home.update')}
           aria-label={t('home.update')}
           disabled={app.busy[`update:${profile.id}`]}
           onclick={() => act(`update:${profile.id}`, 'update_profile', { id: profile.id })}
-          ><Icon name="refresh" class={app.busy[`update:${profile.id}`] ? 'spin' : ''} /></button
         >
+          <Icon name="refresh" class={app.busy[`update:${profile.id}`] ? 'spin' : ''} />
+        </button>
       {/if}
-    {:else}
-      <span class="grow clip">{t('home.addProfile')}</span>
-    {/if}
-    <Icon name="chevron" class="chev" />
-  </div>
+    {/snippet}
+    <button
+      type="button"
+      class="card-click"
+      title={profileTip}
+      aria-label={profile ? profileTitle(profile) : t('home.addProfile')}
+      onclick={() => navigate('profiles')}
+    >
+      {#if profile}
+        <div class="sub-head">
+          <strong class="clip">{profileTitle(profile)}</strong>
+          {#if percent != null}<span class="sub-pct">{percent}%</span>{/if}
+        </div>
+        {#if usage?.total}
+          <div class="usage-bar"><span style:width="{percent ?? 0}%"></span></div>
+          <div class="sub-meta">
+            <span>{formatUsage(used, usage.total)}</span>
+            {#if usage.expire}<span>{t('profiles.expire', { date: formatDate(usage.expire) })}</span>{/if}
+          </div>
+        {:else}
+          <span class="card-sub">{profileTip || t('page.profiles')}</span>
+        {/if}
+      {:else}
+        <span class="text-link">{t('home.addProfile')}</span>
+      {/if}
+    </button>
+  </Card>
 {/snippet}
 
 {#snippet exitIp()}
-  <div class="row">
-    <span class="grow clip">{t('home.exitIp')}</span>
-    <span class="val selectable">{app.exitIp?.ip ?? (app.exitIpLoading ? '…' : '—')}</span>
-    {#if app.exitIp?.country}<span class="val">{app.exitIp.country}</span>{/if}
-    <button
-      type="button"
-      class="icon-btn"
-      title={t('home.refresh')}
-      aria-label={t('home.refresh')}
-      disabled={app.exitIpLoading}
-      onclick={() => refreshExitIp()}><Icon name="refresh" class={app.exitIpLoading ? 'spin' : ''} /></button
-    >
-  </div>
+  <Card title={t('home.exitIp')} icon="pin" span={wide.has('exitIp')}>
+    {#snippet accessory()}
+      <button
+        type="button"
+        class="icon-btn sm"
+        title={t('home.refresh')}
+        aria-label={t('home.refresh')}
+        disabled={app.exitIpLoading}
+        onclick={() => refreshExitIp()}><Icon name="refresh" class={app.exitIpLoading ? 'spin' : ''} /></button
+      >
+    {/snippet}
+    <Value text={app.exitIp?.ip ?? (app.exitIpLoading ? '…' : '—')} size="medium" />
+    <span class="card-sub">{app.exitIp?.country ?? '—'}</span>
+  </Card>
 {/snippet}
 
 {#snippet intranetIp()}
-  <div class="row" title={app.lan?.interface ?? ''}>
-    <span class="grow clip">{t('home.lan')}</span>
-    <span class="val selectable">{app.lan?.ip ?? '—'}</span>
-  </div>
-{/snippet}
-
-{#snippet speed()}
-  <div class="row">
-    <span class="grow clip">{t('home.speed')}</span>
-    <span class="rate dn"><Icon name="down" />{formatRate(app.traffic.down)}</span>
-    <span class="rate up"><Icon name="up" />{formatRate(app.traffic.up)}</span>
-  </div>
-  <SpeedChart history={app.history} />
+  <Card title={t('home.lan')} icon="monitor" span={wide.has('intranetIp')}>
+    <Value text={app.lan?.ip ?? '—'} size="small" />
+    <span class="card-sub">{app.lan?.interface || 'LAN'}</span>
+  </Card>
 {/snippet}
 
 {#snippet traffic()}
-  <div class="row">
-    <span class="grow clip">{t('home.traffic')}</span>
-    <span class="rate dn"><Icon name="down" />{formatBytes(totals?.downloadTotal ?? 0)}</span>
-    <span class="rate up"><Icon name="up" />{formatBytes(totals?.uploadTotal ?? 0)}</span>
-  </div>
+  <Card title={t('home.traffic')} icon="updown" span={wide.has('traffic')}>
+    <Value text={formatBytes((totals?.uploadTotal ?? 0) + (totals?.downloadTotal ?? 0))} />
+    <span class="card-sub clip">↑ {formatBytes(totals?.uploadTotal ?? 0)} · ↓ {formatBytes(totals?.downloadTotal ?? 0)}</span>
+  </Card>
 {/snippet}
 
 {#snippet connections()}
-  <button
-    type="button"
-    class="row"
-    title={t('home.requestsTotal', { count: app.requestCount.toLocaleString() })}
-    onclick={() => navigate('activity')}
-  >
-    <span class="grow clip">{t('home.connections')}</span>
-    <span class="val">{totals?.items.length ?? 0}</span>
-    <Icon name="chevron" class="chev" />
-  </button>
+  <Card title={t('home.connections')} icon="link" span={wide.has('connections')}>
+    {#snippet accessory()}
+      <button type="button" class="icon-btn sm" aria-label={t('page.activity')} onclick={() => navigate('activity')}>
+        <Icon name="chevron" />
+      </button>
+    {/snippet}
+    <button type="button" class="card-click" onclick={() => navigate('activity')}>
+      <Value text={`${totals?.items.length ?? 0}`} />
+      <span class="card-sub">{t('home.requestsTotal', { count: app.requestCount.toLocaleString() })}</span>
+    </button>
+  </Card>
 {/snippet}
 
 {#snippet memory()}
-  <div class="row">
-    <span class="grow clip">{t('home.memory')}</span>
-    <span class="val">{app.memory ? formatBytes(app.memory) : '—'}</span>
-  </div>
+  <Card title={t('home.memory')} icon="chip" span={wide.has('memory')}>
+    <Value text={app.memory ? formatBytes(app.memory) : '—'} />
+    <span class="card-sub">mihomo</span>
+  </Card>
 {/snippet}

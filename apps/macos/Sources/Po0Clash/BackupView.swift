@@ -1,11 +1,9 @@
 import Po0FFI
 import SwiftUI
 
-enum BackupSource: Hashable, Identifiable {
+enum BackupSource: Hashable {
     case webDav
     case file(URL)
-
-    var id: Self { self }
 }
 
 /// FlClash's backup page: a WebDAV account and local zip files, with the restore strategy both use.
@@ -22,53 +20,66 @@ struct BackupView: View {
     }
 
     var body: some View {
-        PageScroll {
-            SettingsSection("WebDAV") {
+        Form {
+            Section("WebDAV") {
                 if let dav = model.appSettings?.webdav {
-                    ValueRow(Text("Address")) { Text(verbatim: dav.url) }
-                    ValueRow(Text("Account")) { Text(verbatim: dav.user) }
-                    ValueRow(Text("File")) { Text(verbatim: dav.fileName.isEmpty ? "backup.zip" : dav.fileName) }
-                    Row {
-                        Text("Connection").frame(maxWidth: .infinity, alignment: .leading)
-                        connectionLabel
-                    }
-                    Row {
+                    LabeledContent("Address", value: dav.url)
+                    LabeledContent("Account", value: dav.user)
+                    LabeledContent("File", value: dav.fileName.isEmpty ? "backup.zip" : dav.fileName)
+                    LabeledContent("Connection") { connectionLabel }
+                    HStack {
                         Button("Edit…") { editing = true }
                         Spacer()
-                        if working { Ring() }
+                        if working { ProgressView().controlSize(.small) }
                         Button("Back Up") { run { await model.backupToWebDav() } }
                         Button("Restore…") { restoring = .webDav }
                     }
                 } else {
-                    Row {
-                        Text("Not set up").frame(maxWidth: .infinity, alignment: .leading)
+                    LabeledContent {
                         Button("Set Up…") { editing = true }
+                    } label: {
+                        Text("Not set up")
+                        Text("Back up to a WebDAV account such as Nextcloud or Jianguoyun.")
                     }
                 }
             }
-            SettingsSection("Local") {
-                Row {
-                    Text("Back up to a file").frame(maxWidth: .infinity, alignment: .leading)
+            Section("Local") {
+                LabeledContent {
                     Button("Back Up…") { run { await model.backupToFile() } }
+                } label: {
+                    Text("Back up to a file")
+                    Text("Saves the profiles and settings in a zip file.")
                 }
-                Row {
-                    Text("Restore from a file").frame(maxWidth: .infinity, alignment: .leading)
+                LabeledContent {
                     Button("Restore…") { restoring = model.chooseBackupFile().map(BackupSource.file) }
+                } label: {
+                    Text("Restore from a file")
+                    Text("Brings back a zip file made here or on another device.")
                 }
             }
-            RowGroup {
-                OptionRow("Restore strategy", selection: model.setting(\.restoreStrategy, or: .compatible), options: [
-                    Option(RestoreStrategy.compatible, String(localized: "Compatible")),
-                    Option(RestoreStrategy.override, String(localized: "Override")),
-                ])
+            Section {
+                Picker("Restore strategy", selection: model.setting(\.restoreStrategy, or: .compatible)) {
+                    Text("Compatible").tag(RestoreStrategy.compatible)
+                    Text("Override").tag(RestoreStrategy.override)
+                }
+            } footer: {
+                Text("Compatible keeps the profiles already here; Override replaces them with the backup's.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
+        .formStyle(.grouped)
         .disabled(model.appSettings == nil || working)
-        .dialog(isPresented: $editing) { WebDavEditor() }
-        .dialog(item: $restoring, closesOnScrimClick: true) { source in
-            RestoreDialog { scope in
-                run { await model.restore(from: source, scope: scope) }
-            }
+        .sheet(isPresented: $editing) { WebDavEditor().environmentObject(model) }
+        .confirmationDialog(
+            "Restore",
+            isPresented: Binding(get: { restoring != nil }, set: { if !$0 { restoring = nil } }),
+            presenting: restoring
+        ) { source in
+            Button("Restore All Data") { run { await model.restore(from: source, scope: .all) } }
+            Button("Restore Only Profiles") { run { await model.restore(from: source, scope: .profiles) } }
+        } message: { _ in
+            Text("Profiles always come back; restoring all data also brings back the settings.")
         }
         .task(id: model.appSettings?.webdav) { await check() }
     }
@@ -76,17 +87,16 @@ struct BackupView: View {
     @ViewBuilder
     private var connectionLabel: some View {
         switch connection {
-        case .unknown: Text(verbatim: "—").foregroundStyle(Color.ink2)
+        case .unknown: Text(verbatim: "—")
         case .checking:
             HStack(spacing: 6) {
-                Ring()
-                Text("Checking…").foregroundStyle(Color.ink2)
+                ProgressView().controlSize(.small)
+                Text("Checking…")
             }
-        case .connected:
-            Text("Connected").foregroundStyle(Color.accentColor)
+        case .connected: Label("Connected", systemImage: "checkmark.circle.fill").foregroundStyle(Color.goodText)
         case .failed(let message):
-            Text(verbatim: message)
-                .foregroundStyle(Color.bad)
+            Label(message, systemImage: "xmark.circle.fill")
+                .foregroundStyle(Color.badText)
                 .lineLimit(2)
         }
     }
@@ -107,53 +117,24 @@ struct BackupView: View {
     }
 }
 
-private struct RestoreDialog: View {
-    @Environment(\.dismissDialog) private var dismiss
-    let restore: (RestoreScope) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            DialogTitle(title: "Restore")
-            Text("Profiles always come back; restoring all data also brings back the settings.")
-                .fixedSize(horizontal: false, vertical: true)
-            DialogActions {
-                Button("Cancel") { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-                Button("Restore Only Profiles") {
-                    dismiss()
-                    restore(.profiles)
-                }
-                Button("Restore All Data") {
-                    dismiss()
-                    restore(.all)
-                }
-                .buttonStyle(ActionButtonStyle(primary: true))
-            }
-        }
-        .frame(maxWidth: 480)
-    }
-}
-
 private struct WebDavEditor: View {
     @EnvironmentObject private var model: AppModel
-    @Environment(\.dismissDialog) private var dismiss
+    @Environment(\.dismiss) private var dismiss
     @State private var url = ""
     @State private var user = ""
     @State private var password = ""
     @State private var fileName = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            DialogTitle(title: "WebDAV")
-            RowGroup {
-                FieldRow("Address") {
-                    TextField("Address", text: $url, prompt: Text(verbatim: "https://dav.example.com/dav/"))
-                }
-                FieldRow("Account") { TextField("Account", text: $user) }
-                FieldRow("Password") { SecureField("Password", text: $password) }
-                FieldRow("File") { TextField("File", text: $fileName, prompt: Text(verbatim: "backup.zip")) }
+        VStack(alignment: .leading, spacing: 12) {
+            Text("WebDAV").font(.headline)
+            Form {
+                TextField("Address", text: $url, prompt: Text(verbatim: "https://dav.example.com/dav/"))
+                TextField("Account", text: $user)
+                SecureField("Password", text: $password)
+                TextField("File", text: $fileName, prompt: Text(verbatim: "backup.zip"))
             }
-            HStack(spacing: 8) {
+            HStack {
                 if model.appSettings?.webdav != nil {
                     Button("Remove") { save(nil) }
                 }
@@ -163,12 +144,12 @@ private struct WebDavEditor: View {
                 Button("Save") {
                     save(WebDav(url: url.trimmed, user: user.trimmed, password: password, fileName: fileName.trimmed))
                 }
-                .buttonStyle(ActionButtonStyle(primary: true))
                 .keyboardShortcut(.defaultAction)
                 .disabled(url.trimmed.isEmpty)
             }
         }
-        .frame(maxWidth: 480)
+        .padding(20)
+        .frame(width: 440)
         .onAppear {
             guard let dav = model.appSettings?.webdav else { return }
             url = dav.url

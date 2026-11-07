@@ -4,14 +4,10 @@ import Po0FFI
 /// Launch arguments that put the UI on screen without a click, for CI screenshots.
 @MainActor
 enum Showcase {
-    private(set) static var sample: Sample?
-    private static var sampleDefaults: CoreClient?
-
     static func run() {
         let defaults = UserDefaults.standard
         if defaults.string(forKey: "appearance") == "dark" { NSApp.appearance = NSAppearance(named: .darkAqua) }
         Task {
-            if usesSample { await loadSample() }
             if let name = defaults.string(forKey: "showWindow") {
                 MainWindow.shared.show(Page(rawValue: name) ?? .dashboard)
             }
@@ -51,44 +47,9 @@ enum Showcase {
         UserDefaults.standard.string(forKey: "appearance") != nil
     }
 
-    static var windowSize: NSSize? {
-        guard let parts = UserDefaults.standard.string(forKey: "windowSize")?.split(separator: "x"), parts.count == 2,
-              let width = Double(parts[0]), let height = Double(parts[1]) else { return nil }
-        return NSSize(width: width, height: height)
-    }
-
-    /// `-sample YES` draws a busy profile with no engine behind it; a throwaway core supplies the default settings.
-    static var usesSample: Bool { UserDefaults.standard.bool(forKey: "sample") }
-
     /// Menu screenshots need the screen to themselves, and a requested page should be the first one drawn.
     static var keepsWindowClosed: Bool {
         UserDefaults.standard.bool(forKey: "showMenu") || UserDefaults.standard.string(forKey: "showWindow") != nil
-    }
-
-    private static func loadSample() async {
-        let folder = FileManager.default.temporaryDirectory
-            .appendingPathComponent("po0-clash-sample-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
-        do {
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            let options = CoreOptions(
-                dataDir: folder.path,
-                platform: .macOs,
-                mihomoPath: nil,
-                legacyPrefs: nil,
-                legacyDatabase: nil,
-                appVersion: AppPaths.version
-            )
-            let core = try await CoreClient.open(options, listener: ChangeForwarder { _ in })
-            sampleDefaults = core
-            var settings = try await core.appSettings()
-            settings.captureLogs = true
-            settings.proxiesLayout = UserDefaults.standard.string(forKey: "proxiesLayout") == "list" ? .list : .tabs
-            let next = Sample(settings: settings, engineOptions: try await core.engineOptions())
-            sample = next
-            AppModel.shared.adoptSample(next)
-        } catch {
-            logger.error("sample failed to load: \(describe(error), privacy: .public)")
-        }
     }
 
     private static func testDelays() async {

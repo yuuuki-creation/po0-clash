@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +31,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -190,30 +192,38 @@ fun ProxiesScreen(vm: AppViewModel, opened: String?, onOpen: (String?) -> Unit) 
         val nodeRows = @Composable { group: ProxyGroup, contentPadding: PaddingValues, modifier: Modifier ->
             val nodes = group.shownNodes(needle).sortedBy(settings.proxiesSort)
             val testing = AppViewModel.busyDelay(group.name) in busy
-            val showKind = LocalWindowWidth.current >= 600.dp
-            LaunchedEffect(locating) {
-                if (!locating) return@LaunchedEffect
-                nodes.indexOfFirst { it.name == group.now }.takeIf { it >= 0 }?.let { nodeList.animateScrollToItem(it) }
-                locating = false
-            }
-            LazyColumn(modifier, state = nodeList, contentPadding = contentPadding) {
-                if (nodes.isEmpty()) item { ValueRow(0, 1, stringResource(R.string.no_match), "") }
-                itemsIndexed(nodes, key = { _, it -> it.name }) { index, node ->
-                    GroupRow(
-                        index,
-                        nodes.size,
-                        onClick = if (group.selectable) ({ vm.selectNode(group.name, node.name) }) else null,
-                        minHeight = settings.proxiesDensity.rowHeight(),
-                    ) {
-                        Po0Radio(node.name == group.now)
-                        Text(node.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                        if (settings.proxyTileStyle == ProxyTileStyle.DETAILED && showKind) {
-                            Text(node.kind, style = MaterialTheme.typography.bodyMedium, color = palette.ink2, maxLines = 1)
-                        }
-                        if (settings.proxyTileStyle != ProxyTileStyle.MINIMAL) {
-                            NodeDelay(nested[node.name]?.delay(nested) ?: node.delay, testing || AppViewModel.busyNodeDelay(node.name) in busy) {
-                                vm.testNodeDelay(node.name)
+            BoxWithConstraints(modifier) {
+                val columns = ((maxWidth - 32.dp) / settings.proxiesDensity.tileWidth()).toInt().coerceAtLeast(2)
+                val rows = nodes.chunked(columns)
+                LaunchedEffect(locating) {
+                    if (!locating) return@LaunchedEffect
+                    nodes.indexOfFirst { it.name == group.now }.takeIf { it >= 0 }?.let { nodeList.animateScrollToItem(it / columns) }
+                    locating = false
+                }
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    state = nodeList,
+                    contentPadding = contentPadding,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    if (nodes.isEmpty()) item { ValueRow(0, 1, stringResource(R.string.no_match), "") }
+                    itemsIndexed(rows, key = { index, _ -> "tabrow:${group.name}:$index" }) { _, row ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            row.forEach { node ->
+                                NodeTile(
+                                    node = node,
+                                    style = settings.proxyTileStyle,
+                                    selected = node.name == group.now,
+                                    enabled = group.selectable,
+                                    delay = nested[node.name]?.delay(nested) ?: node.delay,
+                                    testing = testing || AppViewModel.busyNodeDelay(node.name) in busy,
+                                    onTest = { vm.testNodeDelay(node.name) },
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    if (group.selectable) vm.selectNode(group.name, node.name)
+                                }
                             }
+                            repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                         }
                     }
                 }
@@ -411,7 +421,7 @@ private fun NodeDelay(delay: UInt?, waiting: Boolean, onTest: () -> Unit) {
 @Composable
 fun DelayText(delay: UInt?, style: TextStyle = MaterialTheme.typography.labelMedium, placeholder: Boolean = false) {
     val colors = palette
-    val cell = Modifier.widthIn(min = 56.dp).padding(horizontal = 6.dp, vertical = 2.dp)
+    val pillShape = RoundedCornerShape(999.dp)
     when {
         delay == null -> if (placeholder) {
             Text(
@@ -420,26 +430,26 @@ fun DelayText(delay: UInt?, style: TextStyle = MaterialTheme.typography.labelMed
                 color = colors.ink3,
                 textAlign = TextAlign.End,
                 maxLines = 1,
-                modifier = cell,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
             )
         }
         delay == 0u -> Text(
             stringResource(R.string.delay_timeout),
-            style = style.tabular(),
+            style = style.copy(fontWeight = FontWeight.SemiBold).tabular(),
             color = colors.bad,
             textAlign = TextAlign.End,
             maxLines = 1,
-            modifier = cell,
+            modifier = Modifier.background(colors.badMuted, pillShape).padding(horizontal = 8.dp, vertical = 2.dp),
         )
         else -> {
             val good = delay < 600u
             Text(
                 stringResource(R.string.delay_ms, delay.toInt()),
-                style = style.tabular(),
-                color = if (good) colors.ink2 else colors.warn,
+                style = style.copy(fontWeight = FontWeight.SemiBold).tabular(),
+                color = if (good) colors.good else colors.warn,
                 textAlign = TextAlign.End,
                 maxLines = 1,
-                modifier = cell,
+                modifier = Modifier.background(if (good) colors.goodMuted else colors.warnMuted, pillShape).padding(horizontal = 8.dp, vertical = 2.dp),
             )
         }
     }
@@ -582,20 +592,42 @@ private fun NodeTile(
     onClick: () -> Unit,
 ) {
     val colors = palette
-    val fill by animateColorAsState(if (selected) colors.sel else colors.bg, tween(150, easing = StandardEasing), label = "tile")
+    val tileShape = RoundedCornerShape(16.dp)
+    val fill by animateColorAsState(if (selected) colors.sel else colors.card, tween(150, easing = StandardEasing), label = "tile")
+    val border by animateColorAsState(if (selected) colors.accent else colors.line.copy(alpha = 0.7f), tween(150, easing = StandardEasing), label = "tileBorder")
     Column(
-        modifier.clip(RoundedCornerShape(8.dp)).background(fill).clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = if (style == ProxyTileStyle.DETAILED) 10.dp else 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier
+            .clip(tileShape)
+            .background(fill)
+            .border(if (selected) 1.5.dp else 1.dp, border, tileShape)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = if (style == ProxyTileStyle.DETAILED) 12.dp else 10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Po0Radio(selected)
-            Text(node.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                node.name,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = if (selected) colors.onSel else colors.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (selected) {
+                Icon(LineIcons.Check, contentDescription = null, tint = colors.accent, modifier = Modifier.size(16.dp))
+            }
             if (style == ProxyTileStyle.COMPACT) NodeDelay(delay, testing, onTest)
         }
         if (style == ProxyTileStyle.DETAILED) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(node.kind, style = MaterialTheme.typography.bodySmall, color = colors.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    node.kind,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (selected) colors.onSel.copy(alpha = 0.75f) else colors.ink2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
                 NodeDelay(delay, testing, onTest)
             }
         }

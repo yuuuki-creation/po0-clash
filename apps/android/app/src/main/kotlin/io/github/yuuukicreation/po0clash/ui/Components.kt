@@ -3,9 +3,12 @@ package io.github.yuuukicreation.po0clash.ui
 import android.text.format.DateUtils
 import android.text.format.Formatter
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -43,6 +46,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -51,15 +55,105 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.yuuukicreation.po0clash.R
 import java.text.DateFormat
 import java.util.Date
+
+val cardShape = RoundedCornerShape(20.dp)
+
+@Composable
+fun InfoCard(
+    title: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    note: String? = null,
+    spacing: Dp = 6.dp,
+    trailing: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val colors = palette
+    Column(
+        modifier.fillMaxWidth()
+            .clip(cardShape)
+            .background(colors.card)
+            .border(1.dp, colors.line.copy(alpha = 0.65f), cardShape)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(spacing),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 28.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Box(
+                Modifier.size(28.dp).background(colors.accent.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = null, tint = colors.accent, modifier = Modifier.size(15.dp))
+            }
+            Text(
+                title,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = colors.ink2,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (note != null) {
+                Text(note, style = MaterialTheme.typography.labelMedium.tabular(), color = colors.ink2, maxLines = 1)
+            }
+            trailing?.invoke()
+        }
+        content()
+    }
+}
+
+@Composable
+fun BigValue(value: String, unit: String? = null, large: Boolean = false) {
+    val colors = palette
+    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(
+            value,
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontSize = if (large) 25.sp else 21.sp,
+                fontWeight = FontWeight.Bold,
+                lineHeight = if (large) 30.sp else 26.sp,
+            ).tabular(),
+            color = colors.ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.alignByBaseline(),
+        )
+        if (!unit.isNullOrEmpty()) {
+            Text(
+                unit,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = colors.ink2,
+                maxLines = 1,
+                modifier = Modifier.alignByBaseline(),
+            )
+        }
+    }
+}
+
+@Composable
+fun byteParts(value: ULong, perSecond: Boolean = false): Pair<String, String> {
+    val text = Formatter.formatFileSize(LocalContext.current, value.toLong())
+    val split = text.indexOfLast { it.isWhitespace() || it == '\u00A0' }
+    val (number, unit) = if (split < 0) text to "" else text.substring(0, split) to text.substring(split + 1)
+    return number to if (perSecond) "$unit/s" else unit
+}
 
 fun segmentShape(index: Int, count: Int, columns: Int = 1): Shape {
     val row = index / columns
     val column = index % columns
     val lastRow = (count - 1) / columns
-    fun corner(outer: Boolean) = if (outer) 16.dp else 0.dp
+    fun corner(outer: Boolean) = if (outer) 20.dp else 0.dp
     return RoundedCornerShape(
         topStart = corner(row == 0 && column == 0),
         topEnd = corner(row == 0 && column == columns - 1),

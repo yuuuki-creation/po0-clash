@@ -1,76 +1,131 @@
 import AppKit
 import SwiftUI
 
-struct Sidebar: View {
+struct Sidebar: NSViewRepresentable {
     @Binding var page: Page
-    let accent: Color
-    let onAccent: Color
-    let enabled: Bool
+    let accent: NSColor
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(Page.allCases) { item in
-                SidebarItemButton(
-                    item: item,
-                    selected: page == item,
-                    accent: accent,
-                    onAccent: onAccent
-                ) {
-                    if page != item { page = item }
-                }
-            }
-            Spacer(minLength: 0)
+    func makeCoordinator() -> Coordinator { Coordinator(page: $page) }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let table = SidebarTable()
+        table.style = .sourceList
+        table.rowSizeStyle = .default
+        table.selectionHighlightStyle = .regular
+        table.headerView = nil
+        table.backgroundColor = .clear
+        table.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("page"))
+        column.resizingMask = .autoresizingMask
+        table.addTableColumn(column)
+        table.dataSource = context.coordinator
+        table.delegate = context.coordinator
+        table.reloadData()
+        let scroll = NSScrollView()
+        scroll.documentView = table
+        scroll.drawsBackground = false
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        context.coordinator.page = $page
+        context.coordinator.accent = accent
+        guard let table = scroll.documentView as? NSTableView else { return }
+        let row = Page.allCases.firstIndex(of: page) ?? 0
+        if table.selectedRow != row { table.selectRowIndexes([row], byExtendingSelection: false) }
+        table.enumerateAvailableRowViews { view, _ in
+            (view.view(atColumn: 0) as? SidebarCell)?.accent = accent
         }
-        .disabled(!enabled)
+    }
+
+    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+        var page: Binding<Page>
+        var accent = NSColor.controlAccentColor
+
+        init(page: Binding<Page>) {
+            self.page = page
+        }
+
+        func numberOfRows(in tableView: NSTableView) -> Int { Page.allCases.count }
+
+        func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+            let cell = tableView.makeView(withIdentifier: SidebarCell.identifier, owner: nil) as? SidebarCell
+                ?? SidebarCell(frame: .zero)
+            cell.accent = accent
+            cell.show(Page.allCases[row])
+            return cell
+        }
+
+        func tableView(_ tableView: NSTableView, typeSelectStringFor tableColumn: NSTableColumn?, row: Int) -> String? {
+            Page.allCases[row].name
+        }
+
+        func tableView(_ tableView: NSTableView, selectionIndexesForProposedSelection proposed: IndexSet) -> IndexSet {
+            proposed.isEmpty ? tableView.selectedRowIndexes : proposed
+        }
+
+        func tableViewSelectionDidChange(_ notification: Notification) {
+            guard let table = notification.object as? NSTableView,
+                  Page.allCases.indices.contains(table.selectedRow) else { return }
+            let selected = Page.allCases[table.selectedRow]
+            if page.wrappedValue != selected { page.wrappedValue = selected }
+        }
     }
 }
 
-private struct SidebarItemButton: View {
-    let item: Page
-    let selected: Bool
-    let accent: Color
-    let onAccent: Color
-    let action: () -> Void
-    @State private var hovered = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: item.symbol)
-                    .font(.system(size: 13, weight: selected ? .semibold : .regular))
-                    .foregroundStyle(selected ? onAccent : accent)
-                    .frame(width: 18, alignment: .center)
-                Text(verbatim: item.name)
-                    .font(.system(size: 13, weight: selected ? .medium : .regular))
-                    .foregroundStyle(selected ? onAccent : Color.ink)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity, minHeight: Ui.control, alignment: .leading)
-            .contentShape(RoundedRectangle(cornerRadius: Ui.controlRadius, style: .continuous))
-        }
-        .buttonStyle(SidebarButtonStyle(selected: selected, hovered: hovered, accent: accent))
-        .onHover { hovered = $0 }
-        .accessibilityAddTraits(selected ? .isSelected : [])
+/// The SwiftUI list it replaces held the focus when the window opened.
+private final class SidebarTable: NSTableView {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        window?.makeFirstResponder(self)
     }
 }
 
-private struct SidebarButtonStyle: ButtonStyle {
-    let selected: Bool
-    let hovered: Bool
-    let accent: Color
+private final class SidebarCell: NSTableCellView {
+    static let identifier = NSUserInterfaceItemIdentifier("SidebarCell")
 
-    func makeBody(configuration: Configuration) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Ui.controlRadius, style: .continuous)
-        configuration.label
-            .background(
-                selected
-                    ? accent
-                    : configuration.isPressed
-                        ? Color.press
-                        : hovered ? Color.hover : Color.clear,
-                in: shape
-            )
+    var accent = NSColor.controlAccentColor {
+        didSet { tint() }
+    }
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        identifier = Self.identifier
+        let image = NSImageView()
+        let text = NSTextField(labelWithString: "")
+        text.lineBreakMode = .byTruncatingTail
+        for view in [image, text] as [NSView] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+        }
+        imageView = image
+        textField = text
+        NSLayoutConstraint.activate([
+            image.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            image.centerYAnchor.constraint(equalTo: centerYAnchor),
+            image.widthAnchor.constraint(equalToConstant: 18),
+            text.leadingAnchor.constraint(equalTo: image.trailingAnchor, constant: 6),
+            text.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -4),
+            text.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override var backgroundStyle: NSView.BackgroundStyle {
+        didSet { tint() }
+    }
+
+    func show(_ page: Page) {
+        imageView?.image = NSImage(systemSymbolName: page.symbol, accessibilityDescription: nil)
+        textField?.stringValue = page.name
+    }
+
+    private func tint() {
+        let selected = backgroundStyle == .emphasized
+        imageView?.contentTintColor = selected ? .alternateSelectedControlTextColor : accent
+        textField?.textColor = selected ? .alternateSelectedControlTextColor : .labelColor
     }
 }

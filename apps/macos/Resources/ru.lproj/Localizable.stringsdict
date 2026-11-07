@@ -22,6 +22,86 @@
 			<string>%lld узла</string>
 		</dict>
 	</dict>
+	<key>%lld entries</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld запись</string>
+			<key>few</key>
+			<string>%lld записи</string>
+			<key>many</key>
+			<string>%lld записей</string>
+			<key>other</key>
+			<string>%lld записи</string>
+		</dict>
+	</dict>
+	<key>%lld requests</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld запрос</string>
+			<key>few</key>
+			<string>%lld запроса</string>
+			<key>many</key>
+			<string>%lld запросов</string>
+			<key>other</key>
+			<string>%lld запроса</string>
+		</dict>
+	</dict>
+	<key>%lld connections</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld соединение</string>
+			<key>few</key>
+			<string>%lld соединения</string>
+			<key>many</key>
+			<string>%lld соединений</string>
+			<key>other</key>
+			<string>%lld соединения</string>
+		</dict>
+	</dict>
+	<key>%lld log lines</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld строка лога</string>
+			<key>few</key>
+			<string>%lld строки лога</string>
+			<key>many</key>
+			<string>%lld строк лога</string>
+			<key>other</key>
+			<string>%lld строки лога</string>
+		</dict>
+	</dict>
 	<key>%lld rules</key>
 	<dict>
 		<key>NSStringLocalizedFormatKey</key>
