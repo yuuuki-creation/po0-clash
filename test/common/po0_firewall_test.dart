@@ -440,8 +440,60 @@ void main() {
     });
   });
 
-  test('the po0 security context loads the bundled root', () {
-    expect(() => po0SecurityContext, returnsNormally);
+  group('Po0DirectTransport', () {
+    const listener = 'PROXY user:pass@127.0.0.1:7890';
+    const slack = Po0DirectTransport.nativeDeadlineSlack;
+    late List<({String method, Uri uri, String route, Duration timeout})> sent;
+    late int resets;
+
+    Po0DirectTransport transport(String route) => Po0DirectTransport(
+      route: () async => route,
+      send: (method, uri, {required route, required timeout}) async {
+        sent.add((method: method, uri: uri, route: route, timeout: timeout));
+        return const Po0HttpResponse(200, '{}');
+      },
+      reset: () => resets++,
+    );
+
+    setUp(() {
+      sent = [];
+      resets = 0;
+    });
+
+    test('only the po0 API may fall back to DIRECT', () async {
+      final subject = transport(listener);
+      const timeout = Duration(seconds: 5);
+      await subject.send(
+        'POST',
+        Uri.parse('https://$po0FirewallApiHost/api/firewall/t/add'),
+        timeout,
+      );
+      await subject.send('GET', Uri.parse(_ggyLink.value), timeout);
+      expect(sent.map((call) => call.route), ['$listener; DIRECT', listener]);
+      expect(sent.first.method, 'POST');
+    });
+
+    test(
+      'the native deadline outlasts the timeout the client enforces',
+      () async {
+        final client = Po0FirewallClient(
+          transport: transport('DIRECT'),
+          requestTimeout: const Duration(seconds: 20),
+          pollTimeout: const Duration(seconds: 5),
+        );
+        await client.poll(_token);
+        await client.whitelist(_token);
+        expect(sent.map((call) => call.timeout), [
+          const Duration(seconds: 5) + slack,
+          const Duration(seconds: 20) + slack,
+        ]);
+      },
+    );
+
+    test('resetting the client drops the native pool', () {
+      Po0FirewallClient(transport: transport('DIRECT')).resetConnections();
+      expect(resets, 1);
+    });
   });
 
   group('makeRealProfileTask', () {

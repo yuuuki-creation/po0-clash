@@ -9,7 +9,15 @@ fi
 if [[ -x /opt/toolchains/flutter/bin/flutter ]]; then
   export PATH="/opt/toolchains/flutter/bin:/opt/toolchains/go/bin:$PATH"
 fi
+if [[ -x /opt/toolchains/rust-1.95.0/bin/cargo ]]; then
+  export PATH="/opt/toolchains/rust-1.95.0/bin:$PATH"
+fi
 cd "$(dirname "$0")/../.."
+
+rust_api=plugins/rust_api/rust/Cargo.toml
+cargo fmt --manifest-path "$rust_api" -- --check
+cargo clippy --locked --manifest-path "$rust_api" --all-targets -- -D warnings
+cargo test --locked --manifest-path "$rust_api"
 
 backup="$(mktemp)"
 cp pubspec.yaml "$backup"

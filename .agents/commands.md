@@ -166,6 +166,16 @@ cargo test --manifest-path services/helper/Cargo.toml
 cargo test --manifest-path services/helper/Cargo.toml --features windows-service
 ```
 
+`scripts/vps/verify.sh` runs the `rust_api` crate checks before the Flutter gate. The test that verifies the real po0
+certificate is ignored by default because it reaches the network:
+
+```bash
+cargo fmt --manifest-path plugins/rust_api/rust/Cargo.toml -- --check
+cargo clippy --locked --manifest-path plugins/rust_api/rust/Cargo.toml --all-targets -- -D warnings
+cargo test --locked --manifest-path plugins/rust_api/rust/Cargo.toml
+cargo test --manifest-path plugins/rust_api/rust/Cargo.toml the_po0_certificate_verifies -- --ignored
+```
+
 The last command requires Windows for meaningful service coverage. Native Android lifecycle edits should at minimum
 compile the modules they touch; use JDK 17 in this checkout:
 

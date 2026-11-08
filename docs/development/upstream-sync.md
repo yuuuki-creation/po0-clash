@@ -134,6 +134,13 @@ Android 图标升级兼容由 `LauncherBranding.kt`、`LauncherUpdateReceiver.kt
 | `android/app/src/main/kotlin/com/follow/clash/TileService.kt` | 服务销毁时兜底取消状态收集任务 |
 | `plugins/rust_api/rust/src/ipc/{server,queue,frame,platform,readiness}.rs` | 消息/关闭驱动发送，接收时预留事件字节；Unix 通过描述符就绪与显式唤醒等待，Windows 保留原有管道处理 |
 
+## Rust 应用后端（ADR 0017）
+
+| 上游文件 | 本分支改动 |
+|---|---|
+| `plugins/rust_api/rust/{Cargo.toml,Cargo.lock,src/lib.rs,src/api/mod.rs}`、`plugins/rust_api/lib/rust_api.dart` | 新增 `whitelist` 模块与 `ureq`（rustls）依赖；合并上游 rust_api 时保留该模块，再用 `flutter_rust_bridge_codegen generate` 重新生成绑定 |
+| `scripts/vps/verify.sh`（本分支自有） | 在 Flutter 检查前运行 rust_api 的 `cargo fmt` / `clippy` / `test` |
+
 ## Windows 签名验证
 
 `.github/workflows/windows-validation.yaml` 与 `scripts/windows/test-signing.ps1` 在 Windows runner 上验证签名、打包、安装和卸载，测试程序替代 Flutter 产物生成，不触发正式发版。

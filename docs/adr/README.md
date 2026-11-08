@@ -34,3 +34,4 @@
 | [0014](0014-unified-whitelist.md) | po0 与 ggy 合并为统一加白入口 | 已采纳 |
 | [0015](0015-share-link-nodes.md) | 用分享链接导入单个节点 | 已采纳 |
 | [0016](0016-material3-performance.md) | 简洁界面与按需统计刷新 | 已采纳 |
+| [0017](0017-rust-app-backend.md) | 应用后端分阶段迁到 Rust，内核与界面不变 | 提议 |
