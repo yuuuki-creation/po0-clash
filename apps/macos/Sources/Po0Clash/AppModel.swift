@@ -2,7 +2,6 @@ import AppKit
 import Foundation
 import Po0FFI
 import Po0System
-import UniformTypeIdentifiers
 
 @MainActor
 final class AppModel: ObservableObject {
@@ -10,12 +9,7 @@ final class AppModel: ObservableObject {
 
     @Published private(set) var status: Status?
     @Published private(set) var traffic: Traffic?
-    @Published private(set) var trafficHistory: [Traffic] = []
-    @Published private(set) var memory: UInt64 = 0
-    @Published private(set) var connectionSummary = ConnectionSummary()
     @Published private(set) var exitIp: ExitIp?
-    @Published private(set) var ipQuality: IpQuality?
-    @Published private(set) var intranetIp: IntranetIp?
     @Published private(set) var appSettings: AppSettings? {
         didSet {
             Theme.apply(appSettings)
@@ -23,19 +17,18 @@ final class AppModel: ObservableObject {
             updateTrafficTimer()
         }
     }
-    @Published private(set) var engineOptions: EngineOptions?
     @Published private(set) var profiles: [Profile] = []
     @Published private(set) var groups: [ProxyGroup] = []
     @Published private(set) var whitelist: WhitelistState?
     @Published private(set) var testingGroups: Set<String> = []
-    @Published private(set) var testingNodes: Set<String> = []
-    @Published private(set) var updating: Set<String> = []
     @Published private(set) var busy = false
-    @Published private(set) var connectedAt: Date?
     @Published private(set) var launchError: String?
-    @Published var notice: String?
+    @Published var notice: String? {
+        didSet {
+            if let notice { MainWindow.shared.emit("shell-error", notice) }
+        }
+    }
     @Published private var proxyPort: UInt16?
-    var testing: Set<String> { testingGroups.union(testingNodes) }
     var showsMenuBarSpeed: Bool { appSettings?.traySpeed ?? true }
 
     var proxyCommand: String? {
@@ -45,11 +38,13 @@ final class AppModel: ObservableObject {
     }
 
     private var client: CoreClient?
+    private var readyWaiters: [CheckedContinuation<Void, Never>] = []
+    private var launchNotice: LaunchCheck?
     private let network = NetworkWatcher()
     private var trafficTimer: Timer?
     private var exitIpTask: Task<Void, Never>?
     private var exitIpFetchedAt: Date?
-    private var visibleSurfaces: Set<Surface> = []
+    private var menuVisible = false
     private var busyCount = 0
     private var settingsSaveTask: Task<Void, Never>?
     private var pendingSettings: AppSettings?
@@ -57,6 +52,10 @@ final class AppModel: ObservableObject {
     private var measuredDelays: [String: UInt32] = [:]
     private var acceptsLinks = false
     private var pendingLinks: [URL] = []
+
+    private static let tunDenied = String(
+        localized: "TUN was not authorized, so po0-clash keeps using the system proxy."
+    )
 
     var isOn: Bool {
         switch status?.engine {
@@ -81,7 +80,12 @@ final class AppModel: ObservableObject {
                 self.client = client
                 logger.notice("core ready")
                 let launchCheck = try await client.launchStarted()
+                if launchCheck.recovery != .normal {
+                    logger.notice("previous launch did not finish: \(String(describing: launchCheck.recovery), privacy: .public)")
+                    launchNotice = launchCheck
+                }
                 await refreshAll()
+                releaseWaiters()
                 adoptLegacySettings()
                 AppLanguage.store(appSettings?.language)
                 if appSettings?.disclaimerAccepted == false, !Showcase.isScripted, !confirmDisclaimer() {
@@ -95,21 +99,17 @@ final class AppModel: ObservableObject {
                 openLinks(links)
                 await adoptInstalledTunEngine()
                 network.start {
-                    Task {
-                        try? await client.networkChanged()
-                        await AppModel.shared.refreshIntranetIp()
-                    }
+                    Task { try? await client.networkChanged() }
                 }
                 let resume = atLogin ? (try? await client.wasConnected()) == true : false
-                if launchCheck.recovery != .normal {
-                    explain(launchCheck)
-                } else if resume || appSettings?.autoConnect == true {
+                if launchCheck.recovery == .normal, resume || appSettings?.autoConnect == true {
                     await connect()?.value
                 }
                 try? await client.launchFinished()
-                if appSettings?.autoCheckUpdate == true, !Showcase.isScripted { checkForUpdates(userInitiated: false) }
+                if appSettings?.autoCheckUpdate == true, !Showcase.isScripted { checkForUpdates() }
             } catch {
                 launchError = describe(error)
+                releaseWaiters()
                 logger.error("core failed to start: \(self.launchError ?? "", privacy: .public)")
                 if !Showcase.keepsWindowClosed { MainWindow.shared.show() }
             }
@@ -134,8 +134,25 @@ final class AppModel: ObservableObject {
 
     var hasCore: Bool { client != nil }
 
-    /// For pages that poll the core themselves, such as Activity.
-    var core: CoreClient? { client }
+    /// The page can load before the core has opened; its commands wait here instead of failing.
+    func coreClient() async throws -> CoreClient {
+        if client == nil, launchError == nil {
+            await withCheckedContinuation { readyWaiters.append($0) }
+        }
+        guard let client else { throw MessageError(launchError ?? "the core is not available") }
+        return client
+    }
+
+    private func releaseWaiters() {
+        let waiters = readyWaiters
+        readyWaiters = []
+        for waiter in waiters { waiter.resume() }
+    }
+
+    func takeLaunchNotice() -> LaunchCheck? {
+        defer { launchNotice = nil }
+        return launchNotice
+    }
 
     // MARK: Connection
 
@@ -169,17 +186,37 @@ final class AppModel: ObservableObject {
 
     func setRouteMode(_ mode: RouteMode) {
         command { client in
-            if mode == .tun {
-                guard let engine = await self.installTunEngine() else {
-                    self.notice = String(localized: "TUN was not authorized, so po0-clash keeps using the system proxy.")
-                    return
-                }
-                try await client.setMihomoPath(engine)
-            } else if let bundled = AppPaths.bundledMihomo {
-                try await client.setMihomoPath(bundled)
-            }
-            try await client.setRouteMode(mode)
+            if try await !self.applyRoute(mode, client) { self.notice = Self.tunDenied }
         }
+    }
+
+    func selectProfile(_ id: String) {
+        command { try await $0.selectProfile(id) }
+    }
+
+    func start() async throws {
+        try await engineCommand { client in
+            try await self.prepareRoute(client)
+            try await client.start()
+        }
+    }
+
+    func changeRoute(_ mode: RouteMode) async throws {
+        try await engineCommand { client in
+            if try await !self.applyRoute(mode, client) { throw MessageError(Self.tunDenied) }
+        }
+    }
+
+    /// False when TUN was asked for and the administrator prompt was declined; the route is then left as it was.
+    private func applyRoute(_ mode: RouteMode, _ client: CoreClient) async throws -> Bool {
+        if mode == .tun {
+            guard let engine = await installTunEngine() else { return false }
+            try await client.setMihomoPath(engine)
+        } else if let bundled = AppPaths.bundledMihomo {
+            try await client.setMihomoPath(bundled)
+        }
+        try await client.setRouteMode(mode)
+        return true
     }
 
     /// A saved TUN choice can outlive the root copy (an app update changes the bundled binary), so connecting
@@ -192,7 +229,7 @@ final class AppModel: ObservableObject {
         }
         if let bundled = AppPaths.bundledMihomo { try await client.setMihomoPath(bundled) }
         try await client.setRouteMode(.systemProxy)
-        notice = String(localized: "TUN was not authorized, so po0-clash keeps using the system proxy.")
+        notice = Self.tunDenied
     }
 
     private func installTunEngine() async -> String? {
@@ -208,173 +245,6 @@ final class AppModel: ObservableObject {
 
     // MARK: Profiles
 
-    func selectProfile(_ id: String) {
-        command { try await $0.selectProfile(id) }
-    }
-
-    func updateProfile(_ id: String) {
-        guard let client else { return }
-        updating.insert(id)
-        Task {
-            defer { updating.remove(id) }
-            do { _ = try await client.updateProfile(id) } catch { notice = describe(error) }
-            await refreshProfiles()
-        }
-    }
-
-    func removeProfile(_ id: String) {
-        attempt { try await $0.removeProfile(id) }
-    }
-
-    func updateAllProfiles() {
-        for profile in profiles where profile.kind == .subscription && !updating.contains(profile.id) {
-            updateProfile(profile.id)
-        }
-    }
-
-    /// Returns an error message to show in the sheet, or nil on success.
-    func editProfile(_ id: String, _ edit: ProfileEdit) async -> String? {
-        guard let client else { return launchError }
-        do {
-            _ = try await client.editProfile(id, edit)
-            await refreshProfiles()
-            return nil
-        } catch {
-            return describe(error)
-        }
-    }
-
-    func moveProfile(_ id: String, by offset: Int) {
-        var ids = profiles.map(\.id)
-        guard let index = ids.firstIndex(of: id), ids.indices.contains(index + offset) else { return }
-        ids.swapAt(index, index + offset)
-        attempt { [ids] client in
-            try await client.reorderProfiles(ids)
-            await self.refreshProfiles()
-        }
-    }
-
-    func importProfileFile() {
-        guard let client else { return }
-        let panel = NSOpenPanel()
-        activateApp()
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        Task {
-            do {
-                let content = try String(contentsOf: url, encoding: .utf8)
-                _ = try await client.importFile(name: url.lastPathComponent, content: content)
-                await refreshProfiles()
-            } catch {
-                notice = describe(error)
-            }
-        }
-    }
-
-    /// FlClash's desktop QR import: a picture of a subscription address or of share links.
-    func importQrCode() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.image]
-        activateApp()
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        guard let text = QrCode.read(url)?.trimmingCharacters(in: .whitespacesAndNewlines) else {
-            notice = String(localized: "No QR code was found in the picture.")
-            return
-        }
-        Task {
-            if text.hasPrefix("http://") || text.hasPrefix("https://") {
-                if let error = await addSubscription(text) { notice = error }
-                return
-            }
-            switch await importLinks(text) {
-            case .success(let count): notice = String(localized: "Imported \(count) nodes.")
-            case .failure(let failure): notice = failure.message
-            }
-        }
-    }
-
-    func exportProfile(_ profile: Profile) {
-        guard let client else { return }
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = profile.title + (profile.kind == .links ? ".txt" : ".yaml")
-        activateApp()
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        Task {
-            do {
-                try await client.profileContent(profile.id).write(to: url, atomically: true, encoding: .utf8)
-                NSWorkspace.shared.activateFileViewerSelecting([url])
-            } catch {
-                notice = describe(error)
-            }
-        }
-    }
-
-    func profileText(_ id: String, _ text: ProfileText) async -> Result<String, MessageError> {
-        guard let client else { return .failure(MessageError(launchError ?? "")) }
-        do {
-            switch text {
-            case .content: return .success(try await client.profileContent(id))
-            case .preview: return .success(try await client.previewConfig(id))
-            }
-        } catch {
-            return .failure(MessageError(describe(error)))
-        }
-    }
-
-    /// Returns an error message to show in the editor, or nil on success.
-    func saveProfileText(_ id: String, _ text: String) async -> String? {
-        guard let client else { return launchError }
-        do {
-            _ = try await client.saveProfileContent(id, text)
-            await refreshProfiles()
-            return nil
-        } catch {
-            return describe(error)
-        }
-    }
-
-    func profileOverride(_ id: String) async -> Result<ProfileOverride, MessageError> {
-        await outcome { try await $0.profileOverride(id) }
-    }
-
-    func saveProfileOverride(_ id: String, _ overrides: ProfileOverride) async -> String? {
-        await failure { try await $0.setProfileOverride(id, overrides) }
-    }
-
-    func profileGroupsAndRules(_ id: String) async -> Result<ProfileParts, MessageError> {
-        await outcome { try await $0.profileGroupsAndRules(id) }
-    }
-
-    func shareNodes(_ id: String) async -> Result<[ShareNode], MessageError> {
-        await outcome { try await $0.shareNodes(id) }
-    }
-
-    func renameShareNode(_ id: String, _ name: String, to newName: String) async -> String? {
-        await failure { try await $0.renameShareNode(id, name, newName) }
-    }
-
-    func removeShareNode(_ id: String, _ name: String) async -> String? {
-        await failure { try await $0.removeShareNode(id, name) }
-    }
-
-    func licenses() async -> [License] { (try? await client?.licenses()) ?? [] }
-    func scripts() async -> [Script] { (try? await client?.scripts()) ?? [] }
-    func saveScript(_ script: Script) async -> Result<Script, MessageError> { await outcome { try await $0.saveScript(script) } }
-    func removeScript(_ id: String) async -> String? { await failure { try await $0.removeScript(id) } }
-
-    private func outcome<T>(_ body: (CoreClient) async throws -> T) async -> Result<T, MessageError> {
-        guard let client else { return .failure(MessageError(launchError ?? "")) }
-        do {
-            return .success(try await body(client))
-        } catch {
-            return .failure(MessageError(describe(error)))
-        }
-    }
-
-    private func failure(_ body: (CoreClient) async throws -> Void) async -> String? {
-        if case .failure(let failure) = await outcome(body) { return failure.message }
-        return nil
-    }
-
     /// A clash://install-config link that opens the app waits until the core is ready and the disclaimer is accepted.
     func openLinks(_ links: [URL]) {
         guard acceptsLinks else {
@@ -386,7 +256,7 @@ final class AppModel: ObservableObject {
                   let address = URLComponents(url: link, resolvingAgainstBaseURL: false)?
                       .queryItems?.first(where: { $0.name == "url" })?.value
             else { continue }
-            MainWindow.shared.show(.profiles)
+            MainWindow.shared.show(page: "profiles")
             let alert = NSAlert()
             alert.messageText = String(localized: "Add Subscription")
             alert.informativeText = String(localized: "Add the subscription at \(address)?")
@@ -394,32 +264,7 @@ final class AppModel: ObservableObject {
             alert.addButton(withTitle: String(localized: "Cancel"))
             activateApp()
             guard alert.runModal() == .alertFirstButtonReturn else { continue }
-            Task {
-                if let error = await addSubscription(address) { notice = error }
-            }
-        }
-    }
-
-    /// Returns an error message to show in the sheet, or nil on success.
-    func addSubscription(_ url: String) async -> String? {
-        guard let client else { return launchError }
-        do {
-            _ = try await client.addSubscription(url)
-            await refreshProfiles()
-            return nil
-        } catch {
-            return describe(error)
-        }
-    }
-
-    func importLinks(_ text: String) async -> Result<Int, MessageError> {
-        guard let client else { return .failure(MessageError(launchError ?? "")) }
-        do {
-            let result = try await client.importLinks(text)
-            await refreshProfiles()
-            return .success(Int(result.added))
-        } catch {
-            return .failure(MessageError(describe(error)))
+            attempt { _ = try await $0.addSubscription(address) }
         }
     }
 
@@ -438,94 +283,22 @@ final class AppModel: ObservableObject {
         testingGroups.insert(group)
         Task {
             defer { testingGroups.remove(group) }
-            await runGroupDelayTest(group, client: client, profile: profile)
-        }
-    }
-
-    func testAllDelays() {
-        guard let client else { return }
-        let pending = groups.map(\.name).filter { !testingGroups.contains($0) }
-        guard !pending.isEmpty else { return }
-        let profile = status?.profileId
-        testingGroups.formUnion(pending)
-        Task {
-            await withTaskGroup(of: Void.self) { taskGroup in
-                var iterator = pending.makeIterator()
-                for _ in 0..<min(4, pending.count) {
-                    if let next = iterator.next() {
-                        taskGroup.addTask { @MainActor in
-                            defer { self.testingGroups.remove(next) }
-                            await self.runGroupDelayTest(next, client: client, profile: profile)
-                        }
-                    }
-                }
-                while await taskGroup.next() != nil {
-                    if let next = iterator.next() {
-                        taskGroup.addTask { @MainActor in
-                            defer { self.testingGroups.remove(next) }
-                            await self.runGroupDelayTest(next, client: client, profile: profile)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func runGroupDelayTest(_ group: String, client: CoreClient, profile: String?) async {
-        do {
-            let tested = try await client.testDelay(group)
-            guard profile == status?.profileId else { return }
-            for node in tested.nodes {
-                if let delay = node.delay { measuredDelays[node.name] = delay }
-            }
-            groups = groups.map { current in
-                withMeasuredDelays(current.name == group ? tested : current)
-            }
-        } catch {
-            notice = describe(error)
-        }
-    }
-
-    func testNodeDelay(_ node: String) {
-        guard let client, !testingNodes.contains(node),
-              !groups.contains(where: { testingGroups.contains($0.name) && $0.nodes.contains(where: { $0.name == node }) }) else { return }
-        let profile = status?.profileId
-        testingNodes.insert(node)
-        Task {
-            defer { testingNodes.remove(node) }
             do {
-                let delay = try await client.testNodeDelay(node)
+                let tested = try await client.testDelay(group)
                 guard profile == status?.profileId else { return }
-                measuredDelays[node] = delay
-                groups = groups.map(withMeasuredDelays)
+                for node in tested.nodes {
+                    if let delay = node.delay { measuredDelays[node.name] = delay }
+                }
+                groups = groups.map { current in
+                    withMeasuredDelays(current.name == group ? tested : current)
+                }
             } catch {
                 notice = describe(error)
             }
         }
     }
 
-    /// FlClash's launch guard: the core saw the previous launch end while it was starting.
-    private func explain(_ check: LaunchCheck) {
-        logger.notice("previous launch did not finish: \(String(describing: check.recovery), privacy: .public)")
-        guard !Showcase.isScripted else { return }
-        let alert = NSAlert()
-        if check.recovery == .clearProfile, let name = check.profileName {
-            alert.messageText = String(localized: "Crash detected")
-            alert.informativeText = String(
-                localized: "po0-clash failed to finish starting twice in a row. To break the loop, it deselected the profile “\(name)” and did not connect automatically. You can select it again at any time."
-            )
-        } else {
-            alert.messageText = String(localized: "Launch did not finish")
-            alert.informativeText = String(
-                localized: "po0-clash quit unexpectedly while starting last time, so it did not connect automatically. Connect manually to try again."
-            )
-        }
-        activateApp()
-        alert.runModal()
-    }
-
-    /// FlClash asks once before the first start and quits when declined; the tools page shows it again.
-    func confirmDisclaimer() -> Bool {
+    private func confirmDisclaimer() -> Bool {
         let alert = NSAlert()
         alert.messageText = String(localized: "Disclaimer")
         alert.informativeText = String(
@@ -535,43 +308,32 @@ final class AppModel: ObservableObject {
         alert.addButton(withTitle: String(localized: "Quit"))
         activateApp()
         let agreed = alert.runModal() == .alertFirstButtonReturn
-        if agreed, appSettings?.disclaimerAccepted == false { updateAppSettings { $0.disclaimerAccepted = true } }
+        if agreed { updateAppSettings { $0.disclaimerAccepted = true } }
         return agreed
     }
 
     // MARK: Updates
 
-    func checkForUpdates(userInitiated: Bool) {
+    private func checkForUpdates() {
         guard let client else { return }
         Task {
-            do {
-                if let release = try await client.checkUpdate() {
-                    offer(release, userInitiated: userInitiated)
-                } else if userInitiated {
-                    notice = String(localized: "po0-clash is up to date.")
-                }
-            } catch {
-                if userInitiated { notice = describe(error) }
+            guard let release = try? await client.checkUpdate() else { return }
+            let alert = NSAlert()
+            alert.messageText = String(localized: "po0-clash \(release.version) is available")
+            let notes = release.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+            alert.informativeText = notes.count > 800 ? String(notes.prefix(800)) + "…" : notes
+            alert.addButton(withTitle: String(localized: "Open Download Page"))
+            alert.addButton(withTitle: String(localized: "Later"))
+            alert.addButton(withTitle: String(localized: "Don't Remind Me"))
+            activateApp()
+            switch alert.runModal() {
+            case .alertFirstButtonReturn:
+                if let url = URL(string: release.url) { NSWorkspace.shared.open(url) }
+            case .alertThirdButtonReturn:
+                updateAppSettings { $0.autoCheckUpdate = false }
+            default:
+                break
             }
-        }
-    }
-
-    private func offer(_ release: Release, userInitiated: Bool) {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "po0-clash \(release.version) is available")
-        let notes = release.notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        alert.informativeText = notes.count > 800 ? String(notes.prefix(800)) + "…" : notes
-        alert.addButton(withTitle: String(localized: "Open Download Page"))
-        alert.addButton(withTitle: String(localized: "Later"))
-        if !userInitiated { alert.addButton(withTitle: String(localized: "Don't Remind Me")) }
-        activateApp()
-        switch alert.runModal() {
-        case .alertFirstButtonReturn:
-            if let url = URL(string: release.url) { NSWorkspace.shared.open(url) }
-        case .alertThirdButtonReturn:
-            updateAppSettings { $0.autoCheckUpdate = false }
-        default:
-            break
         }
     }
 
@@ -612,58 +374,24 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// macOS reads an app's language at launch, so one saved by the page reaches the menu on the next start.
+    func storeAppSettings(_ settings: AppSettings) async throws {
+        let client = try await coreClient()
+        await settingsSaveTask?.value
+        try await client.setAppSettings(settings)
+        settingsRevision += 1
+        if settings.language != appSettings?.language { AppLanguage.store(settings.language) }
+        appSettings = (try? await client.appSettings()) ?? settings
+    }
+
     private func refreshAppSettings() async {
         guard settingsSaveTask == nil else { return }
         let revision = settingsRevision
         guard let client, let next = try? await client.appSettings() else { return }
-        let options = try? await client.engineOptions()
         let port = try? await client.mixedProxyPort()
         guard revision == settingsRevision else { return }
         appSettings = next
-        engineOptions = options
         proxyPort = port
-    }
-
-    /// Every apply reloads the engine, so pages send the options in one go rather than per keystroke.
-    func applyEngineOptions(_ options: EngineOptions) async -> Bool {
-        guard let client else { return false }
-        do {
-            try await client.setEngineOptions(options)
-            engineOptions = try? await client.engineOptions()
-            return true
-        } catch {
-            notice = describe(error)
-            return false
-        }
-    }
-
-    func geoFiles() async -> [GeoFile] {
-        (try? await client?.geoFiles()) ?? []
-    }
-
-    func updateGeo() async {
-        do {
-            try await client?.updateGeo()
-        } catch {
-            notice = describe(error)
-        }
-    }
-
-    func providers() async -> Result<[Provider], MessageError> {
-        guard let client else { return .failure(MessageError(launchError ?? "")) }
-        do {
-            return .success(try await client.providers())
-        } catch {
-            return .failure(MessageError(describe(error)))
-        }
-    }
-
-    func updateProvider(_ provider: Provider) async {
-        do {
-            try await client?.updateProvider(provider)
-        } catch {
-            notice = describe(error)
-        }
     }
 
     // MARK: Whitelist
@@ -672,138 +400,23 @@ final class AppModel: ObservableObject {
         attempt { try await $0.setWhitelistEnabled(enabled) }
     }
 
-    func addWhitelist(_ text: String, name: String) async -> String? {
-        guard let client else { return launchError }
-        do {
-            _ = try await client.addWhitelistEntries(text, name: name)
-            await refreshWhitelist()
-            return nil
-        } catch {
-            return describe(error)
-        }
-    }
-
-    func removeWhitelistEntry(_ id: String) {
-        attempt { try await $0.removeWhitelistEntry(id) }
-    }
-
-    // MARK: Diagnostics
-
-    func exportDiagnostics() {
-        guard let client else { return }
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.plainText]
-        panel.nameFieldStringValue = "po0-clash-diagnostics-\(Self.stamp.string(from: Date())).txt"
-        activateApp()
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        Task {
-            do {
-                try await client.exportDiagnostics(to: url.path)
-                NSWorkspace.shared.activateFileViewerSelecting([url])
-            } catch {
-                notice = describe(error)
-            }
-        }
-    }
-
-    // MARK: Backup
-
-    func checkWebDav(_ dav: WebDav) async -> String? {
-        guard let client else { return launchError }
-        do {
-            try await client.checkWebDav(dav)
-            return nil
-        } catch {
-            return describe(error)
-        }
-    }
-
-    func backupToWebDav() async {
-        guard let client else { return }
-        await settingsSaveTask?.value
-        do {
-            try await client.backupToWebDav()
-            notice = String(localized: "Backup successful")
-        } catch {
-            notice = describe(error)
-        }
-    }
-
-    func backupToFile() async {
-        guard let client else { return }
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.zip]
-        panel.nameFieldStringValue = "po0-clash-backup-\(Self.stamp.string(from: Date())).zip"
-        activateApp()
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        await settingsSaveTask?.value
-        do {
-            try await client.backup().write(to: url, options: .atomic)
-            NSWorkspace.shared.activateFileViewerSelecting([url])
-        } catch {
-            notice = describe(error)
-        }
-    }
-
-    func chooseBackupFile() -> URL? {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.zip]
-        activateApp()
-        return panel.runModal() == .OK ? panel.url : nil
-    }
-
-    func restore(from source: BackupSource, scope: RestoreScope) async {
-        guard let client else { return }
-        await settingsSaveTask?.value
-        do {
-            switch source {
-            case .webDav: try await client.restoreFromWebDav(scope: scope)
-            case .file(let url): try await client.restore(Data(contentsOf: url), scope: scope)
-            }
-            await refreshAll()
-            notice = String(localized: "Restore successful")
-        } catch {
-            notice = describe(error)
-        }
-    }
-
-    private static let stamp: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return formatter
-    }()
-
     // MARK: Visibility
 
-    enum Surface {
-        case menu, dashboard, proxies
-    }
-
-    func setVisible(_ surface: Surface, _ visible: Bool) {
-        guard visibleSurfaces.contains(surface) != visible else { return }
+    func setMenuVisible(_ visible: Bool) {
+        guard menuVisible != visible else { return }
+        menuVisible = visible
         if visible {
-            visibleSurfaces.insert(surface)
-            if surface == .menu { logger.notice("menu panel shown") }
+            logger.notice("menu panel shown")
             Task { await refreshGroups() }
-            if surface == .dashboard { Task { await refreshIntranetIp() } }
-            if surface != .proxies, exitIpFetchedAt.map({ Date().timeIntervalSince($0) > 60 }) ?? true {
-                refreshExitIp()
-            }
-        } else {
-            visibleSurfaces.remove(surface)
+            if exitIpFetchedAt.map({ Date().timeIntervalSince($0) > 60 }) ?? true { refreshExitIp() }
         }
         updateTrafficTimer()
-    }
-
-    func refreshExitIpNow() {
-        refreshExitIp(refresh: true)
-        Task { await refreshIntranetIp() }
     }
 
     // MARK: Refresh
 
     private func handle(_ change: Change) {
+        MainWindow.shared.emit("core-change", String(describing: change))
         switch change {
         case .status: Task { await refreshStatus() }
         case .profiles: Task { await refreshProfiles() }
@@ -812,7 +425,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func refreshAll() async {
+    func refreshAll() async {
         await refreshAppSettings()
         await refreshStatus()
         await refreshProfiles()
@@ -829,21 +442,11 @@ final class AppModel: ObservableObject {
         } ?? true
         status = next
         proxyPort = try? await client.mixedProxyPort()
-        if !isRunning {
-            connectedAt = nil
-        } else if connectedAt == nil {
-            connectedAt = Date()
-        }
         if changed {
             refreshExitIp()
             await refreshGroups()
         }
-        if !isRunning {
-            traffic = nil
-            trafficHistory = []
-            memory = 0
-            connectionSummary = ConnectionSummary()
-        }
+        if !isRunning { traffic = nil }
         updateTrafficTimer()
     }
 
@@ -857,12 +460,22 @@ final class AppModel: ObservableObject {
         return group
     }
 
-    private func refreshWhitelist() async { guard let client, let next = try? await client.whitelist() else { return }; whitelist = next }
-    private func refreshIntranetIp() async { guard let client else { return }; intranetIp = try? await client.intranetIp() }
-    private func refreshProfiles() async { guard let client, let next = try? await client.profiles() else { return }; profiles = next }
-    private func refreshGroups() async { guard let client else { return }; groups = ((try? await client.groups()) ?? []).map(withMeasuredDelays) }
+    private func refreshWhitelist() async {
+        guard let client, let next = try? await client.whitelist() else { return }
+        whitelist = next
+    }
 
-    private func refreshExitIp(refresh: Bool = false) {
+    private func refreshProfiles() async {
+        guard let client, let next = try? await client.profiles() else { return }
+        profiles = next
+    }
+
+    private func refreshGroups() async {
+        guard let client else { return }
+        groups = ((try? await client.groups()) ?? []).map(withMeasuredDelays)
+    }
+
+    private func refreshExitIp() {
         guard let client else { return }
         exitIpTask?.cancel()
         exitIpTask = Task {
@@ -870,16 +483,11 @@ final class AppModel: ObservableObject {
             guard !Task.isCancelled else { return }
             exitIp = ip
             exitIpFetchedAt = Date()
-            if ipQuality?.ip != ip?.ip { ipQuality = nil }
-            guard let address = ip?.ip else { return }
-            let quality = try? await client.ipQuality(address, refresh: refresh)
-            guard !Task.isCancelled else { return }
-            ipQuality = quality
         }
     }
 
     private func updateTrafficTimer() {
-        let wanted = isRunning && (showsMenuBarSpeed || !visibleSurfaces.isDisjoint(with: [.menu, .dashboard]))
+        let wanted = isRunning && (showsMenuBarSpeed || menuVisible)
         if wanted == (trafficTimer != nil) { return }
         trafficTimer?.invalidate()
         trafficTimer = nil
@@ -891,21 +499,8 @@ final class AppModel: ObservableObject {
 
     private func pollTraffic() async {
         guard let client else { return }
-        let nextTraffic = try? await client.traffic()
-        if traffic != nextTraffic { traffic = nextTraffic }
-        guard visibleSurfaces.contains(.dashboard) else { return }
-        let nextHistory = (try? await client.trafficHistory()) ?? []
-        if trafficHistory != nextHistory { trafficHistory = nextHistory }
-        let nextMemory = (try? await client.memory()) ?? 0
-        if memory != nextMemory { memory = nextMemory }
-        if let connections = try? await client.connections() {
-            let nextSummary = ConnectionSummary(
-                count: connections.items.count,
-                upload: connections.uploadTotal,
-                download: connections.downloadTotal
-            )
-            if connectionSummary != nextSummary { connectionSummary = nextSummary }
-        }
+        let next = try? await client.traffic()
+        if traffic != next { traffic = next }
     }
 
     private static func engineKey(_ state: EngineState) -> Int {
@@ -917,24 +512,13 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func crashEngine() { command { try await $0.crashEngine() } }
-    func addTestLogs() { attempt { try await $0.addTestLogs() } }
-
-    func pruneCache() {
-        attempt { client in
-            let removed = try await client.pruneCache()
-            self.notice = String(localized: "Removed \(Int(removed)) unused files.")
-        }
-    }
-
     /// The core wipes its data at the next start, so the app restarts straight away.
-    func clearData() {
-        attempt { client in
-            try await client.clearData()
-            try? LaunchAtLogin.set(false)
-            if let domain = Bundle.main.bundleIdentifier { UserDefaults.standard.removePersistentDomain(forName: domain) }
-            AppLanguage.relaunch()
-        }
+    func clearData() async throws {
+        let client = try await coreClient()
+        try await client.clearData()
+        try? LaunchAtLogin.set(false)
+        if let domain = Bundle.main.bundleIdentifier { UserDefaults.standard.removePersistentDomain(forName: domain) }
+        AppLanguage.relaunch()
     }
 
     // MARK: Helpers
@@ -953,18 +537,25 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// `command` for the page: the menu's controls are held the same way, and the error is thrown instead of shown.
+    func engineCommand(_ body: @MainActor (CoreClient) async throws -> Void) async throws {
+        let client = try await coreClient()
+        busyCount += 1
+        busy = true
+        var failure: Error?
+        do { try await body(client) } catch { failure = error }
+        await refreshStatus()
+        busyCount -= 1
+        busy = busyCount > 0
+        if let failure { throw failure }
+    }
+
     private func attempt(_ body: @escaping @MainActor (CoreClient) async throws -> Void) {
         guard let client else { return }
         Task {
             do { try await body(client) } catch { notice = describe(error) }
         }
     }
-}
-
-struct ConnectionSummary: Equatable {
-    var count = 0
-    var upload: UInt64 = 0
-    var download: UInt64 = 0
 }
 
 struct MessageError: Error {

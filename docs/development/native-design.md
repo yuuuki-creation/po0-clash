@@ -103,7 +103,6 @@ Apple 端直接用系统语义色（`systemGroupedBackground`、`secondarySystem
   用 `matchedGeometryEffect` 滑动；更早的系统改成灰色底。状态变化统一用一个弹簧（响应 0.32 s、阻尼 0.86）。
 - **Windows**：窗口用 Mica，侧边栏、工具栏按钮组用上面的玻璃参数；其它区域是不透明的中性背景，所有下拉菜单、弹出菜单都按
   本规范自绘，不用系统原生的 `select`。
-- **Android**：按 iOS 26 的版式自绘（见上）；图标用细线条，未选中的标签用主文字色、选中的用强调色加浅色选中块；API 31 起
-  玻璃用背景模糊，API 33 起再加边缘的透镜折射和高光边（Kyant0/backdrop），更早的系统用不透明的玻璃底色。按住玻璃控件时
-  它略微胀大并跟手偏移；标签栏的选中块按住时变成透镜、可拖动换页，内容下滑时标签栏收成圆形、状态条移到同一行。页面切换照
-  iOS 的推入，返回手势带进度；系统关掉动画时一律直接切换。
+- **Android**：不用本页的色表和玻璃规范，照 FlClash（[ADR 0022](../adr/0022-verge-rev-and-flclash-ui.md)）：主题色生成的 Material 3
+  色板，卡片圆角 14dp、底色 surfaceContainerLow、1dp 的 surfaceContainerHighest 描边，选中的卡片用 secondaryContainer 底色和
+  主色描边；底部导航栏，宽屏换侧边导航栏；页面切换仍是推入，返回手势带进度，系统关掉动画时直接切换。

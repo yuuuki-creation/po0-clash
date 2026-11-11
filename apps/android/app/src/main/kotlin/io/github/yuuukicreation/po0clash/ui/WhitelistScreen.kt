@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -59,7 +59,7 @@ fun WhitelistScreen(vm: AppViewModel) {
             contentPadding = padding,
         ) {
             item(key = "switch") {
-                GroupRow(0, 1) {
+                GroupRow {
                     Text(stringResource(R.string.whitelist_enabled), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                     Po0Switch(whitelist.enabled, vm::setWhitelistEnabled, enabled = AppViewModel.BUSY_WHITELIST !in busy)
                 }
@@ -68,9 +68,9 @@ fun WhitelistScreen(vm: AppViewModel) {
             if (whitelist.entries.isEmpty()) {
                 item(key = "empty") { EmptyState(stringResource(R.string.whitelist_none), LineIcons.ShieldCheck) }
             }
-            itemsIndexed(whitelist.entries, key = { _, entry -> entry.id }) { index, entry ->
+            items(whitelist.entries, key = { entry -> entry.id }) { entry ->
                 Box(itemMotion()) {
-                    EntryRow(index, whitelist.entries.size, entry, whitelist.enabled, checking, vm)
+                    EntryRow(entry, whitelist.enabled, checking, vm)
                 }
             }
         }
@@ -80,7 +80,7 @@ fun WhitelistScreen(vm: AppViewModel) {
 private fun WhitelistEntry.kindLabel() = if (kind == WhitelistKind.PO0) "po0" else "ggy"
 
 @Composable
-private fun EntryRow(index: Int, count: Int, entry: WhitelistEntry, enabled: Boolean, checking: Boolean, vm: AppViewModel) {
+private fun EntryRow(entry: WhitelistEntry, enabled: Boolean, checking: Boolean, vm: AppViewModel) {
     val colors = palette
     val sheets = LocalSheets.current
     val delete = stringResource(R.string.delete)
@@ -94,7 +94,7 @@ private fun EntryRow(index: Int, count: Int, entry: WhitelistEntry, enabled: Boo
         outcome == null -> colors.ink3 to stringResource(R.string.whitelist_pending)
         else -> dotColor(outcome, colors) to stringResource(outcomeLabel(outcome))
     }
-    GroupRow(index, count, endPadding = 4.dp, onClick = { sheets.show { EntryDetail(entry, name) } }) {
+    GroupRow(endPadding = 4.dp, onClick = { sheets.show { EntryDetail(entry, name) } }) {
         Text(entry.kindLabel(), style = MaterialTheme.typography.bodyMedium, color = colors.ink2, modifier = Modifier.width(34.dp))
         Column(Modifier.weight(1f)) {
             Text(name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)

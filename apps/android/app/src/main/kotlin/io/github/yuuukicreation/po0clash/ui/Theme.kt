@@ -1,37 +1,34 @@
 package io.github.yuuukicreation.po0clash.ui
 
 import androidx.activity.compose.LocalActivity
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import io.github.yuuukicreation.po0clash.core.AppSettings
+import io.github.yuuukicreation.po0clash.core.SchemeVariant
 import io.github.yuuukicreation.po0clash.core.ThemeMode
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.pow
+import kotlin.math.sin
 
+/** The scheme's roles under the names the screens use, plus the status colors Material has no role for. */
 @Immutable
 data class Po0Colors(
     val bg: Color,
@@ -47,151 +44,212 @@ data class Po0Colors(
     val good: Color,
     val warn: Color,
     val bad: Color,
-    val goodMuted: Color,
-    val warnMuted: Color,
-    val badMuted: Color,
-    val outline: Color,
     val sel: Color,
     val onSel: Color,
     val sheet: Color,
-    val dark: Boolean,
 )
 
-private val Light = Po0Colors(
-    bg = Color(0xFFF8F9FF),
-    card = Color(0xFFFFFFFF),
-    line = Color(0xFFE0E2EC),
-    ink = Color(0xFF191C20),
-    ink2 = Color(0xFF43474E),
-    ink3 = Color(0xFF73777F),
-    accent = Color(0xFF0061A4),
-    onAccent = Color.White,
-    track = Color(0xFFECEEF4),
-    scrim = Color(0x66000000),
-    good = Color(0xFF146C2E),
-    warn = Color(0xFF835500),
-    bad = Color(0xFFBA1A1A),
-    goodMuted = Color(0x26146C2E),
-    warnMuted = Color(0x26835500),
-    badMuted = Color(0x26BA1A1A),
-    outline = Color(0xFF73777F),
-    sel = Color(0xFFD1E4FF),
-    onSel = Color(0xFF001D36),
-    sheet = Color(0xFFF2F3FA),
-    dark = false,
+private fun ColorScheme.toPo0Colors(dark: Boolean) = Po0Colors(
+    bg = surface,
+    card = surfaceContainerLow,
+    line = surfaceContainerHighest,
+    ink = onSurface,
+    ink2 = onSurfaceVariant,
+    ink3 = outline,
+    accent = primary,
+    onAccent = onPrimary,
+    track = surfaceContainerHighest,
+    scrim = Color.Black.copy(alpha = if (dark) 0.6f else 0.4f),
+    good = if (dark) Color(0xFF6DD58C) else Color(0xFF146C2E),
+    warn = if (dark) Color(0xFFFFB951) else Color(0xFF835500),
+    bad = error,
+    sel = secondaryContainer,
+    onSel = onSecondaryContainer,
+    sheet = surfaceContainer,
 )
 
-private val Dark = Po0Colors(
-    bg = Color(0xFF111318),
-    card = Color(0xFF1D2024),
-    line = Color(0xFF2E3137),
-    ink = Color(0xFFE2E2E9),
-    ink2 = Color(0xFFC3C6CF),
-    ink3 = Color(0xFF8D9199),
-    accent = Color(0xFF0171E3),
-    onAccent = Color.White,
-    track = Color(0xFF282A2F),
-    scrim = Color(0x99000000),
-    good = Color(0xFF6DD58C),
-    warn = Color(0xFFFFB951),
-    bad = Color(0xFFFFB4AB),
-    goodMuted = Color(0x336DD58C),
-    warnMuted = Color(0x33FFB951),
-    badMuted = Color(0x33FFB4AB),
-    outline = Color(0xFF8D9199),
-    sel = Color(0xFF00497D),
-    onSel = Color(0xFFD1E4FF),
-    sheet = Color(0xFF282A2F),
-    dark = true,
-)
-
-val LocalPo0Colors = staticCompositionLocalOf { Light }
+val LocalPo0Colors = staticCompositionLocalOf { schemeFor(false, DEFAULT_SEED, SchemeVariant.FIDELITY, false).toPo0Colors(false) }
 
 val palette: Po0Colors
     @Composable get() = LocalPo0Colors.current
 
-private val typography = Typography(
-    titleLarge = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, lineHeight = 26.sp),
-    titleMedium = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, lineHeight = 22.sp),
-    bodyLarge = TextStyle(fontSize = 15.sp, lineHeight = 21.sp),
-    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
-    bodySmall = TextStyle(fontSize = 13.sp, lineHeight = 18.sp),
-    labelLarge = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, lineHeight = 20.sp),
-    labelMedium = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, lineHeight = 16.sp),
-    labelSmall = TextStyle(fontSize = 12.sp, lineHeight = 16.sp),
-)
-
 /** Fixed-width digits, so rates and delays do not jitter as they change. */
 fun TextStyle.tabular() = copy(fontFeatureSettings = "tnum")
 
-private const val DEFAULT_ACCENT = 0xFF0064E0u
+private const val DEFAULT_SEED = 0xFF0064E0u
 
-private fun contrast(a: Color, b: Color): Float {
-    val (hi, lo) = listOf(a.luminance(), b.luminance()).sortedDescending()
-    return (hi + 0.05f) / (lo + 0.05f)
+private fun linear(channel: Float): Double {
+    val c = channel.toDouble()
+    return if (c <= 0.04045) c / 12.92 else ((c + 0.055) / 1.055).pow(2.4)
 }
 
-private val onAccentChoices = listOf(Color.White, Color(0xFF0A1317))
+private fun encoded(channel: Double): Float {
+    val c = channel.coerceIn(0.0, 1.0)
+    return (if (c <= 0.0031308) c * 12.92 else 1.055 * c.pow(1 / 2.4) - 0.055).toFloat()
+}
 
-/**
- * A chosen theme color works as text on the card, so it is pulled towards the ink until it reaches WCAG AA;
- * the default keeps the exact pair the design picked.
- */
-fun Po0Colors.withAccent(argb: UInt?, pureBlack: Boolean): Po0Colors {
-    val base = if (pureBlack && dark) copy(bg = Color.Black, card = Color(0xFF121316)) else this
-    if (argb == null || argb == DEFAULT_ACCENT) return base
-    val chosen = Color(argb.toInt())
-    val steps = generateSequence(0f) { it + 0.05f }.takeWhile { it <= 1f }
-    val accent = steps.map { lerp(chosen, ink, it) }.first { contrast(it, card) >= 4.5f }
-    val onAccent = onAccentChoices.maxBy { contrast(it, accent) }
-    return base.copy(
-        accent = accent,
-        onAccent = onAccent,
-        sel = accent.copy(alpha = if (dark) 0.22f else 0.14f),
-        onSel = accent,
+private class LinearRgb(val r: Double, val g: Double, val b: Double) {
+    val inGamut get() = minOf(r, g, b) >= -1e-4 && maxOf(r, g, b) <= 1 + 1e-4
+    val luminance get() = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    fun toColor() = Color(encoded(r), encoded(g), encoded(b))
+}
+
+private fun oklch(lightness: Double, chroma: Double, hue: Double): LinearRgb {
+    val a = chroma * cos(hue)
+    val b = chroma * sin(hue)
+    val l = (lightness + 0.3963377774 * a + 0.2158037573 * b).pow(3)
+    val m = (lightness - 0.1055613458 * a - 0.0638541728 * b).pow(3)
+    val s = (lightness - 0.0894841775 * a - 1.2914855480 * b).pow(3)
+    return LinearRgb(
+        4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+        -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+        -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
     )
 }
 
-/** Colors for [dark] with [settings] applied, without the theme fade; separate so it can run off a device. */
-fun paletteFor(dark: Boolean, argb: UInt?, pureBlack: Boolean) = (if (dark) Dark else Light).withAccent(argb, pureBlack)
+/** The OKLCH hue (radians) and chroma of [color]. */
+private fun hueAndChroma(color: Color): Pair<Double, Double> {
+    val r = linear(color.red)
+    val g = linear(color.green)
+    val b = linear(color.blue)
+    val l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
+    val m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
+    val s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
+    val a = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s
+    val bb = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
+    return atan2(bb, a) to hypot(a, bb)
+}
 
-private fun lerp(a: Po0Colors, b: Po0Colors, t: Float) = Po0Colors(
-    bg = lerp(a.bg, b.bg, t),
-    card = lerp(a.card, b.card, t),
-    line = lerp(a.line, b.line, t),
-    ink = lerp(a.ink, b.ink, t),
-    ink2 = lerp(a.ink2, b.ink2, t),
-    ink3 = lerp(a.ink3, b.ink3, t),
-    accent = lerp(a.accent, b.accent, t),
-    onAccent = lerp(a.onAccent, b.onAccent, t),
-    track = lerp(a.track, b.track, t),
-    scrim = lerp(a.scrim, b.scrim, t),
-    good = lerp(a.good, b.good, t),
-    warn = lerp(a.warn, b.warn, t),
-    bad = lerp(a.bad, b.bad, t),
-    goodMuted = lerp(a.goodMuted, b.goodMuted, t),
-    warnMuted = lerp(a.warnMuted, b.warnMuted, t),
-    badMuted = lerp(a.badMuted, b.badMuted, t),
-    outline = lerp(a.outline, b.outline, t),
-    sel = lerp(a.sel, b.sel, t),
-    onSel = lerp(a.onSel, b.onSel, t),
-    sheet = lerp(a.sheet, b.sheet, t),
-    dark = b.dark,
-)
-
-@Composable
-private fun fadedPalette(target: Po0Colors): Po0Colors {
-    var from by remember { mutableStateOf(target) }
-    var to by remember { mutableStateOf(target) }
-    val progress = remember { Animatable(1f) }
-    LaunchedEffect(target) {
-        if (target == to) return@LaunchedEffect
-        from = lerp(from, to, progress.value)
-        to = target
-        progress.snapTo(0f)
-        progress.animateTo(1f, tween(200))
+/**
+ * One hue at a fixed chroma, read by Material tone (CIE L*). OKLCH keeps a hue steady across tones where
+ * CIELAB turns blue to purple; chroma gives way wherever sRGB cannot show it.
+ */
+private class TonalPalette(private val hue: Double, private val chroma: Double) {
+    private fun atLightness(lightness: Double): LinearRgb {
+        var low = 0.0
+        var high = chroma
+        if (oklch(lightness, high, hue).inGamut) return oklch(lightness, high, hue)
+        repeat(14) {
+            val mid = (low + high) / 2
+            if (oklch(lightness, mid, hue).inGamut) low = mid else high = mid
+        }
+        return oklch(lightness, low, hue)
     }
-    return if (progress.value >= 1f) to else lerp(from, to, progress.value)
+
+    fun tone(tone: Int): Color {
+        val target = if (tone > 8) ((tone + 16) / 116.0).pow(3) else tone / 903.3
+        var low = 0.0
+        var high = 1.0
+        repeat(24) {
+            val mid = (low + high) / 2
+            if (atLightness(mid).luminance < target) low = mid else high = mid
+        }
+        return atLightness((low + high) / 2).toColor()
+    }
+}
+
+/** Material's baseline error tones; they do not follow the seed. */
+private val errorLight = listOf(Color(0xFFBA1A1A), Color.White, Color(0xFFFFDAD6), Color(0xFF410002))
+private val errorDark = listOf(Color(0xFFFFB4AB), Color(0xFF690005), Color(0xFF93000A), Color(0xFFFFDAD6))
+
+/** A Material 3 scheme grown from [seed]; separate from the composable so it can run off a device. */
+fun schemeFor(dark: Boolean, seed: UInt, variant: SchemeVariant, pureBlack: Boolean): ColorScheme {
+    val (hue, seedChroma) = hueAndChroma(Color(seed.toInt()))
+    val third = Math.PI / 3
+    val chroma = when (variant) {
+        SchemeVariant.MONOCHROME -> listOf(0.0, 0.0, 0.0, 0.0, 0.0)
+        SchemeVariant.NEUTRAL -> listOf(0.034, 0.022, 0.045, 0.006, 0.006)
+        SchemeVariant.TONAL_SPOT -> listOf(0.10, 0.045, 0.068, 0.017, 0.022)
+        else -> listOf(
+            maxOf(seedChroma, 0.10),
+            (seedChroma * 0.5).coerceIn(0.045, 0.08),
+            maxOf(seedChroma - 0.09, 0.068),
+            minOf(seedChroma / 8, 0.012),
+            minOf(seedChroma / 8 + 0.011, 0.022),
+        )
+    }
+    val p = TonalPalette(hue, chroma[0])
+    val s = TonalPalette(hue, chroma[1])
+    val t = TonalPalette(hue + third, chroma[2])
+    val n = TonalPalette(hue, chroma[3])
+    val nv = TonalPalette(hue, chroma[4])
+    if (!dark) {
+        return lightColorScheme(
+            primary = p.tone(40),
+            onPrimary = p.tone(100),
+            primaryContainer = p.tone(90),
+            onPrimaryContainer = p.tone(10),
+            inversePrimary = p.tone(80),
+            secondary = s.tone(40),
+            onSecondary = s.tone(100),
+            secondaryContainer = s.tone(90),
+            onSecondaryContainer = s.tone(10),
+            tertiary = t.tone(40),
+            onTertiary = t.tone(100),
+            tertiaryContainer = t.tone(90),
+            onTertiaryContainer = t.tone(10),
+            background = n.tone(98),
+            onBackground = n.tone(10),
+            surface = n.tone(98),
+            onSurface = n.tone(10),
+            surfaceVariant = nv.tone(90),
+            onSurfaceVariant = nv.tone(30),
+            surfaceTint = p.tone(40),
+            inverseSurface = n.tone(20),
+            inverseOnSurface = n.tone(95),
+            error = errorLight[0],
+            onError = errorLight[1],
+            errorContainer = errorLight[2],
+            onErrorContainer = errorLight[3],
+            outline = nv.tone(50),
+            outlineVariant = nv.tone(80),
+            surfaceBright = n.tone(98),
+            surfaceDim = n.tone(87),
+            surfaceContainerLowest = n.tone(100),
+            surfaceContainerLow = n.tone(96),
+            surfaceContainer = n.tone(94),
+            surfaceContainerHigh = n.tone(92),
+            surfaceContainerHighest = n.tone(90),
+        )
+    }
+    val surfaces = if (pureBlack) listOf(0, 0, 5, 8, 12, 17) else listOf(6, 4, 10, 12, 17, 22)
+    return darkColorScheme(
+        primary = p.tone(80),
+        onPrimary = p.tone(20),
+        primaryContainer = p.tone(30),
+        onPrimaryContainer = p.tone(90),
+        inversePrimary = p.tone(40),
+        secondary = s.tone(80),
+        onSecondary = s.tone(20),
+        secondaryContainer = s.tone(30),
+        onSecondaryContainer = s.tone(90),
+        tertiary = t.tone(80),
+        onTertiary = t.tone(20),
+        tertiaryContainer = t.tone(30),
+        onTertiaryContainer = t.tone(90),
+        background = n.tone(surfaces[0]),
+        onBackground = n.tone(90),
+        surface = n.tone(surfaces[0]),
+        onSurface = n.tone(90),
+        surfaceVariant = nv.tone(30),
+        onSurfaceVariant = nv.tone(80),
+        surfaceTint = p.tone(80),
+        inverseSurface = n.tone(90),
+        inverseOnSurface = n.tone(20),
+        error = errorDark[0],
+        onError = errorDark[1],
+        errorContainer = errorDark[2],
+        onErrorContainer = errorDark[3],
+        outline = nv.tone(60),
+        outlineVariant = nv.tone(30),
+        surfaceBright = n.tone(24),
+        surfaceDim = n.tone(surfaces[0]),
+        surfaceContainerLowest = n.tone(surfaces[1]),
+        surfaceContainerLow = n.tone(surfaces[2]),
+        surfaceContainer = n.tone(surfaces[3]),
+        surfaceContainerHigh = n.tone(surfaces[4]),
+        surfaceContainerHighest = n.tone(surfaces[5]),
+    )
 }
 
 @Composable
@@ -201,29 +259,11 @@ fun Po0Theme(settings: AppSettings? = null, content: @Composable () -> Unit) {
         ThemeMode.DARK -> true
         else -> isSystemInDarkTheme()
     }
-    val colors = fadedPalette(paletteFor(dark, settings?.themeColor, settings?.pureBlack == true))
-    val scheme = (if (dark) darkColorScheme() else lightColorScheme()).copy(
-        primary = colors.accent,
-        onPrimary = colors.onAccent,
-        primaryContainer = colors.sel,
-        onPrimaryContainer = colors.onSel,
-        secondaryContainer = colors.sel,
-        onSecondaryContainer = colors.onSel,
-        background = colors.bg,
-        onBackground = colors.ink,
-        surface = colors.card,
-        surfaceContainer = colors.card,
-        surfaceContainerLow = colors.card,
-        surfaceContainerHigh = colors.sheet,
-        onSurface = colors.ink,
-        onSurfaceVariant = colors.ink2,
-        surfaceContainerHighest = colors.track,
-        inverseSurface = colors.ink,
-        inverseOnSurface = colors.bg,
-        outline = colors.outline,
-        outlineVariant = colors.line,
-        error = colors.bad,
-    )
+    val seed = settings?.themeColor ?: DEFAULT_SEED
+    val variant = settings?.schemeVariant ?: SchemeVariant.FIDELITY
+    val pureBlack = settings?.pureBlack == true
+    val scheme = remember(dark, seed, variant, pureBlack) { schemeFor(dark, seed, variant, pureBlack) }
+    val colors = remember(scheme) { scheme.toPo0Colors(dark) }
     val activity = LocalActivity.current
     val view = LocalView.current
     SideEffect {
@@ -240,7 +280,7 @@ fun Po0Theme(settings: AppSettings? = null, content: @Composable () -> Unit) {
         LocalReduceMotion provides rememberReduceMotion(),
         LocalDensity provides Density(density.density, density.fontScale * scale),
     ) {
-        MaterialTheme(colorScheme = scheme, typography = typography) {
+        MaterialTheme(colorScheme = scheme) {
             CompositionLocalProvider(LocalContentColor provides colors.ink, content = content)
         }
     }

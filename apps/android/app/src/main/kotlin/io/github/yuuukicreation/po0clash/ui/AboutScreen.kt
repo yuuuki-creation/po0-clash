@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -70,17 +70,17 @@ private fun AboutPage(vm: AppViewModel, onBack: () -> Unit, onLicenses: () -> Un
         }
         item {
             SectionHeader(stringResource(R.string.more))
-            NavRow(0, 2, stringResource(R.string.check_update), busy = AppViewModel.BUSY_UPDATE in busy, chevron = false) {
+            NavRow(stringResource(R.string.check_update), busy = AppViewModel.BUSY_UPDATE in busy) {
                 vm.checkUpdate(userInitiated = true)
             }
-            NavRow(1, 2, stringResource(R.string.project), "yuuuki-creation/po0-clash") { uri.openUri(PROJECT) }
+            NavRow(stringResource(R.string.project), "yuuuki-creation/po0-clash") { uri.openUri(PROJECT) }
         }
         item {
             SectionHeader(stringResource(R.string.credits))
-            NavRow(0, 4, stringResource(R.string.upstream_client), "chen08209/FlClash") { uri.openUri(UPSTREAM) }
-            NavRow(1, 4, stringResource(R.string.engine), "mihomo") { uri.openUri(MIHOMO) }
-            ValueRow(2, 4, stringResource(R.string.upstream_contributors), "June2 · Arue")
-            NavRow(3, 4, stringResource(R.string.licenses), onClick = onLicenses)
+            NavRow(stringResource(R.string.upstream_client), "chen08209/FlClash") { uri.openUri(UPSTREAM) }
+            NavRow(stringResource(R.string.engine), "mihomo") { uri.openUri(MIHOMO) }
+            ValueRow(stringResource(R.string.upstream_contributors), "June2 · Arue")
+            NavRow(stringResource(R.string.licenses), onClick = onLicenses)
         }
     }
 }
@@ -114,12 +114,9 @@ private fun LicensesPage(vm: AppViewModel, onBack: () -> Unit) {
     val shown = all.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
     ToolPage(stringResource(R.string.licenses), onBack) {
         item { Column(Modifier.padding(bottom = 12.dp)) { SearchField(query) { query = it } } }
-        itemsIndexed(shown, key = { _, license -> license.name + license.version }) { index, license ->
-            GroupRow(index, shown.size, onClick = license.url.takeIf { it.isNotEmpty() }?.let { { uri.openUri(it) } }) {
+        items(shown, key = { license -> license.name + license.version }) { license ->
+            GroupRow(onClick = license.url.takeIf { it.isNotEmpty() }?.let { { uri.openUri(it) } }) {
                 RowText(listOf(license.name, license.version).filter(String::isNotEmpty).joinToString(" "), license.license)
-                if (license.url.isNotEmpty()) {
-                    Chevron()
-                }
             }
         }
     }
@@ -137,19 +134,19 @@ fun DeveloperScreen(vm: AppViewModel, onBack: () -> Unit) {
     ToolPage(stringResource(R.string.developer), onBack) {
         item {
             Spacer()
-            SwitchRow(0, 1, stringResource(R.string.developer_mode), settings.developerMode) { on ->
+            SwitchRow(stringResource(R.string.developer_mode), settings.developerMode) { on ->
                 vm.setAppSettings { it.copy(developerMode = on) }
                 if (!on) onBack()
             }
         }
         item {
             SectionHeader(stringResource(R.string.options))
-            NavRow(0, 4, stringResource(R.string.message_test), chevron = false) { vm.toast(message) }
-            GroupRow(1, 4, onClick = vm::addTestLogs.takeIf { settings.captureLogs }) {
+            NavRow(stringResource(R.string.message_test)) { vm.toast(message) }
+            GroupRow(onClick = vm::addTestLogs.takeIf { settings.captureLogs }) {
                 RowText(stringResource(R.string.logs_test))
             }
-            NavRow(2, 4, stringResource(R.string.prune_cache), busy = AppViewModel.BUSY_CACHE in busy, chevron = false, onClick = vm::pruneCache)
-            GroupRow(3, 4, onClick = { sheets.confirm(clear, clear, body = confirm) { vm.clearData() } }) {
+            NavRow(stringResource(R.string.prune_cache), busy = AppViewModel.BUSY_CACHE in busy, onClick = vm::pruneCache)
+            GroupRow(onClick = { sheets.confirm(clear, clear, body = confirm) { vm.clearData() } }) {
                 RowText(clear, titleColor = palette.bad)
             }
         }

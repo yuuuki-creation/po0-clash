@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -93,19 +93,19 @@ private fun LazyListScope.standardOverride(
 ) {
     item {
         SectionHeader(stringResource(R.string.added_rules))
-        ListRow(0, 2, stringResource(R.string.added_rules), current.addedRules, RULE_HINT, code = true) {
+        ListRow(stringResource(R.string.added_rules), current.addedRules, RULE_HINT, code = true) {
             save(current.copy(addedRules = it))
         }
         val label = stringResource(R.string.match_target)
         val default = stringResource(R.string.match_target_default)
         if (targets.isEmpty()) {
-            EditRow(1, 2, label, current.matchTarget.orEmpty(), placeholder = default) {
+            EditRow(label, current.matchTarget.orEmpty(), placeholder = default) {
                 save(current.copy(matchTarget = it.ifEmpty { null }))
             }
         } else {
             val options = listOf<String?>(null, "DIRECT", "REJECT") + (targets - setOf("DIRECT", "REJECT")) +
                 listOfNotNull(current.matchTarget?.takeIf { it !in targets && it != "DIRECT" && it != "REJECT" })
-            ChoiceRow(1, 2, label, options.map { it to (it ?: default) }, current.matchTarget) {
+            ChoiceRow(label, options.map { it to (it ?: default) }, current.matchTarget) {
                 save(current.copy(matchTarget = it))
             }
         }
@@ -113,13 +113,13 @@ private fun LazyListScope.standardOverride(
     item { SectionHeader(stringResource(R.string.global_rules)) }
     if (global.isEmpty()) {
         item {
-            GroupRow(0, 1) {
+            GroupRow {
                 Text(stringResource(R.string.none), style = MaterialTheme.typography.bodyLarge, color = palette.ink2)
             }
         }
     }
-    itemsIndexed(global) { index, rule ->
-        GroupRow(index, global.size) {
+    items(global) { rule ->
+        GroupRow {
             Text(
                 rule,
                 style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
@@ -143,10 +143,9 @@ private fun LazyListScope.scriptOverride(
         val sheets = LocalSheets.current
         val chosen = scripts.firstOrNull { it.id == current.scriptId }
         val rows = listOf<Script?>(null) + scripts
-        val count = rows.size + if (chosen != null) 2 else 1
         SectionHeader(stringResource(R.string.script))
-        rows.forEachIndexed { index, script ->
-            GroupRow(index, count, onClick = { save(current.copy(scriptId = script?.id)) }) {
+        rows.forEach { script ->
+            GroupRow(onClick = { save(current.copy(scriptId = script?.id)) }) {
                 Po0Radio(script?.id == current.scriptId)
                 Text(
                     script?.name ?: stringResource(R.string.none),
@@ -156,9 +155,9 @@ private fun LazyListScope.scriptOverride(
             }
         }
         if (chosen != null) {
-            ActionRow(rows.size, count, stringResource(R.string.edit_script)) { sheets.show { ScriptSheet(vm, chosen) } }
+            ActionRow(stringResource(R.string.edit_script)) { sheets.show { ScriptSheet(vm, chosen) } }
         }
-        ActionRow(count - 1, count, stringResource(R.string.new_script)) {
+        ActionRow(stringResource(R.string.new_script)) {
             sheets.show { ScriptSheet(vm, null) { save(current.copy(scriptId = it.id)) } }
         }
     }
@@ -176,7 +175,7 @@ private fun LazyListScope.customOverride(
         val title = stringResource(R.string.proxy_groups)
         val lines = current.customGroups.lines().count(String::isNotBlank)
         SectionHeader(title)
-        NavRow(0, 1, title, if (lines == 0) stringResource(R.string.not_set) else pluralStringResource(R.plurals.line_count, lines, lines)) {
+        NavRow(title, if (lines == 0) stringResource(R.string.not_set) else pluralStringResource(R.plurals.line_count, lines, lines)) {
             sheets.show {
                 ValueSheet(title, current.customGroups, multiline = true, hint = GROUPS_HINT, code = true) {
                     save(current.copy(customGroups = it))
@@ -184,7 +183,7 @@ private fun LazyListScope.customOverride(
             }
         }
         SectionHeader(stringResource(R.string.rules))
-        ListRow(0, 1, stringResource(R.string.rules), current.customRules, RULE_HINT, code = true) {
+        ListRow(stringResource(R.string.rules), current.customRules, RULE_HINT, code = true) {
             save(current.copy(customRules = it))
         }
     }
@@ -194,7 +193,7 @@ private fun LazyListScope.customOverride(
         val replace = stringResource(R.string.replace)
         val confirm = stringResource(R.string.copy_from_profile_confirm)
         Column(Modifier.padding(top = 12.dp)) {
-            ActionRow(0, 1, stringResource(R.string.copy_from_profile)) {
+            ActionRow(stringResource(R.string.copy_from_profile)) {
                 if (current.customGroups.isBlank() && current.customRules.isEmpty()) {
                     copy()
                 } else {
@@ -233,14 +232,13 @@ fun ScriptLibrary(vm: AppViewModel) {
     val sheets = LocalSheets.current
     val scripts by vm.scripts.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.loadScripts() }
-    val count = scripts.size + 1
     SectionHeader(stringResource(R.string.override_scripts))
-    scripts.forEachIndexed { index, script -> ScriptRow(index, count, script, vm) }
-    ActionRow(scripts.size, count, stringResource(R.string.new_script)) { sheets.show { ScriptSheet(vm, null) } }
+    scripts.forEach { script -> ScriptRow(script, vm) }
+    ActionRow(stringResource(R.string.new_script)) { sheets.show { ScriptSheet(vm, null) } }
 }
 
 @Composable
-private fun ScriptRow(index: Int, count: Int, script: Script, vm: AppViewModel) {
+private fun ScriptRow(script: Script, vm: AppViewModel) {
     val sheets = LocalSheets.current
     val anchor = rememberAnchor()
     val lines = script.content.lines().count(String::isNotBlank)
@@ -248,7 +246,7 @@ private fun ScriptRow(index: Int, count: Int, script: Script, vm: AppViewModel) 
     val delete = stringResource(R.string.delete)
     val confirm = stringResource(R.string.delete_title, script.name)
     Column(Modifier.anchor(anchor)) {
-        NavRow(index, count, script.name, pluralStringResource(R.plurals.line_count, lines, lines)) {
+        NavRow(script.name, pluralStringResource(R.plurals.line_count, lines, lines)) {
             sheets.menu(
                 anchor,
                 listOf(
@@ -281,26 +279,23 @@ fun ShareNodesScreen(vm: AppViewModel, profile: Profile, onBack: () -> Unit) {
             },
         ),
     ) {
-        itemsIndexed(nodes, key = { _, node -> node.name }) { index, node ->
+        items(nodes, key = { node -> node.name }) { node ->
             Box(itemMotion()) {
-                ShareNodeRow(index, nodes.size, node.name, node.kind, vm, profile.id)
+                ShareNodeRow(node.name, node.kind, nodes.size > 1, vm, profile.id)
             }
         }
     }
 }
 
 @Composable
-private fun ShareNodeRow(index: Int, count: Int, name: String, kind: String, vm: AppViewModel, id: String) {
+private fun ShareNodeRow(name: String, kind: String, deletable: Boolean, vm: AppViewModel, id: String) {
     val sheets = LocalSheets.current
     val anchor = rememberAnchor()
     val rename = stringResource(R.string.rename)
     val delete = stringResource(R.string.delete)
     val confirm = stringResource(R.string.delete_title, name)
     Column(Modifier.anchor(anchor)) {
-        GroupRow(
-            index,
-            count,
-            onClick = {
+        GroupRow(onClick = {
                 sheets.menu(
                     anchor,
                     listOfNotNull(
@@ -311,7 +306,7 @@ private fun ShareNodeRow(index: Int, count: Int, name: String, kind: String, vm:
                         },
                         SheetAction(delete, destructive = true) {
                             sheets.confirm(confirm, delete) { vm.removeShareNode(id, name) }
-                        }.takeIf { count > 1 },
+                        }.takeIf { deletable },
                     ),
                 )
             },

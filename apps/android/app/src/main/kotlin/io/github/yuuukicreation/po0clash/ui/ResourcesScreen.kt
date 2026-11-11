@@ -37,8 +37,8 @@ fun ResourcesScreen(vm: AppViewModel, onBack: () -> Unit) {
     ToolPage(stringResource(R.string.resources), onBack, actions = listOf(update)) {
         item {
             SectionHeader(stringResource(R.string.geo_files))
-            geo.forEachIndexed { index, file ->
-                GroupRow(index, geo.size) {
+            geo.forEach { file ->
+                GroupRow {
                     Text(file.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, modifier = Modifier.weight(1f))
                     Text(
                         file.modified?.let { relativeTime(it) } ?: stringResource(R.string.not_downloaded),
@@ -52,11 +52,9 @@ fun ResourcesScreen(vm: AppViewModel, onBack: () -> Unit) {
         }
         item {
             SectionHeader(stringResource(R.string.geo_settings))
-            ChoiceRow(0, 3, stringResource(R.string.geodata_loader), loaders, o.geodataLoader) { v -> vm.setOptions { it.copy(geodataLoader = v) } }
-            SwitchRow(1, 3, stringResource(R.string.auto_update), o.geoAutoUpdate) { v -> vm.setOptions { it.copy(geoAutoUpdate = v) } }
+            ChoiceRow(stringResource(R.string.geodata_loader), loaders, o.geodataLoader) { v -> vm.setOptions { it.copy(geodataLoader = v) } }
+            SwitchRow(stringResource(R.string.auto_update), o.geoAutoUpdate) { v -> vm.setOptions { it.copy(geoAutoUpdate = v) } }
             EditRow(
-                2,
-                3,
                 stringResource(R.string.update_interval),
                 o.geoUpdateInterval.toString(),
                 keyboard = KeyboardType.Number,
@@ -66,20 +64,20 @@ fun ResourcesScreen(vm: AppViewModel, onBack: () -> Unit) {
         item {
             val urls = o.geoxUrl
             SectionHeader(stringResource(R.string.geo_urls))
-            EditRow(0, 4, "GeoIP", urls.geoip, keyboard = KeyboardType.Uri) { v -> vm.setOptions { it.copy(geoxUrl = it.geoxUrl.copy(geoip = v)) } }
-            EditRow(1, 4, "GeoSite", urls.geosite, keyboard = KeyboardType.Uri) { v -> vm.setOptions { it.copy(geoxUrl = it.geoxUrl.copy(geosite = v)) } }
-            EditRow(2, 4, "MMDB", urls.mmdb, keyboard = KeyboardType.Uri) { v -> vm.setOptions { it.copy(geoxUrl = it.geoxUrl.copy(mmdb = v)) } }
-            EditRow(3, 4, "ASN", urls.asn, keyboard = KeyboardType.Uri) { v -> vm.setOptions { it.copy(geoxUrl = it.geoxUrl.copy(asn = v)) } }
+            EditRow("GeoIP", urls.geoip, keyboard = KeyboardType.Uri) { v -> vm.setOptions { it.copy(geoxUrl = it.geoxUrl.copy(geoip = v)) } }
+            EditRow("GeoSite", urls.geosite, keyboard = KeyboardType.Uri) { v -> vm.setOptions { it.copy(geoxUrl = it.geoxUrl.copy(geosite = v)) } }
+            EditRow("MMDB", urls.mmdb, keyboard = KeyboardType.Uri) { v -> vm.setOptions { it.copy(geoxUrl = it.geoxUrl.copy(mmdb = v)) } }
+            EditRow("ASN", urls.asn, keyboard = KeyboardType.Uri) { v -> vm.setOptions { it.copy(geoxUrl = it.geoxUrl.copy(asn = v)) } }
         }
         listOf(ProviderKind.PROXY to R.string.proxy_providers, ProviderKind.RULE to R.string.rule_providers).forEach { (kind, title) ->
             val items = providers.filter { it.kind == kind }
             item(key = "providers:$kind") {
                 SectionHeader(stringResource(title))
                 if (items.isEmpty()) {
-                    ValueRow(0, 1, stringResource(if (running) R.string.none else R.string.connect_first_short), "")
+                    ValueRow(stringResource(if (running) R.string.none else R.string.connect_first_short), "")
                 }
-                items.forEachIndexed { index, provider ->
-                    ProviderRow(index, items.size, provider, busy = AppViewModel.busyProvider(provider.name) in busy) {
+                items.forEach { provider ->
+                    ProviderRow(provider, busy = AppViewModel.busyProvider(provider.name) in busy) {
                         vm.updateProvider(provider.kind, provider.name)
                     }
                 }
@@ -89,9 +87,9 @@ fun ResourcesScreen(vm: AppViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun ProviderRow(index: Int, count: Int, provider: Provider, busy: Boolean, onUpdate: () -> Unit) {
+private fun ProviderRow(provider: Provider, busy: Boolean, onUpdate: () -> Unit) {
     val colors = palette
-    GroupRow(index, count, endPadding = if (provider.vehicle.equals("HTTP", ignoreCase = true)) 4.dp else 16.dp) {
+    GroupRow(endPadding = if (provider.vehicle.equals("HTTP", ignoreCase = true)) 4.dp else 16.dp) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(provider.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val detail = listOfNotNull(

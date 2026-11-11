@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.MaterialTheme
@@ -126,7 +126,7 @@ fun AccessControlScreen(vm: AppViewModel, onBack: () -> Unit) {
     )
     ToolPage(stringResource(R.string.access_control), onBack, actions) {
         item {
-            ChoiceRow(0, 1, stringResource(R.string.access_mode), modes, mode) { v -> update { it.withMode(v) } }
+            ChoiceRow(stringResource(R.string.access_mode), modes, mode) { v -> update { it.withMode(v) } }
         }
         if (mode == AccessMode.OFF) return@ToolPage
         item(key = "search") {
@@ -136,10 +136,10 @@ fun AccessControlScreen(vm: AppViewModel, onBack: () -> Unit) {
             }
         }
         if (apps == null) {
-            item { ValueRow(0, 1, stringResource(R.string.loading), "") }
+            item { ValueRow(stringResource(R.string.loading), "") }
         }
-        itemsIndexed(shown, key = { _, app -> app.packageName }) { index, app ->
-            AppRow(index, shown.size, app, app.packageName in chosen) { on ->
+        items(shown, key = { app -> app.packageName }) { app ->
+            AppRow(app, app.packageName in chosen) { on ->
                 update { it.withSelected(if (on) it.selected + app.packageName else it.selected - app.packageName) }
             }
         }
@@ -164,7 +164,7 @@ private fun installedApps(pm: PackageManager, self: String): List<InstalledApp> 
 }
 
 @Composable
-private fun AppRow(index: Int, count: Int, app: InstalledApp, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun AppRow(app: InstalledApp, checked: Boolean, onChange: (Boolean) -> Unit) {
     val context = LocalContext.current
     val colors = palette
     val icon by produceState<ImageBitmap?>(null, app.packageName) {
@@ -172,7 +172,7 @@ private fun AppRow(index: Int, count: Int, app: InstalledApp, checked: Boolean, 
             runCatching { app.info.loadIcon(context.packageManager).toBitmap(96, 96).asImageBitmap() }.getOrNull()
         }
     }
-    GroupRow(index, count, onClick = { onChange(!checked) }) {
+    GroupRow(onClick = { onChange(!checked) }) {
         Box(Modifier.size(34.dp)) {
             icon?.let { Image(it, contentDescription = null, modifier = Modifier.size(34.dp)) }
         }

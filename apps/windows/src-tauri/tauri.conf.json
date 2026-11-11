@@ -15,8 +15,8 @@
         "title": "po0-clash",
         "width": 1200,
         "height": 720,
-        "minWidth": 720,
-        "minHeight": 560,
+        "minWidth": 900,
+        "minHeight": 600,
         "center": true,
         "decorations": false,
         "shadow": true,
@@ -26,17 +26,22 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: https: http:; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self'; img-src 'self' data: https: http:; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost https://api.github.com"
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "publisher": "yuuuki-creation",
     "homepage": "https://github.com/yuuuki-creation/po0-clash",
     "copyright": "yuuuki-creation",
     "shortDescription": "po0-clash",
-    "icon": ["icons/icon.png", "icons/icon.ico"],
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.ico"
+    ],
     "resources": {
       "resources/mihomo.exe": "mihomo.exe"
     },
@@ -44,7 +49,10 @@
       "nsis": {
         "installMode": "perMachine",
         "installerHooks": "./windows/hooks.nsh",
-        "languages": ["SimpChinese", "English"],
+        "languages": [
+          "SimpChinese",
+          "English"
+        ],
         "displayLanguageSelector": false
       }
     }

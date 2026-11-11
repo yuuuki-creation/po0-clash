@@ -4,11 +4,11 @@
 
 A native proxy client for macOS, Windows, and Android built on a shared Rust core (`crates/core`) and stock [`mihomo`](https://github.com/MetaCubeX/mihomo), with built-in `po0` and `ggy` firewall auto-whitelist ([`po0fw`](https://github.com/w0ven/po0fw)).
 
-Each platform uses its own native UI toolkit instead of a cross-platform widget layer.
+The desktop interface follows Clash Verge Rev and the Android interface follows FlClash. The screenshots below show the interface before that change.
 
-- **macOS (`apps/macos`)**: SwiftUI and AppKit with a macOS 26 Liquid Glass sidebar, unified toolbar, Bento dashboard grid, and menu bar panel.
-- **Windows (`apps/windows`)**: Tauri 2 and Win32/DWM with a Windows 11 WinUI 3 (Fluent 2) 4-column Bento card grid, system tray, and global hotkeys.
-- **Android (`apps/android`)**: Kotlin and Jetpack Compose with a Material 3 Expressive card grid, in-process `libmihomo`, Quick Settings tile, and Android TV Leanback entrance.
+- **macOS (`apps/macos`)**: a Swift shell with a `WKWebView` that shares its interface with Windows, plus a menu bar panel and global hotkeys.
+- **Windows (`apps/windows`)**: Tauri 2 with a React and MUI interface, system tray, and global hotkeys.
+- **Android (`apps/android`)**: Kotlin and Jetpack Compose with a Material 3 card grid, in-process `libmihomo`, Quick Settings tile, and Android TV Leanback entrance.
 
 `po0-clash` is a standalone app (`io.github.yuuukicreation.po0clash`) with its own installer ID, process and service names, data directory, and `po0clash://` URL scheme. It installs and runs side by side with official [FlClash](https://github.com/chen08209/FlClash).
 
@@ -75,7 +75,7 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download
 Pass a version tag or a local `.zip` path after `bash -s --` to install a specific build:
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download/install-macos-native.sh | bash -s -- 7.3.0
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download/install-macos-native.sh | bash -s -- 8.0.0
 ```
 
 On first TUN activation, macOS prompts once for an administrator password to grant setuid-root permissions to the bundled `mihomo` binary.
@@ -116,8 +116,8 @@ Only enable system proxy or TUN/VPN in one proxy client at a time so two clients
 |---|---|
 | [`crates/core`](crates/core) | Shared Rust core for profile management, config merge and overrides, `mihomo` supervision and REST/WS client, `po0`/`ggy` whitelist engine, and WebDAV/local backup |
 | [`crates/ffi`](crates/ffi) | UniFFI bindings exposing `po0-core` to Swift (macOS) and Kotlin (Android) |
-| [`apps/macos`](apps/macos) | Native macOS 13+ app (SwiftUI + AppKit) |
-| [`apps/windows`](apps/windows) | Native Windows 10/11 app (Tauri 2 + Svelte 5 + Win32/DWM) |
+| [`apps/macos`](apps/macos) | macOS 13+ client (Swift shell + `WKWebView`; shares its interface with Windows) |
+| [`apps/windows`](apps/windows) | Windows 10/11 client (Tauri 2 + React + MUI); also holds the interface both desktop apps share |
 | [`apps/android`](apps/android) | Native Android 8.0+ app (Kotlin + Jetpack Compose + JNI `libmihomo`) |
 
 Design documents, architecture decision records, and build guides are in [`docs/`](docs/README.md). Repository conventions for contributors and coding agents are in [`AGENTS.md`](AGENTS.md).
@@ -125,7 +125,8 @@ Design documents, architecture decision records, and build guides are in [`docs/
 ## Credits and license
 
 - [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo) for the Clash Meta proxy core
-- [chen08209/FlClash](https://github.com/chen08209/FlClash) for the original upstream client that inspired `po0-clash`
+- [clash-verge-rev/clash-verge-rev](https://github.com/clash-verge-rev/clash-verge-rev) (GPL-3.0): the Windows and macOS interface is adapted from its layout, styles and components
+- [chen08209/FlClash](https://github.com/chen08209/FlClash) (GPL-3.0): the upstream client early versions were based on; the Android interface follows its design
 - [w0ven/po0fw](https://github.com/w0ven/po0fw) for the `po0` firewall whitelist protocol
 
 Released under [GPL-3.0](LICENSE).

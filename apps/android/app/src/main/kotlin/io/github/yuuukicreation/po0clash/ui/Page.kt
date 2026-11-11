@@ -5,7 +5,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -21,7 +20,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -74,9 +73,8 @@ fun PageScaffold(
     onBack: (() -> Unit)? = null,
     capped: Boolean = true,
     fab: FabAction? = null,
-    subtitle: String? = null,
     content: @Composable (PaddingValues) -> Unit,
-) = PageScaffold(title, state.canScrollBackward, actions, onBack, null, capped, fab, subtitle, content)
+) = PageScaffold(title, state.canScrollBackward, actions, onBack, null, capped, fab, content)
 
 @Composable
 fun PageScaffold(
@@ -86,9 +84,8 @@ fun PageScaffold(
     onBack: (() -> Unit)? = null,
     capped: Boolean = true,
     fab: FabAction? = null,
-    subtitle: String? = null,
     content: @Composable (PaddingValues) -> Unit,
-) = PageScaffold(title, state.canScrollBackward, actions, onBack, null, capped, fab, subtitle, content)
+) = PageScaffold(title, state.canScrollBackward, actions, onBack, null, capped, fab, content)
 
 @Composable
 fun PageScaffold(
@@ -99,11 +96,10 @@ fun PageScaffold(
     search: AppBarSearch? = null,
     capped: Boolean = true,
     fab: FabAction? = null,
-    subtitle: String? = null,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
-        AppBar(title, subtitle, scrolled, actions, onBack, search)
+        AppBar(title, scrolled, actions, onBack, search)
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val side = if (capped) maxOf(16.dp, (maxWidth - maxContentWidth) / 2) else 16.dp
             val bottom = LocalBottomInset.current
@@ -111,13 +107,12 @@ fun PageScaffold(
                 PaddingValues(
                     start = side,
                     end = side,
-                    top = 6.dp,
-                    bottom = bottom + if (fab != null) 92.dp else 16.dp,
+                    top = 8.dp,
+                    bottom = bottom + if (fab != null) 88.dp else 16.dp,
                 ),
             )
             if (fab != null) {
-                val above = if (LocalBottomInset.current > 0.dp || maxWidth >= 600.dp) 20.dp else 12.dp
-                Po0Fab(fab, Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = bottom + above))
+                Po0Fab(fab, Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = bottom + 16.dp))
             }
         }
     }
@@ -126,32 +121,26 @@ fun PageScaffold(
 @Composable
 private fun AppBar(
     title: String,
-    subtitle: String?,
     scrolled: Boolean,
     actions: List<PageAction>,
     onBack: (() -> Unit)?,
     search: AppBarSearch?,
 ) {
     val colors = palette
-    val fill by animateColorAsState(if (scrolled) colors.card else colors.bg, tween(200), label = "appBar")
+    val fill by animateColorAsState(if (scrolled) colors.sheet else colors.bg, tween(200), label = "appBar")
     Box(Modifier.fillMaxWidth().background(fill).windowInsetsPadding(WindowInsets.statusBars)) {
         Row(
-            Modifier.fillMaxWidth().height(if (subtitle != null) 64.dp else 56.dp).padding(start = 16.dp, end = 8.dp),
+            Modifier.fillMaxWidth().height(64.dp).padding(start = if (onBack != null && search == null) 4.dp else 16.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             if (search != null) {
-                AppBarSearchField(search, Modifier.weight(1f).padding(end = 8.dp))
+                AppBarSearchField(search, Modifier.weight(1f).padding(end = 12.dp))
                 return@Row
             }
             if (onBack != null) AppIconButton(LineIcons.ChevronLeft, stringResource(R.string.back), onClick = onBack)
-            Column(Modifier.weight(1f)) {
-                Crossfade(title, animationSpec = tween(150), label = "appBarTitle") {
-                    Text(it, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                if (!subtitle.isNullOrEmpty()) {
-                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = colors.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+            Crossfade(title, Modifier.weight(1f), animationSpec = tween(150), label = "appBarTitle") {
+                Text(it, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             actions.forEach { action ->
                 AppIconButton(
@@ -172,7 +161,7 @@ private fun AppBarSearchField(search: AppBarSearch, modifier: Modifier) {
     val colors = palette
     val focus = remember { FocusRequester() }
     val appear = remember { Animatable(0f) }
-    val shape = RoundedCornerShape(8.dp)
+    val shape = CircleShape
     LaunchedEffect(Unit) {
         focus.requestFocus()
         appear.animateTo(1f, tween(200, easing = StandardEasing))
@@ -184,8 +173,7 @@ private fun AppBarSearchField(search: AppBarSearch, modifier: Modifier) {
                 scaleX = 0.9f + 0.1f * appear.value
                 transformOrigin = TransformOrigin(1f, 0.5f)
             }
-            .background(colors.card, shape)
-            .border(1.dp, colors.line, shape),
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, shape),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AppIconButton(LineIcons.ChevronLeft, stringResource(R.string.back), onClick = search.onClose)
@@ -209,9 +197,8 @@ private fun AppBarSearchField(search: AppBarSearch, modifier: Modifier) {
 @Composable
 fun SearchField(query: String, onChange: (String) -> Unit) {
     val colors = palette
-    val shape = RoundedCornerShape(8.dp)
     Row(
-        Modifier.fillMaxWidth().height(44.dp).background(colors.card, shape).border(1.dp, colors.line, shape).padding(horizontal = 14.dp),
+        Modifier.fillMaxWidth().height(48.dp).background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape).padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(LineIcons.Search, contentDescription = null, tint = colors.ink2, modifier = Modifier.padding(end = 10.dp))

@@ -1,23 +1,35 @@
 # macOS 原生版
 
-SwiftUI 应用（主窗口加菜单栏），代码在 `apps/macos`，方案见 [native-rewrite.md](native-rewrite.md)。
+Swift 外壳（主窗口加菜单栏），代码在 `apps/macos`，方案见 [native-rewrite.md](native-rewrite.md)。主窗口的界面是
+`apps/windows` 的网页（React + MUI），与 Windows 版共用，跑在 `WKWebView` 里；内核、菜单栏、全局快捷键、虚拟网卡授权、
+开机自启、旧数据导入和更新检查仍由 Swift 负责。
 
 ## 结构
 
 - SwiftPM 包（`apps/macos/Package.swift`），最低 macOS 13，`LSUIElement`；主窗口打开时切成普通应用（显示程序坞图标），
   关闭后回到只在菜单栏。正常打开应用、再次打开或点程序坞图标时显示主窗口，开机自启时不显示。
-- 主窗口（`MainWindow.swift`，ADR 0021，设计稿 [native-ui](../design/native-ui/README.md)）：AppKit 管理的窗口隐藏标题栏，
-  不用 `NSToolbar` 和 `NavigationSplitView`，各系统版本都由 SwiftUI 画 200 宽的侧边栏和 48 高的工具栏行，红绿灯由
-  `placeTrafficLights` 移到这一行的中线；窗口窄于 760 时侧边栏收起，工具栏按钮展开覆盖层。侧边栏与 Flutter 版一致，依次为
-  仪表盘、代理、配置、加白、活动、工具。仪表盘是状态行加两列设置行，`dashboardCards` 决定显示哪些行和顺序；代理页 `tabs`
-  是节点组列表加节点表格，`list` 是可展开的分组表格；其余页面是分组设置行和斑马纹表格。控件在 `Controls.swift`，配色在
-  `Style.swift`，时长在 `Motion.swift`；对话框是 `Dialog.swift` 画在窗口内容上的一层，因为系统表单改不了时长和 macOS 26 的外观。
+- 主窗口（`MainWindow.swift`）：AppKit 管理的窗口，隐藏标题栏、内容占满整个窗口，红绿灯留在系统默认位置，最小 900×600。
+  内容是一个 `WKWebView`，`WebAssets` 用自定义协议把应用包里的 `Contents/Resources/web` 提供为 `po0://app/…`
+  （不是文件的路径回落到 `index.html`）。页面顶部留 36 pt 给红绿灯，带 `data-tauri-drag-region` 的区域按下时发
+  `window_drag`、双击时发 `window_zoom`。页面的脚本错误和加载结果写进系统日志（`web error: …`、`web interface loaded`）。
+- 桥（`Bridge.swift`、`Wire.swift`）：页面调用
+  `window.webkit.messageHandlers.po0.postMessage({cmd, args})`，得到结果的 JSON 字符串（无返回值时是 `"null"`），失败时
+  Promise 以错误信息拒绝。命令名、参数名和 JSON 结构与 Windows 的 Tauri 命令
+  （`apps/windows/src-tauri/src/shell/commands.rs`）一致，即 serde 对 `crates/core` 类型的输出；`Wire.swift` 逐字段在
+  UniFFI 类型与这份 JSON 之间转换，内核类型增减字段时两边要一起改。不实现 Windows 专用的 `loopback_apps`、
+  `set_loopback`；macOS 另有 `check_update`、`window_drag`、`window_zoom`、`set_window_background`、`write_clipboard`。
+  - `start`、`set_route_mode` 走虚拟网卡授权流程；`set_route_mode` 被取消授权时以错误返回，接管方式不变。
+  - `backup_to_file`、`restore_from_file`、`export_profile`、`export_diagnostics` 用系统的存取面板（挂在主窗口上的表单）。
+  - `set_app_settings`、`set_engine_options` 缺少的字段保持当前值（Windows 上是取默认值）。
+- 事件：Swift 调用 `window.__po0Emit(事件名, 载荷)`。内核的每次变更发 `core-change`（`status`、`profiles`、`groups`、
+  `whitelist`），所以菜单栏和快捷键的操作也会到达页面；菜单栏一侧出现的错误提示发 `shell-error`；菜单或启动参数要求打开
+  某一页时发 `navigate`（页面名）。
 - 菜单栏窗口（`MenuBarExtra`，`.window` 样式）作为快捷入口：连接开关与状态、出口 IP、速率、模式、虚拟网卡 / 系统代理、
-  订阅切换、策略组与延迟测试、加白总开关，底部按钮打开主窗口。
+  订阅切换、策略组与延迟测试、加白总开关，底部按钮打开主窗口。它是 SwiftUI 画的，文案在
+  `Resources/*.lproj/Localizable.strings`（简体中文、英文、日文、俄文）；主窗口的文案在网页里。
 - 内核调用全部经过 `CoreClient.swift`，在后台队列执行；引擎与路由命令走同一个串行队列，保证按用户操作顺序生效。
-- 不用玻璃（ADR 0021）：用 macOS 26 SDK 构建时只有系统自己画的菜单和 `NSAlert` 还带系统外观，按钮、分段控件、开关、输入框和
-  对话框都用设计稿的颜色自绘，macOS 13 到 26 看起来一样。
-- 界面语言跟随系统，简体中文与英文（`Resources/*.lproj/Localizable.strings`）。
+- 免责声明、发现新版本和 `clash://install-config` 链接的确认仍是系统的 `NSAlert`；启动保护的提示由页面通过
+  `launch_notice` 取走后显示。
 
 ## 数据与迁移
 
@@ -48,8 +60,8 @@ Flutter 版先发正常退出的 Apple 事件，再退回 SIGTERM，并结束它
 
 1. `cargo test -p po0-core`；
 2. `WITH_E2E=1 ARCHS="arm64 x86_64" apps/macos/scripts/bundle.sh`：构建 `po0-ffi` 静态库、用宿主 debug 库生成 Swift 绑定、
-   构建 darwin 版 mihomo，组装通用的 `po0-clash.app` 并 ad-hoc 签名，打包成 `dist/po0-clash-macos.zip`，另外编出通用的
-   检查工具 `dist/po0-e2e`；
+   构建 darwin 版 mihomo，在 `apps/windows` 里 `npm ci && npm run build` 并把 `dist` 复制为 `Contents/Resources/web`，
+   组装通用的 `po0-clash.app` 并 ad-hoc 签名，打包成 `dist/po0-clash-macos.zip`，另外编出通用的检查工具 `dist/po0-e2e`；
 3. 用刚构建的 mihomo 跑内核的真实引擎测试，上传应用和检查工具。
 
 `check`（macos-26、macos-14、macos-15-intel 各一份，只下载产物、不编译；GitHub 已不提供 macOS 13）：
@@ -62,7 +74,7 @@ Flutter 版先发正常退出的 Apple 事件，再退回 SIGTERM，并结束它
    连接，每次都在节点日志里确认请求经过了节点；最后测延迟、写入加白条目，数据留在应用的数据目录里；
 3. 普通启动 10 秒，确认没有自动连接、SIGTERM 后正常关闭；
 4. `-showMenu YES -reopenMenu YES` 打开、关闭、再打开菜单窗口，在系统日志里确认刷新了至少两次；
-5. 仅 macos-26：截图。`-launchedAtLogin YES` 模拟开机自启（必须自动重连）、`-testDelays YES` 先测延迟、`-showMenu YES` /
-   `-showWindow <dashboard|proxies|profiles|whitelist|activity|tools>` 打开界面，`-appearance dark` 强制深色（runner 的系统外观改不了），`-AppleLanguages '(zh-Hans)'`
-   切中文。`-sample YES` 不启动内核和引擎，直接显示设计稿的示例数据（24 个节点组），`-windowSize 640x500` 指定窗口大小，文件名以
-   `design-` 开头的截图用来评审界面。
+5. `-showWindow dashboard` 打开主窗口，在系统日志里确认页面加载完成；页面报出脚本错误时只给警告；
+6. 仅 macos-26：截图。`-launchedAtLogin YES` 模拟开机自启（必须自动重连）、`-testDelays YES` 先测延迟、`-showMenu YES` /
+   `-showWindow <页面名>` 打开界面，`-appearance dark` 强制深色（runner 的系统外观改不了），`-AppleLanguages '(zh-Hans)'`
+   切菜单栏的语言。

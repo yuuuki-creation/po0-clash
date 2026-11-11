@@ -78,29 +78,28 @@ fun OnDemandScreen(vm: AppViewModel, onBack: () -> Unit) {
         item {
             SectionHeader(stringResource(R.string.excluded_wifi))
             val current = ssid?.takeIf { it !in settings.excludedSsids }
-            val count = if (current != null) 2 else 1
-            ListRow(0, count, stringResource(R.string.excluded_wifi), settings.excludedSsids, stringResource(R.string.excluded_wifi_hint)) { v ->
+            ListRow(stringResource(R.string.excluded_wifi), settings.excludedSsids, stringResource(R.string.excluded_wifi_hint)) { v ->
                 vm.setAppSettings { it.copy(excludedSsids = v.distinct()) }
             }
             if (current != null) {
-                ActionRow(1, count, stringResource(R.string.exclude_current_wifi, current)) {
+                ActionRow(stringResource(R.string.exclude_current_wifi, current)) {
                     vm.setAppSettings { it.copy(excludedSsids = it.excludedSsids + current) }
                 }
             }
         }
         item {
             SectionHeader(stringResource(R.string.permissions))
-            NavRow(0, 3, stringResource(R.string.location_permission), if (fine) allowed else notAllowed) {
+            NavRow(stringResource(R.string.location_permission), if (fine) allowed else notAllowed) {
                 if (!fine) {
                     location.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
                 } else {
                     context.startActivity(appDetails(context.packageName))
                 }
             }
-            NavRow(1, 3, stringResource(R.string.background_location), if (background) allowed else notAllowed) {
+            NavRow(stringResource(R.string.background_location), if (background) allowed else notAllowed) {
                 context.startActivity(appDetails(context.packageName))
             }
-            NavRow(2, 3, stringResource(R.string.ignore_battery), if (battery) allowed else notAllowed) {
+            NavRow(stringResource(R.string.ignore_battery), if (battery) allowed else notAllowed) {
                 val intent = if (battery) {
                     Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                 } else {
@@ -127,33 +126,33 @@ fun ApplicationScreen(vm: AppViewModel, onBack: () -> Unit) {
     ToolPage(stringResource(R.string.application), onBack) {
         item {
             SectionHeader(stringResource(R.string.general))
-            SwitchRow(0, 5, stringResource(R.string.auto_connect), s.autoConnect) { v -> set { it.copy(autoConnect = v) } }
-            SwitchRow(1, 5, stringResource(R.string.hide_from_recents), s.hideFromRecents) { v -> set { it.copy(hideFromRecents = v) } }
-            SwitchRow(2, 5, stringResource(R.string.notification_stop), s.notificationStopButton) { v ->
+            SwitchRow(stringResource(R.string.auto_connect), s.autoConnect) { v -> set { it.copy(autoConnect = v) } }
+            SwitchRow(stringResource(R.string.hide_from_recents), s.hideFromRecents) { v -> set { it.copy(hideFromRecents = v) } }
+            SwitchRow(stringResource(R.string.notification_stop), s.notificationStopButton) { v ->
                 set { it.copy(notificationStopButton = v) }
             }
-            SwitchRow(3, 5, stringResource(R.string.page_animation), s.pageAnimation) { v -> set { it.copy(pageAnimation = v) } }
-            SwitchRow(4, 5, stringResource(R.string.show_nav_labels), s.showNavLabels) { v -> set { it.copy(showNavLabels = v) } }
+            SwitchRow(stringResource(R.string.page_animation), s.pageAnimation) { v -> set { it.copy(pageAnimation = v) } }
+            SwitchRow(stringResource(R.string.show_nav_labels), s.showNavLabels) { v -> set { it.copy(showNavLabels = v) } }
         }
         item {
             SectionHeader(stringResource(R.string.connections))
-            SwitchRow(0, 4, stringResource(R.string.capture_logs), s.captureLogs) { v -> set { it.copy(captureLogs = v) } }
-            SwitchRow(1, 4, stringResource(R.string.close_on_switch), s.closeConnectionsOnSwitch) { v ->
+            SwitchRow(stringResource(R.string.capture_logs), s.captureLogs) { v -> set { it.copy(captureLogs = v) } }
+            SwitchRow(stringResource(R.string.close_on_switch), s.closeConnectionsOnSwitch) { v ->
                 set { it.copy(closeConnectionsOnSwitch = v) }
             }
-            SwitchRow(2, 4, stringResource(R.string.only_proxy_traffic), s.onlyProxyTraffic) { v -> set { it.copy(onlyProxyTraffic = v) } }
-            SwitchRow(3, 4, stringResource(R.string.check_certificate), s.checkCertificate) { v ->
+            SwitchRow(stringResource(R.string.only_proxy_traffic), s.onlyProxyTraffic) { v -> set { it.copy(onlyProxyTraffic = v) } }
+            SwitchRow(stringResource(R.string.check_certificate), s.checkCertificate) { v ->
                 set { it.copy(checkCertificate = v) }
             }
         }
         item {
             SectionHeader(stringResource(R.string.other))
-            SwitchRow(0, 1, stringResource(R.string.auto_check_update), s.autoCheckUpdate) { v -> set { it.copy(autoCheckUpdate = v) } }
+            SwitchRow(stringResource(R.string.auto_check_update), s.autoCheckUpdate) { v -> set { it.copy(autoCheckUpdate = v) } }
         }
         item {
             SectionHeader(stringResource(R.string.external_control))
-            actions.forEachIndexed { index, action ->
-                NavRow(index, actions.size, action.substringAfterLast('.'), action.substringBeforeLast(".action"), chevron = false) {
+            actions.forEach { action ->
+                NavRow(action.substringAfterLast('.'), action.substringBeforeLast(".action")) {
                     clipboard.setText(AnnotatedString(action))
                     vm.toast(copied)
                 }
@@ -196,8 +195,8 @@ fun AppearanceScreen(vm: AppViewModel, onBack: () -> Unit) {
         }
         item {
             SectionHeader(stringResource(R.string.display))
-            SwitchRow(0, 2, stringResource(R.string.pure_black), s.pureBlack) { v -> vm.setAppSettings { it.copy(pureBlack = v) } }
-            ChoiceRow(1, 2, stringResource(R.string.text_size), scales, s.textScale?.toInt()) { v ->
+            SwitchRow(stringResource(R.string.pure_black), s.pureBlack) { v -> vm.setAppSettings { it.copy(pureBlack = v) } }
+            ChoiceRow(stringResource(R.string.text_size), scales, s.textScale?.toInt()) { v ->
                 vm.setAppSettings { it.copy(textScale = v?.toUShort()) }
             }
         }
@@ -261,8 +260,8 @@ fun LanguageScreen(vm: AppViewModel, onBack: () -> Unit) {
     val system = stringResource(R.string.follow_system)
     ToolPage(stringResource(R.string.language), onBack) {
         item {
-            Language.tags.forEachIndexed { index, tag ->
-                GroupRow(index, Language.tags.size, onClick = {
+            Language.tags.forEach { tag ->
+                GroupRow(onClick = {
                     if (tag != s.language) {
                         vm.setAppSettings { it.copy(language = tag) }
                         activity?.let { Language.apply(it, tag) }

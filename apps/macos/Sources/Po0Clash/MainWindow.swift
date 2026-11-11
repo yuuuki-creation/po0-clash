@@ -1,58 +1,35 @@
 import AppKit
-import Combine
-import SwiftUI
+import Po0FFI
+import WebKit
 
-enum Page: String, CaseIterable, Identifiable {
-    case dashboard, proxies, profiles, whitelist, activity, tools
-
-    var id: Self { self }
-
-    var title: LocalizedStringKey {
-        switch self {
-        case .dashboard: return "Dashboard"
-        case .proxies: return "Proxies"
-        case .profiles: return "Profiles"
-        case .whitelist: return "Whitelist"
-        case .activity: return "Activity"
-        case .tools: return "Tools"
-        }
-    }
-
-    /// The title for AppKit, which cannot take a `LocalizedStringKey`.
-    var name: String {
-        NSLocalizedString(rawValue.capitalized, comment: "")
-    }
-
-    var symbol: String {
-        switch self {
-        case .dashboard: return "square.grid.2x2"
-        case .proxies: return "globe"
-        case .profiles: return "square.stack.3d.up"
-        case .whitelist: return "checkmark.shield"
-        case .activity: return "chart.xyaxis.line"
-        case .tools: return "wrench.and.screwdriver"
-        }
-    }
-}
-
-final class Navigation: ObservableObject {
-    @Published var page: Page = .dashboard
-    @Published var tools: [ToolsPage] = []
-}
-
-/// An AppKit-owned window so a login launch can stay in the menu bar and the Dock icon only shows while it is open;
-/// SwiftUI's `Window` scene cannot be opened or suppressed from the app delegate on macOS 13 and 14.
+/// An AppKit-owned window so a login launch can stay in the menu bar and the Dock icon only shows while it is open.
+/// Its content is the web interface shared with the Windows app, served from the bundle by `WebAssets`.
 @MainActor
-final class MainWindow: NSObject, NSWindowDelegate {
+final class MainWindow: NSObject, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
     static let shared = MainWindow()
 
-    let navigation = Navigation()
-    private var window: NSWindow?
-    private var titleWatches: [Any] = []
+    private(set) var window: NSWindow?
+    private var webView: PageView?
+    private let assets = WebAssets()
+    private let bridge = Bridge()
+    private var loaded = false
+    private var pendingPage: String?
+    private var lastMouseDown: NSEvent?
+    private var mouseMonitor: Any?
 
-    func show(_ page: Page? = nil) {
-        if let page { navigation.page = page }
+    private static let minimumSize = NSSize(width: 900, height: 600)
+    private static let logHandler = "po0log"
+    private static let errorReporter = """
+        (() => {
+          const send = (text) => window.webkit.messageHandlers.\(logHandler).postMessage(String(text));
+          window.addEventListener('error', (e) => send(`${e.message} ${e.filename || ''}:${e.lineno || 0}`));
+          window.addEventListener('unhandledrejection', (e) => send(`unhandled: ${(e.reason && e.reason.message) || e.reason}`));
+        })();
+        """
+
+    func show(page: String? = nil) {
         if window == nil { build() }
+        if let page { navigate(to: page) }
         NSApp.setActivationPolicy(.regular)
         activateApp()
         window?.makeKeyAndOrderFront(nil)
@@ -66,6 +43,45 @@ final class MainWindow: NSObject, NSWindowDelegate {
         }
     }
 
+    /// Calls the page's listeners the way Tauri's `emit` does on Windows; `payload` is anything JSON can hold.
+    func emit(_ event: String, _ payload: Any) {
+        guard loaded, let webView, let name = try? Wire.text(event), let body = try? Wire.text(payload) else { return }
+        webView.evaluateJavaScript("window.__po0Emit && window.__po0Emit(\(name), \(body)); undefined", completionHandler: nil)
+    }
+
+    private func navigate(to page: String) {
+        if loaded {
+            emit("navigate", page)
+        } else {
+            pendingPage = page
+        }
+    }
+
+    func drag() {
+        guard let window, NSEvent.pressedMouseButtons & 1 != 0 else { return }
+        let current = NSApp.currentEvent
+        guard let event = current?.type == .leftMouseDown ? current : lastMouseDown else { return }
+        window.performDrag(with: event)
+    }
+
+    /// What a double click on a title bar does, as chosen in System Settings.
+    func zoom() {
+        guard let window else { return }
+        switch UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick") {
+        case "Minimize": window.miniaturize(nil)
+        case "None": break
+        default: window.zoom(nil)
+        }
+    }
+
+    func setBackground(red: Int, green: Int, blue: Int) {
+        let color = NSColor(
+            srgbRed: CGFloat(red) / 255, green: CGFloat(green) / 255, blue: CGFloat(blue) / 255, alpha: 1
+        )
+        window?.backgroundColor = color
+        webView?.underPageBackgroundColor = color
+    }
+
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         guard AppModel.shared.appSettings?.minimizeOnClose == false else { return true }
         NSApp.terminate(nil)
@@ -77,266 +93,235 @@ final class MainWindow: NSObject, NSWindowDelegate {
     }
 
     private func build() {
-        let root = MainView()
-            .modifier(AppTheme())
-            .environmentObject(AppModel.shared)
-            .environmentObject(navigation)
-        let window = NSWindow(contentViewController: NSHostingController(rootView: root))
-        window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
-        window.toolbarStyle = .unified
-        if #unavailable(macOS 14) {
-            window.titlebarAppearsTransparent = true
-            window.titleVisibility = .hidden
+        let configuration = WKWebViewConfiguration()
+        configuration.setURLSchemeHandler(assets, forURLScheme: WebAssets.scheme)
+        let scripts = configuration.userContentController
+        scripts.addScriptMessageHandler(bridge, contentWorld: .page, name: Bridge.name)
+        scripts.add(self, name: Self.logHandler)
+        scripts.addUserScript(
+            WKUserScript(source: Self.errorReporter, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        )
+
+        let frame = NSRect(x: 0, y: 0, width: 1180, height: 760)
+        let webView = PageView(frame: frame, configuration: configuration)
+        webView.navigationDelegate = self
+        webView.uiDelegate = self
+        // The window's colour shows until the page paints, instead of WebKit's white.
+        webView.setValue(false, forKey: "drawsBackground")
+        if #available(macOS 13.3, *) {
+            webView.isInspectable = AppModel.shared.appSettings?.developerMode == true
         }
+
+        let window = NSWindow(
+            contentRect: frame,
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "po0-clash"
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
         window.tabbingMode = .disallowed
         window.isReleasedWhenClosed = false
-        window.contentMinSize = NSSize(width: 760, height: 520)
-        window.setContentSize(NSSize(width: 1180, height: 760))
+        window.contentMinSize = Self.minimumSize
+        window.contentView = webView
         window.center()
         window.setFrameAutosaveName("main")
+        // A frame saved by an earlier version can be smaller than this interface allows.
+        let size = window.contentRect(forFrameRect: window.frame).size
+        if size.width < Self.minimumSize.width || size.height < Self.minimumSize.height {
+            window.setContentSize(
+                NSSize(width: max(size.width, Self.minimumSize.width), height: max(size.height, Self.minimumSize.height))
+            )
+        }
         window.delegate = self
         self.window = window
-        titleWatches = [
-            window.observe(\.title) { _, _ in Task { @MainActor in MainWindow.shared.keepTitle() } },
-            navigation.$page.sink { _ in Task { @MainActor in MainWindow.shared.keepTitle() } },
+        self.webView = webView
+        let page = Self.pageColor(AppModel.shared.appSettings, dark: window.effectiveAppearance.isDark)
+        setBackground(red: page, green: page, blue: page)
+
+        // `window_drag` arrives after the click that asked for it has stopped being the current event.
+        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            if let self, event.window === self.window { self.lastMouseDown = event }
+            return event
+        }
+        webView.load(URLRequest(url: WebAssets.index))
+    }
+
+    private static func pageColor(_ settings: AppSettings?, dark: Bool) -> Int {
+        guard dark else { return 0xF3 }
+        return settings?.pureBlack == true ? 0x00 : 0x20
+    }
+
+    // MARK: WebKit
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+        let url = navigationAction.request.url
+        let mainFrame = navigationAction.targetFrame?.isMainFrame ?? true
+        if url?.scheme == WebAssets.scheme || !mainFrame {
+            decisionHandler(.allow)
+            return
+        }
+        if let url, navigationAction.navigationType == .linkActivated { Self.openInBrowser(url) }
+        decisionHandler(.cancel)
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        logger.notice("web interface loaded")
+        loaded = true
+        if let page = pendingPage { emit("navigate", page) }
+        pendingPage = nil
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        logger.error("web interface failed to load: \(error.localizedDescription, privacy: .public)")
+    }
+
+    func webView(
+        _ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error
+    ) {
+        logger.error("web interface failed to load: \(error.localizedDescription, privacy: .public)")
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        logger.error("web content process ended; reloading")
+        loaded = false
+        webView.load(URLRequest(url: WebAssets.index))
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        createWebViewWith configuration: WKWebViewConfiguration,
+        for navigationAction: WKNavigationAction,
+        windowFeatures: WKWindowFeatures
+    ) -> WKWebView? {
+        if let url = navigationAction.request.url { Self.openInBrowser(url) }
+        return nil
+    }
+
+    /// WebKit on macOS shows no file chooser for `<input type="file">` unless its UI delegate does.
+    func webView(
+        _ webView: WKWebView,
+        runOpenPanelWith parameters: WKOpenPanelParameters,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping ([URL]?) -> Void
+    ) {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = parameters.allowsMultipleSelection
+        panel.canChooseDirectories = parameters.allowsDirectories
+        guard let window else { return completionHandler(nil) }
+        panel.beginSheetModal(for: window) { response in
+            completionHandler(response == .OK ? panel.urls : nil)
+        }
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard let text = message.body as? String else { return }
+        logger.error("web error: \(text, privacy: .public)")
+    }
+
+    private static func openInBrowser(_ url: URL) {
+        guard url.scheme == "http" || url.scheme == "https" else { return }
+        NSWorkspace.shared.open(url)
+    }
+}
+
+private extension NSAppearance {
+    var isDark: Bool { bestMatch(from: [.aqua, .darkAqua]) == .darkAqua }
+}
+
+final class PageView: WKWebView {
+    private static let hiddenItems: Set<String> = [
+        "WKMenuItemIdentifierReload", "WKMenuItemIdentifierGoBack", "WKMenuItemIdentifierGoForward",
+        "WKMenuItemIdentifierOpenLinkInNewWindow", "WKMenuItemIdentifierDownloadLinkedFile",
+        "WKMenuItemIdentifierOpenImageInNewWindow", "WKMenuItemIdentifierDownloadImage",
+    ]
+
+    override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
+        super.willOpenMenu(menu, with: event)
+        for item in menu.items where Self.hiddenItems.contains(item.identifier?.rawValue ?? "") {
+            menu.removeItem(item)
+        }
+    }
+
+    /// An accessory app's main menu is not sure to carry Edit, and without it WebKit gets no copy or paste keys.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if super.performKeyEquivalent(with: event) { return true }
+        let flags = event.modifierFlags.intersection([.command, .shift, .option, .control])
+        guard flags.contains(.command), flags.isSubset(of: [.command, .shift]) else { return false }
+        let action: Selector
+        switch (event.charactersIgnoringModifiers?.lowercased() ?? "", flags.contains(.shift)) {
+        case ("c", false): action = #selector(NSText.copy(_:))
+        case ("v", false): action = #selector(NSText.paste(_:))
+        case ("x", false): action = #selector(NSText.cut(_:))
+        case ("a", false): action = #selector(NSResponder.selectAll(_:))
+        case ("z", false): action = Selector(("undo:"))
+        case ("z", true): action = Selector(("redo:"))
+        default: return false
+        }
+        return NSApp.sendAction(action, to: nil, from: self)
+    }
+}
+
+/// Serves `Contents/Resources/web` (the build of `apps/windows`) as `po0://app/…`; a path that is no file gets
+/// index.html, so the page's own routes survive a reload.
+final class WebAssets: NSObject, WKURLSchemeHandler {
+    static let scheme = "po0"
+    static let index = URL(string: "po0://app/index.html")!
+
+    private static let types = [
+        "html": "text/html; charset=utf-8", "js": "text/javascript; charset=utf-8",
+        "mjs": "text/javascript; charset=utf-8", "css": "text/css; charset=utf-8",
+        "json": "application/json; charset=utf-8", "map": "application/json; charset=utf-8",
+        "txt": "text/plain; charset=utf-8", "svg": "image/svg+xml", "png": "image/png", "jpg": "image/jpeg",
+        "jpeg": "image/jpeg", "gif": "image/gif", "webp": "image/webp", "ico": "image/x-icon",
+        "woff": "font/woff", "woff2": "font/woff2", "ttf": "font/ttf", "otf": "font/otf",
+        "wasm": "application/wasm",
+    ]
+
+    private let root = Bundle.main.resourceURL?.appendingPathComponent("web", isDirectory: true)
+
+    func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
+        guard let url = urlSchemeTask.request.url else {
+            urlSchemeTask.didFailWithError(URLError(.badURL))
+            return
+        }
+        let found = file(for: url.path)
+        let data = found.flatMap { try? Data(contentsOf: $0) }
+        let type = found.flatMap { Self.types[$0.pathExtension.lowercased()] } ?? "application/octet-stream"
+        let headers = [
+            "Content-Type": type,
+            "Content-Length": String(data?.count ?? 0),
+            "Cache-Control": "no-store",
+            "Access-Control-Allow-Origin": "*",
         ]
+        guard let response = HTTPURLResponse(
+            url: url, statusCode: data == nil ? 404 : 200, httpVersion: "HTTP/1.1", headerFields: headers
+        ) else {
+            urlSchemeTask.didFailWithError(URLError(.badServerResponse))
+            return
+        }
+        urlSchemeTask.didReceive(response)
+        urlSchemeTask.didReceive(data ?? Data())
+        urlSchemeTask.didFinish()
     }
 
-    /// SwiftUI leaves the proxies list "Untitled" while that page's subtitle still bridges, so AppKit puts it back.
-    private func keepTitle() {
-        guard let window, navigation.page != .tools else { return }
-        if window.title != navigation.page.name { window.title = navigation.page.name }
-    }
-}
+    func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {}
 
-struct MainView: View {
-    @EnvironmentObject private var model: AppModel
-    @EnvironmentObject private var navigation: Navigation
-    @State private var columns = NavigationSplitViewVisibility.all
-
-    var body: some View {
-        NavigationSplitView(columnVisibility: $columns) {
-            Sidebar(page: $navigation.page, accent: Theme.nsAccent(model.themeColor))
-                .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
-                // The window title bridges from the sidebar column; the detail's own title alone left it "Untitled".
-                .navigationTitle(navigation.page.title)
-        } detail: {
-            Group {
-                switch navigation.page {
-                case .dashboard: DashboardView()
-                case .proxies: ProxiesView()
-                case .profiles: SubscriptionsView()
-                case .whitelist: WhitelistView()
-                case .activity: ActivityView()
-                case .tools: ToolsView()
-                }
-            }
-            .modifier(PageEntrance(enabled: model.appSettings?.pageAnimation ?? true))
-            .id(navigation.page)
-            .navigationTitle(navigation.page.title)
+    private func file(for path: String) -> URL? {
+        guard let root else { return nil }
+        let parts = path.split(separator: "/").map(String.init)
+        guard !parts.contains("..") else { return nil }
+        let candidate = parts.reduce(root) { $0.appendingPathComponent($1) }
+        var isDirectory: ObjCBool = false
+        if !parts.isEmpty, FileManager.default.fileExists(atPath: candidate.path, isDirectory: &isDirectory),
+           !isDirectory.boolValue {
+            return candidate
         }
-        .navigationTitle(navigation.page.title)
-        .alert(
-            model.notice ?? "",
-            isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })
-        ) {
-            Button("OK") { model.notice = nil }
-        }
-        // macOS 13 gets no toolbar, so nothing could bring a collapsed sidebar back.
-        .onChange(of: columns) { visibility in
-            if #unavailable(macOS 14) {
-                if visibility != .all { columns = .all }
-            }
-        }
-    }
-}
-
-/// macOS 13's hosting controller cannot bridge a toolbar into the window, so it gets the toolbar items as a header row.
-struct PageScaffold<Actions: View, Content: View>: View {
-    let title: LocalizedStringKey
-    var subtitle: String?
-    var back: (() -> Void)?
-    private let actions: Actions
-    private let content: Content
-
-    init(
-        _ title: LocalizedStringKey,
-        subtitle: String? = nil,
-        back: (() -> Void)? = nil,
-        @ViewBuilder actions: () -> Actions,
-        @ViewBuilder content: () -> Content
-    ) {
-        self.title = title
-        self.subtitle = subtitle
-        self.back = back
-        self.actions = actions()
-        self.content = content()
-    }
-
-    var body: some View {
-        if #available(macOS 14, *) {
-            content
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.pageBackground)
-                .navigationTitle(title)
-                .navigationSubtitle(subtitle ?? "")
-                .navigationBarBackButtonHidden(back != nil)
-                .toolbar {
-                    if let back {
-                        ToolbarItem(placement: .navigation) {
-                            Button(action: back) {
-                                Label("Back", systemImage: "chevron.backward")
-                            }
-                            .help("Back")
-                        }
-                    }
-                }
-                .modifier(PageToolbar(actions: actions))
-        } else {
-            VStack(spacing: 0) {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    if let back {
-                        Button(action: back) {
-                            Image(systemName: "chevron.backward")
-                        }
-                        .buttonStyle(.borderless)
-                        .help("Back")
-                    }
-                    Text(title).font(.title2.weight(.semibold))
-                    if let subtitle { Text(subtitle).foregroundStyle(.secondary) }
-                    Spacer()
-                    ControlBar { actions }
-                    ConnectButton()
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
-                content.frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            .background(Color.pageBackground)
-        }
-    }
-}
-
-/// The page's own actions share one glass group; the connect button, on every page, gets its own after a gap.
-private struct PageToolbar<Actions: View>: ViewModifier {
-    let actions: Actions
-
-    func body(content: Content) -> some View {
-        #if compiler(>=6.2)
-        if #available(macOS 26, *) {
-            content.toolbar {
-                ToolbarItemGroup(placement: .primaryAction) { actions }
-                ToolbarSpacer(.fixed, placement: .primaryAction)
-                ToolbarItem(placement: .primaryAction) { ConnectButton() }
-            }
-        } else {
-            content.toolbar {
-                ToolbarItemGroup(placement: .primaryAction) {
-                    actions
-                    ConnectButton()
-                }
-            }
-        }
-        #else
-        content.toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                actions
-                ConnectButton()
-            }
-        }
-        #endif
-    }
-}
-
-/// FlClash's start button, moved into the toolbar so it never covers content: the elapsed time while connected.
-struct ConnectButton: View {
-    @EnvironmentObject private var model: AppModel
-
-    var body: some View {
-        Button {
-            model.setConnected(!model.isOn)
-        } label: {
-            HStack(spacing: 6) {
-                if model.busy || (model.isOn && !model.isRunning) {
-                    ProgressView().controlSize(.small)
-                        .transition(.scale(scale: 0.6).combined(with: .opacity))
-                } else {
-                    Image(systemName: model.isOn ? "stop.fill" : "play.fill")
-                        .replacingSymbol()
-                        .transition(.scale(scale: 0.6).combined(with: .opacity))
-                }
-                if let since = model.connectedAt {
-                    TimelineView(.periodic(from: since, by: 1)) { context in
-                        Text(Format.elapsed(since, now: context.date))
-                            .monospacedDigit()
-                            .rollingDigits()
-                            .motion(Motion.quick, value: context.date)
-                    }
-                    .transition(.opacity)
-                } else {
-                    Text(model.isOn ? LocalizedStringKey("Connecting…") : LocalizedStringKey("Connect"))
-                        .transition(.opacity)
-                }
-            }
-            .font(.system(size: 13, weight: .semibold))
-            .padding(.horizontal, 4)
-            .motion(value: ConnectPhase(model))
-        }
-        .glassButton(prominent: true)
-        .buttonBorderShapeCapsule()
-        .disabled(model.busy || model.status == nil)
-        .help(model.isOn ? LocalizedStringKey("Disconnect") : LocalizedStringKey("Connect"))
-        .keyboardShortcut(.return, modifiers: .command)
-        .contextMenu {
-            Button("Restart Engine") { model.reconnect() }
-                .disabled(!model.isOn || model.busy)
-        }
-    }
-}
-
-/// What the connect button shows; its glass capsule reshapes with a spring whenever this changes.
-private struct ConnectPhase: Equatable {
-    let busy: Bool
-    let on: Bool
-    let connected: Bool
-
-    @MainActor init(_ model: AppModel) {
-        busy = model.busy || (model.isOn && !model.isRunning)
-        on = model.isOn
-        connected = model.connectedAt != nil
-    }
-}
-
-extension PageScaffold where Actions == EmptyView {
-    init(
-        _ title: LocalizedStringKey,
-        subtitle: String? = nil,
-        back: (() -> Void)? = nil,
-        @ViewBuilder content: () -> Content
-    ) {
-        self.init(title, subtitle: subtitle, back: back, actions: { EmptyView() }, content: content)
-    }
-}
-
-struct EmptyState: View {
-    let title: LocalizedStringKey
-    let symbol: String
-    let detail: LocalizedStringKey
-
-    var body: some View {
-        if #available(macOS 14, *) {
-            ContentUnavailableView {
-                Label(title, systemImage: symbol)
-            } description: {
-                Text(detail)
-            }
-        } else {
-            VStack(spacing: 6) {
-                Image(systemName: symbol).font(.largeTitle).foregroundStyle(.secondary)
-                Text(title).font(.headline)
-                Text(detail).foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
+        return parts.last?.contains(".") == true ? nil : root.appendingPathComponent("index.html")
     }
 }

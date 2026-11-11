@@ -1,3 +1,4 @@
+// Layout and styling follow FlClash v0.8.92 (https://github.com/chen08209/FlClash, GPL-3.0), lib/views/profiles.
 package io.github.yuuukicreation.po0clash.ui
 
 import android.content.ClipData
@@ -7,13 +8,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -38,9 +39,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -126,6 +124,7 @@ private fun ProfileList(vm: AppViewModel, profiles: List<Profile>, onOpen: (Prof
             state = list,
             modifier = Modifier.fillMaxSize(),
             contentPadding = padding,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (profiles.isEmpty()) {
                 item(key = "empty") { EmptyState(stringResource(R.string.empty_title), LineIcons.Layers) }
@@ -190,15 +189,18 @@ private fun ProfileCard(
         moveUp = stringResource(R.string.move_up),
         moveDown = stringResource(R.string.move_down),
     )
-    Column(
-        Modifier.fillMaxWidth().padding(top = if (index > 0) 12.dp else 0.dp).clip(RoundedCornerShape(12.dp)).background(colors.card)
-            .clickable { vm.selectProfile(profile.id) }
-            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Po0Radio(profile.selected)
-            Text(name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+    AppCard(Modifier.fillMaxWidth(), selected = profile.selected, onClick = { vm.selectProfile(profile.id) }) {
+        Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f).padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (profile.selected) colors.onSel else colors.ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                ProfileMeta(profile)
+            }
             AppIconButton(
                 if (busy) LineIcons.Refresh else LineIcons.More,
                 stringResource(R.string.more),
@@ -225,7 +227,6 @@ private fun ProfileCard(
                 )
             }
         }
-        ProfileMeta(profile)
     }
 }
 
@@ -233,36 +234,31 @@ private fun copy(context: Context, text: String) {
     context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("po0-clash", text))
 }
 
-/** The usage bar when the subscription reports one, then used on the left and expiry or last update on the right. */
 @Composable
 private fun ProfileMeta(profile: Profile) {
     val colors = palette
+    val tint = if (profile.selected) colors.onSel else colors.ink2
     val usage = profile.usage?.takeIf { it.total > 0u }
     if (usage != null) {
         val used = usage.upload + usage.download
         val target = (used.toDouble() / usage.total.toDouble()).coerceIn(0.0, 1.0).toFloat()
         val fraction by animateFloatAsState(target, tween(300, easing = StandardEasing), label = "usage")
-        Canvas(Modifier.padding(end = 8.dp).fillMaxWidth().height(4.dp)) {
-            val gap = 4.dp.toPx()
-            val radius = CornerRadius(2.dp.toPx())
-            val end = size.width * fraction
-            drawRoundRect(colors.sel, Offset(end + gap, 0f), Size((size.width - end - gap).coerceAtLeast(0f), size.height), radius)
-            drawRoundRect(colors.accent, Offset.Zero, Size(end, size.height), radius)
-            drawCircle(colors.accent, size.height / 2, Offset(size.width - size.height / 2, size.height / 2))
+        Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(colors.track)) {
+            Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().clip(CircleShape).background(colors.accent))
         }
+        val expire = usage.expire?.takeIf { it > 0 }?.let { date(it) }
+        Text(
+            listOfNotNull("${bytes(used)} / ${bytes(usage.total)}", expire).joinToString(" · "),
+            style = MaterialTheme.typography.labelMedium.tabular(),
+            color = tint,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
-    val left = when {
-        usage != null -> "${bytes(usage.upload + usage.download)} / ${bytes(usage.total)}"
-        profile.kind == ProfileKind.FILE -> stringResource(R.string.file_profile)
-        else -> null
-    }
-    val right = usage?.expire?.takeIf { it > 0 }?.let { date(it) }
-        ?: profile.updatedAt?.let { stringResource(R.string.updated, relativeTime(it)) }
-    if (left != null || right != null) {
-        Row(Modifier.padding(end = 8.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(left.orEmpty(), style = MaterialTheme.typography.bodyMedium.tabular(), color = colors.ink2, maxLines = 1)
-            Text(right.orEmpty(), style = MaterialTheme.typography.bodyMedium.tabular(), color = colors.ink2, maxLines = 1)
-        }
+    val updated = profile.updatedAt?.let { stringResource(R.string.updated, relativeTime(it)) }
+        ?: stringResource(R.string.file_profile).takeIf { profile.kind == ProfileKind.FILE }
+    if (updated != null) {
+        Text(updated, style = MaterialTheme.typography.labelMedium, color = tint, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

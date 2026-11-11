@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -121,8 +121,8 @@ fun ActivityScreen(vm: AppViewModel, onBack: () -> Unit) {
                 ActivityTab.REQUESTS -> {
                     val shown = requests.filter { it.matches(needle) }
                     if (shown.isEmpty()) item { EmptyState(stringResource(R.string.no_requests), LineIcons.Activity) }
-                    itemsIndexed(shown) { index, request ->
-                        ConnectionRow(index, shown.size, request, onClick = { showDetail(request, false) }, trailing = { TimeLabel(request.start) })
+                    items(shown) { request ->
+                        ConnectionRow(request, onClick = { showDetail(request, false) }, trailing = { TimeLabel(request.start) })
                     }
                 }
                 ActivityTab.CONNECTIONS -> {
@@ -132,9 +132,9 @@ fun ActivityScreen(vm: AppViewModel, onBack: () -> Unit) {
                             EmptyState(stringResource(R.string.no_connections), LineIcons.Link)
                         }
                     }
-                    itemsIndexed(shown, key = { _, it -> it.id }) { index, connection ->
+                    items(shown, key = { it -> it.id }) { connection ->
                         Box(itemMotion()) {
-                            ConnectionRow(index, shown.size, connection, onClick = { showDetail(connection, true) }) {
+                            ConnectionRow(connection, onClick = { showDetail(connection, true) }) {
                                 Column(horizontalAlignment = Alignment.End) {
                                     Text("↑ ${bytes(connection.upload)}", style = MaterialTheme.typography.bodyMedium.tabular(), color = palette.ink2, maxLines = 1)
                                     Text("↓ ${bytes(connection.download)}", style = MaterialTheme.typography.bodyMedium.tabular(), color = palette.ink2, maxLines = 1)
@@ -152,7 +152,7 @@ fun ActivityScreen(vm: AppViewModel, onBack: () -> Unit) {
                     val minimum = level?.ordinal ?: 0
                     val shown = logs.filter { it.level.ordinal >= minimum && (needle.isEmpty() || it.message.contains(needle, ignoreCase = true)) }
                     if (shown.isEmpty()) item { EmptyState(stringResource(R.string.no_logs), LineIcons.FileText) }
-                    itemsIndexed(shown) { index, entry -> LogRow(index, shown.size, entry) }
+                    items(shown) { entry -> LogRow(entry) }
                 }
             }
         }
@@ -164,9 +164,9 @@ private fun Connection.matches(needle: String) = needle.isEmpty() ||
     chains.any { it.contains(needle, ignoreCase = true) }
 
 @Composable
-private fun ConnectionRow(index: Int, count: Int, connection: Connection, onClick: () -> Unit, trailing: @Composable () -> Unit) {
+private fun ConnectionRow(connection: Connection, onClick: () -> Unit, trailing: @Composable () -> Unit) {
     val colors = palette
-    GroupRow(index, count, onClick = onClick) {
+    GroupRow(onClick = onClick) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 connection.host.ifBlank { connection.destination },
@@ -221,8 +221,8 @@ private fun ColumnScope.ConnectionDetail(connection: Connection, onClose: (() ->
     ).filter { it.second.isNotBlank() }
     SheetTitle(connection.host.ifBlank { connection.destination })
     SheetBody {
-        rows.forEachIndexed { index, (label, value) ->
-            GroupRow(index, rows.size) {
+        rows.forEach { (label, value) ->
+            GroupRow {
                 Text(label, style = MaterialTheme.typography.bodyMedium, color = palette.ink2)
                 Text(value, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
             }
@@ -239,7 +239,7 @@ private fun ColumnScope.ConnectionDetail(connection: Connection, onClose: (() ->
 }
 
 @Composable
-private fun LogRow(index: Int, count: Int, entry: LogEntry) {
+private fun LogRow(entry: LogEntry) {
     val colors = palette
     val label = levelLabel(entry.level)
     val color = when (entry.level) {
@@ -248,7 +248,7 @@ private fun LogRow(index: Int, count: Int, entry: LogEntry) {
         LogLevel.DEBUG -> colors.ink2
         else -> colors.accent
     }
-    GroupRow(index, count) {
+    GroupRow {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = color)

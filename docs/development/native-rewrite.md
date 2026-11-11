@@ -5,8 +5,8 @@
 ## 结构
 
 ```text
-apps/macos     SwiftUI
-apps/windows   Tauri 2：Web 界面 + Rust 外壳
+apps/macos     Swift 外壳 + WKWebView，加载 apps/windows 的界面
+apps/windows   Tauri 2：Rust 外壳，以及两个桌面端共用的 Web 界面（React + MUI）
 apps/android   Kotlin + Jetpack Compose，含 VpnService 与快捷设置磁贴
 crates/core    共享 Rust 内核
 crates/ffi     UniFFI 绑定（Swift / Kotlin）
@@ -50,8 +50,8 @@ UniFFI 和 Tauri 命令只做转换：
 
 ## 界面
 
-本节是 7.0.0 的做法。7.1.0 起见 [ADR 0021](../adr/0021-native-ui-traditional.md) 与
-[design/native-ui](../design/native-ui/README.md)。
+本节是 7.0.0 的做法，已不适用。现在桌面端照 Clash Verge Rev、Android 照 FlClash，见
+[ADR 0022](../adr/0022-verge-rev-and-flclash-ui.md)。
 
 每端都有主界面，结构接近 FlClash（ADR 0019）：导航依次为仪表盘、代理、订阅、加白、设置；仪表盘是卡片网格加右下角的
 浮动启动按钮，代理页是可展开的策略组卡片和节点卡片网格。三端都按苹果液态玻璃（Liquid Glass）的规范来做，而且要克制：

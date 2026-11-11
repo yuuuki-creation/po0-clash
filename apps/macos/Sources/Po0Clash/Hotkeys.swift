@@ -1,15 +1,14 @@
 import AppKit
 import Carbon.HIToolbox
 import Po0FFI
-import SwiftUI
 
 /// FlClash's global hotkeys, registered with Carbon's hot key API because it needs no accessibility permission.
 @MainActor
-final class Hotkeys: ObservableObject {
+final class Hotkeys {
     static let shared = Hotkeys()
 
-    @Published private(set) var failed: Set<HotkeyAction> = []
-    /// Recording a shortcut has to receive keys that are already registered.
+    private(set) var failed: Set<HotkeyAction> = []
+    /// The page pauses them while it records a shortcut, which has to receive keys that are already registered.
     var paused = false {
         didSet { apply(registered) }
     }
@@ -123,25 +122,7 @@ enum Shortcut {
         return codes
     }()
 
-    private static let labels = [
-        "Space": "Space", "Enter": "↩", "Tab": "⇥", "Backspace": "⌫", "Delete": "⌦", "Escape": "⎋",
-        "Home": "↖", "End": "↘", "PageUp": "⇞", "PageDown": "⇟", "ArrowLeft": "←", "ArrowRight": "→",
-        "ArrowUp": "↑", "ArrowDown": "↓", "Minus": "-", "Equal": "=", "BracketLeft": "[", "BracketRight": "]",
-        "Backslash": "\\", "Semicolon": ";", "Quote": "'", "Comma": ",", "Period": ".", "Slash": "/",
-        "Backquote": "`",
-    ]
-
     static func keyCode(_ key: String) -> Int? { codes[key] }
-
-    static func key(forCode code: Int) -> String? { codes.first { $0.value == code }?.key }
-
-    static func isFunctionKey(_ key: String) -> Bool { key.hasPrefix("F") && Int(key.dropFirst()) != nil }
-
-    static func modifiers(_ flags: NSEvent.ModifierFlags) -> [HotkeyModifier] {
-        [(NSEvent.ModifierFlags.control, HotkeyModifier.control), (.option, .alt), (.shift, .shift), (.command, .meta)]
-            .filter { flags.contains($0.0) }
-            .map { $0.1 }
-    }
 
     static func carbonModifiers(_ modifiers: [HotkeyModifier]) -> UInt32 {
         var flags = 0
@@ -154,126 +135,5 @@ enum Shortcut {
             }
         }
         return UInt32(flags)
-    }
-
-    static func display(_ hotkey: Hotkey) -> String {
-        let symbols: [(HotkeyModifier, String)] = [(.control, "⌃"), (.alt, "⌥"), (.shift, "⇧"), (.meta, "⌘")]
-        let key = labels[hotkey.key]
-            ?? (hotkey.key.hasPrefix("Key") || hotkey.key.hasPrefix("Digit") ? String(hotkey.key.suffix(1)) : hotkey.key)
-        return symbols.filter { hotkey.modifiers.contains($0.0) }.map { $0.1 }.joined() + key
-    }
-}
-
-extension HotkeyAction {
-    static let all: [HotkeyAction] = [.connect, .showWindow, .mode, .systemProxy, .tun]
-
-    var title: LocalizedStringKey {
-        switch self {
-        case .connect: return "Connect/Disconnect"
-        case .showWindow: return "Show/Hide window"
-        case .mode: return "Switch mode"
-        case .systemProxy: return "Use the system proxy"
-        case .tun: return "Turn TUN on or off"
-        }
-    }
-}
-
-struct HotkeysView: View {
-    @EnvironmentObject private var model: AppModel
-    @ObservedObject private var hotkeys = Hotkeys.shared
-
-    var body: some View {
-        Form {
-            Section {
-                ForEach(HotkeyAction.all, id: \.self) { action in
-                    LabeledContent {
-                        ShortcutRecorder(action: action)
-                    } label: {
-                        Text(action.title)
-                        if hotkeys.failed.contains(action) {
-                            Text("Not registered; another app may be using it.").foregroundStyle(.red)
-                        }
-                    }
-                }
-            } footer: {
-                Text("Global hotkeys work even while the window is hidden. Click a shortcut to record a new one; while recording, Delete clears it and Esc cancels.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .formStyle(.grouped)
-        .disabled(model.appSettings == nil)
-    }
-}
-
-private struct ShortcutRecorder: View {
-    @EnvironmentObject private var model: AppModel
-    let action: HotkeyAction
-    @State private var monitor: Any?
-    @State private var needsModifier = false
-
-    private var current: Hotkey? { model.appSettings?.hotkeys.first { $0.action == action } }
-
-    var body: some View {
-        HStack(spacing: 8) {
-            if needsModifier, monitor != nil {
-                Text("Include ⌃, ⌥ or ⌘").font(.caption).foregroundStyle(.secondary)
-            }
-            Button(action: monitor == nil ? start : stop) {
-                Group {
-                    if monitor != nil {
-                        Text("Press a shortcut…")
-                    } else if let current {
-                        Text(verbatim: Shortcut.display(current))
-                    } else {
-                        Text("Not set").foregroundStyle(.secondary)
-                    }
-                }
-                .frame(minWidth: 120)
-            }
-        }
-        .onDisappear(perform: stop)
-    }
-
-    private func start() {
-        Hotkeys.shared.paused = true
-        needsModifier = false
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            record(event)
-            return nil
-        }
-    }
-
-    private func stop() {
-        if let monitor { NSEvent.removeMonitor(monitor) }
-        monitor = nil
-        Hotkeys.shared.paused = false
-    }
-
-    private func record(_ event: NSEvent) {
-        let flags = event.modifierFlags.intersection([.control, .option, .shift, .command])
-        let code = Int(event.keyCode)
-        if flags.isEmpty, code == kVK_Escape { return stop() }
-        if flags.isEmpty, code == kVK_Delete || code == kVK_ForwardDelete {
-            save(nil)
-            return stop()
-        }
-        guard let key = Shortcut.key(forCode: code) else { return }
-        guard Shortcut.isFunctionKey(key) || !flags.isDisjoint(with: [.control, .option, .command]) else {
-            needsModifier = true
-            return
-        }
-        save(Hotkey(action: action, key: key, modifiers: Shortcut.modifiers(flags)))
-        stop()
-    }
-
-    /// A combination already used by another action moves here, as FlClash does.
-    private func save(_ hotkey: Hotkey?) {
-        model.updateAppSettings { settings in
-            settings.hotkeys.removeAll { other in
-                other.action == action || (other.key == hotkey?.key && other.modifiers == hotkey?.modifiers)
-            }
-            if let hotkey { settings.hotkeys.append(hotkey) }
-        }
     }
 }

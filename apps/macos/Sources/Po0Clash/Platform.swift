@@ -1,5 +1,4 @@
 import AppKit
-import CoreImage
 import Foundation
 import Network
 import os
@@ -113,13 +112,24 @@ enum LaunchAtLogin {
     }
 }
 
-enum QrCode {
-    static func read(_ url: URL) -> String? {
-        guard let image = CIImage(contentsOf: url),
-              let detector = CIDetector(
-                  ofType: CIDetectorTypeQRCode, context: nil, options: [CIDetectorAccuracy: CIDetectorAccuracyHigh]
-              )
-        else { return nil }
-        return detector.features(in: image).lazy.compactMap { ($0 as? CIQRCodeFeature)?.messageString }.first
+enum AppLanguage {
+    static func store(_ code: String?) {
+        if let code {
+            UserDefaults.standard.set([code == "zh_CN" ? "zh-Hans" : code], forKey: "AppleLanguages")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        }
+    }
+
+    /// The new copy waits for this one to exit, since the core and the engine port allow one instance.
+    static func relaunch() {
+        let waiter = Process()
+        waiter.executableURL = URL(fileURLWithPath: "/bin/sh")
+        waiter.arguments = [
+            "-c", "while kill -0 \"$1\" 2>/dev/null; do sleep 0.2; done; /usr/bin/open \"$0\"",
+            Bundle.main.bundlePath, String(ProcessInfo.processInfo.processIdentifier),
+        ]
+        try? waiter.run()
+        NSApp.terminate(nil)
     }
 }

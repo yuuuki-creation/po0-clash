@@ -29,14 +29,14 @@ struct MenuView: View {
         }
         .padding(12)
         .frame(width: 340)
-        .onAppear { model.setVisible(.menu, true) }
-        .onDisappear { model.setVisible(.menu, false) }
-        .background(WindowVisibility { model.setVisible(.menu, $0) })
+        .onAppear { model.setMenuVisible(true) }
+        .onDisappear { model.setMenuVisible(false) }
+        .background(WindowVisibility { model.setMenuVisible($0) })
     }
 }
 
-/// macOS 13 and 14 do not call onAppear/onDisappear every time the MenuBarExtra panel opens and closes, and a closed
-/// main window keeps its views; the hosting window's occlusion state always changes.
+/// macOS 13 and 14 do not call onAppear/onDisappear every time the MenuBarExtra panel opens and closes; the hosting
+/// window's occlusion state always changes.
 struct WindowVisibility: NSViewRepresentable {
     let onChange: @MainActor (Bool) -> Void
 
@@ -174,7 +174,7 @@ private struct ControlsGrid: View {
             GridRow {
                 Text("Subscription").foregroundStyle(.secondary)
                 if model.profiles.isEmpty {
-                    Button("Add Subscription…") { MainWindow.shared.show(.profiles) }
+                    Button("Add Subscription…") { MainWindow.shared.show(page: "profiles") }
                         .buttonStyle(.link)
                 } else {
                     Picker("Subscription", selection: Binding<String?>(
@@ -269,7 +269,7 @@ private struct WhitelistSummary: View {
     var body: some View {
         HStack(spacing: 10) {
             Button {
-                MainWindow.shared.show(.whitelist)
+                MainWindow.shared.show(page: "whitelist")
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark.shield").foregroundStyle(.secondary)

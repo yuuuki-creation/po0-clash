@@ -1,3 +1,4 @@
+// Layout and styling follow FlClash v0.8.92 (https://github.com/chen08209/FlClash, GPL-3.0), lib/views/tools.dart.
 package io.github.yuuukicreation.po0clash.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -13,6 +14,22 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.Ballot
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.DeveloperBoard
+import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Style
+import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,20 +52,20 @@ import java.util.Locale
 import kotlinx.coroutines.flow.flowOf
 
 enum class Tool(@param:StringRes val label: Int, val icon: ImageVector) {
-    ACTIVITY(R.string.activity, LineIcons.Activity),
-    BASIC(R.string.basic_config, LineIcons.Sliders),
-    NETWORK(R.string.network, LineIcons.Wifi),
-    DNS(R.string.dns, LineIcons.Server),
-    ADVANCED(R.string.advanced, LineIcons.Wrench),
-    ON_DEMAND(R.string.on_demand, LineIcons.Wifi),
-    APPEARANCE(R.string.appearance, LineIcons.Appearance),
-    LANGUAGE(R.string.language, LineIcons.Languages),
-    APPLICATION(R.string.application, LineIcons.Smartphone),
-    ACCESS(R.string.access_control, LineIcons.ShieldCheck),
-    RESOURCES(R.string.resources, LineIcons.Database),
-    BACKUP(R.string.backup, LineIcons.CloudUpload),
-    DEVELOPER(R.string.developer, LineIcons.Terminal),
-    ABOUT(R.string.about, LineIcons.Info),
+    ACTIVITY(R.string.activity, Icons.Filled.Ballot),
+    BASIC(R.string.basic_config, Icons.Filled.Edit),
+    NETWORK(R.string.network, Icons.Filled.VpnKey),
+    DNS(R.string.dns, Icons.Filled.Dns),
+    ADVANCED(R.string.advanced, Icons.Filled.Build),
+    ON_DEMAND(R.string.on_demand, Icons.Filled.Wifi),
+    APPEARANCE(R.string.appearance, Icons.Filled.Style),
+    LANGUAGE(R.string.language, Icons.Filled.Language),
+    APPLICATION(R.string.application, Icons.Filled.Settings),
+    ACCESS(R.string.access_control, Icons.AutoMirrored.Filled.ViewList),
+    RESOURCES(R.string.resources, Icons.Filled.Storage),
+    BACKUP(R.string.backup, Icons.Filled.CloudSync),
+    DEVELOPER(R.string.developer, Icons.Filled.DeveloperBoard),
+    ABOUT(R.string.about, Icons.Filled.Info),
 }
 
 private val settingTools = listOf(Tool.LANGUAGE, Tool.APPEARANCE, Tool.APPLICATION, Tool.ACCESS)
@@ -109,58 +126,49 @@ private fun ToolList(vm: AppViewModel, onOpen: (Tool) -> Unit) {
         Tool.ACCESS to stringResource(settings.accessControl.accessMode.label),
     )
     val tools = @Composable { list: List<Tool> ->
-        list.forEachIndexed { index, tool ->
-            NavRow(index, list.size, stringResource(tool.label), values[tool], icon = tool.icon) { onOpen(tool) }
-        }
+        list.forEach { tool -> NavRow(stringResource(tool.label), values[tool], icon = tool.icon) { onOpen(tool) } }
     }
     val settingSection = @Composable {
         Column {
-            SectionHeader(stringResource(R.string.settings_section), top = 0.dp)
+            SectionHeader(stringResource(R.string.settings_section), top = 8.dp)
             tools(settingTools)
         }
     }
-    val otherSection = @Composable {
-        val other = listOfNotNull(Tool.ACTIVITY, Tool.BACKUP, Tool.DEVELOPER.takeIf { settings.developerMode }, Tool.ABOUT)
+    val engineSection = @Composable {
         Column {
-            SectionHeader(stringResource(R.string.other), top = 0.dp)
-            other.forEachIndexed { index, tool ->
-                NavRow(index, other.size + 1, stringResource(tool.label), values[tool], icon = tool.icon) { onOpen(tool) }
-            }
+            SectionHeader(stringResource(R.string.network_and_engine))
+            tools(engineTools)
+        }
+    }
+    val otherSection = @Composable {
+        Column {
+            SectionHeader(stringResource(R.string.other))
+            tools(listOfNotNull(Tool.ACTIVITY, Tool.BACKUP, Tool.DEVELOPER.takeIf { settings.developerMode }, Tool.ABOUT))
             NavRow(
-                other.size,
-                other.size + 1,
                 stringResource(R.string.export_diagnostics),
-                icon = LineIcons.FileText,
+                icon = Icons.Filled.BugReport,
                 busy = AppViewModel.BUSY_DIAGNOSTICS in busy,
-                chevron = false,
             ) {
                 val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
                 export.launch("po0-clash-diagnostics-$stamp.txt")
             }
         }
     }
-    val engineSection = @Composable {
-        Column {
-            SectionHeader(stringResource(R.string.network_and_engine), top = 0.dp)
-            tools(engineTools)
-        }
-    }
     val scroll = rememberScrollState()
     PageScaffold(stringResource(R.string.tools), scroll.canScrollBackward) { padding ->
-        val spaced = Arrangement.spacedBy(12.dp)
         if (LocalWindowWidth.current.isExpanded) {
-            Row(Modifier.fillMaxSize().verticalScroll(scroll).padding(padding), horizontalArrangement = spaced) {
-                Column(Modifier.weight(1f), verticalArrangement = spaced) {
+            Row(Modifier.fillMaxSize().verticalScroll(scroll).padding(padding), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
+                Column(Modifier.weight(1f)) {
                     settingSection()
                     otherSection()
                 }
                 Column(Modifier.weight(1f)) { engineSection() }
             }
         } else {
-            Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(padding), verticalArrangement = spaced) {
+            Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(padding)) {
                 settingSection()
-                otherSection()
                 engineSection()
+                otherSection()
             }
         }
     }
@@ -181,7 +189,6 @@ fun ToolPage(
             state = list,
             modifier = Modifier.fillMaxSize(),
             contentPadding = padding,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
             content = content,
         )
     }

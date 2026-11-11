@@ -1,5 +1,6 @@
 package io.github.yuuukicreation.po0clash.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -11,37 +12,34 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -55,67 +53,27 @@ fun <T> SegmentedPicker(
     modifier: Modifier = Modifier.fillMaxWidth(),
     onSelect: (T) -> Unit,
 ) {
-    val colors = palette
     SingleChoiceSegmentedButtonRow(modifier = modifier) {
         options.forEachIndexed { index, (value, label) ->
-            val active = value == selected
             SegmentedButton(
-                selected = active,
+                selected = value == selected,
                 onClick = { onSelect(value) },
                 enabled = enabled,
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
-                colors = SegmentedButtonDefaults.colors(
-                    activeContainerColor = colors.sel,
-                    activeContentColor = colors.onSel,
-                    activeBorderColor = colors.line,
-                    inactiveContainerColor = colors.card,
-                    inactiveContentColor = colors.ink2,
-                    inactiveBorderColor = colors.line,
-                ),
-                label = {
-                    Text(
-                        label,
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                },
+                label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             )
         }
     }
 }
 
 @Composable
-fun Po0Switch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, enabled: Boolean = true) {
-    val colors = palette
-    Switch(
-        checked = checked,
-        onCheckedChange = onCheckedChange,
-        enabled = enabled,
-        colors = SwitchDefaults.colors(
-            checkedThumbColor = colors.onAccent,
-            checkedTrackColor = colors.accent,
-            checkedBorderColor = colors.accent,
-            uncheckedThumbColor = colors.outline,
-            uncheckedTrackColor = colors.track,
-            uncheckedBorderColor = colors.outline,
-        ),
-    )
+fun Po0Switch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, enabled: Boolean = true, modifier: Modifier = Modifier) {
+    Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = modifier, enabled = enabled)
 }
 
 @Composable
 fun Po0Radio(selected: Boolean) {
-    val colors = palette
-    RadioButton(
-        selected = selected,
-        onClick = null,
-        colors = RadioButtonDefaults.colors(
-            selectedColor = colors.accent,
-            unselectedColor = colors.ink3,
-        ),
-    )
+    RadioButton(selected = selected, onClick = null)
 }
 
 @Composable
@@ -166,9 +124,14 @@ fun AppIconButton(
     val colors = palette
     IconButton(onClick = onClick, enabled = enabled && !busy, modifier = modifier.size(44.dp)) {
         when {
-            busy && icon == LineIcons.Refresh -> SpinningIcon(icon, colors.ink)
-            busy -> SmallProgress(color = colors.ink)
-            else -> Icon(icon, contentDescription = label, tint = if (enabled) colors.ink else colors.ink3, modifier = Modifier.size(22.dp))
+            busy && icon == LineIcons.Refresh -> SpinningIcon(icon, colors.ink2)
+            busy -> SmallProgress()
+            else -> Icon(
+                icon,
+                contentDescription = label,
+                tint = if (enabled) colors.ink2 else colors.ink2.copy(alpha = 0.38f),
+                modifier = Modifier.size(24.dp),
+            )
         }
     }
 }
@@ -189,56 +152,36 @@ fun TextAction(label: String, enabled: Boolean = true, accent: Boolean = false, 
     }
 }
 
-/** The connect button: same width in every state, so the status row does not jump. */
-@Composable
-fun ConnectButton(label: String, primary: Boolean, busy: Boolean, enabled: Boolean, onClick: () -> Unit) {
-    val colors = palette
-    val usable = enabled && !busy
-    val containerColor = if (primary && !busy) colors.accent else colors.track
-    val contentColor = when {
-        busy -> colors.ink2
-        primary -> colors.onAccent
-        else -> colors.ink
-    }
-    Button(
-        onClick = onClick,
-        enabled = usable,
-        shape = RoundedCornerShape(20.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = containerColor,
-            contentColor = contentColor,
-            disabledContainerColor = containerColor.copy(alpha = if (busy) 1f else 0.5f),
-            disabledContentColor = contentColor.copy(alpha = if (busy) 1f else 0.5f),
-        ),
-        modifier = Modifier.size(128.dp, 40.dp).semantics { contentDescription = label },
-    ) {
-        if (busy) {
-            Box(Modifier.padding(end = 6.dp)) {
-                SmallProgress(size = 14.dp, color = contentColor)
-            }
-        }
-        Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
-
-data class FabAction(val icon: ImageVector, val label: String, val busy: Boolean = false, val onClick: () -> Unit)
+/** A floating action; with [text] it widens into FlClash's start button, the running time beside the icon. */
+data class FabAction(
+    val icon: ImageVector,
+    val label: String,
+    val busy: Boolean = false,
+    val text: String? = null,
+    val onClick: () -> Unit,
+)
 
 @Composable
 fun Po0Fab(action: FabAction, modifier: Modifier = Modifier) {
-    val colors = palette
-    FloatingActionButton(
-        onClick = action.onClick,
-        modifier = modifier.size(56.dp),
-        shape = RoundedCornerShape(16.dp),
-        containerColor = colors.sel,
-        contentColor = colors.onSel,
-        elevation = FloatingActionButtonDefaults.elevation(3.dp, 3.dp, 3.dp, 3.dp),
-    ) {
-        if (action.busy) {
-            SmallProgress(color = colors.onSel)
-        } else {
-            Icon(action.icon, contentDescription = action.label, modifier = Modifier.size(24.dp))
+    var lastText by remember { mutableStateOf("") }
+    if (action.text != null) lastText = action.text
+    FloatingActionButton(onClick = action.onClick, modifier = modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(56.dp), contentAlignment = Alignment.Center) {
+                if (action.busy) {
+                    SmallProgress(color = MaterialTheme.colorScheme.onPrimaryContainer)
+                } else {
+                    Icon(action.icon, contentDescription = action.label, modifier = Modifier.size(24.dp))
+                }
+            }
+            AnimatedVisibility(action.text != null) {
+                Text(
+                    lastText,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold).tabular(),
+                    maxLines = 1,
+                    modifier = Modifier.padding(end = 16.dp),
+                )
+            }
         }
     }
 }

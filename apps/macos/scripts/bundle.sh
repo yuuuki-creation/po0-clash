@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Builds dist/po0-clash.app and dist/po0-clash-macos.zip. ARCHS="arm64 x86_64" makes a universal app;
+# Builds dist/po0-clash.app and dist/po0-clash-macos.zip, with the web interface of apps/windows in
+# Contents/Resources/web. ARCHS="arm64 x86_64" makes a universal app;
 # WITH_E2E=1 also builds the real-flow checker dist/po0-e2e (scripts/e2e.sh).
 set -euo pipefail
 
@@ -78,6 +79,14 @@ build_mihomo() {
   lipo -create "${outs[@]}" -output "$work/mihomo"
 }
 
+build_web() {
+  (cd "$root/apps/windows" && npm ci --no-fund --no-audit && npm run build)
+  if [[ ! -f "$root/apps/windows/dist/index.html" ]]; then
+    echo "the web interface build left no apps/windows/dist/index.html" >&2
+    exit 1
+  fi
+}
+
 make_icon() {
   local set="$work/AppIcon.iconset" src="$app_dir/Resources/AppIcon.png" size
   rm -rf "$set"
@@ -115,6 +124,7 @@ build_app() {
   plutil -replace CFBundleVersion -string "$build_number" "$app/Contents/Info.plist"
   cp -R "$app_dir"/Resources/*.lproj "$app/Contents/Resources/"
   cp "$app_dir"/Resources/MenuBarIcon*.png "$app/Contents/Resources/"
+  cp -R "$root/apps/windows/dist" "$app/Contents/Resources/web"
   make_icon "$app/Contents/Resources/AppIcon.icns"
 
   codesign --force --sign - "$app/Contents/MacOS/mihomo"
@@ -127,5 +137,6 @@ build_app() {
 mkdir -p "$work" "$dist"
 build_core
 build_mihomo
+build_web
 build_app
 echo "built $app ($version, $archs)"

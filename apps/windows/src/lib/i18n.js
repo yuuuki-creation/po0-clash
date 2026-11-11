@@ -3,20 +3,31 @@ import ja from './locales/ja.js';
 import ru from './locales/ru.js';
 import zh from './locales/zh.js';
 
-const tables = { zh, en, ja, ru };
+// Each page keeps its own strings in `locales/parts`; Node, which runs the tests, has no `import.meta.glob`.
+let parts = {};
+try {
+  parts = import.meta.glob('./locales/parts/*.js', { eager: true });
+} catch {
+  parts = {};
+}
+
+const tables = { zh: { ...zh }, en: { ...en }, ja: { ...ja }, ru: { ...ru } };
+for (const part of Object.values(parts)) {
+  for (const [code, strings] of Object.entries(part.default)) Object.assign(tables[code], strings);
+}
 const tags = { zh: 'zh-CN', en: 'en', ja: 'ja', ru: 'ru' };
 
-let table = en;
+let table = tables.en;
 let tag = 'en';
 
 export function setLanguage(code) {
-  table = tables[code] ?? en;
+  table = tables[code] ?? tables.en;
   tag = tags[code] ?? 'en';
   document.documentElement.lang = tag;
 }
 
 export function t(key, vars = {}) {
-  let text = table[key] ?? en[key] ?? key;
+  let text = table[key] ?? tables.en[key] ?? key;
   for (const [name, value] of Object.entries(vars)) text = text.replace(`{${name}}`, value);
   return text;
 }

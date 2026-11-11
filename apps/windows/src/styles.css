@@ -1,0 +1,239 @@
+/* Layout and page shell follow Clash Verge Rev (GPL-3.0): src/assets/styles/{index,layout,page}.scss. */
+
+:root {
+  --primary-main: #007aff;
+  --text-primary: #000000;
+  --selection-color: #f5f5f5;
+  --scroller-color: #90939980;
+  --background-color: #ececec;
+  --card-color: #ffffff;
+  --paper-color: #f5f5f5;
+  --divider-color: rgba(0, 0, 0, 0.06);
+  --background-color-alpha: rgba(0, 122, 255, 0.1);
+  --border-radius: 8px;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--paper-color);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+input,
+textarea,
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+::selection {
+  color: var(--selection-color);
+  background-color: var(--primary-main);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  border-radius: 6px;
+  background-color: var(--scroller-color);
+}
+*::-webkit-scrollbar-corner {
+  background-color: transparent;
+}
+
+.layout {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.the_titlebar {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px;
+  box-sizing: border-box;
+  height: 36px;
+  flex: 0 0 36px;
+  border-bottom: 1px solid var(--divider-color);
+}
+.the_titlebar-drag-region {
+  align-self: stretch;
+  flex: 1 1 auto;
+}
+.macos .the_titlebar {
+  justify-content: flex-start;
+}
+
+.layout-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.layout-content__left {
+  flex: 0 0 200px;
+  width: 200px;
+  display: flex;
+  height: 100%;
+  padding: 0 0 8px;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-right: 1px solid var(--divider-color);
+}
+.macos .layout-content__left {
+  padding-top: 5px;
+}
+
+.the-logo {
+  position: relative;
+  flex: 0 0 58px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 0 20px 6px;
+  box-sizing: border-box;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+.the-logo svg {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  pointer-events: none;
+}
+.the-logo span {
+  pointer-events: none;
+}
+.the-logo .the-newbtn {
+  position: absolute;
+  right: 2px;
+  top: -4px;
+  min-width: 0;
+  border-radius: 8px;
+  padding: 2px 6px;
+  transform: scale(0.8);
+}
+
+.the-menu {
+  flex: 1 1 80%;
+  overflow-y: auto;
+  padding-top: 4px !important;
+  scrollbar-width: none;
+}
+.the-menu::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.the-traffic {
+  flex: 0 0 auto;
+  padding: 0 20px;
+}
+
+.layout-content__right {
+  position: relative;
+  flex: 1 1 100%;
+  min-width: 0;
+  height: 100%;
+}
+.the-content {
+  position: absolute;
+  top: 5px;
+  left: 0;
+  right: 1px;
+  bottom: 0;
+}
+
+.layout--nav-collapsed .layout-content__left {
+  flex: 0 0 72px;
+  width: 72px;
+  border-right: none;
+}
+.layout--nav-collapsed .the-traffic,
+.layout--nav-collapsed .the-logo span,
+.layout--nav-collapsed .the-newbtn,
+.layout--nav-collapsed .MuiListItemText-root {
+  display: none;
+}
+.layout--nav-collapsed .the-logo {
+  justify-content: center;
+  padding: 0;
+}
+.layout--nav-collapsed .the-menu .MuiListItemButton-root {
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin: 6px auto;
+  padding: 0;
+  border-radius: 12px;
+}
+.layout--nav-collapsed .the-menu .MuiListItemIcon-root {
+  min-width: 0;
+  margin: 0;
+}
+
+.base-page {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.base-page > header {
+  flex: 0 0 58px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 20px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--divider-color);
+}
+.base-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.base-container > section {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  padding: 10px 0;
+  box-sizing: border-box;
+  scrollbar-gutter: stable;
+  background-color: var(--background-color);
+}
+.base-container .base-content {
+  width: calc(100% - 20px);
+  margin: 0 auto;
+}
+.base-container.no-padding > section {
+  padding: 0;
+  overflow: hidden;
+}
+.base-container.no-padding .base-content {
+  width: 100%;
+  height: 100%;
+}

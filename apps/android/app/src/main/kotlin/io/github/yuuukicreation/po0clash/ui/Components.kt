@@ -1,23 +1,21 @@
+// Layout and styling follow FlClash v0.8.92 (https://github.com/chen08209/FlClash, GPL-3.0), lib/widgets/card.dart.
 package io.github.yuuukicreation.po0clash.ui
 
 import android.text.format.DateUtils
 import android.text.format.Formatter
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -28,7 +26,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,11 +35,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -55,90 +50,111 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.sp
 import io.github.yuuukicreation.po0clash.R
 import java.text.DateFormat
 import java.util.Date
 
-val cardShape = RoundedCornerShape(20.dp)
+val cardShape = RoundedCornerShape(14.dp)
+
+/** FlClash's card: a low surface inside a hairline, or the selection colors inside a primary one. */
+@Composable
+fun AppCard(
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    filled: Boolean = false,
+    enabled: Boolean = true,
+    onClick: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val colors = palette
+    val fill by animateColorAsState(
+        when {
+            selected -> colors.sel
+            filled -> MaterialTheme.colorScheme.surfaceContainerHigh
+            else -> colors.card
+        },
+        tween(150),
+        label = "card",
+    )
+    val edge by animateColorAsState(
+        when {
+            filled -> Color.Transparent
+            selected -> colors.accent
+            else -> colors.line
+        },
+        tween(150),
+        label = "cardEdge",
+    )
+    Column(
+        modifier.clip(cardShape)
+            .background(fill)
+            .border(1.dp, edge, cardShape)
+            .then(if (onClick != null) Modifier.clickable(enabled = enabled, onClick = onClick) else Modifier),
+        content = content,
+    )
+}
+
+@Composable
+fun CardHeader(title: String, icon: ImageVector, note: String? = null) {
+    val colors = palette
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = colors.ink2, modifier = Modifier.size(20.dp))
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            color = colors.ink2,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (!note.isNullOrEmpty()) {
+            Text(
+                note,
+                style = MaterialTheme.typography.bodySmall.tabular(),
+                color = colors.ink2.copy(alpha = 0.8f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 200.dp),
+            )
+        }
+    }
+}
 
 @Composable
 fun InfoCard(
     title: String,
     icon: ImageVector,
-    modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     note: String? = null,
-    spacing: Dp = 6.dp,
-    trailing: (@Composable () -> Unit)? = null,
+    contentPadding: PaddingValues = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val colors = palette
-    Column(
-        modifier.fillMaxWidth()
-            .clip(cardShape)
-            .background(colors.card)
-            .border(1.dp, colors.line.copy(alpha = 0.65f), cardShape)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(spacing),
-    ) {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 28.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Box(
-                Modifier.size(28.dp).background(colors.accent.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, contentDescription = null, tint = colors.accent, modifier = Modifier.size(15.dp))
-            }
-            Text(
-                title,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.SemiBold,
-                color = colors.ink2,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            if (note != null) {
-                Text(note, style = MaterialTheme.typography.labelMedium.tabular(), color = colors.ink2, maxLines = 1)
-            }
-            trailing?.invoke()
-        }
-        content()
+    AppCard(onClick = onClick) {
+        CardHeader(title, icon, note)
+        Column(
+            Modifier.weight(1f).fillMaxWidth().padding(contentPadding),
+            verticalArrangement = Arrangement.Bottom,
+            content = content,
+        )
     }
 }
 
 @Composable
-fun BigValue(value: String, unit: String? = null, large: Boolean = false) {
-    val colors = palette
-    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-        Text(
-            value,
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontSize = if (large) 25.sp else 21.sp,
-                fontWeight = FontWeight.Bold,
-                lineHeight = if (large) 30.sp else 26.sp,
-            ).tabular(),
-            color = colors.ink,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.alignByBaseline(),
-        )
-        if (!unit.isNullOrEmpty()) {
-            Text(
-                unit,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = colors.ink2,
-                maxLines = 1,
-                modifier = Modifier.alignByBaseline(),
-            )
-        }
-    }
+fun CardValue(text: String, modifier: Modifier = Modifier, color: Color = palette.ink) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Light).tabular(),
+        color = color,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -149,67 +165,29 @@ fun byteParts(value: ULong, perSecond: Boolean = false): Pair<String, String> {
     return number to if (perSecond) "$unit/s" else unit
 }
 
-fun segmentShape(index: Int, count: Int, columns: Int = 1): Shape {
-    val row = index / columns
-    val column = index % columns
-    val lastRow = (count - 1) / columns
-    fun corner(outer: Boolean) = if (outer) 20.dp else 0.dp
-    return RoundedCornerShape(
-        topStart = corner(row == 0 && column == 0),
-        topEnd = corner(row == 0 && column == columns - 1),
-        bottomStart = corner(row == lastRow && column == 0),
-        bottomEnd = corner(row == lastRow && column == columns - 1),
-    )
+/** Lets a row's ripple reach the screen edges from inside the page's side padding. */
+private fun Modifier.bleed(side: Dp) = layout { measurable, constraints ->
+    val extra = side.roundToPx() * 2
+    val placeable = measurable.measure(constraints.offset(horizontal = extra))
+    layout(placeable.width - extra, placeable.height) { placeable.place(-extra / 2, 0) }
 }
 
 @Composable
 fun GroupRow(
-    index: Int,
-    count: Int,
     onClick: (() -> Unit)? = null,
-    columns: Int = 1,
-    minHeight: Dp = 52.dp,
+    minHeight: Dp = 56.dp,
     endPadding: Dp = 16.dp,
-    fill: Color = palette.card,
     content: @Composable RowScope.() -> Unit,
 ) {
-    val lineColor = palette.line
-    val hasTopDivider = index >= columns
-    val hasStartDivider = index % columns > 0
     Row(
-        Modifier.fillMaxWidth().then(if (columns > 1) Modifier.fillMaxHeight() else Modifier)
-            .clip(segmentShape(index, count, columns))
-            .background(fill)
-            .drawWithContent {
-                drawContent()
-                val stroke = 1.dp.toPx()
-                if (hasTopDivider) {
-                    drawLine(lineColor, Offset(0f, stroke / 2f), Offset(size.width, stroke / 2f), stroke)
-                }
-                if (hasStartDivider) {
-                    drawLine(lineColor, Offset(stroke / 2f, 0f), Offset(stroke / 2f, size.height), stroke)
-                }
-            }
+        Modifier.bleed(16.dp).fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .heightIn(min = minHeight)
             .padding(start = 16.dp, end = endPadding, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
         content = content,
     )
-}
-
-/** Lays [count] rows out in [columns]; columns above one need the same height on each line. */
-@Composable
-fun SegmentGrid(count: Int, columns: Int, row: @Composable (index: Int) -> Unit) {
-    Column {
-        (0 until count).chunked(columns).forEach { line ->
-            Row(Modifier.height(IntrinsicSize.Min)) {
-                line.forEach { index -> Column(Modifier.weight(1f).fillMaxHeight()) { row(index) } }
-                repeat(columns - line.size) { Spacer(Modifier.weight(1f)) }
-            }
-        }
-    }
 }
 
 @Composable
@@ -236,33 +214,29 @@ fun RowScope.RowValue(value: String, overflow: TextOverflow = TextOverflow.Ellip
 }
 
 @Composable
-fun Chevron() {
-    Icon(LineIcons.ChevronRight, contentDescription = null, tint = palette.ink2, modifier = Modifier.size(16.dp))
-}
-
-@Composable
-fun ValueRow(index: Int, count: Int, label: String, value: String, columns: Int = 1) {
-    GroupRow(index, count, columns = columns) {
+fun ValueRow(label: String, value: String) {
+    GroupRow {
         Text(label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         RowValue(value)
     }
 }
 
 @Composable
-fun ActionRow(index: Int, count: Int, label: String, busy: Boolean = false, onClick: () -> Unit) {
-    GroupRow(index, count, onClick = if (busy) null else onClick) {
+fun ActionRow(label: String, busy: Boolean = false, onClick: () -> Unit) {
+    GroupRow(onClick = if (busy) null else onClick) {
         Text(label, style = MaterialTheme.typography.bodyLarge, color = palette.accent, modifier = Modifier.weight(1f))
         if (busy) SmallProgress()
     }
 }
 
 @Composable
-fun SectionHeader(text: String, top: Dp = 12.dp) {
+fun SectionHeader(text: String, top: Dp = 16.dp) {
     Text(
         text,
         style = MaterialTheme.typography.labelLarge,
-        color = palette.ink2,
-        modifier = Modifier.padding(top = top, bottom = 6.dp),
+        fontWeight = FontWeight.SemiBold,
+        color = palette.ink2.copy(alpha = 0.8f),
+        modifier = Modifier.padding(top = top, bottom = 8.dp),
     )
 }
 
@@ -319,13 +293,7 @@ fun SheetField(
             capitalization = KeyboardCapitalization.None,
         ),
         visualTransformation = if (keyboardType == KeyboardType.Password) PasswordVisualTransformation() else VisualTransformation.None,
-        shape = RoundedCornerShape(8.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = colors.accent,
-            unfocusedBorderColor = colors.outline,
-            cursorColor = colors.accent,
-        ),
-        modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
     )
 }
 

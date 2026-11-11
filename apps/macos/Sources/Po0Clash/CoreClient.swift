@@ -53,9 +53,6 @@ final class CoreClient: @unchecked Sendable {
     func traffic() async throws -> Traffic { try await work { $0.traffic() } }
     func exitIp() async throws -> ExitIp { try await work { try $0.exitIp() } }
     func checkUpdate() async throws -> Release? { try await work { try $0.checkUpdate() } }
-    func ipQuality(_ ip: String, refresh: Bool) async throws -> IpQuality {
-        try await work { try $0.ipQuality(ip: ip, refresh: refresh) }
-    }
     func intranetIp() async throws -> IntranetIp? { try await work { $0.intranetIp() } }
     func wasConnected() async throws -> Bool { try await work { $0.wasConnected() } }
     func launchStarted() async throws -> LaunchCheck { try await work { $0.launchStarted(lastExit: nil) } }
@@ -84,9 +81,6 @@ final class CoreClient: @unchecked Sendable {
         try await work { try $0.editProfile(id: id, edit: edit) }
     }
     func profileContent(_ id: String) async throws -> String { try await work { try $0.profileContent(id: id) } }
-    func saveProfileContent(_ id: String, _ content: String) async throws -> Profile {
-        try await control { try $0.saveProfileContent(id: id, content: content) }
-    }
     func previewConfig(_ id: String) async throws -> String { try await work { try $0.previewConfig(id: id) } }
     func profileOverride(_ id: String) async throws -> ProfileOverride { try await work { try $0.profileOverride(id: id) } }
     func setProfileOverride(_ id: String, _ overrides: ProfileOverride) async throws {
@@ -131,6 +125,7 @@ final class CoreClient: @unchecked Sendable {
         try await work { try $0.addWhitelistEntries(text: text, name: name) }
     }
     func removeWhitelistEntry(_ id: String) async throws { try await control { try $0.removeWhitelistEntry(id: id) } }
+    func whitelistNow() async throws { try await work { $0.whitelistNow() } }
 
     func networkChanged() async throws { try await work { $0.networkChanged() } }
     func exportDiagnostics(to path: String) async throws { try await work { try $0.exportDiagnostics(path: path) } }
@@ -146,9 +141,11 @@ final class CoreClient: @unchecked Sendable {
     func geoFiles() async throws -> [GeoFile] { try await work { $0.geoFiles() } }
     func updateGeo() async throws { try await work { try $0.updateGeo() } }
     func providers() async throws -> [Provider] { try await work { try $0.providers() } }
-    func updateProvider(_ provider: Provider) async throws {
-        try await work { try $0.updateProvider(kind: provider.kind, name: provider.name) }
+    func updateProvider(kind: ProviderKind, name: String) async throws {
+        try await work { try $0.updateProvider(kind: kind, name: name) }
     }
+    func rules() async throws -> [Rule] { try await work { try $0.rules() } }
+    func flushDnsCache() async throws { try await work { try $0.flushDnsCache() } }
     func checkWebDav(_ dav: WebDav) async throws { try await work { try $0.checkWebdav(dav: dav) } }
     func backupToWebDav() async throws { try await work { try $0.backupToWebdav() } }
     func restore(_ data: Data, scope: RestoreScope) async throws {

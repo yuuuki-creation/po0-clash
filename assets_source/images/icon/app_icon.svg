@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title">
   <title id="title">po0-clash</title>
-  <rect width="1024" height="1024" fill="#173529"/>
-  <path transform="translate(512 512) scale(1.15) translate(-484 -512)" fill="#A5EDC6" fill-rule="evenodd" d="M304 800C273 800 248 775 248 744V280C248 249 273 224 304 224H496C620 224 720 324 720 448C720 572 620 672 496 672H360V744C360 775 335 800 304 800Z M562.28 357.72A112 112 0 0 0 405.72 514.28L562.28 357.72Z M586.28 381.72A112 112 0 0 1 429.72 538.28L586.28 381.72Z"/>
+  <rect width="1024" height="1024" fill="#899BA6"/>
+  <g transform="translate(512 512) scale(1.15) translate(-508 -512)"><clipPath id="po0-bowl"><circle cx="529" cy="430" r="206"/></clipPath><rect x="282" y="224" width="150" height="576" rx="75" fill="#F0EAE0"/><circle cx="529" cy="430" r="206" fill="#D6B2A8"/><rect x="282" y="224" width="150" height="576" rx="75" fill="#BE968E" clip-path="url(#po0-bowl)"/></g>
 </svg>

@@ -4,11 +4,11 @@
 
 基于共享 Rust 核心（`crates/core`）与原版 [`mihomo`](https://github.com/MetaCubeX/mihomo) 构建的 macOS、Windows、Android 三端原生代理客户端，内置 `po0` 与 `ggy` 防火墙自动加白（源自 [`po0fw`](https://github.com/w0ven/po0fw)）。
 
-三端均采用各自平台的原生界面框架，不再依赖跨平台 UI 渲染层。
+桌面端的界面照 Clash Verge Rev，Android 的界面照 FlClash。下面的截图是改版前的界面。
 
-- **macOS（`apps/macos`）**：SwiftUI + AppKit，采用 macOS 26 Liquid Glass 侧边栏、统一工具栏、Bento 仪表盘网格与状态栏快捷面板。
-- **Windows（`apps/windows`）**：Tauri 2 + Win32/DWM，采用 Windows 11 WinUI 3（Fluent 2）四列 Bento 卡片网格、系统托盘与全局快捷键。
-- **Android（`apps/android`）**：Kotlin + Jetpack Compose，采用 Material 3 Expressive 卡片网格、进程内 `libmihomo`、快捷设置磁贴与 Android TV Leanback 入口。
+- **macOS（`apps/macos`）**：Swift 外壳加 `WKWebView`，界面与 Windows 共用；另有状态栏快捷面板和全局快捷键。
+- **Windows（`apps/windows`）**：Tauri 2，界面用 React 与 MUI；系统托盘与全局快捷键。
+- **Android（`apps/android`）**：Kotlin + Jetpack Compose，Material 3 卡片网格、进程内 `libmihomo`、快捷设置磁贴与 Android TV Leanback 入口。
 
 `po0-clash` 是独立应用（`io.github.yuuukicreation.po0clash`），拥有独立的安装标识、进程与服务名、数据目录和 `po0clash://` URL Scheme，可与官方 [FlClash](https://github.com/chen08209/FlClash) 同时安装、同时运行。
 
@@ -75,7 +75,7 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download
 在 `bash -s --` 后传入版本号或本地 `.zip` 路径可安装指定版本：
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download/install-macos-native.sh | bash -s -- 7.3.0
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download/install-macos-native.sh | bash -s -- 8.0.0
 ```
 
 首次开启 TUN 模式时，macOS 会弹出一次管理员密码输入框，用于为内置 `mihomo` 核心授予 `setuid-root` 权限。
@@ -116,8 +116,8 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download
 |---|---|
 | [`crates/core`](crates/core) | 共享 Rust 核心，负责订阅与配置管理、配置合并与覆写、`mihomo` 进程监管与 REST/WS 客户端、`po0`/`ggy` 加白引擎、WebDAV 与本地备份 |
 | [`crates/ffi`](crates/ffi) | UniFFI 绑定层，向 Swift（macOS）与 Kotlin（Android）暴露 `po0-core` 接口 |
-| [`apps/macos`](apps/macos) | macOS 13+ 原生客户端（SwiftUI + AppKit） |
-| [`apps/windows`](apps/windows) | Windows 10/11 原生客户端（Tauri 2 + Svelte 5 + Win32/DWM） |
+| [`apps/macos`](apps/macos) | macOS 13+ 客户端（Swift 外壳 + `WKWebView`，界面与 Windows 共用） |
+| [`apps/windows`](apps/windows) | Windows 10/11 客户端（Tauri 2 + React + MUI），桌面端共用的界面也在这里 |
 | [`apps/android`](apps/android) | Android 8.0+ 原生客户端（Kotlin + Jetpack Compose + JNI `libmihomo`） |
 
 项目目标、功能设计、ADR 与构建发版流程见 [`docs/`](docs/README.md)；代码规范与开发工作流见 [`AGENTS.md`](AGENTS.md)。
@@ -125,7 +125,8 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download
 ## 致谢与许可
 
 - [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo)：Clash Meta 代理核心
-- [chen08209/FlClash](https://github.com/chen08209/FlClash)：早期版本所基于的上游客户端
+- [clash-verge-rev/clash-verge-rev](https://github.com/clash-verge-rev/clash-verge-rev)（GPL-3.0）：Windows 与 macOS 的界面照它的布局、样式和组件改写
+- [chen08209/FlClash](https://github.com/chen08209/FlClash)（GPL-3.0）：早期版本所基于的上游客户端，Android 的界面照它的样式重做
 - [w0ven/po0fw](https://github.com/w0ven/po0fw)：`po0` 防火墙自动加白协议与逻辑
 
 以 [GPL-3.0](LICENSE) 许可发布。

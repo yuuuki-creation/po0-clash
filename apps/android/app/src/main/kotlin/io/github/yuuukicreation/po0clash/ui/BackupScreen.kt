@@ -39,36 +39,36 @@ fun BackupScreen(vm: AppViewModel, onBack: () -> Unit) {
     ToolPage(stringResource(R.string.backup), onBack) {
         item {
             SectionHeader(stringResource(R.string.local_file))
-            NavRow(0, 2, stringResource(R.string.backup_to_file), busy = working, chevron = false) {
+            NavRow(stringResource(R.string.backup_to_file), busy = working) {
                 save.launch("po0-clash-backup-${SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())}.zip")
             }
-            NavRow(1, 2, stringResource(R.string.restore_from_file), busy = working, chevron = false) {
+            NavRow(stringResource(R.string.restore_from_file), busy = working) {
                 open.launch(arrayOf("application/zip", "application/octet-stream"))
             }
         }
         item {
             SectionHeader("WebDAV")
-            EditRow(0, 4, stringResource(R.string.webdav_url), dav.url, keyboard = KeyboardType.Uri) { v -> setDav { it.copy(url = v) } }
-            EditRow(1, 4, stringResource(R.string.webdav_user), dav.user) { v -> setDav { it.copy(user = v) } }
-            EditRow(2, 4, stringResource(R.string.webdav_password), if (dav.password.isEmpty()) "" else set, keyboard = KeyboardType.Password, initial = dav.password) { v ->
+            EditRow(stringResource(R.string.webdav_url), dav.url, keyboard = KeyboardType.Uri) { v -> setDav { it.copy(url = v) } }
+            EditRow(stringResource(R.string.webdav_user), dav.user) { v -> setDav { it.copy(user = v) } }
+            EditRow(stringResource(R.string.webdav_password), if (dav.password.isEmpty()) "" else set, keyboard = KeyboardType.Password, initial = dav.password) { v ->
                 setDav { it.copy(password = v) }
             }
-            EditRow(3, 4, stringResource(R.string.webdav_file), dav.fileName, "backup.zip") { v -> setDav { it.copy(fileName = v) } }
+            EditRow(stringResource(R.string.webdav_file), dav.fileName, "backup.zip") { v -> setDav { it.copy(fileName = v) } }
         }
         item {
-            NavRow(0, 3, stringResource(R.string.webdav_check), busy = AppViewModel.BUSY_WEBDAV in busy, chevron = false) {
+            NavRow(stringResource(R.string.webdav_check), busy = AppViewModel.BUSY_WEBDAV in busy) {
                 if (ready) vm.checkWebdav() else vm.toast(missing)
             }
-            NavRow(1, 3, stringResource(R.string.backup_to_webdav), busy = working, chevron = false) {
+            NavRow(stringResource(R.string.backup_to_webdav), busy = working) {
                 if (ready) vm.backupToWebdav() else vm.toast(missing)
             }
-            NavRow(2, 3, stringResource(R.string.restore_from_webdav), busy = working, chevron = false) {
+            NavRow(stringResource(R.string.restore_from_webdav), busy = working) {
                 if (ready) askScope(vm::restoreFromWebdav) else vm.toast(missing)
             }
         }
         item {
             SectionHeader(stringResource(R.string.restore_strategy))
-            ChoiceRow(0, 1, stringResource(R.string.restore_strategy), strategies, settings.restoreStrategy) { v ->
+            ChoiceRow(stringResource(R.string.restore_strategy), strategies, settings.restoreStrategy) { v ->
                 vm.setAppSettings { it.copy(restoreStrategy = v) }
             }
         }

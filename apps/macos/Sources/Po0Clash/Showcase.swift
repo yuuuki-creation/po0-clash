@@ -9,20 +9,9 @@ enum Showcase {
         if defaults.string(forKey: "appearance") == "dark" { NSApp.appearance = NSAppearance(named: .darkAqua) }
         Task {
             if let name = defaults.string(forKey: "showWindow") {
-                MainWindow.shared.show(Page(rawValue: name) ?? .dashboard)
-            }
-            if let name = defaults.string(forKey: "toolsPage"), let page = ToolsPage(rawValue: name) {
-                MainWindow.shared.navigation.tools = [page]
-            }
-            if defaults.string(forKey: "activityTab") == "logs" {
-                await wait(seconds: 10) { AppModel.shared.appSettings != nil }
-                AppModel.shared.updateAppSettings { $0.captureLogs = true }
+                MainWindow.shared.show(page: name == "YES" ? nil : name)
             }
             if defaults.bool(forKey: "testDelays") { await testDelays() }
-            if let layout = defaults.string(forKey: "proxiesLayout") {
-                await wait(seconds: 10) { AppModel.shared.appSettings != nil }
-                AppModel.shared.updateAppSettings { $0.proxiesLayout = layout == "list" ? .list : .tabs }
-            }
             if defaults.bool(forKey: "showMenu") {
                 let clicks = defaults.bool(forKey: "reopenMenu") ? 3 : 1
                 for _ in 0..<clicks {
@@ -39,8 +28,6 @@ enum Showcase {
             || ProcessInfo.processInfo.environment["CI"] != nil
     }
 
-    static var showsOverride: Bool { UserDefaults.standard.bool(forKey: "showOverride") }
-
     static var themeColor: UInt32? { UserDefaults.standard.string(forKey: "themeColor").flatMap { UInt32($0) } }
 
     static var forcesAppearance: Bool {
@@ -56,7 +43,7 @@ enum Showcase {
         let model = AppModel.shared
         await wait(seconds: 20) { model.isRunning && !model.groups.isEmpty }
         for group in model.groups where group.selectable { model.testDelay(group.name) }
-        await wait(seconds: 15) { model.testing.isEmpty }
+        await wait(seconds: 15) { model.testingGroups.isEmpty }
     }
 
     private static func wait(seconds: Double, until done: () -> Bool) async {

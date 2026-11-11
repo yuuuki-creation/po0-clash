@@ -16,25 +16,26 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.filled.Construction
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.SpaceDashboard
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.NavigationRailItemDefaults
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -51,7 +52,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -60,11 +60,11 @@ import io.github.yuuukicreation.po0clash.core.LaunchCheck
 import io.github.yuuukicreation.po0clash.core.LaunchRecovery
 
 enum class Page(@param:StringRes val label: Int, val icon: ImageVector) {
-    DASHBOARD(R.string.dashboard, LineIcons.Dashboard),
-    PROXIES(R.string.proxies, LineIcons.Globe),
-    PROFILES(R.string.profiles, LineIcons.Layers),
-    WHITELIST(R.string.whitelist, LineIcons.ShieldCheck),
-    TOOLS(R.string.tools, LineIcons.Sliders),
+    DASHBOARD(R.string.dashboard, Icons.Filled.SpaceDashboard),
+    PROXIES(R.string.proxies, Icons.AutoMirrored.Filled.Article),
+    PROFILES(R.string.profiles, Icons.Filled.Folder),
+    WHITELIST(R.string.whitelist, Icons.Filled.VerifiedUser),
+    TOOLS(R.string.tools, Icons.Filled.Construction),
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -77,7 +77,6 @@ fun App(onConnect: () -> Unit, vm: AppViewModel = viewModel()) {
     val sheets = remember { Sheets() }
     val settings by vm.appSettings.collectAsStateWithLifecycle()
     val reduceMotion = LocalReduceMotion.current
-    val colors = palette
     LaunchedEffect(vm) { vm.messages.collect { snackbar.showSnackbar(it) } }
     val notice by vm.engine.launchNotice.collectAsStateWithLifecycle()
     LaunchedEffect(notice) {
@@ -104,7 +103,7 @@ fun App(onConnect: () -> Unit, vm: AppViewModel = viewModel()) {
         page = it
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize().background(colors.bg)) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(palette.bg)) {
         val rail = maxWidth >= 600.dp
         val navigationBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         CompositionLocalProvider(
@@ -147,47 +146,29 @@ fun App(onConnect: () -> Unit, vm: AppViewModel = viewModel()) {
 
 @Composable
 private fun Toasts(state: SnackbarHostState, modifier: Modifier) {
-    val colors = palette
-    SnackbarHost(state, modifier.padding(bottom = LocalBottomInset.current)) { data ->
-        Snackbar(data, shape = RoundedCornerShape(8.dp), containerColor = colors.ink, contentColor = colors.bg)
-    }
+    SnackbarHost(state, modifier.padding(bottom = LocalBottomInset.current))
+}
+
+@Composable
+private fun NavIcon(page: Page, title: String, labels: Boolean) {
+    Icon(page.icon, contentDescription = title.takeIf { !labels })
 }
 
 @Composable
 private fun BottomNav(selected: Page, labels: Boolean, onSelect: (Page) -> Unit) {
-    val colors = palette
-    NavigationBar(
-        containerColor = colors.card,
-        contentColor = colors.ink,
-        tonalElevation = 0.dp,
-    ) {
+    NavigationBar {
         Page.entries.forEach { page ->
-            val active = page == selected
             val title = stringResource(page.label)
             NavigationBarItem(
-                selected = active,
+                selected = page == selected,
                 onClick = { onSelect(page) },
-                icon = { Icon(page.icon, contentDescription = title.takeIf { !labels }, modifier = Modifier.size(22.dp)) },
+                icon = { NavIcon(page, title, labels) },
                 label = if (labels) {
-                    {
-                        Text(
-                            title,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                            maxLines = 1,
-                        )
-                    }
+                    { Text(title, maxLines = 1) }
                 } else {
                     null
                 },
                 alwaysShowLabel = labels,
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = colors.onSel,
-                    selectedTextColor = colors.ink,
-                    indicatorColor = colors.sel,
-                    unselectedIconColor = colors.ink2,
-                    unselectedTextColor = colors.ink2,
-                ),
             )
         }
     }
@@ -195,45 +176,22 @@ private fun BottomNav(selected: Page, labels: Boolean, onSelect: (Page) -> Unit)
 
 @Composable
 private fun NavRail(selected: Page, labels: Boolean, onSelect: (Page) -> Unit) {
-    val colors = palette
-    Row(Modifier.fillMaxHeight().background(colors.card)) {
-        NavigationRail(
-            containerColor = colors.card,
-            contentColor = colors.ink,
-        ) {
-            Spacer(Modifier.weight(1f))
-            Page.entries.forEach { page ->
-                val active = page == selected
-                val title = stringResource(page.label)
-                NavigationRailItem(
-                    selected = active,
-                    onClick = { onSelect(page) },
-                    icon = { Icon(page.icon, contentDescription = title.takeIf { !labels }, modifier = Modifier.size(22.dp)) },
-                    label = if (labels) {
-                        {
-                            Text(
-                                title,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                                maxLines = 1,
-                            )
-                        }
-                    } else {
-                        null
-                    },
-                    alwaysShowLabel = labels,
-                    colors = NavigationRailItemDefaults.colors(
-                        selectedIconColor = colors.onSel,
-                        selectedTextColor = colors.ink,
-                        indicatorColor = colors.sel,
-                        unselectedIconColor = colors.ink2,
-                        unselectedTextColor = colors.ink2,
-                    ),
-                )
-            }
-            Spacer(Modifier.weight(1f))
+    NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+        Spacer(Modifier.height(8.dp))
+        Page.entries.forEach { page ->
+            val title = stringResource(page.label)
+            NavigationRailItem(
+                selected = page == selected,
+                onClick = { onSelect(page) },
+                icon = { NavIcon(page, title, labels) },
+                label = if (labels) {
+                    { Text(title, maxLines = 1) }
+                } else {
+                    null
+                },
+                alwaysShowLabel = labels,
+            )
         }
-        Spacer(Modifier.fillMaxHeight().width(1.dp).background(colors.line))
     }
 }
 
