@@ -6,6 +6,10 @@ on:
       - 'native*'
     paths:
       - 'apps/macos/**'
+      - 'apps/windows/src/**'
+      - 'apps/windows/index.html'
+      - 'apps/windows/package*.json'
+      - 'apps/windows/vite.config.js'
       - 'crates/**'
       - 'mihomo/**'
       - 'Cargo.toml'
@@ -52,6 +56,13 @@ jobs:
           go-version: stable
           cache-dependency-path: mihomo/upstream/go.sum
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: apps/windows/package-lock.json
+
       - name: Setup Rust
         run: |
           rustup toolchain install stable --profile minimal
@@ -74,7 +85,9 @@ jobs:
         run: cargo test -p po0-core
 
       - name: Build app
-        run: apps/macos/scripts/bundle.sh
+        run: |
+          apps/macos/scripts/bundle.sh
+          test -f apps/macos/dist/po0-clash.app/Contents/Resources/web/index.html
 
       - name: Test core with the darwin engine
         run: MIHOMO_BIN="$PWD/apps/macos/.build/bundle/mihomo-arm64" cargo test -p po0-core -- --ignored engine
@@ -268,6 +281,28 @@ jobs:
           echo "panel refreshed $shown times"
           [ "$shown" -ge 2 ] || { echo "::error::opening the panel twice refreshed it $shown times"; exit 1; }
 
+      - name: Web interface loads
+        run: |
+          start=$(date '+%Y-%m-%d %H:%M:%S')
+          events="$RUNNER_TEMP/web-events.txt"
+          /Applications/po0-clash.app/Contents/MacOS/po0-clash -showWindow dashboard > /dev/null 2>&1 &
+          pid=$!
+          for _ in $(seq 30); do
+            sleep 1
+            log show --start "$start" --style compact --predicate               'subsystem == "io.github.yuuukicreation.po0clash" AND eventMessage BEGINSWITH "web "' > "$events" || true
+            grep -q "web interface loaded" "$events" && break
+          done
+          sleep 5
+          open -b io.github.yuuukicreation.po0clash
+          sleep 1
+          screencapture -x "shots/window-${{ matrix.os }}.png" || true
+          kill -TERM "$pid"
+          wait "$pid" || true
+          log show --start "$start" --style compact --predicate             'subsystem == "io.github.yuuukicreation.po0clash" AND eventMessage BEGINSWITH "web "' > "$events" || true
+          cat "$events"
+          grep -q "web interface loaded" "$events" || { echo "::error::the page never finished loading"; exit 1; }
+          if grep -q "web error" "$events"; then echo "::warning::the page reported a script error"; fi
+
       - name: Screenshots
         if: matrix.os == 'macos-26'
         run: |
@@ -310,11 +345,7 @@ jobs:
           shoot menu-zh 15 "${login[@]}" -AppleLanguages '(zh-Hans)'
           connected=(-launchedAtLogin YES -testDelays YES)
           for page in dashboard proxies; do shoot "window-$page" 15 "${connected[@]}" -showWindow "$page"; done
-          for page in appearance application language hotkeys about; do shoot "window-$page" 6 -showWindow tools -toolsPage "$page"; done
-          for page in basic advanced resources developer; do shoot "window-$page" 15 "${connected[@]}" -showWindow tools -toolsPage "$page"; done
-          shoot window-backup 6 -showWindow tools -toolsPage backup
-          for page in profiles whitelist tools; do shoot "window-$page" 6 -showWindow "$page"; done
-          shoot window-override 8 -showWindow profiles -showOverride YES
+          for page in profiles whitelist; do shoot "window-$page" 8 -showWindow "$page"; done
           "$bin" > /dev/null 2>&1 &
           pid=$!
           sleep 6
@@ -326,23 +357,11 @@ jobs:
           sleep 5
           kill -KILL "$pid" 2>/dev/null || true
           wait "$pid" || true
-          for tab in requests connections logs; do
-            shoot "window-activity-$tab" 15 "${connected[@]}" -showWindow activity -activityTab "$tab"
-          done
           shoot window-dashboard-zh 15 "${connected[@]}" -showWindow dashboard -AppleLanguages '(zh-Hans)'
-          shoot window-proxies-zh 15 "${connected[@]}" -showWindow proxies -AppleLanguages '(zh-Hans)'
-          shoot window-tools-zh 6 -showWindow tools -AppleLanguages '(zh-Hans)'
-          shoot window-dashboard-ja 15 "${connected[@]}" -showWindow dashboard -AppleLanguages '(ja)'
-          shoot window-application-ru 6 -showWindow tools -toolsPage application -AppleLanguages '(ru)'
-          shoot window-application-pink 6 -showWindow tools -toolsPage application -themeColor 4294913365
-          shoot window-dashboard-pink 15 "${connected[@]}" -showWindow dashboard -themeColor 4294913365
           shoot menu-pink 15 "${login[@]}" -themeColor 4294913365
           # The runner's system appearance cannot be switched, so the app forces its own.
           shoot menu-dark 15 "${login[@]}" -appearance dark
           shoot window-dashboard-dark 15 "${connected[@]}" -showWindow dashboard -appearance dark
-          shoot window-proxies-dark 15 "${connected[@]}" -showWindow proxies -appearance dark
-          shoot window-whitelist-dark 6 -showWindow whitelist -appearance dark
-          shoot window-proxies-list 15 "${connected[@]}" -showWindow proxies -proxiesLayout list
 
       - name: Upload screenshots
         if: always()

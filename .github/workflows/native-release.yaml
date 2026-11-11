@@ -63,6 +63,11 @@ jobs:
         with:
           go-version: stable
           cache-dependency-path: mihomo/upstream/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: apps/windows/package-lock.json
       - run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
