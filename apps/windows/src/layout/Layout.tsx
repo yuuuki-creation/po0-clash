@@ -46,10 +46,10 @@ export const navItems: { id: PageId; icon: ReactNode }[] = [
   { id: 'home', icon: <HomeRounded /> },
   { id: 'proxies', icon: <WifiRounded /> },
   { id: 'profiles', icon: <DnsRounded /> },
+  { id: 'whitelist', icon: <VerifiedUserRounded /> },
   { id: 'connections', icon: <LanguageRounded /> },
   { id: 'rules', icon: <ForkRightRounded /> },
   { id: 'logs', icon: <SubjectRounded /> },
-  { id: 'whitelist', icon: <VerifiedUserRounded /> },
   { id: 'settings', icon: <SettingsRounded /> },
 ];
 
