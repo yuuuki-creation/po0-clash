@@ -14,7 +14,7 @@
 
 ## 界面预览
 
-### Windows 11（WinUI 3 / Fluent 2）
+### Windows（React / MUI）
 
 <p align="center">
   <picture>
@@ -23,7 +23,7 @@
   </picture>
 </p>
 
-### macOS 26（SwiftUI Liquid Glass）
+### macOS（WKWebView，共用桌面前端）
 
 <p align="center">
   <picture>
@@ -75,7 +75,7 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download
 在 `bash -s --` 后传入版本号或本地 `.zip` 路径可安装指定版本：
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download/install-macos-native.sh | bash -s -- 8.0.0
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download/install-macos-native.sh | bash -s -- 8.1.0
 ```
 
 首次开启 TUN 模式时，macOS 会弹出一次管理员密码输入框，用于为内置 `mihomo` 核心授予 `setuid-root` 权限。

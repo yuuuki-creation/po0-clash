@@ -7,22 +7,20 @@ import org.junit.Test
 
 class DashboardBlocksTest {
     @Test
-    fun defaultDashboardStartsWithTheConnectionControlAndCombinesTheExitIp() {
-        val cards = shownCards(DashboardCard.entries)
-        assertEquals(DashboardCard.CURRENT_NODE, cards.first())
-        assertEquals(DashboardCard.SPEED, cards[1])
-        assertFalse(DashboardCard.EXIT_IP in cards)
-        assertEquals(cards.size, cards.distinct().size)
+    fun defaultCardsFollowTheInstalledFlClashMobileLayout() {
+        assertEquals(
+            listOf(DashboardCard.SPEED, DashboardCard.MODE, DashboardCard.SUBSCRIPTION, DashboardCard.CURRENT_NODE, DashboardCard.WHITELIST),
+            shownCards(DashboardCard.entries),
+        )
     }
 
     @Test
-    fun customizedDashboardRetainsItsOrderAndHasOneConnectionControl() {
-        val chosen = listOf(DashboardCard.MEMORY, DashboardCard.CURRENT_NODE, DashboardCard.MODE)
-        assertEquals(listOf(DashboardCard.CURRENT_NODE, DashboardCard.MEMORY, DashboardCard.MODE), shownCards(chosen))
+    fun customizedCardsKeepTheirOrderAndNoDuplicateIsRendered() {
+        assertEquals(listOf(DashboardCard.MEMORY, DashboardCard.MODE), shownCards(listOf(DashboardCard.MEMORY, DashboardCard.MODE, DashboardCard.MEMORY)))
     }
 
     @Test
-    fun hidingAllOptionalCardsKeepsTheAppConnectable() {
-        assertEquals(listOf(DashboardCard.CURRENT_NODE), shownCards(emptyList()))
+    fun allOptionalCardsMayBeHidden() {
+        assertEquals(emptyList<DashboardCard>(), shownCards(emptyList()))
     }
 }

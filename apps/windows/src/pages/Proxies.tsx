@@ -1,10 +1,9 @@
 // Follows Clash Verge Rev (GPL-3.0): src/pages/proxies.tsx.
-import { CheckRounded, MyLocationRounded, NetworkCheckRounded, SearchRounded, TuneRounded } from '@mui/icons-material';
+import { CheckRounded, SearchRounded, TuneRounded } from '@mui/icons-material';
 import {
   Box,
   Button,
   ButtonGroup,
-  CircularProgress,
   IconButton,
   InputAdornment,
   ListItemIcon,
@@ -54,6 +53,9 @@ function ViewMenu() {
         <TuneRounded />
       </IconButton>
       <Menu open={!!anchor} anchorEl={anchor} onClose={() => setAnchor(null)} slotProps={{ list: { sx: { py: 0.5 } } }}>
+        <MenuItem dense onClick={() => { view.globalSearch = !view.globalSearch; setAnchor(null); }}>{t('proxies.search')}</MenuItem>
+        <MenuItem dense onClick={() => { locateCurrent(); setAnchor(null); }}>{t('proxies.locate')}</MenuItem>
+        <MenuItem dense onClick={() => { void testAll(); setAnchor(null); }}>{t('proxies.testAll')}</MenuItem>
         <ListSubheader sx={{ lineHeight: '32px', bgcolor: 'transparent' }}>{t('view.density')}</ListSubheader>
         {DENSITIES.map((value) => option('proxiesDensity', value, t(`density.${value}`)))}
         <ListSubheader sx={{ lineHeight: '32px', bgcolor: 'transparent' }}>{t('view.icon')}</ListSubheader>
@@ -64,22 +66,20 @@ function ViewMenu() {
 }
 
 export default function Proxies() {
-  const { status, groups, busy } = useSnapshot(app);
-  const { query } = useSnapshot(view);
+  const { status, groups } = useSnapshot(app);
+  const { query, globalSearch } = useSnapshot(view);
   const mode = status?.mode;
   const running = isRunning(status);
   const listed = running && mode !== 'direct' && groups.length > 0;
-  const testingAny = Object.keys(busy).some((key) => /^(delay|node):/.test(key));
 
   return (
     <BasePage
       full
-      title={t('nav.proxies')}
+      title={t('proxies.title')}
       contentStyle={{ height: '100%' }}
       header={
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          {listed && (
-            <>
+          {listed && globalSearch && (
               <TextField
                 hiddenLabel
                 size="small"
@@ -101,16 +101,9 @@ export default function Proxies() {
                   },
                 }}
               />
-              <IconButton size="small" color="inherit" title={t('proxies.locate')} onClick={locateCurrent}>
-                <MyLocationRounded />
-              </IconButton>
-              <IconButton size="small" color="inherit" title={t('proxies.testAll')} disabled={testingAny} onClick={testAll}>
-                {testingAny ? <CircularProgress size={20} color="inherit" sx={{ m: '2px' }} /> : <NetworkCheckRounded />}
-              </IconButton>
-              <ViewMenu />
-            </>
           )}
-          <ButtonGroup size="small" sx={{ flex: 'none' }}>
+          {listed && <ViewMenu />}
+          <ButtonGroup size="small" sx={{ flex: 'none', '& button': { textTransform: 'none' } }}>
             {MODES.map((value) => (
               <Button
                 key={value}

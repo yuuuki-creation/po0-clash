@@ -9,8 +9,12 @@ coroutines = "1.11.0"
 jna = "5.19.1"
 androidsvg = "1.4"
 junit = "4.13.2"
+material = "1.14.0"
+snakeyaml = "2.7"
 
 [libraries]
+snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml" }
+google-material = { module = "com.google.android.material:material", version.ref = "material" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }

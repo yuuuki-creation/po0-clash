@@ -4,8 +4,6 @@ package io.github.yuuukicreation.po0clash.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +26,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,6 +58,7 @@ import io.github.yuuukicreation.po0clash.core.ProxiesLayout
 import io.github.yuuukicreation.po0clash.core.ProxiesSort
 import io.github.yuuukicreation.po0clash.core.ProxyGroup
 import io.github.yuuukicreation.po0clash.core.ProxyTileStyle
+import kotlinx.coroutines.launch
 
 private fun List<Node>.sortedBy(sort: ProxiesSort): List<Node> = when (sort) {
     ProxiesSort.PROFILE -> this
@@ -96,7 +98,10 @@ internal fun ProxyGroup.shownNodes(query: String) =
 @Composable
 fun ProxiesScreen(vm: AppViewModel, opened: String?, onOpen: (String?) -> Unit) {
     val engine = vm.engine
-    val groups by engine.groups.collectAsStateWithLifecycle()
+    val liveGroups by engine.groups.collectAsStateWithLifecycle()
+    val profiles by engine.profiles.collectAsStateWithLifecycle()
+    val preview by vm.profilePreview.collectAsStateWithLifecycle()
+    val groups = liveGroups.ifEmpty { preview?.takeIf { it.profileId == profiles.firstOrNull { profile -> profile.selected }?.id }?.groups.orEmpty() }
     val status by engine.status.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val settings by vm.appSettings.collectAsStateWithLifecycle()
@@ -106,6 +111,7 @@ fun ProxiesScreen(vm: AppViewModel, opened: String?, onOpen: (String?) -> Unit) 
     var locating by remember { mutableStateOf(false) }
     var expanded by rememberSaveable { mutableStateOf<List<String>?>(null) }
     val twoLevel = settings.proxiesLayout == ProxiesLayout.TABS
+    val running = status.engine == io.github.yuuukicreation.po0clash.core.EngineState.Running
     val shown = status.mode != Mode.DIRECT && groups.isNotEmpty()
     val needle = query.trim()
     val visible = groups.filter { it.matches(needle) }
@@ -122,7 +128,7 @@ fun ProxiesScreen(vm: AppViewModel, opened: String?, onOpen: (String?) -> Unit) 
         val index = visible.indexOfFirst { it.name == selected?.name }
         if (index >= 0) groupTabs.animateScrollToItem(index)
     }
-    val open = expanded ?: listOfNotNull(groups.firstOrNull()?.name)
+    val open = expanded ?: emptyList()
     val anchor = rememberAnchor()
     val viewMenu = proxyViewMenu(vm, anchor)
     val sortMenu = listOf(
@@ -133,16 +139,16 @@ fun ProxiesScreen(vm: AppViewModel, opened: String?, onOpen: (String?) -> Unit) 
         SheetAction(label, checked = settings.proxiesSort == sort) { vm.setAppSettings { it.copy(proxiesSort = sort) } }
     }
     val locateLabel = stringResource(R.string.locate_node)
-    val actions = listOf(
+    val actions = listOfNotNull(
         PageAction(LineIcons.Search, stringResource(R.string.search), enabled = shown) { searching = true },
-        PageAction(
+        (if (twoLevel) PageAction(
             LineIcons.Bolt,
             stringResource(R.string.test_delay),
-            enabled = shown,
+            enabled = shown && running,
             busy = if (twoLevel && selected != null) AppViewModel.busyDelay(selected.name) in busy else groups.any { AppViewModel.busyDelay(it.name) in busy },
         ) {
-            if (twoLevel && selected != null) vm.testDelay(selected.name) else groups.forEach { vm.testDelay(it.name) }
-        },
+            if (selected != null) vm.testDelay(selected.name)
+        } else null),
         PageAction(LineIcons.More, stringResource(R.string.more), enabled = shown, anchor = anchor) {
             val main = groups.firstOrNull()
             val locate = SheetAction(locateLabel) {
@@ -194,7 +200,8 @@ fun ProxiesScreen(vm: AppViewModel, opened: String?, onOpen: (String?) -> Unit) 
                                     enabled = group.selectable,
                                     delay = nested[node.name]?.delay(nested) ?: node.delay,
                                     testing = testing || AppViewModel.busyNodeDelay(node.name) in busy,
-                                    onTest = { vm.testNodeDelay(node.name) },
+                                    onTest = { if (running) vm.testNodeDelay(node.name) },
+                                    canTest = running,
                                     modifier = Modifier.weight(1f),
                                 ) {
                                     if (group.selectable) vm.selectNode(group.name, node.name)
@@ -330,47 +337,47 @@ private fun proxyViewMenu(vm: AppViewModel, anchor: Anchor): List<SheetAction> {
 @Composable
 private fun GroupHeader(
     group: ProxyGroup,
-    delay: UInt?,
     expanded: Boolean,
     testing: Boolean,
     iconStyle: GroupIconStyle,
+    canTest: Boolean,
     onTest: () -> Unit,
     onToggle: () -> Unit,
+    onLocate: (() -> Unit)?,
 ) {
-    val icon = rememberGroupIcon(group.icon.takeIf { iconStyle != GroupIconStyle.HIDDEN })
-    AppCard(filled = true, onClick = onToggle) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            icon?.let { Image(it, contentDescription = group.name, modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp))) }
-            Column(Modifier.weight(1f)) {
-                if (icon == null || iconStyle != GroupIconStyle.ICON_ONLY) {
-                    Text(group.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        GroupAvatar(group, iconStyle)
+        Column(Modifier.weight(1f)) {
+            Text(group.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(group.now ?: "—", style = MaterialTheme.typography.titleSmall, color = palette.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (expanded) {
+            Row(Modifier.clip(RoundedCornerShape(50)).background(palette.block)) {
+                androidx.compose.material3.IconButton(onClick = { onLocate?.invoke() }, enabled = onLocate != null, modifier = Modifier.size(32.dp)) {
+                    Icon(LineIcons.Target, stringResource(R.string.locate_node), Modifier.size(19.dp), tint = palette.ink2)
                 }
-                group.now?.let {
-                    Text(it, style = MaterialTheme.typography.bodyMedium, color = palette.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                androidx.compose.material3.IconButton(onClick = onTest, enabled = canTest && !testing, modifier = Modifier.size(32.dp)) {
+                    if (testing) SmallProgress(14.dp)
+                    else Icon(LineIcons.Bolt, stringResource(R.string.test_delay), Modifier.size(19.dp), tint = palette.ink2)
                 }
             }
-            DelayText(delay)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                AppIconButton(LineIcons.Bolt, stringResource(R.string.test_delay), busy = testing, onClick = onTest)
-                AppIconButton(
-                    if (expanded) LineIcons.ChevronUp else LineIcons.ChevronDown,
-                    stringResource(if (expanded) R.string.collapse else R.string.expand),
-                    onClick = onToggle,
-                )
-            }
+        } else Text(group.kind, style = MaterialTheme.typography.labelLarge, color = palette.ink2)
+        androidx.compose.material3.IconButton(onClick = onToggle, modifier = Modifier.size(32.dp).background(palette.block, RoundedCornerShape(50))) {
+            Icon(if (expanded) LineIcons.ChevronUp else LineIcons.ChevronDown,
+                stringResource(if (expanded) R.string.collapse else R.string.expand), Modifier.size(18.dp), tint = palette.ink2)
         }
     }
 }
 
 /** The delay of a node: a bolt until it has been tested; tapping either tests it again. */
 @Composable
-private fun NodeDelay(delay: UInt?, waiting: Boolean, onTest: () -> Unit) {
+private fun NodeDelay(delay: UInt?, waiting: Boolean, onTest: () -> Unit, canTest: Boolean = true) {
     Box(
-        Modifier.clip(RoundedCornerShape(6.dp)).clickable(enabled = !waiting, onClick = onTest).height(16.dp),
+        Modifier.clip(RoundedCornerShape(6.dp)).clickable(enabled = canTest && !waiting, onClick = onTest).height(16.dp),
         contentAlignment = Alignment.Center,
     ) {
         when {
@@ -411,6 +418,9 @@ private fun ExpandableGroups(
     padding: PaddingValues,
 ) {
     val settings by vm.appSettings.collectAsStateWithLifecycle()
+    val status by vm.engine.status.collectAsStateWithLifecycle()
+    val canTest = status.engine == io.github.yuuukicreation.po0clash.core.EngineState.Running
+    val scope = rememberCoroutineScope()
     val busy by vm.busy.collectAsStateWithLifecycle()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val columns = ((maxWidth - 32.dp) / settings.proxiesDensity.tileWidth()).toInt().coerceAtLeast(2)
@@ -424,13 +434,19 @@ private fun ExpandableGroups(
         }
         LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = padding) {
             if (groups.isEmpty()) item { ValueRow(stringResource(R.string.no_match), "") }
+            var cursor = 0
             groups.forEachIndexed { index, group ->
-                if (index > 0) item(key = "gap:${group.name}") { Spacer(Modifier.height(16.dp)) }
+                if (index > 0) {
+                    item(key = "gap:${group.name}") { Spacer(Modifier.height(8.dp)) }
+                    cursor++
+                }
+                val groupStart = cursor
+                val shownNodes = group.shownNodes(query).sortedBy(settings.proxiesSort)
+                val selected = shownNodes.indexOfFirst { it.name == group.now }
                 expandableGroup(
                     group,
-                    group.shownNodes(query).sortedBy(settings.proxiesSort),
+                    shownNodes,
                     isOpen(group),
-                    delay = group.delay(nested),
                     testing = { AppViewModel.busyDelay(group.name) in busy },
                     columns = columns,
                     style = settings.proxyTileStyle,
@@ -441,7 +457,10 @@ private fun ExpandableGroups(
                     nodeDelay = { node -> nested[node.name]?.delay(nested) ?: node.delay },
                     nodeTesting = { AppViewModel.busyNodeDelay(it) in busy },
                     onTestNode = vm::testNodeDelay,
+                    canTest = canTest,
+                    onLocate = if (selected < 0) null else { { scope.launch { list.animateScrollToItem(groupStart + 1 + selected / columns) }; Unit } },
                 )
+                cursor += 1 + if (isOpen(group)) (shownNodes.size + columns - 1) / columns else 0
             }
         }
     }
@@ -451,7 +470,6 @@ private fun LazyListScope.expandableGroup(
     group: ProxyGroup,
     nodes: List<Node>,
     expanded: Boolean,
-    delay: UInt?,
     testing: () -> Boolean,
     columns: Int,
     style: ProxyTileStyle,
@@ -462,15 +480,20 @@ private fun LazyListScope.expandableGroup(
     nodeDelay: (Node) -> UInt?,
     nodeTesting: (String) -> Boolean,
     onTestNode: (String) -> Unit,
+    canTest: Boolean,
+    onLocate: (() -> Unit)?,
 ) {
     val rows = if (expanded) nodes.chunked(columns) else emptyList()
     item(key = "group:${group.name}") {
-        Box(itemMotion()) {
-            GroupHeader(group, delay, expanded, testing(), iconStyle, onTest, onToggle)
+        val bottom = if (rows.isEmpty()) 28.dp else 0.dp
+        Box(itemMotion().fillMaxWidth().background(palette.card, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = bottom, bottomEnd = bottom))) {
+            GroupHeader(group, expanded, testing(), iconStyle, canTest, onTest, onToggle, onLocate)
         }
     }
-    itemsIndexed(rows, key = { index, _ -> "row:${group.name}:$index" }) { _, row ->
-        Row(itemMotion().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    itemsIndexed(rows, key = { index, _ -> "row:${group.name}:$index" }) { index, row ->
+        val bottom = if (index == rows.lastIndex) 28.dp else 0.dp
+        Row(itemMotion().fillMaxWidth().background(palette.card, RoundedCornerShape(bottomStart = bottom, bottomEnd = bottom))
+            .padding(start = 10.dp, end = 10.dp, bottom = if (index == rows.lastIndex) 10.dp else 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             row.forEach { node ->
                 ProxyCard(
                     node,
@@ -480,6 +503,7 @@ private fun LazyListScope.expandableGroup(
                     delay = nodeDelay(node),
                     testing = testing() || nodeTesting(node.name),
                     onTest = { onTestNode(node.name) },
+                    canTest = canTest,
                     modifier = Modifier.weight(1f),
                 ) { onSelect(node.name) }
             }
@@ -488,7 +512,6 @@ private fun LazyListScope.expandableGroup(
     }
 }
 
-/** The proxy card of FlClash: the name over its type and delay, in the selection colors when it is the choice of the group. */
 @Composable
 private fun ProxyCard(
     node: Node,
@@ -498,6 +521,7 @@ private fun ProxyCard(
     delay: UInt?,
     testing: Boolean,
     onTest: () -> Unit,
+    canTest: Boolean = true,
     modifier: Modifier,
     onClick: () -> Unit,
 ) {
@@ -507,31 +531,37 @@ private fun ProxyCard(
         Text(
             node.kind,
             style = MaterialTheme.typography.bodySmall,
-            color = (if (selected) colors.onSel else colors.ink2).copy(alpha = 0.8f),
+            color = colors.ink2,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = kindModifier,
         )
     }
-    AppCard(modifier, selected = selected, enabled = enabled, onClick = onClick) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+    AppCard(modifier, filled = true, enabled = enabled, onClick = onClick, corner = 20.dp) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
             Text(
                 node.name,
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (selected) colors.onSel else colors.ink,
+                color = colors.ink,
                 minLines = nameLines,
                 maxLines = nameLines,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
+            if (selected) Box(Modifier.size(22.dp).clip(RoundedCornerShape(50)).background(colors.accent), contentAlignment = Alignment.Center) {
+                Icon(LineIcons.Check, null, Modifier.size(15.dp), tint = colors.onAccent)
+            }
+            }
             Spacer(Modifier.height(8.dp))
             if (style == ProxyTileStyle.DETAILED) {
                 kind(Modifier)
                 Spacer(Modifier.height(6.dp))
-                NodeDelay(delay, testing, onTest)
+                NodeDelay(delay, testing, onTest, canTest)
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     kind(Modifier.weight(1f))
-                    NodeDelay(delay, testing, onTest)
+                    NodeDelay(delay, testing, onTest, canTest)
                 }
             }
         }

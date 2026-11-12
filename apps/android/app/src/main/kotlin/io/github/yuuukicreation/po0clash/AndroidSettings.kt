@@ -5,6 +5,8 @@ import androidx.annotation.StringRes
 import io.github.yuuukicreation.po0clash.core.AccessControl
 import io.github.yuuukicreation.po0clash.core.AccessControlMode
 import io.github.yuuukicreation.po0clash.core.Po0Core
+import io.github.yuuukicreation.po0clash.core.ProxiesLayout
+import io.github.yuuukicreation.po0clash.core.ProxyTileStyle
 
 /** FlClash's per-app proxy as one choice: off, or which of the core's two lists applies. */
 enum class AccessMode(@param:StringRes val label: Int) {
@@ -36,17 +38,21 @@ fun AccessControl.withSelected(packages: Collection<String>): AccessControl =
 fun migrateAndroidSettings(context: Context, core: Po0Core) {
     val prefs = context.getSharedPreferences("android_settings", Context.MODE_PRIVATE)
     val keys = listOf("allow_bypass", "system_proxy", "ipv6")
-    if (keys.none(prefs::contains)) return
-    val settings = core.appSettings()
-    val old = settings.androidVpn
-    core.setAppSettings(
-        settings.copy(androidVpn = old.copy(
-            allowBypass = prefs.getBoolean(keys[0], old.allowBypass),
-            systemProxy = prefs.getBoolean(keys[1], old.systemProxy),
-            ipv6 = prefs.getBoolean(keys[2], old.ipv6),
-        )),
-    )
-    val edit = prefs.edit()
-    keys.forEach { edit.remove(it) }
-    check(edit.commit())
+    val old = core.appSettings()
+    var settings = old
+    if (keys.any(prefs::contains)) {
+        settings = settings.copy(androidVpn = old.androidVpn.copy(
+            allowBypass = prefs.getBoolean(keys[0], old.androidVpn.allowBypass),
+            systemProxy = prefs.getBoolean(keys[1], old.androidVpn.systemProxy),
+            ipv6 = prefs.getBoolean(keys[2], old.androidVpn.ipv6),
+        ))
+    }
+    val currentUi = prefs.getBoolean("flclash_093_ui", false)
+    if (!currentUi) settings = settings.copy(proxiesLayout = ProxiesLayout.LIST, proxyTileStyle = ProxyTileStyle.COMPACT)
+    if (settings != old) core.setAppSettings(settings)
+    if (!currentUi || keys.any(prefs::contains)) {
+        val edit = prefs.edit().putBoolean("flclash_093_ui", true)
+        keys.forEach { edit.remove(it) }
+        check(edit.commit())
+    }
 }

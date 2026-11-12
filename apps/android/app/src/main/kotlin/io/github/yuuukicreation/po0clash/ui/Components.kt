@@ -26,14 +26,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,16 +69,17 @@ fun AppCard(
     filled: Boolean = false,
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
+    corner: Dp? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = palette
     val dashboard = LocalDashboardStyle.current
-    val shape = if (dashboard) RoundedCornerShape(34.dp) else cardShape
+    val shape = if (dashboard) RoundedCornerShape(34.dp) else corner?.let { RoundedCornerShape(it) } ?: cardShape
     val fill by animateColorAsState(
         when {
             selected -> colors.sel
-            filled -> MaterialTheme.colorScheme.surfaceContainerHigh
-            else -> if (dashboard) MaterialTheme.colorScheme.surfaceContainerLowest else colors.card
+            filled -> colors.block
+            else -> colors.card
         },
         tween(150),
         label = "card",
@@ -92,10 +93,10 @@ fun AppCard(
         tween(150),
         label = "cardEdge",
     )
-    Surface(modifier, shape = shape, color = fill, shadowElevation = if (dashboard) 2.dp else 0.dp) {
+    Surface(modifier, shape = shape, color = fill, shadowElevation = if (dashboard) 4.dp else 0.dp) {
         Column(
             (if (dashboard) Modifier.fillMaxSize() else Modifier)
-                .then(if (!dashboard) Modifier.border(1.dp, edge, shape) else Modifier)
+                .then(if (selected) Modifier.border(1.dp, edge, shape) else Modifier)
                 .then(if (onClick != null) Modifier.clickable(enabled = enabled, onClick = onClick) else Modifier),
             content = content,
         )
@@ -106,15 +107,15 @@ fun AppCard(
 fun CardHeader(title: String, icon: ImageVector, note: String? = null) {
     val colors = palette
     Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = if (LocalDashboardStyle.current) 18.dp else 16.dp),
+        Modifier.fillMaxWidth().padding(start = if (LocalDashboardStyle.current) 20.dp else 16.dp, end = 20.dp, top = if (LocalDashboardStyle.current) 18.dp else 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Icon(icon, contentDescription = null, tint = colors.ink2, modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = null, tint = colors.ink2, modifier = Modifier.size(18.dp))
         Text(
             title,
             style = if (LocalDashboardStyle.current) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleSmall,
-            color = colors.ink2,
+            color = if (LocalDashboardStyle.current) colors.ink else colors.ink2,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),

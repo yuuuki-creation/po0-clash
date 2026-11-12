@@ -1,6 +1,9 @@
 // Follows Clash Verge Rev (GPL-3.0): src/pages/profiles.tsx and src/components/profile/profile-viewer.tsx.
 import { ClearRounded, RefreshRounded, TextSnippetOutlined } from '@mui/icons-material';
 import { Box, Button, IconButton, Menu, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { AddedRulesDialog } from './settings/EngineDialogs';
+import { ScriptsDialog } from './settings/ResourceDialogs';
+import { loadOptions } from '../state/settings';
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useSnapshot } from 'valtio';
 import { BaseDialog, BaseEmpty, BasePage, Switch } from '../base';
@@ -110,6 +113,9 @@ type DialogState =
   | { kind: 'preview'; title: string; config: string };
 
 export default function Profiles() {
+  const [globalDialog, setGlobalDialog] = useState<'rules' | 'scripts' | null>(null);
+  useEffect(() => { loadOptions().catch(notify); }, []);
+
   const { profiles, busy } = useSnapshot(app);
   const [url, setUrl] = useState('');
   const [dialog, setDialog] = useState<DialogState | null>(null);
@@ -298,7 +304,17 @@ export default function Profiles() {
             ))}
           </Box>
         )}
+        <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: 'divider', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
+          <Button variant="text" color="inherit" onClick={() => setGlobalDialog('rules')} sx={{ bgcolor: 'surface.card', minHeight: 80, justifyContent: 'space-between', px: 2, borderRadius: 2, textTransform: 'none', fontSize: 20 }}>
+            {t('settings.globalRules')}
+          </Button>
+          <Button variant="text" color="inherit" onClick={() => setGlobalDialog('scripts')} sx={{ bgcolor: 'surface.card', minHeight: 80, justifyContent: 'space-between', px: 2, borderRadius: 2, textTransform: 'none', fontSize: 20 }}>
+            {t('script.library')}
+          </Button>
+        </Box>
       </Box>
+      {globalDialog === 'rules' && <AddedRulesDialog onClose={() => setGlobalDialog(null)} />}
+      {globalDialog === 'scripts' && <ScriptsDialog onClose={() => setGlobalDialog(null)} />}
 
       <Menu open={!!newAnchor} anchorEl={newAnchor} onClose={() => setNewAnchor(null)} slotProps={{ list: { sx: { py: 0.5 } } }}>
         <MenuItem

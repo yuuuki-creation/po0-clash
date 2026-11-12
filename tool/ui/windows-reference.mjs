@@ -42,6 +42,7 @@ async function attach(port) {
 const call = (page, cmd, args = {}) => page.evaluate(({ cmd, args }) => window.__TAURI_INTERNALS__.invoke(cmd, args), { cmd, args });
 
 async function capture(page, app) {
+  await page.setViewportSize({ width: 1180, height: 800 });
   await page.reload();
   await page.locator('.base-page').waitFor();
   await page.waitForTimeout(1500);
@@ -69,10 +70,12 @@ try {
 
   const po0 = await attach(9222);
   const settings = await call(po0.page, 'app_settings');
-  await call(po0.page, 'set_app_settings', { settings: { ...settings, language: 'en', themeMode: 'light', autoCheckUpdate: false } });
+  await call(po0.page, 'set_app_settings', { settings: { ...settings, language: 'en', themeMode: 'light', autoCheckUpdate: false, captureLogs: true } });
   await call(po0.page, 'add_subscription', { url: 'http://127.0.0.1:18615/config.yaml' });
   const ours = await call(po0.page, 'profiles');
   if (!ours.some((item) => item.selected)) await call(po0.page, 'select_profile', { id: ours[0].id });
+  const options = await call(po0.page, 'engine_options');
+  await call(po0.page, 'set_engine_options', { options: { ...options, logLevel: 'info' } });
   await call(po0.page, 'set_mode', { mode: 'rule' });
   await call(po0.page, 'start');
   try { await capture(po0.page, 'po0'); } finally { await call(po0.page, 'stop'); }

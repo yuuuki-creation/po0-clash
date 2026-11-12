@@ -15,7 +15,7 @@ for (const os of ['windows', 'macos']) {
         await page.setViewportSize({ width, height: 800 });
         for (const name of pages) {
           await page.locator('.the-menu').getByText(name, { exact: true }).click();
-          await expect(page.locator('.base-page > header')).toContainText(name);
+          await expect(page.locator('.base-page > header')).toContainText(name === 'Proxies' ? 'Proxy Groups' : name);
           await expect(page.locator('.base-page')).toBeVisible();
           if (name === 'Home') {
             const overflow = await page.locator('.base-content').evaluate((el) => el.scrollWidth - el.clientWidth);
@@ -51,6 +51,8 @@ test('home card visibility is saved and restored without losing other card choic
 test('proxy search, selection and node tests work after resizing', async ({ page }) => {
   await page.goto('/');
   await page.locator('.the-menu').getByText('Proxies', { exact: true }).click();
+  await page.getByRole('button', { name: 'View', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Search', exact: true }).click();
   const search = page.getByRole('textbox', { name: 'Search groups and nodes' });
   await search.fill('Tokyo 01');
   const node = page.locator('[aria-pressed]').filter({ hasText: 'Tokyo 01' }).first();
@@ -61,7 +63,8 @@ test('proxy search, selection and node tests work after resizing', async ({ page
   await expect(node.locator('.MuiCircularProgress-root')).toHaveCount(0);
   await page.setViewportSize({ width: 900, height: 650 });
   await search.clear();
-  await page.locator('.base-page > header').getByRole('button', { name: 'Locate the current node', exact: true }).click();
+  await page.getByRole('button', { name: 'View', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Locate the current node', exact: true }).click();
   await expect(page.locator('[aria-pressed="true"]').first()).toBeVisible();
 });
 
@@ -80,7 +83,7 @@ test('large text and reduced motion keep navigation and controls usable', async 
   await page.goto('/');
   for (const name of ['Home', 'Proxies', 'Profiles', 'Whitelist', 'Settings']) {
     await page.locator('.the-menu').getByText(name, { exact: true }).click();
-    await expect(page.locator('.base-page > header')).toContainText(name);
+    await expect(page.locator('.base-page > header')).toContainText(name === 'Proxies' ? 'Proxy Groups' : name);
     const header = page.locator('.base-page > header');
     expect(await header.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(2);
   }

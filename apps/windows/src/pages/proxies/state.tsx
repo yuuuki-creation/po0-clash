@@ -2,6 +2,7 @@ import { proxy } from 'valtio';
 
 export const view = proxy({
   query: '',
+  globalSearch: false,
   open: {} as Record<string, boolean>,
   filter: {} as Record<string, string>,
   filtering: {} as Record<string, boolean>,

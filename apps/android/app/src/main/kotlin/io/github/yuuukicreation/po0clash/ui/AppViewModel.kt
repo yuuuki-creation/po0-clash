@@ -8,12 +8,13 @@ import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.yuuukicreation.po0clash.R
-import io.github.yuuukicreation.po0clash.core.AppSettings
 import io.github.yuuukicreation.po0clash.core.AndroidVpnOptions
+import io.github.yuuukicreation.po0clash.core.AppSettings
 import io.github.yuuukicreation.po0clash.core.Change
 import io.github.yuuukicreation.po0clash.core.EngineOptions
 import io.github.yuuukicreation.po0clash.core.Mode
 import io.github.yuuukicreation.po0clash.core.ProfileEdit
+import io.github.yuuukicreation.po0clash.core.ProfileKind
 import io.github.yuuukicreation.po0clash.core.ProfileOverride
 import io.github.yuuukicreation.po0clash.core.ProviderKind
 import io.github.yuuukicreation.po0clash.core.Release
@@ -23,17 +24,23 @@ import io.github.yuuukicreation.po0clash.core.ShareNode
 import io.github.yuuukicreation.po0clash.engine
 import io.github.yuuukicreation.po0clash.userMessage
 import io.github.yuuukicreation.po0clash.vpn.Po0VpnService
+import java.io.File
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 
 class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     val engine = checkNotNull(app.engine)
@@ -46,6 +53,19 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     private val _options = MutableStateFlow(core.engineOptions())
     val options = _options.asStateFlow()
     val appSettings = engine.appSettings
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val profilePreview = engine.profiles.map { profiles -> profiles.firstOrNull { it.selected } }.distinctUntilChanged()
+        .mapLatest { profile ->
+            profile?.let {
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        val text = if (it.kind == ProfileKind.LINKS) core.previewConfig(it.id) else core.profileContent(it.id)
+                        parseProfilePreview(it.id, text)
+                    }.getOrNull()
+                }
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     private val optionWriter = Dispatchers.IO.limitedParallelism(1)
     private val overrideWriter = Dispatchers.IO.limitedParallelism(1)
     private val delayTester = Dispatchers.IO.limitedParallelism(4)

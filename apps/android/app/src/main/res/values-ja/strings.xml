@@ -346,4 +346,19 @@
     <string name="update_all">すべて更新</string>
     <string name="whitelist_checking">確認中</string>
     <string name="no_match">一致なし</string>
+    <string name="status_title">状態</string>
+    <string name="run_time">稼働時間</string>
+    <string name="ip_organization">組織</string>
+    <string name="ip_residential">住宅回線</string>
+    <string name="ip_mobile">モバイル回線</string>
+    <string name="ip_business">企業回線</string>
+    <string name="ip_hosting">データセンター</string>
+    <string name="status_running">実行中</string>
+    <string name="status_stopped">停止中</string>
+    <string name="traffic_sum">合計 %1$s</string>
+    <string name="proxy_group_title">プロキシグループ</string>
+    <string name="profile_title">プロファイル</string>
+    <string name="profile_remote">リモート</string>
+    <string name="hide_card">カードを非表示</string>
+    <string name="advanced_config">詳細設定</string>
 </resources>

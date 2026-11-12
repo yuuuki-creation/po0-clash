@@ -214,6 +214,24 @@ export async function toggleEngine() {
 export const setMode = (mode: string) => act('mode', 'set_mode', { mode });
 export const setRouteMode = (routeMode: string) => act('route', 'set_route_mode', { routeMode });
 
+export async function toggleRoute(routeMode: string, enabled: boolean) {
+  if (app.busy.route || app.busy.engine) return;
+  app.busy.route = true;
+  try {
+    if (!enabled) {
+      if (isRunning(app.status) && app.status.routeMode === routeMode) await toggleEngine();
+      return;
+    }
+    await invoke('set_route_mode', { routeMode });
+    await refreshStatus();
+    if (app.status?.routeMode === routeMode && !isRunning(app.status)) await toggleEngine();
+  } catch (error) {
+    notify(error);
+  } finally {
+    delete app.busy.route;
+  }
+}
+
 export async function init() {
   await listen('core-change', ({ payload }) => {
     if (payload === 'status') return refreshStatus();

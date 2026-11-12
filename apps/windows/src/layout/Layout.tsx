@@ -4,16 +4,16 @@ import {
   ArrowUpwardRounded,
   Close,
   CropSquare,
-  DnsRounded,
+  DnsOutlined,
   FilterNone,
   ForkRightRounded,
-  HomeRounded,
+  HomeOutlined,
   LanguageRounded,
   MemoryRounded,
   Minimize,
-  SettingsRounded,
-  SubjectRounded,
-  VerifiedUserRounded,
+  SettingsOutlined,
+  SubjectOutlined,
+  VerifiedUserOutlined,
   WifiRounded,
 } from '@mui/icons-material';
 import {
@@ -43,14 +43,14 @@ import { settings, updateSettings } from '../state/settings';
 import { update } from '../state/update';
 
 export const navItems: { id: PageId; icon: ReactNode }[] = [
-  { id: 'home', icon: <HomeRounded /> },
+  { id: 'home', icon: <HomeOutlined /> },
   { id: 'proxies', icon: <WifiRounded /> },
-  { id: 'profiles', icon: <DnsRounded /> },
-  { id: 'whitelist', icon: <VerifiedUserRounded /> },
+  { id: 'profiles', icon: <DnsOutlined /> },
+  { id: 'whitelist', icon: <VerifiedUserOutlined /> },
   { id: 'connections', icon: <LanguageRounded /> },
   { id: 'rules', icon: <ForkRightRounded /> },
-  { id: 'logs', icon: <SubjectRounded /> },
-  { id: 'settings', icon: <SettingsRounded /> },
+  { id: 'logs', icon: <SubjectOutlined /> },
+  { id: 'settings', icon: <SettingsOutlined /> },
 ];
 
 function Logo() {

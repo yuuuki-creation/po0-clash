@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -48,11 +50,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -61,9 +66,13 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -77,33 +86,29 @@ import io.github.yuuukicreation.po0clash.core.IntranetIp
 import io.github.yuuukicreation.po0clash.core.Mode
 import io.github.yuuukicreation.po0clash.core.Traffic
 import io.github.yuuukicreation.po0clash.core.WhitelistOutcome
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
 
 private val designOrder = listOf(
-    DashboardCard.CURRENT_NODE,
     DashboardCard.SPEED,
     DashboardCard.MODE,
-    DashboardCard.TAKEOVER,
-    DashboardCard.WHITELIST,
     DashboardCard.SUBSCRIPTION,
-    DashboardCard.CONNECTIONS,
-    DashboardCard.INTRANET_IP,
-    DashboardCard.MEMORY,
-    DashboardCard.TRAFFIC,
+    DashboardCard.CURRENT_NODE,
+    DashboardCard.WHITELIST,
 )
 
 fun shownCards(saved: List<DashboardCard>): List<DashboardCard> =
-    (listOf(DashboardCard.CURRENT_NODE) + if (saved == DashboardCard.entries) designOrder else saved).distinct()
+    (if (saved == DashboardCard.entries) designOrder else saved).distinct()
 
 private class Snapshot(val history: List<Traffic>, val memory: ULong, val connections: Connections)
 
-private val cardGap = 16.dp
+private val cardGap = 8.dp
 
 @Composable
-fun DashboardScreen(vm: AppViewModel, onConnect: () -> Unit, onOpen: (Page) -> Unit, onOpenGroup: (String?) -> Unit) {
+fun DashboardScreen(vm: AppViewModel, onConnect: () -> Unit, editing: Boolean, onEditing: (Boolean) -> Unit, onOpen: (Page) -> Unit, onOpenGroup: (String?) -> Unit) {
     val engine = vm.engine
     val status by engine.status.collectAsStateWithLifecycle()
     val groups by engine.groups.collectAsStateWithLifecycle()
@@ -118,38 +123,57 @@ fun DashboardScreen(vm: AppViewModel, onConnect: () -> Unit, onOpen: (Page) -> U
     }.collectAsStateWithLifecycle(null)
     val group = currentGroup(groups, status.currentNode)
     val actions = listOf(
-        PageAction(
-            LineIcons.Bolt,
-            stringResource(R.string.test_delay),
-            enabled = running && group != null,
-            busy = group != null && AppViewModel.busyDelay(group.name) in busy,
-        ) { group?.let { vm.testDelay(it.name) } },
-        PageAction(LineIcons.Grid, stringResource(R.string.edit_dashboard)) { sheets.show { DashboardEditor(vm) } },
+        PageAction(if (editing) LineIcons.Check else LineIcons.Edit, stringResource(if (editing) R.string.done else R.string.edit_dashboard)) { onEditing(!editing) },
     )
     val failure = ((status.engine as? EngineState.Failed)?.message ?: vpnError).takeIf { !active }
     val cards = shownCards(settings.dashboardCards)
     val scroll = rememberScrollState()
-    PageScaffold(stringResource(R.string.dashboard), scroll.canScrollBackward, actions = actions) { padding ->
+    PageScaffold(stringResource(if (editing) R.string.edit_dashboard else R.string.dashboard), scroll.canScrollBackward, actions = actions) { padding ->
         BoxWithConstraints(Modifier.fillMaxSize().verticalScroll(scroll).padding(padding)) {
-            val columns = if (maxWidth >= 840.dp) 2 else 1
+            val columns = if (!editing && maxWidth >= 840.dp) 2 else 1
             val side = maxOf(0.dp, (maxWidth - if (columns == 1) 560.dp else 1160.dp) / 2)
             Column(Modifier.padding(horizontal = side), verticalArrangement = Arrangement.spacedBy(cardGap)) {
                 if (failure != null) FailureCard(failure)
                 androidx.compose.runtime.CompositionLocalProvider(LocalDashboardStyle provides true) {
+                    Box(Modifier.fillMaxWidth().height(188.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)), propagateMinConstraints = true) {
+                        CurrentOutboundCard(vm, onConnect)
+                    }
                     cards.chunked(columns).forEach { row ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(cardGap)) {
                             row.forEach { card ->
                                 key(card) {
                                     val height = when (card) {
-                                        DashboardCard.CURRENT_NODE -> 220.dp
-                                        DashboardCard.SPEED -> 230.dp
-                                        DashboardCard.MODE -> 144.dp
-                                        DashboardCard.TRAFFIC -> 200.dp
-                                        else -> 148.dp
+                                        DashboardCard.CURRENT_NODE -> maxOf(132.dp, 60.dp + 52.dp * groups.size.coerceAtMost(4))
+                                        DashboardCard.SPEED -> 188.dp
+                                        DashboardCard.MODE -> 126.dp
+                                        DashboardCard.SUBSCRIPTION -> if (engine.profiles.value.any { it.selected }) 168.dp else 96.dp
+                                        DashboardCard.TRAFFIC -> 176.dp
+                                        else -> 128.dp
                                     } * LocalDensity.current.fontScale.coerceAtLeast(1f)
-                                    Box(Modifier.weight(1f).height(height), propagateMinConstraints = true) {
-                                        DashboardCardContent(card, vm, snapshot, onConnect, onOpen) {
-                                            onOpenGroup((group ?: groups.firstOrNull())?.name)
+                                    var drag by remember(card) { mutableFloatStateOf(0f) }
+                                    val title = stringResource(cardLabel(card))
+                                    val hideLabel = "${stringResource(R.string.hide_card)}: $title"
+                                    Box(Modifier.weight(1f).height(height).graphicsLayer { translationY = drag }
+                                        .then(if (editing) Modifier.pointerInput(cards, card) {
+                                            detectDragGesturesAfterLongPress(
+                                                onDrag = { change, amount -> change.consume(); drag += amount.y },
+                                                onDragCancel = { drag = 0f },
+                                                onDragEnd = {
+                                                    val from = cards.indexOf(card)
+                                                    val to = (from + (drag / (size.height + cardGap.toPx())).roundToInt()).coerceIn(cards.indices)
+                                                    drag = 0f
+                                                    if (from != to) vm.setAppSettings { settings ->
+                                                        settings.copy(dashboardCards = cards.toMutableList().apply { add(to, removeAt(from)) })
+                                                    }
+                                                },
+                                            )
+                                        } else Modifier), propagateMinConstraints = true) {
+                                        DashboardCardContent(card, vm, snapshot, onConnect, onOpen, onOpenGroup)
+                                        if (editing) androidx.compose.material3.IconButton(
+                                            onClick = { vm.setAppSettings { it.copy(dashboardCards = cards - card) } },
+                                            modifier = Modifier.align(Alignment.TopEnd).size(28.dp).semantics { contentDescription = hideLabel }.background(MaterialTheme.colorScheme.errorContainer, CircleShape),
+                                        ) {
+                                            Text("−", color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.titleMedium)
                                         }
                                     }
                                 }
@@ -157,6 +181,7 @@ fun DashboardScreen(vm: AppViewModel, onConnect: () -> Unit, onOpen: (Page) -> U
                             if (row.size < columns) Spacer(Modifier.weight(1f))
                         }
                     }
+                    if (editing) HiddenDashboardCards(vm, cards)
                 }
             }
         }
@@ -204,7 +229,7 @@ private fun SpeedChart(history: List<Traffic>, upload: Boolean, modifier: Modifi
     LaunchedEffect(progress) { progress.animateTo(1f, tween(1000, easing = LinearEasing)) }
     Canvas(modifier) {
         val stroke = 2.dp.toPx()
-        val bottom = size.height - stroke
+        val bottom = size.height + stroke
         if (history.size < 2) return@Canvas
         fun rate(traffic: Traffic) = if (upload) traffic.up else traffic.down
         val top = maxOf(history.maxOf { rate(it) }.toFloat() * 1.1f, 8192f)
@@ -286,10 +311,10 @@ private fun SwitchCardBody(text: String, checked: Boolean, enabled: Boolean, onC
 private fun ModeCard(vm: AppViewModel) {
     val status by vm.engine.status.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
-    val icons = listOf(LineIcons.Layers, Icons.Filled.Public, LineIcons.ArrowDown)
+    val icons = listOf(LineIcons.Rules, LineIcons.Globe, LineIcons.Target)
     AppCard {
-        CardHeader(stringResource(R.string.outbound_mode), LineIcons.Layers)
-        Row(Modifier.weight(1f).fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        CardHeader(stringResource(R.string.outbound_mode), LineIcons.Split)
+        Row(Modifier.weight(1f).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 18.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
             Mode.entries.forEachIndexed { index, mode ->
                 val selected = mode == status.mode
                 val shape = RoundedCornerShape(
@@ -298,7 +323,7 @@ private fun ModeCard(vm: AppViewModel) {
                     topEnd = if (index == Mode.entries.lastIndex) 26.dp else 12.dp,
                     bottomEnd = if (index == Mode.entries.lastIndex) 26.dp else 12.dp,
                 )
-                val fill by animateColorAsState(if (selected) palette.accent else palette.track, tween(200), label = "mode")
+                val fill by animateColorAsState(if (selected) palette.accent else palette.block, tween(200), label = "mode")
                 Column(
                     Modifier.weight(1f).fillMaxHeight().clip(shape).background(fill)
                         .clickable(enabled = AppViewModel.BUSY_MODE !in busy) { vm.setMode(mode) },
@@ -321,36 +346,38 @@ private fun DashboardCardContent(
     snapshot: Snapshot?,
     onConnect: () -> Unit,
     onOpen: (Page) -> Unit,
-    onOpenGroup: () -> Unit,
+    onOpenGroup: (String?) -> Unit,
 ) {
     val engine = vm.engine
     val colors = palette
     when (card) {
         DashboardCard.MODE -> ModeCard(vm)
         DashboardCard.SPEED -> AppCard {
-            CardHeader(stringResource(R.string.network_speed), Icons.Filled.Speed)
-            Row(Modifier.weight(1f).fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            CardHeader(stringResource(R.string.network_speed), LineIcons.Speed)
+            Row(Modifier.weight(1f).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 listOf(true, false).forEach { upload ->
                     val now = snapshot?.history?.lastOrNull()
                     val rate = if (upload) now?.up else now?.down
                     val total = if (upload) snapshot?.connections?.uploadTotal else snapshot?.connections?.downloadTotal
                     val (number, unit) = byteParts(rate ?: 0u, perSecond = true)
-                    Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(22.dp)).background(colors.track.copy(alpha = 0.5f))) {
+                    Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(22.dp)).background(colors.block)) {
                         SpeedChart(snapshot?.history.orEmpty(), upload, Modifier.fillMaxWidth().height(70.dp).align(Alignment.BottomCenter))
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Icon(if (upload) LineIcons.ArrowUp else LineIcons.ArrowDown, null, Modifier.size(16.dp), tint = colors.accent)
-                                Text(stringResource(if (upload) R.string.upload else R.string.download), style = MaterialTheme.typography.labelLarge)
+                                Icon(if (upload) LineIcons.ArrowUp else LineIcons.ArrowDown, null, Modifier.size(16.dp), tint = if (upload) colors.ink2 else colors.accent)
+                                Text(stringResource(if (upload) R.string.upload else R.string.download), style = MaterialTheme.typography.labelLarge, color = colors.ink2)
                             }
-                            Text(number, style = MaterialTheme.typography.headlineLarge.tabular(), maxLines = 1)
-                            Text(unit, style = MaterialTheme.typography.labelMedium, color = colors.ink2)
-                            Text(bytes(total ?: 0u), style = MaterialTheme.typography.labelSmall.tabular(), color = colors.ink2)
+                            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(number, style = MaterialTheme.typography.headlineMedium.tabular(), maxLines = 1)
+                                Text(unit, style = MaterialTheme.typography.labelLarge, color = colors.ink2, modifier = Modifier.padding(bottom = 3.dp))
+                            }
+                            Text(stringResource(R.string.traffic_sum, bytes(total ?: 0u)), style = MaterialTheme.typography.bodySmall.tabular(), color = colors.ink2)
                         }
                     }
                 }
             }
         }
-        DashboardCard.CURRENT_NODE -> CurrentOutboundCard(vm, onConnect, onOpenGroup)
+        DashboardCard.CURRENT_NODE -> ProxyGroupsCard(vm) { onOpenGroup(it) }
         DashboardCard.WHITELIST -> {
             val whitelist by engine.whitelist.collectAsStateWithLifecycle()
             val busy by vm.busy.collectAsStateWithLifecycle()
@@ -436,40 +463,46 @@ private fun DashboardCardContent(
 private fun SubscriptionCard(vm: AppViewModel, onClick: () -> Unit) {
     val colors = palette
     val profiles by vm.engine.profiles.collectAsStateWithLifecycle()
+    val preview by vm.profilePreview.collectAsStateWithLifecycle()
     val current = profiles.firstOrNull { it.selected }
-    val usage = current?.usage?.takeIf { it.total > 0u }
     val title = current?.let { profileName(it.kind, it.name) }
         ?: stringResource(if (profiles.isEmpty()) R.string.add_subscription else R.string.no_profile)
-    val note = usage?.expire?.takeIf { it > 0 }?.let { date(it) }
-        ?: current?.updatedAt?.let { stringResource(R.string.updated, relativeTime(it)) }
+    val info = preview?.takeIf { it.profileId == current?.id }
     AppCard(onClick = onClick) {
-        CardHeader(stringResource(R.string.subscription), Icons.Filled.Folder, note)
-        Row(
-            Modifier.weight(1f).fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = if (usage != null) 10.dp else 16.dp),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            CardValue(title, Modifier.weight(1f), color = if (profiles.isEmpty()) colors.accent else colors.ink)
-            if (usage != null) {
-                Text(
-                    "${bytes(usage.upload + usage.download)} / ${bytes(usage.total)}",
-                    style = MaterialTheme.typography.bodySmall.tabular(),
-                    color = colors.ink2,
-                    maxLines = 1,
-                )
+        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(LineIcons.FileText, null, Modifier.size(18.dp), tint = colors.ink2)
+            Text(stringResource(R.string.profile_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            if (current?.kind == io.github.yuuukicreation.po0clash.core.ProfileKind.SUBSCRIPTION) {
+                androidx.compose.material3.IconButton(onClick = { vm.updateProfile(current.id) }, modifier = Modifier.size(32.dp)) {
+                    Icon(LineIcons.Refresh, stringResource(R.string.update), Modifier.size(20.dp), tint = colors.ink2)
+                }
             }
+            Icon(LineIcons.ChevronLeft, null, Modifier.size(20.dp).rotate(180f), tint = colors.ink2)
         }
-        if (usage != null) {
-            val fraction = ((usage.upload + usage.download).toDouble() / usage.total.toDouble()).toFloat().coerceIn(0f, 1f)
-            Box(Modifier.fillMaxWidth().height(6.dp).background(colors.track)) {
-                Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().background(colors.accent))
+        Column(Modifier.weight(1f).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 18.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (current != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(current.updatedAt?.let { stringResource(R.string.updated, relativeTime(it)) } ?: "—", style = MaterialTheme.typography.bodySmall, color = colors.ink2)
+                    Text(stringResource(if (current.kind == io.github.yuuukicreation.po0clash.core.ProfileKind.SUBSCRIPTION) R.string.profile_remote else R.string.local_file), style = MaterialTheme.typography.bodySmall, color = colors.ink2)
+                }
+            }
+            if (current != null) Row(Modifier.fillMaxWidth()) {
+                val counts = listOf(info?.groups?.size to R.string.proxy_group_title, info?.proxyCount to R.string.proxies, info?.ruleCount to R.string.rules)
+                counts.forEachIndexed { index, (count, label) ->
+                    Column(Modifier.weight(if (index == 0) 2f else 1f)) {
+                        Text(count?.toString() ?: "—", style = MaterialTheme.typography.headlineSmall.copy(fontSize = 20.sp, lineHeight = 25.sp).tabular())
+                        Text(stringResource(label), style = MaterialTheme.typography.bodySmall, color = colors.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
         }
     }
 }
 
 private fun cardLabel(card: DashboardCard) = when (card) {
-    DashboardCard.CURRENT_NODE -> R.string.current_node
+    DashboardCard.CURRENT_NODE -> R.string.proxy_group_title
     DashboardCard.SPEED -> R.string.network_speed
     DashboardCard.MODE -> R.string.outbound_mode
     DashboardCard.TAKEOVER -> R.string.takeover
@@ -478,43 +511,18 @@ private fun cardLabel(card: DashboardCard) = when (card) {
     DashboardCard.CONNECTIONS -> R.string.connections
     DashboardCard.MEMORY -> R.string.memory
     DashboardCard.INTRANET_IP -> R.string.intranet_ip
-    DashboardCard.SUBSCRIPTION -> R.string.subscription
+    DashboardCard.SUBSCRIPTION -> R.string.profile_title
     DashboardCard.EXIT_IP -> R.string.exit_ip
 }
 
 @Composable
-private fun ColumnScope.DashboardEditor(vm: AppViewModel) {
-    val settings by vm.appSettings.collectAsStateWithLifecycle()
-    val sheets = LocalSheets.current
-    val shown = shownCards(settings.dashboardCards)
+private fun HiddenDashboardCards(vm: AppViewModel, shown: List<DashboardCard>) {
     val hidden = DashboardCard.entries - shown.toSet()
-    fun save(cards: List<DashboardCard>) = vm.setAppSettings { it.copy(dashboardCards = cards) }
-    SheetTitle(stringResource(R.string.edit_dashboard))
-    SheetBody {
-        shown.forEachIndexed { index, card ->
-            GroupRow(endPadding = 4.dp) {
-                Checkbox(true, { save(shown - card) }, enabled = card != DashboardCard.CURRENT_NODE, modifier = Modifier.size(24.dp))
-                Text(stringResource(cardLabel(card)), style = MaterialTheme.typography.bodyLarge, maxLines = 1, modifier = Modifier.weight(1f))
-                AppIconButton(LineIcons.ChevronUp, stringResource(R.string.move_up), enabled = index > 1) {
-                    save(shown.toMutableList().apply { add(index - 1, removeAt(index)) })
-                }
-                AppIconButton(LineIcons.ChevronDown, stringResource(R.string.move_down), enabled = index > 0 && index < shown.lastIndex) {
-                    save(shown.toMutableList().apply { add(index + 1, removeAt(index)) })
-                }
-            }
-        }
-        if (hidden.isNotEmpty()) {
-            SectionHeader(stringResource(R.string.hidden_cards))
-            hidden.forEach { card ->
-                GroupRow(onClick = { save(shown + card) }) {
-                    Checkbox(false, { save(shown + card) }, modifier = Modifier.size(24.dp))
-                    Text(stringResource(cardLabel(card)), style = MaterialTheme.typography.bodyLarge, maxLines = 1, modifier = Modifier.weight(1f))
-                }
-            }
+    if (hidden.isNotEmpty()) {
+        SectionHeader(stringResource(R.string.hidden_cards))
+        hidden.forEach { card ->
+            NavRow(stringResource(cardLabel(card)), icon = LineIcons.Plus) { vm.setAppSettings { it.copy(dashboardCards = shown + card) } }
         }
     }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End)) {
-        TextAction(stringResource(R.string.restore_default)) { save(DashboardCard.entries) }
-        TextAction(stringResource(R.string.done), accent = true, onClick = sheets::dismiss)
-    }
+    TextAction(stringResource(R.string.restore_default)) { vm.setAppSettings { it.copy(dashboardCards = DashboardCard.entries) } }
 }

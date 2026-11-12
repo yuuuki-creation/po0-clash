@@ -1,11 +1,13 @@
 // Card contents follow Clash Verge Rev (GPL-3.0): src/components/setting/setting-{system,clash,verge-basic,verge-advanced}.tsx.
-import { Button, ButtonGroup, Typography } from '@mui/material';
+import { Button, ButtonGroup, Box, IconButton, Typography } from '@mui/material';
+import { SettingsOutlined } from '@mui/icons-material';
+import { BaseDialog } from '../../base';
 import { type ComponentType, useEffect, useRef, useState } from 'react';
 import { useSnapshot } from 'valtio';
 import { Switch } from '../../base';
 import { invoke, os } from '../../ipc';
 import { t } from '../../lib/i18n.js';
-import { act, app, applyLanguage, isRunning, notify, setRouteMode } from '../../state/core';
+import { act, app, applyLanguage, isRunning, notify, toggleRoute } from '../../state/core';
 import { patchOptions, updateSettings } from '../../state/settings';
 import { checkUpdate, update } from '../../state/update';
 import { BackupDialog, DeveloperDialog, LicensesDialog, LoopbackDialog } from './AdvancedDialogs';
@@ -38,22 +40,20 @@ export function SystemCard() {
   return (
     <SettingList title={t('settings.system')}>
       {dialog}
-      <SettingItem label={t('home.route')}>
-        <Choice
-          width={140}
-          value={status?.routeMode ?? 'systemProxy'}
-          disabled={!status || !!busy.route}
-          options={['systemProxy', 'tun'].map((value) => ({ value, label: t(`route.${value}`) }))}
-          onChange={setRouteMode}
-        />
-      </SettingItem>
-      <SettingItem label={t('settings.tun')} disabled={!ready} onClick={show('tun')} />
-      <SettingItem label={t('settings.bypass')} disabled={!ready} onClick={show('bypass')} />
+      {(['tun', 'systemProxy'] as const).map((mode) => (
+        <SettingItem key={mode} label={t(`route.${mode}`)} extra={
+          <IconButton size="small" title={t(mode === 'tun' ? 'settings.tun' : 'settings.bypass')} disabled={!ready} onClick={show(mode === 'tun' ? 'tun' : 'bypass')}>
+            <SettingsOutlined sx={{ fontSize: 16 }} />
+          </IconButton>
+        }>
+          <Switch edge="end" checked={isRunning(status) && status.routeMode === mode} disabled={!status || !!busy.route || !!busy.engine}
+            slotProps={{ input: { 'aria-label': t(`route.${mode}`) } }} onChange={(_, enabled) => toggleRoute(mode, enabled)} />
+        </SettingItem>
+      ))}
       <SettingItem label={t('tools.autostart')}>
         <Switch edge="end" checked={autostart} disabled={!!busy.autostart} onChange={(_, on) => toggleAutostart(on)} />
       </SettingItem>
       <AppSwitchItem label={t('app.silentLaunch')} name="silentLaunch" />
-      <AppSwitchItem label={t('app.autoConnect')} name="autoConnect" />
     </SettingList>
   );
 }
@@ -80,11 +80,13 @@ export function ClashCard() {
     <SettingList title={t('settings.clash')}>
       {dialog}
       <OptionSwitchItem label={t('opt.allowLan')} name="allowLan" />
+      <SettingItem label={t('opt.overrideDns')} extra={
+        <IconButton size="small" title={t('settings.dns')} disabled={!o} onClick={show('dns')}><SettingsOutlined sx={{ fontSize: 16 }} /></IconButton>
+      }>
+        <Switch edge="end" checked={!!o?.overrideDns} disabled={!o} onChange={(_, overrideDns) => patchOptions({ overrideDns })} />
+      </SettingItem>
       <OptionSwitchItem label={t('opt.ipv6')} name="ipv6" />
       <OptionSwitchItem label={t('opt.unifiedDelay')} name="unifiedDelay" />
-      <OptionSwitchItem label={t('opt.tcpConcurrent')} name="tcpConcurrent" />
-      <OptionSwitchItem label={t('opt.externalController')} name="externalController" />
-      <AppSwitchItem label={t('app.closeOnSwitch')} name="closeConnectionsOnSwitch" />
       <SettingItem label={t('opt.logLevel')}>
         <Choice
           width={110}
@@ -92,15 +94,6 @@ export function ClashCard() {
           disabled={!o}
           options={logLevels.map((value) => ({ value, label: value }))}
           onChange={(logLevel) => patchOptions({ logLevel })}
-        />
-      </SettingItem>
-      <SettingItem label={t('opt.findProcess')}>
-        <Choice
-          width={110}
-          value={o?.findProcessMode ?? 'strict'}
-          disabled={!o}
-          options={['off', 'strict', 'always'].map((value) => ({ value, label: t(`find.${value}`) }))}
-          onChange={(findProcessMode) => patchOptions({ findProcessMode })}
         />
       </SettingItem>
       <SettingItem
@@ -114,7 +107,6 @@ export function ClashCard() {
         }
       />
       <SettingItem label={t('settings.misc')} disabled={!o} onClick={show('misc')} />
-      <SettingItem label={t('settings.dns')} disabled={!o} onClick={show('dns')} />
       <SettingItem label={t('opt.geo')} disabled={!o} onClick={show('geo')} />
       <SettingItem label={t('opt.addedRules')} disabled={!o} onClick={show('rules')} />
       <SettingItem label={t('script.library')} onClick={show('scripts')} />
@@ -131,9 +123,28 @@ const languages: [string, string][] = [
   ['ru', 'Русский'],
 ];
 
+function LayoutDialog({ onClose }: DialogProps) {
+  return <BaseDialog open title={t('settings.layout')} onClose={onClose} disableOk cancelBtn={t('common.close')}>
+    <Box sx={{ width: 340 }}><AppSwitchItem label={t('app.showNavLabels')} name="showNavLabels" /><AppSwitchItem label={t('app.pageAnimation')} name="pageAnimation" /></Box>
+  </BaseDialog>;
+}
+
+function ApplicationDialog({ onClose }: DialogProps) {
+  return <BaseDialog open title={t('settings.misc')} onClose={onClose} disableOk cancelBtn={t('common.close')}>
+    <Box sx={{ width: 360 }}>
+      <AppSwitchItem label={t('app.autoConnect')} name="autoConnect" />
+      <AppSwitchItem label={t(os === 'macos' ? 'settings.keepRunning' : 'app.minimizeOnClose')} name="minimizeOnClose" />
+      <AppSwitchItem label={t('app.captureLogs')} name="captureLogs" />
+      <AppSwitchItem label={t('app.closeOnSwitch')} name="closeConnectionsOnSwitch" />
+      {os === 'macos' && <AppSwitchItem label={t('settings.traySpeed')} name="traySpeed" />}
+      {os === 'macos' && <AppSwitchItem label={t('settings.onlyProxyTraffic')} name="onlyProxyTraffic" />}
+    </Box>
+  </BaseDialog>;
+}
+
 export function BasicCard() {
   const s = useAppSettings();
-  const [dialog, show] = useDialogs({ theme: ThemeDialog, hotkeys: HotkeysDialog });
+  const [dialog, show] = useDialogs({ theme: ThemeDialog, hotkeys: HotkeysDialog, layout: LayoutDialog, misc: ApplicationDialog });
 
   async function setLanguage(value: string) {
     const language = value === 'system' ? null : value;
@@ -163,12 +174,8 @@ export function BasicCard() {
         </ButtonGroup>
       </SettingItem>
       <SettingItem label={t('settings.theme')} disabled={!s} onClick={show('theme')} />
-      <AppSwitchItem label={t('app.showNavLabels')} name="showNavLabels" />
-      <AppSwitchItem label={t('app.pageAnimation')} name="pageAnimation" />
-      <AppSwitchItem label={t(os === 'macos' ? 'settings.keepRunning' : 'app.minimizeOnClose')} name="minimizeOnClose" />
-      {os === 'macos' && <AppSwitchItem label={t('settings.traySpeed')} name="traySpeed" />}
-      {os === 'macos' && <AppSwitchItem label={t('settings.onlyProxyTraffic')} name="onlyProxyTraffic" />}
-      <AppSwitchItem label={t('app.captureLogs')} name="captureLogs" />
+      <SettingItem label={t('settings.layout')} onClick={show('layout')} />
+      <SettingItem label={t('settings.misc')} onClick={show('misc')} />
       <SettingItem label={t('tools.hotkeys')} disabled={!s} onClick={show('hotkeys')} />
     </SettingList>
   );

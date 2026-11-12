@@ -361,4 +361,19 @@
     <string name="update_all">Update all</string>
     <string name="whitelist_checking">Checking</string>
     <string name="no_match">No matches</string>
+    <string name="status_title">Status</string>
+    <string name="run_time">Run time</string>
+    <string name="ip_organization">Organization</string>
+    <string name="ip_residential">Residential</string>
+    <string name="ip_mobile">Mobile</string>
+    <string name="ip_business">Business</string>
+    <string name="ip_hosting">Data center</string>
+    <string name="status_running">Running</string>
+    <string name="status_stopped">Not running</string>
+    <string name="traffic_sum">Total %1$s</string>
+    <string name="proxy_group_title">Proxy group</string>
+    <string name="profile_title">Profile</string>
+    <string name="profile_remote">Remote</string>
+    <string name="hide_card">Hide card</string>
+    <string name="advanced_config">Advanced configuration</string>
 </resources>

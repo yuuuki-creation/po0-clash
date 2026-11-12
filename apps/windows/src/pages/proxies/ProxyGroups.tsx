@@ -1,6 +1,6 @@
 // Follows Clash Verge Rev (GPL-3.0): src/components/proxy/{proxy-groups,proxy-render,use-render-list}.
 import { ExpandLessRounded, ExpandMoreRounded, InboxRounded } from '@mui/icons-material';
-import { alpha, Box, Chip, ListItemButton, styled, Typography } from '@mui/material';
+import { alpha, Box, Chip, ListItemButton, styled, TextField, Typography } from '@mui/material';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSnapshot } from 'valtio';
@@ -15,12 +15,10 @@ import { TILE_GAP, TILE_HEIGHT, toggleGroup, view } from './state';
 
 type Row =
   | { type: 'group'; key: string; group: any; open: boolean }
-  | { type: 'head'; key: string; group: any }
   | { type: 'nodes'; key: string; group: any; nodes: any[] }
   | { type: 'empty'; key: string; group: any };
 
 const GROUP_HEIGHT = 72;
-const HEAD_HEIGHT = 44;
 const EMPTY_HEIGHT = 96;
 
 function useColumns() {
@@ -52,6 +50,7 @@ const onLocate = (group: string) => {
 };
 const onFiltering = (group: string, on: boolean) => {
   view.filtering[group] = on;
+  if (on) view.open[group] = true;
   if (!on) delete view.filter[group];
 };
 const onFilter = (group: string, text: string) => (view.filter[group] = text);
@@ -69,11 +68,6 @@ export function ProxyGroups() {
   const query = v.query.trim().toLowerCase();
   const { open, filter, filtering } = v;
 
-  useEffect(() => {
-    const first = app.groups.find((g) => g.selectable) ?? app.groups[0];
-    if (!view.touched && first && !Object.values(view.open).some(Boolean)) view.open[first.name] = true;
-  }, [groups]);
-
   const nowOf = useMemo(() => new Map<string, string>(groups.map((g) => [g.name, g.now])), [groups]);
 
   const rows = useMemo(() => {
@@ -86,7 +80,6 @@ export function ProxyGroups() {
       const isOpen = !!query || !!open[group.name];
       list.push({ type: 'group', key: `g:${group.name}`, group, open: isOpen });
       if (!isOpen) continue;
-      list.push({ type: 'head', key: `h:${group.name}`, group });
       const needle = filter[group.name]?.trim().toLowerCase();
       if (needle) nodes = nodes.filter((node) => hit(node.name, needle));
       if (sort === 'name') nodes = [...nodes].sort((a, b) => a.name.localeCompare(b.name));
@@ -105,9 +98,9 @@ export function ProxyGroups() {
   const estimateSize = useCallback(
     (index: number) => {
       const type = rows[index].type;
-      return type === 'group' ? GROUP_HEIGHT : type === 'head' ? HEAD_HEIGHT : type === 'empty' ? EMPTY_HEIGHT : tile + gap;
+      return type === 'group' ? GROUP_HEIGHT + (filtering[rows[index].group.name] ? 40 : 0) : type === 'empty' ? EMPTY_HEIGHT : tile + gap;
     },
-    [rows, tile, gap],
+    [rows, tile, gap, filtering],
   );
   const getItemKey = useCallback((index: number) => rows[index].key, [rows]);
   const virtualizer = useVirtualizer({
@@ -141,13 +134,14 @@ export function ProxyGroups() {
     if (row.type === 'group') {
       return (
         <Box sx={{ p: '4px 8px', height: '100%' }}>
+          <Box sx={{ height: '100%', borderRadius: 2, bgcolor: 'surface.card' }}>
           <ListItemButton
             dense
             disabled={!!query}
             aria-expanded={row.open}
             aria-label={`${row.open ? t('proxies.collapse') : t('proxies.expand')} · ${group.name}`}
             onClick={() => toggleGroup(group.name)}
-            sx={{ height: '100%', borderRadius: 2, bgcolor: 'surface.card', '&.Mui-disabled': { opacity: 1 } }}
+            sx={{ height: 64, borderRadius: 2, '&.Mui-disabled': { opacity: 1 } }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '1 1 auto' }}>
               <GroupIcon icon={group.icon} style={s.groupIconStyle}>
@@ -162,6 +156,10 @@ export function ProxyGroups() {
                 </Box>
               </GroupIcon>
             </Box>
+            <Box onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} sx={{ flex: 'none' }}>
+              <ProxyHead group={group.name} sort={sort} showType={showType} testing={groupTesting(group)} filtering={!!filtering[group.name]}
+                onLocate={onLocate} onTest={testDelay} onSort={onSort} onShowType={onShowType} onFiltering={onFiltering} />
+            </Box>
             <Chip
               size="small"
               label={group.nodes.length}
@@ -169,25 +167,15 @@ export function ProxyGroups() {
             />
             {row.open ? <ExpandLessRounded /> : <ExpandMoreRounded />}
           </ListItemButton>
+          {filtering[group.name] && (
+            <Box sx={{ px: 2, pb: 1 }}>
+              <TextField autoFocus fullWidth size="small" value={filter[group.name] ?? ''} placeholder={t('proxies.filter')}
+                slotProps={{ htmlInput: { 'aria-label': `${t('proxies.filter')} · ${group.name}` } }}
+                onChange={(event) => onFilter(group.name, event.target.value)} sx={{ input: { py: 0.65 } }} />
+            </Box>
+          )}
+          </Box>
         </Box>
-      );
-    }
-    if (row.type === 'head') {
-      return (
-        <ProxyHead
-          group={group.name}
-          sort={sort}
-          showType={showType}
-          testing={groupTesting(group)}
-          filtering={!!filtering[group.name]}
-          filter={filter[group.name] ?? ''}
-          onLocate={onLocate}
-          onTest={testDelay}
-          onSort={onSort}
-          onShowType={onShowType}
-          onFiltering={onFiltering}
-          onFilter={onFilter}
-        />
       );
     }
     if (row.type === 'empty') {

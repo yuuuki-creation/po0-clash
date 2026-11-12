@@ -122,7 +122,7 @@ fun AppIconButton(
     onClick: () -> Unit,
 ) {
     val colors = palette
-    IconButton(onClick = onClick, enabled = enabled && !busy, modifier = modifier.size(44.dp)) {
+    IconButton(onClick = onClick, enabled = enabled && !busy, modifier = modifier.size(44.dp).background(colors.card, CircleShape)) {
         when {
             busy && icon == LineIcons.Refresh -> SpinningIcon(icon, colors.ink2)
             busy -> SmallProgress()
@@ -130,7 +130,7 @@ fun AppIconButton(
                 icon,
                 contentDescription = label,
                 tint = if (enabled) colors.ink2 else colors.ink2.copy(alpha = 0.38f),
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(26.dp),
             )
         }
     }

@@ -367,4 +367,19 @@
     <string name="update_all">Обновить все</string>
     <string name="whitelist_checking">Проверка</string>
     <string name="no_match">Нет совпадений</string>
+    <string name="status_title">Состояние</string>
+    <string name="run_time">Время работы</string>
+    <string name="ip_organization">Организация</string>
+    <string name="ip_residential">Домашняя сеть</string>
+    <string name="ip_mobile">Мобильная сеть</string>
+    <string name="ip_business">Корпоративная сеть</string>
+    <string name="ip_hosting">Дата-центр</string>
+    <string name="status_running">Работает</string>
+    <string name="status_stopped">Остановлено</string>
+    <string name="traffic_sum">Всего %1$s</string>
+    <string name="proxy_group_title">Группа прокси</string>
+    <string name="profile_title">Профиль</string>
+    <string name="profile_remote">Удалённый</string>
+    <string name="hide_card">Скрыть карточку</string>
+    <string name="advanced_config">Расширенная конфигурация</string>
 </resources>

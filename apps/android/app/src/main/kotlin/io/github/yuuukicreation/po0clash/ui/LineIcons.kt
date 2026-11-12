@@ -8,8 +8,17 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.unit.dp
 
-/** Thin line icons on a 24-unit grid, round caps; shared paths come from the design's logic.js, and `F:` marks a filled shape. */
+// Glyphs adapted from FlClash 0.9.3 (GPL-3.0), lib/ui/icons/app_glyphs.dart.
 object LineIcons {
+    val Dashboard = icon("F:" + rect(3.5, 3.5, 7, 8, 2), "F:" + rect(13.5, 3.5, 7, 6, 2), "F:" + rect(3.5, 14.5, 7, 6, 2), "F:" + rect(13.5, 12.5, 7, 8, 2))
+    val Profile = icon("F:M7 3h6l6 6v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM12.8 3.2l1.4 1.4v3.2h3.6L19 9.2h-6.2zM8 12h8v1.5H8zM8 16h5v1.5H8z")
+    val Tools = icon("F:" + rect(3, 7, 18, 13, 2.8), "M9 7V4.6h6V7", "M3.2 12.6h6.4M14.4 12.6h6.4")
+    val Edit = icon("F:M16.5 2.5a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L8 21l-6 1 1-6zM15 5l4 4-1.3 1.3-4-4z")
+    val Status = icon(rect(3, 5, 18, 14, 3), "M5 12h3l2-4 3 8 2-4h4")
+    val Speed = icon("M4.8 18a9 9 0 1 1 14.4 0H4.8zM12 12l4-4")
+    val Rules = icon(rect(4, 3, 16, 18, 2), "M7 7h.01M10 7h7M7 12h.01M10 12h7M7 17h.01M10 17h7")
+    val Split = icon("M12 21V11M12 11 5 4M12 11l7-7M3 9V3h6M15 3h6v6")
+    val Target = icon(circle(12, 12, 9), circle(12, 12, 2), "M12 1v3M12 20v3")
     val Globe = icon("M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18ZM3 12h18M12 3c3 3 3.5 6 3.5 9s-.5 6-3.5 9c-3-3-3.5-6-3.5-9s.5-6 3.5-9Z")
     val Layers = icon("M12 3 3 8l9 5 9-5-9-5ZM3 13l9 5 9-5M3 18l9 5 9-5")
     val ShieldCheck = icon("M12 3l8 3v6c0 4.5-3.2 7.6-8 9-4.8-1.4-8-4.5-8-9V6l8-3ZM8.5 12l2.5 2.5 4.5-5")
@@ -65,6 +74,7 @@ object LineIcons {
             val filled = path.startsWith("F:")
             builder.addPath(
                 pathData = addPathNodes(path.removePrefix("F:")),
+                pathFillType = androidx.compose.ui.graphics.PathFillType.EvenOdd,
                 fill = if (filled) ink else null,
                 stroke = if (filled) null else ink,
                 strokeLineWidth = stroke,

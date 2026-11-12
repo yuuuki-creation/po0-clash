@@ -14,7 +14,7 @@ The desktop interface follows Clash Verge Rev and the Android interface follows 
 
 ## Screenshots
 
-### Windows 11 (WinUI 3 / Fluent 2)
+### Windows (React / MUI)
 
 <p align="center">
   <picture>
@@ -23,7 +23,7 @@ The desktop interface follows Clash Verge Rev and the Android interface follows 
   </picture>
 </p>
 
-### macOS 26 (SwiftUI Liquid Glass)
+### macOS (WKWebView, shared desktop interface)
 
 <p align="center">
   <picture>
@@ -75,7 +75,7 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download
 Pass a version tag or a local `.zip` path after `bash -s --` to install a specific build:
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download/install-macos-native.sh | bash -s -- 8.0.0
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download/install-macos-native.sh | bash -s -- 8.1.0
 ```
 
 On first TUN activation, macOS prompts once for an administrator password to grant setuid-root permissions to the bundled `mihomo` binary.

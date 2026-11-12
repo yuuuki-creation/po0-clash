@@ -106,9 +106,9 @@ export function useAppTheme(): Theme {
         },
         shadows: Array(25).fill('none') as Shadows,
         typography: { fontFamily: FONT },
-        shape: { borderRadius: 8 },
+        shape: { borderRadius: 4 },
         components: {
-          MuiButton: { defaultProps: { disableElevation: true }, styleOverrides: { root: { textTransform: 'none' } } },
+          MuiButton: { defaultProps: { disableElevation: true }, styleOverrides: { root: {} } },
           MuiTab: { styleOverrides: { root: { textTransform: 'none' } } },
           MuiDialog: { styleOverrides: { paper: { backgroundColor: tone.card, backgroundImage: 'none' } } },
           MuiMenu: {

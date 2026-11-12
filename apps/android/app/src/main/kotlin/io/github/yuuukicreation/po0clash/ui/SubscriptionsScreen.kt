@@ -13,8 +13,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -94,6 +94,11 @@ private fun ProfileList(vm: AppViewModel, profiles: List<Profile>, onOpen: (Prof
     }
     val subscriptions = profiles.filter { it.kind == ProfileKind.SUBSCRIPTION }
     val anchor = rememberAnchor()
+    val addProfile = {
+        sheets.show {
+            TextSheet(addTitle, urlHint, multiline = false, confirm = add, namePlaceholder = nameHint) { text, name -> vm.addSubscription(text, name) }
+        }
+    }
     val actions = listOf(
         PageAction(
             LineIcons.Refresh,
@@ -101,7 +106,7 @@ private fun ProfileList(vm: AppViewModel, profiles: List<Profile>, onOpen: (Prof
             enabled = subscriptions.isNotEmpty(),
             busy = subscriptions.any { AppViewModel.busyProfile(it.id) in busy },
         ) { subscriptions.forEach { vm.updateProfile(it.id) } },
-        PageAction(LineIcons.More, stringResource(R.string.more), enabled = !adding, anchor = anchor) {
+        PageAction(LineIcons.Sort, stringResource(R.string.more), enabled = !adding, anchor = anchor) {
             sheets.menu(
                 anchor,
                 listOf(
@@ -112,19 +117,15 @@ private fun ProfileList(vm: AppViewModel, profiles: List<Profile>, onOpen: (Prof
                 ),
             )
         },
+        PageAction(LineIcons.Plus, addTitle, busy = adding, onClick = addProfile),
     )
-    val fab = FabAction(LineIcons.Plus, addTitle, busy = adding) {
-        sheets.show {
-            TextSheet(addTitle, urlHint, multiline = false, confirm = add, namePlaceholder = nameHint) { text, name -> vm.addSubscription(text, name) }
-        }
-    }
     val list = rememberLazyListState()
-    PageScaffold(stringResource(R.string.profiles), list, actions, fab = fab) { padding ->
+    PageScaffold(stringResource(R.string.profiles), list, actions) { padding ->
         LazyColumn(
             state = list,
             modifier = Modifier.fillMaxSize(),
             contentPadding = padding,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (profiles.isEmpty()) {
                 item(key = "empty") { EmptyState(stringResource(R.string.empty_title), LineIcons.Layers) }

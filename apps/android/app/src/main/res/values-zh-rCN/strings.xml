@@ -353,4 +353,19 @@
     <string name="update_all">全部更新</string>
     <string name="whitelist_checking">检查中</string>
     <string name="no_match">没有匹配</string>
+    <string name="status_title">状态</string>
+    <string name="run_time">运行时间</string>
+    <string name="ip_organization">所属机构</string>
+    <string name="ip_residential">住宅网络</string>
+    <string name="ip_mobile">移动网络</string>
+    <string name="ip_business">商业网络</string>
+    <string name="ip_hosting">数据中心</string>
+    <string name="status_running">运行中</string>
+    <string name="status_stopped">未运行</string>
+    <string name="traffic_sum">总计 %1$s</string>
+    <string name="proxy_group_title">策略组</string>
+    <string name="profile_title">配置</string>
+    <string name="profile_remote">远程</string>
+    <string name="hide_card">隐藏卡片</string>
+    <string name="advanced_config">高级配置</string>
 </resources>

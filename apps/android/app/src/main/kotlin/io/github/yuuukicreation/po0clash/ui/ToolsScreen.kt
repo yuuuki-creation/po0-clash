@@ -1,4 +1,4 @@
-// Layout and styling follow FlClash v0.8.92 (https://github.com/chen08209/FlClash, GPL-3.0), lib/views/tools.dart.
+// Layout and styling follow FlClash v0.9.3 (https://github.com/chen08209/FlClash, GPL-3.0), lib/views/tools.dart.
 package io.github.yuuukicreation.po0clash.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
@@ -30,6 +31,19 @@ import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Style
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.CloudSync
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.ViewList
+import androidx.compose.material.icons.outlined.Wifi
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,33 +66,38 @@ import java.util.Locale
 import kotlinx.coroutines.flow.flowOf
 
 enum class Tool(@param:StringRes val label: Int, val icon: ImageVector) {
-    ACTIVITY(R.string.activity, Icons.Filled.Ballot),
+    ACTIVITY(R.string.requests, LineIcons.Activity),
+    CONFIGURATION(R.string.advanced_config, LineIcons.Sliders),
     BASIC(R.string.basic_config, Icons.Filled.Edit),
     NETWORK(R.string.network, Icons.Filled.VpnKey),
     DNS(R.string.dns, Icons.Filled.Dns),
-    ADVANCED(R.string.advanced, Icons.Filled.Build),
-    ON_DEMAND(R.string.on_demand, Icons.Filled.Wifi),
-    APPEARANCE(R.string.appearance, Icons.Filled.Style),
-    LANGUAGE(R.string.language, Icons.Filled.Language),
-    APPLICATION(R.string.application, Icons.Filled.Settings),
-    ACCESS(R.string.access_control, Icons.AutoMirrored.Filled.ViewList),
-    RESOURCES(R.string.resources, Icons.Filled.Storage),
-    BACKUP(R.string.backup, Icons.Filled.CloudSync),
+    ADVANCED(R.string.advanced, Icons.Outlined.Build),
+    ON_DEMAND(R.string.on_demand, Icons.Outlined.Wifi),
+    APPEARANCE(R.string.appearance, Icons.Outlined.Palette),
+    LANGUAGE(R.string.language, Icons.Outlined.Language),
+    APPLICATION(R.string.application, Icons.Outlined.Settings),
+    ACCESS(R.string.access_control, Icons.Outlined.ViewList),
+    RESOURCES(R.string.resources, Icons.Outlined.Storage),
+    BACKUP(R.string.backup, Icons.Outlined.CloudSync),
     DEVELOPER(R.string.developer, Icons.Filled.DeveloperBoard),
-    ABOUT(R.string.about, Icons.Filled.Info),
+    ABOUT(R.string.about, Icons.Outlined.Info),
 }
 
-private val settingTools = listOf(Tool.LANGUAGE, Tool.APPEARANCE, Tool.APPLICATION, Tool.ACCESS)
+private val settingTools = listOf(Tool.LANGUAGE, Tool.APPEARANCE, Tool.ACCESS, Tool.BACKUP, Tool.CONFIGURATION, Tool.APPLICATION)
 private val engineTools = listOf(Tool.BASIC, Tool.NETWORK, Tool.DNS, Tool.ADVANCED, Tool.ON_DEMAND, Tool.RESOURCES)
 
 @Composable
 fun ToolsScreen(vm: AppViewModel) {
-    var open by rememberSaveable { mutableStateOf<Tool?>(null) }
+    var stack by rememberSaveable { mutableStateOf(emptyList<Tool>()) }
+    val open = stack.lastOrNull()
+    val push: (Tool) -> Unit = { stack = stack + it }
+    val pop = { stack = stack.dropLast(1) }
     val animate = vm.appSettings.collectAsStateWithLifecycle().value.pageAnimation
-    PushHost(open, animate, onBack = { open = null }, label = "tools") { tool ->
-        val back = { open = null }
+    PushHost(open, animate, onBack = pop, label = "tools") { tool ->
+        val back = pop
         when (tool) {
-            null -> ToolList(vm, onOpen = { open = it })
+            null -> ToolList(vm, onOpen = push)
+            Tool.CONFIGURATION -> ConfigurationMenu(onOpen = push, onBack = back)
             Tool.ACTIVITY -> ActivityScreen(vm, back)
             Tool.BASIC -> BasicOptionsScreen(vm, back)
             Tool.NETWORK -> NetworkOptionsScreen(vm, back)
@@ -125,52 +144,45 @@ private fun ToolList(vm: AppViewModel, onOpen: (Tool) -> Unit) {
         Tool.LANGUAGE to (languageLabel(settings.language) ?: stringResource(R.string.follow_system)),
         Tool.ACCESS to stringResource(settings.accessControl.accessMode.label),
     )
-    val tools = @Composable { list: List<Tool> ->
-        list.forEach { tool -> NavRow(stringResource(tool.label), values[tool], icon = tool.icon) { onOpen(tool) } }
-    }
-    val settingSection = @Composable {
-        Column {
-            SectionHeader(stringResource(R.string.settings_section), top = 8.dp)
-            tools(settingTools)
-        }
-    }
-    val engineSection = @Composable {
-        Column {
-            SectionHeader(stringResource(R.string.network_and_engine))
-            tools(engineTools)
-        }
-    }
-    val otherSection = @Composable {
-        Column {
-            SectionHeader(stringResource(R.string.other))
-            tools(listOfNotNull(Tool.ACTIVITY, Tool.BACKUP, Tool.DEVELOPER.takeIf { settings.developerMode }, Tool.ABOUT))
-            NavRow(
-                stringResource(R.string.export_diagnostics),
-                icon = Icons.Filled.BugReport,
-                busy = AppViewModel.BUSY_DIAGNOSTICS in busy,
-            ) {
+    val scroll = rememberScrollState()
+    PageScaffold(stringResource(R.string.tools), scroll.canScrollBackward) { padding ->
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(padding)) {
+            ToolGroup(listOf(Tool.ACTIVITY, Tool.RESOURCES), values, onOpen)
+            GroupTitle(stringResource(R.string.settings_section))
+            ToolGroup(settingTools, values, onOpen)
+            GroupTitle(stringResource(R.string.other))
+            ToolGroup(listOfNotNull(Tool.ABOUT, Tool.DEVELOPER.takeIf { settings.developerMode }), values, onOpen)
+            NavRow(stringResource(R.string.export_diagnostics), icon = Icons.Filled.BugReport, busy = AppViewModel.BUSY_DIAGNOSTICS in busy) {
                 val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
                 export.launch("po0-clash-diagnostics-$stamp.txt")
             }
         }
     }
-    val scroll = rememberScrollState()
-    PageScaffold(stringResource(R.string.tools), scroll.canScrollBackward) { padding ->
-        if (LocalWindowWidth.current.isExpanded) {
-            Row(Modifier.fillMaxSize().verticalScroll(scroll).padding(padding), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
-                Column(Modifier.weight(1f)) {
-                    settingSection()
-                    otherSection()
-                }
-                Column(Modifier.weight(1f)) { engineSection() }
-            }
-        } else {
-            Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(padding)) {
-                settingSection()
-                engineSection()
-                otherSection()
+}
+
+@Composable
+private fun GroupTitle(title: String) {
+    Text(title, style = MaterialTheme.typography.titleMedium, color = palette.ink2,
+        modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 12.dp))
+}
+
+@Composable
+private fun ToolGroup(tools: List<Tool>, values: Map<Tool, String?> = emptyMap(), onOpen: (Tool) -> Unit) {
+    Surface(shape = RoundedCornerShape(28.dp), color = palette.card) {
+        Column(Modifier.padding(horizontal = 16.dp)) {
+            tools.forEachIndexed { index, tool ->
+                if (index > 0) HorizontalDivider(color = palette.line, thickness = 0.5.dp, modifier = Modifier.padding(start = 40.dp))
+                NavRow(stringResource(tool.label), values[tool], icon = tool.icon) { onOpen(tool) }
             }
         }
+    }
+}
+
+@Composable
+private fun ConfigurationMenu(onOpen: (Tool) -> Unit, onBack: () -> Unit) {
+    val scroll = rememberScrollState()
+    PageScaffold(stringResource(R.string.advanced_config), scroll.canScrollBackward, onBack = onBack) { padding ->
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(padding)) { ToolGroup(engineTools - Tool.RESOURCES, onOpen = onOpen) }
     }
 }
 

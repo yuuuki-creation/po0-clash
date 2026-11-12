@@ -16,7 +16,7 @@
 - **Windows** 仍是 Tauri 外壳，Rust 部分不变。
 - **macOS** 的主窗口换成 `WKWebView`，加载同一份网页；Swift 外壳保留菜单栏窗口、快捷键、虚拟网卡授权和内核调用，并通过
   消息桥提供与 Windows 外壳同名、同 JSON 结构的命令。不引入 Tauri，因为那需要新的 Rust 外壳。
-- **Android** 保留 Kotlin 与 Jetpack Compose，界面层按 FlClash 重做：底部导航与 FlClash 的页面结构。8.1.0 起以 [FlClash 0.9.3](https://github.com/chen08209/FlClash/tree/v0.9.3) 为基准：纵向仪表盘卡片、顶部状态卡内的启动按钮、上下行分开的速度面板、代理组胶囊标签；连接卡片不能隐藏。
+- **Android** 保留 Kotlin 与 Jetpack Compose，界面层按 FlClash 重做：底部导航与 FlClash 的页面结构。8.1.0 起以 [FlClash 0.9.3](https://github.com/chen08209/FlClash/tree/v0.9.3) 为基准：悬浮胶囊导航、纵向仪表盘卡片、顶部状态卡内的启动按钮、上下行分开的速度面板、折叠代理组与可选标签布局；连接卡片不能隐藏。
 - **更新检查**：macOS 和 Android 调内核的 `check_update`。Windows 外壳没有这个命令，由网页直接请求 GitHub 的发布列表，
   版本比较规则与 `crates/core/src/update.rs` 相同（`apps/windows/src/lib/version.js`）。
 - **图标**：莫兰迪色系的平涂图标：雾蓝底，米白竖笔和灰粉圆碗叠成小写 p，重叠处是第三种颜色；托盘和菜单栏用单色字形。三端的位图由 `tool/make_icons.py` 生成，

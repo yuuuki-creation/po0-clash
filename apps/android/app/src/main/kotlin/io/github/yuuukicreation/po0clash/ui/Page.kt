@@ -107,7 +107,7 @@ fun PageScaffold(
                 PaddingValues(
                     start = side,
                     end = side,
-                    top = 8.dp,
+                    top = 20.dp,
                     bottom = bottom + if (fab != null) 88.dp else 16.dp,
                 ),
             )
@@ -130,7 +130,7 @@ private fun AppBar(
     val fill by animateColorAsState(if (scrolled) colors.sheet else colors.bg, tween(200), label = "appBar")
     Box(Modifier.fillMaxWidth().background(fill).windowInsetsPadding(WindowInsets.statusBars)) {
         Row(
-            Modifier.fillMaxWidth().height(64.dp).padding(start = if (onBack != null && search == null) 4.dp else 16.dp, end = 4.dp),
+            Modifier.fillMaxWidth().height(64.dp).padding(start = 16.dp, end = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {

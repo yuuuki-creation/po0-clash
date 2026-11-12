@@ -126,6 +126,9 @@ export function PortsDialog({ onClose }: DialogProps) {
 
 export function MiscDialog({ onClose }: DialogProps) {
   const [draft, set] = useDraft((o) => ({
+    tcpConcurrent: !!o.tcpConcurrent,
+    externalController: !!o.externalController,
+    findProcessMode: o.findProcessMode as string,
     keepAliveInterval: o.keepAliveInterval as number,
     interfaceName: o.interfaceName as string,
     testUrl: o.testUrl as string,
@@ -134,6 +137,9 @@ export function MiscDialog({ onClose }: DialogProps) {
     hosts: toPairs(o.hosts),
   }));
   const patch = () => ({
+    tcpConcurrent: draft.tcpConcurrent,
+    externalController: draft.externalController,
+    findProcessMode: draft.findProcessMode,
     keepAliveInterval: Math.max(0, Math.floor(draft.keepAliveInterval)),
     interfaceName: draft.interfaceName.trim(),
     testUrl: draft.testUrl.trim(),
@@ -144,6 +150,9 @@ export function MiscDialog({ onClose }: DialogProps) {
   return (
     <BaseDialog title={t('settings.misc')} contentSx={{ width: 450 }} {...saveProps(onClose, patch)}>
       <List>
+        <DialogRow label={t('opt.tcpConcurrent')}><Switch checked={draft.tcpConcurrent} onChange={(_, tcpConcurrent) => set({ tcpConcurrent })} /></DialogRow>
+        <DialogRow label={t('opt.externalController')}><Switch checked={draft.externalController} onChange={(_, externalController) => set({ externalController })} /></DialogRow>
+        <DialogRow label={t('opt.findProcess')}><Choice value={draft.findProcessMode} options={['off', 'strict', 'always'].map((value) => ({ value, label: t(`find.${value}`) }))} onChange={(findProcessMode) => set({ findProcessMode })} /></DialogRow>
         <DialogRow label={t('opt.keepAlive')}>
           <NumberField value={draft.keepAliveInterval} onChange={(keepAliveInterval) => set({ keepAliveInterval })} />
         </DialogRow>

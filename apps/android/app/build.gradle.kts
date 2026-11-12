@@ -11,7 +11,7 @@ val repoRoot: File = rootDir.resolve("../..").canonicalFile
 val minApi = 26
 val abis = providers.gradleProperty("po0.abis").orNull?.split(',')?.map(String::trim)
     ?: listOf("arm64-v8a", "armeabi-v7a", "x86_64")
-val baseVersionCode = 2026111202
+val baseVersionCode = 2026111203
 // Flutter's split-APK offsets: each native APK must out-number the Flutter APK of the same ABI to upgrade it.
 val abiVersionOffset = mapOf("armeabi-v7a" to 1000, "arm64-v8a" to 2000, "x86_64" to 4000)
 
@@ -175,6 +175,8 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.snakeyaml)
+    implementation(libs.google.material)
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons)
     implementation(libs.androidsvg)
