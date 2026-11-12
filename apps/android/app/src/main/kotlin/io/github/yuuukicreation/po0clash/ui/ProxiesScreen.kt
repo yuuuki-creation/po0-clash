@@ -1,9 +1,11 @@
-// Layout and styling follow FlClash v0.8.92 (https://github.com/chen08209/FlClash, GPL-3.0), lib/views/proxies.
+// Layout and styling follow FlClash v0.9.3 (https://github.com/chen08209/FlClash, GPL-3.0), lib/views/proxies.
 package io.github.yuuukicreation.po0clash.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -235,7 +237,6 @@ fun ProxiesScreen(vm: AppViewModel, opened: String?, onOpen: (String?) -> Unit) 
     }
 }
 
-/** Material primary tabs: the selected group in the primary color over an indicator as wide as its label. */
 @Composable
 private fun GroupTabStrip(
     groups: List<ProxyGroup>,
@@ -246,32 +247,32 @@ private fun GroupTabStrip(
     onSelect: (ProxyGroup) -> Unit,
 ) {
     val colors = palette
-    LazyRow(state = state, modifier = modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 4.dp)) {
+    LazyRow(
+        state = state,
+        modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         items(groups, key = { it.name }) { group ->
             val active = group.name == selected.name
             val icon = rememberGroupIcon(group.icon.takeIf { iconStyle != GroupIconStyle.HIDDEN })
-            Column(
-                Modifier.clickable { onSelect(group) }.padding(horizontal = 12.dp).width(IntrinsicSize.Max).height(48.dp),
+            Row(
+                Modifier.clip(RoundedCornerShape(50))
+                    .background(if (active) colors.accent else colors.card)
+                    .selectable(selected = active, role = Role.Tab, onClick = { onSelect(group) })
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Row(
-                    Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    icon?.let { Image(it, contentDescription = group.name, modifier = Modifier.size(18.dp).clip(RoundedCornerShape(4.dp))) }
-                    if (icon == null || iconStyle != GroupIconStyle.ICON_ONLY) {
-                        Text(
-                            group.name,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = if (active) colors.accent else colors.ink2,
-                            maxLines = 1,
-                        )
-                    }
+                icon?.let { Image(it, contentDescription = group.name, modifier = Modifier.size(18.dp).clip(RoundedCornerShape(4.dp))) }
+                if (icon == null || iconStyle != GroupIconStyle.ICON_ONLY) {
+                    Text(
+                        group.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = if (active) colors.onAccent else colors.ink2,
+                        maxLines = 1,
+                    )
                 }
-                Box(
-                    Modifier.fillMaxWidth().height(3.dp)
-                        .background(if (active) colors.accent else Color.Transparent, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)),
-                )
             }
         }
     }

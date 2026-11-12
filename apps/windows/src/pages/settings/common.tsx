@@ -25,8 +25,7 @@ import { engine, patchOptions, settings, updateSettings } from '../../state/sett
 export const useAppSettings = () => useSnapshot(settings).value as any;
 export const useEngineOptions = () => useSnapshot(engine).options as any;
 
-/** `updateSettings` resolves to whether the write was saved; its JS source leaves that untyped. */
-export const saveSettings = (patch: Record<string, unknown>) => updateSettings(patch) as unknown as Promise<boolean>;
+export const saveSettings = updateSettings;
 
 export const openUrl = (url: string) => invoke('open_url', { url }).catch(() => {});
 

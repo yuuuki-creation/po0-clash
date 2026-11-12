@@ -52,6 +52,29 @@ jobs:
           echo "build=$build" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+  ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: apps/windows/package-lock.json
+      - run: npm ci --no-fund --no-audit
+      - run: npm test && npm run build
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm run test:ui
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-ui-checks
+          path: apps/windows/test-results
+
   macos:
     needs: version
     runs-on: macos-26
@@ -124,7 +147,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
       - name: Build
         working-directory: apps/android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew testDebugUnitTest assembleRelease --no-daemon
       - name: Collect
         env:
           VERSION: ${{ needs.version.outputs.version }}
@@ -172,6 +195,7 @@ jobs:
           apps/windows/scripts/build-mihomo.sh
           cd apps/windows
           npm ci --no-fund --no-audit
+          npm test
           npx tauri build --bundles nsis --config "{\"version\": \"$VERSION\"}"
           mkdir -p ../../dist
           cp ../../target/release/bundle/nsis/*-setup.exe "../../dist/po0-clash-$VERSION-windows-x64-setup.exe"
@@ -183,7 +207,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [version, macos, android, windows]
+    needs: [version, ui, macos, android, windows]
     if: needs.version.outputs.tag != ''
     runs-on: ubuntu-latest
     steps:

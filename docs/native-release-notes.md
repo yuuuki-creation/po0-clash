@@ -1,5 +1,4 @@
-本版是大版本更新：桌面端（Windows 与 macOS）的界面改为 Clash Verge Rev 的样式，两端共用一套界面；Android 的界面改为 FlClash 的样式；
-三端换了新图标。从 7.x 或 Flutter 版都可以直接覆盖升级。
+8.1.0 更新了三端界面。Android 仪表盘按 FlClash 0.9.3 调整，Windows 和 macOS 继续共用 Clash Verge Rev 风格的桌面界面，补齐首页卡片设置和窗口适配。可以覆盖升级 8.0.0。
 
 ## 安装
 
@@ -8,7 +7,7 @@
 在终端运行：
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.0.0/install-macos-native.sh | bash
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.1.0/install-macos-native.sh | bash
 ```
 
 脚本会退出并替换已安装的 po0-clash（包括 Flutter 版），装到「应用程序」后启动。应用没有经过苹果公证，脚本会去掉下载带来的隔离标记。
@@ -19,12 +18,12 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
 在 PowerShell 里运行：
 
 ```powershell
-irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.0.0/install-windows-native.ps1 | iex
+irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.1.0/install-windows-native.ps1 | iex
 ```
 
 脚本会下载安装程序、校验 SHA-256、请求一次管理员权限，装好后打开应用。这样下载的文件没有网络来源标记，不会触发 SmartScreen 提示。
 
-也可以下载 `po0-clash-8.0.0-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
+也可以下载 `po0-clash-8.1.0-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
 
 **智能应用控制：** 这个功能开着时，未受信任签名的应用可能仍被拦截，命令安装也不一定能绕开，微软也不提供单个应用的例外。被拦时要在「Windows 安全中心 → 应用和浏览器控制 → 智能应用控制设置」里关闭它。
 
@@ -48,19 +47,16 @@ irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.0.0
   快捷设置磁贴、外部启停 intent 和 TV 入口。
 - po0 与 ggy 自动加白照旧：不论是否连接都持续运行，加白请求始终从真实出口发出。
 
-## 相对 7.3.0
+## 相对 8.0.0
 
-- Windows 与 macOS：界面照 Clash Verge Rev 重写（React 与 MUI）。macOS 的主窗口改为内嵌网页，菜单栏面板不变。
-- Android：界面照 FlClash 重做（Material 3、底部导航、仪表盘卡片网格、浮动启动按钮）。
-- 新图标：莫兰迪色系，雾蓝底上米白竖笔与灰粉圆碗叠成的小写 p。
-- Windows 新增检查更新。
-- 默认强调色改为蓝色；之前选过的强调色保留。
-- 桌面端去掉了仪表盘卡片的增删排序和代理页的标签式布局。
+- Android：仪表盘改为纵向卡片，顶部卡片整合连接状态、出口 IP、当前节点和启动按钮；上下行速率分别展示，出站模式使用连排按钮。
+- Android：代理组改用横向胶囊标签；保留卡片显隐和排序，连接卡片始终保留。
+- Windows、macOS：首页右上角可设置卡片显隐，重启后保留；修复窄窗口下流量卡片超宽，工具栏可以换行。
+- 桌面端：出站模式和网络接管按钮支持键盘操作；页面动画跟随应用设置和系统的减少动态效果选项。
+- 发版检查增加桌面界面的 Chromium / WebKit 交互测试和 Android 单元测试。
 
 ## 已知问题
 
-- 节点组不标记当前是手动选择还是自动选择。
-- 连接中不能取消，要等连接完成或失败后再断开。
 - macOS：管理员授权弹窗和开机自启只在 CI 中模拟过。
 - Windows：安装程序没有签名。
 - Android：订阅里把 DNS 写成 `system` 时无法解析；关于页的开源许可只列了内核的依赖，没有列 Android 自己的依赖。

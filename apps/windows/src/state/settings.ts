@@ -15,7 +15,7 @@ const queue = createSettingsQueue({
 
 export const loadSettings = () => queue.load();
 
-export const updateSettings = (patch: Record<string, unknown>) => queue.update(patch);
+export const updateSettings = (patch: Record<string, unknown>): Promise<boolean> => queue.update(patch) as unknown as Promise<boolean>;
 
 export const engine = proxy({ options: null as any });
 

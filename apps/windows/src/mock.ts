@@ -38,6 +38,7 @@ const settings = {
   proxyTileStyle: 'detailed',
   groupIconStyle: 'standard',
   dashboardCards: ['currentNode', 'speed', 'mode', 'takeover', 'whitelist', 'traffic', 'connections', 'memory', 'intranetIp', 'subscription', 'exitIp'],
+  homeCards: ['profile', 'proxy', 'network', 'mode', 'traffic', 'whitelist', 'ip', 'info'],
   hotkeys: [],
   webdav: null,
   restoreStrategy: 'compatible',

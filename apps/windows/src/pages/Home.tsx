@@ -8,6 +8,8 @@ import {
   ComputerRounded,
   DirectionsRounded,
   DnsOutlined,
+  SettingsOutlined,
+  HelpOutlineRounded,
   EventOutlined,
   InfoOutlined,
   LanguageRounded,
@@ -28,7 +30,11 @@ import {
   alpha,
   Box,
   Button,
+  ButtonBase,
   Chip,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
   CircularProgress,
   Grid,
   IconButton,
@@ -43,10 +49,12 @@ import {
 } from '@mui/material';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { useSnapshot } from 'valtio';
-import { BaseEmpty, EnhancedCard, Switch } from '../base';
+import { BaseDialog, BaseEmpty, EnhancedCard, Switch } from '../base';
 import { formatAgo, formatBytes, formatDate, formatDelay, formatElapsed, formatRate, formatUsage, t } from '../lib/i18n.js';
 import { act, app, refreshExitIp, resolvedDelay, setMode, setRouteMode, testDelay, toggleEngine } from '../state/core';
-import { engine, loadOptions } from '../state/settings';
+import { engine, loadOptions, settings, updateSettings } from '../state/settings';
+import { invoke } from '../ipc';
+import { HOME_CARDS, shownHomeCards } from '../lib/home-cards.js';
 import { BasePage } from '../base';
 
 const delayColor = (delay: number | null) =>
@@ -248,8 +256,8 @@ function CurrentProxyCard() {
 
 function TabButton({ active, on, icon, label, onClick }: { active: boolean; on?: boolean; icon: ReactNode; label: string; onClick: () => void }) {
   return (
-    <Paper
-      elevation={0}
+    <ButtonBase
+      aria-pressed={active}
       onClick={onClick}
       sx={{
         cursor: 'pointer',
@@ -278,7 +286,7 @@ function TabButton({ active, on, icon, label, onClick }: { active: boolean; on?:
         {label}
       </Typography>
       {on && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: active ? '#fff' : 'success.main', position: 'absolute', top: 6, right: 6 }} />}
-    </Paper>
+    </ButtonBase>
   );
 }
 
@@ -474,26 +482,26 @@ function TrafficCard() {
   const [used, usedUnit] = split(formatBytes(memory));
   return (
     <EnhancedCard title={t('home.traffic')} icon={<SpeedOutlined />} iconColor="secondary">
-      <Grid container spacing={1} columns={{ xs: 8, sm: 8, md: 12 }}>
+      <Grid container spacing={1} columns={12}>
         <Grid size={12}>
           <TrafficChart />
         </Grid>
-        <Grid size={4}>
+        <Grid size={{ xs: 6, md: 4 }}>
           <StatBox icon={<ArrowUpwardRounded fontSize="small" />} label={t('traffic.upload')} value={up} unit={`${upUnit}/s`} color="secondary" />
         </Grid>
-        <Grid size={4}>
+        <Grid size={{ xs: 6, md: 4 }}>
           <StatBox icon={<ArrowDownwardRounded fontSize="small" />} label={t('traffic.download')} value={down} unit={`${downUnit}/s`} color="primary" />
         </Grid>
-        <Grid size={4}>
+        <Grid size={{ xs: 6, md: 4 }}>
           <StatBox icon={<LinkRounded fontSize="small" />} label={t('home.connections')} value={String(totals?.items.length ?? 0)} unit="" color="success" onClick={() => (app.page = 'connections')} />
         </Grid>
-        <Grid size={4}>
+        <Grid size={{ xs: 6, md: 4 }}>
           <StatBox icon={<CloudUploadRounded fontSize="small" />} label={t('home.uploaded')} value={upTotal} unit={upTotalUnit} color="secondary" />
         </Grid>
-        <Grid size={4}>
+        <Grid size={{ xs: 6, md: 4 }}>
           <StatBox icon={<CloudDownloadRounded fontSize="small" />} label={t('home.downloaded')} value={downTotal} unit={downTotalUnit} color="primary" />
         </Grid>
-        <Grid size={4}>
+        <Grid size={{ xs: 6, md: 4 }}>
           <StatBox icon={<MemoryRounded fontSize="small" />} label={t('traffic.memory')} value={used} unit={usedUnit} color="error" />
         </Grid>
       </Grid>
@@ -601,35 +609,60 @@ function AppInfoCard() {
   );
 }
 
-export default function Home() {
+const homeCardViews: Record<string, () => ReactNode> = {
+  profile: ProfileCard,
+  proxy: CurrentProxyCard,
+  network: NetworkCard,
+  mode: ModeCard,
+  traffic: TrafficCard,
+  whitelist: WhitelistCard,
+  ip: IpCard,
+  info: AppInfoCard,
+};
+
+function HomeSettings({ onClose }: { onClose: () => void }) {
+  const saved = useSnapshot(settings).value?.homeCards;
+  const [cards, setCards] = useState<string[]>(() => shownHomeCards(saved));
+  const [saving, setSaving] = useState(false);
+  async function save() {
+    setSaving(true);
+    try {
+      if (await updateSettings({ homeCards: cards })) onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
   return (
-    <BasePage title={t('nav.home')} contentStyle={{ padding: 2 }}>
-      <Grid container spacing={1.5} columns={{ xs: 6, sm: 6, md: 12 }}>
-        <Grid size={6}>
-          <ProfileCard />
-        </Grid>
-        <Grid size={6}>
-          <CurrentProxyCard />
-        </Grid>
-        <Grid size={6}>
-          <NetworkCard />
-        </Grid>
-        <Grid size={6}>
-          <ModeCard />
-        </Grid>
-        <Grid size={12}>
-          <TrafficCard />
-        </Grid>
-        <Grid size={6}>
-          <WhitelistCard />
-        </Grid>
-        <Grid size={6}>
-          <IpCard />
-        </Grid>
-        <Grid size={6}>
-          <AppInfoCard />
-        </Grid>
+    <BaseDialog open title={t('home.cards')} onCancel={onClose} onOk={save} loading={saving} okBtn={t('common.save')}>
+      <FormGroup sx={{ minWidth: 260 }}>
+        {HOME_CARDS.map(({ id, label }) => (
+          <FormControlLabel key={id} label={t(label)} control={
+            <Checkbox checked={cards.includes(id)} onChange={(_, checked) => setCards(checked ? [...cards, id] : cards.filter((card) => card !== id))} />
+          } />
+        ))}
+      </FormGroup>
+    </BaseDialog>
+  );
+}
+
+export default function Home() {
+  const s = useSnapshot(settings).value;
+  const [editing, setEditing] = useState(false);
+  const cards = shownHomeCards(s?.homeCards);
+  return (
+    <BasePage title={t('nav.home')} contentStyle={{ padding: 2 }} header={
+      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <Tooltip title={t('settings.docs')}><IconButton size="small" color="inherit" aria-label={t('settings.docs')} onClick={() => invoke('open_url', { url: 'https://github.com/yuuuki-creation/po0-clash#readme' })}><HelpOutlineRounded /></IconButton></Tooltip>
+        <Tooltip title={t('home.cards')}><IconButton size="small" color="inherit" aria-label={t('home.cards')} onClick={() => setEditing(true)}><SettingsOutlined /></IconButton></Tooltip>
+      </Box>
+    }>
+      <Grid container spacing={1.5} columns={12}>
+        {cards.map((id) => {
+          const Card = homeCardViews[id];
+          return <Grid key={id} size={id === 'traffic' ? 12 : { xs: 12, md: 6 }} sx={{ minWidth: 0 }}><Card /></Grid>;
+        })}
       </Grid>
+      {editing && <HomeSettings onClose={() => setEditing(false)} />}
     </BasePage>
   );
 }

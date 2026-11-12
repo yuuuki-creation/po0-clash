@@ -237,3 +237,27 @@ textarea,
   width: 100%;
   height: 100%;
 }
+
+.base-page > header {
+  min-height: 58px;
+  height: auto;
+  flex-basis: auto;
+  flex-wrap: wrap;
+  padding-block: 10px;
+}
+
+.page-motion .base-page {
+  animation: page-enter 180ms ease-out;
+}
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

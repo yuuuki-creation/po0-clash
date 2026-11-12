@@ -50,20 +50,7 @@ UniFFI 和 Tauri 命令只做转换：
 
 ## 界面
 
-本节是 7.0.0 的做法，已不适用。现在桌面端照 Clash Verge Rev、Android 照 FlClash，见
-[ADR 0022](../adr/0022-verge-rev-and-flclash-ui.md)。
-
-每端都有主界面，结构接近 FlClash（ADR 0019）：导航依次为仪表盘、代理、订阅、加白、设置；仪表盘是卡片网格加右下角的
-浮动启动按钮，代理页是可展开的策略组卡片和节点卡片网格。三端都按苹果液态玻璃（Liquid Glass）的规范来做，而且要克制：
-玻璃只用在浮动的控件层（导航栏、分段控件、连接按钮、工具栏、弹窗），内容区是不透明的分组列表；背景用中性色，
-强调色用系统蓝，状态用苹果系统色，图标单色；不加彩色背景、渐变和发光。
-
-- **macOS**：访达式主窗口（`NavigationSplitView` 加统一工具栏）和菜单栏快捷窗口（`MenuBarExtra`）。用 macOS 26 SDK 编译，
-  系统控件、侧边栏和工具栏自带液态玻璃，只在启动按钮上另用玻璃按钮样式；更早的系统用系统默认外观。
-- **Windows**：托盘加主窗口，仿访达：悬浮玻璃侧边栏、和标题栏合一的工具栏。Web 界面用轻量框架（倾向 Svelte），不引入组件库。窗口背景用 Mica（退回 Acrylic），浮动控件
-  用 `backdrop-filter` 模仿玻璃。
-- **Android**：仿 iOS 26：底部悬浮胶囊玻璃标签栏、大标题、右上角玻璃按钮组，页面与桌面端相同。以 Material 3 组件为底，按上面的规范改样式，不用动态取色；API 31 起浮动控件做背景模糊，
-  更早的系统只用半透明底色。
+8.1.0 起按 [ADR 0022](../adr/0022-native-ui-upstream-alignment.md) 对齐当前上游界面：Android 用 Compose 实现 FlClash 0.9.3 的界面结构；Windows 的 Tauri 壳与 macOS 的 WKWebView 主窗口共用 React / MUI 界面，参考 Clash Verge Rev 2.5.10。macOS 菜单栏面板仍用 SwiftUI。
 
 ## 不变的约束
 

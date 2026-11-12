@@ -1,4 +1,4 @@
-// Layout and styling follow FlClash v0.8.92 (https://github.com/chen08209/FlClash, GPL-3.0), lib/widgets/card.dart.
+// Layout and styling follow FlClash v0.9.3 (https://github.com/chen08209/FlClash, GPL-3.0), lib/widgets/card.dart.
 package io.github.yuuukicreation.po0clash.ui
 
 import android.text.format.DateUtils
@@ -27,6 +27,8 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,7 +58,8 @@ import io.github.yuuukicreation.po0clash.R
 import java.text.DateFormat
 import java.util.Date
 
-val cardShape = RoundedCornerShape(14.dp)
+val cardShape = RoundedCornerShape(24.dp)
+val LocalDashboardStyle = staticCompositionLocalOf { false }
 
 /** FlClash's card: a low surface inside a hairline, or the selection colors inside a primary one. */
 @Composable
@@ -69,11 +72,13 @@ fun AppCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = palette
+    val dashboard = LocalDashboardStyle.current
+    val shape = if (dashboard) RoundedCornerShape(34.dp) else cardShape
     val fill by animateColorAsState(
         when {
             selected -> colors.sel
             filled -> MaterialTheme.colorScheme.surfaceContainerHigh
-            else -> colors.card
+            else -> if (dashboard) MaterialTheme.colorScheme.surfaceContainerLowest else colors.card
         },
         tween(150),
         label = "card",
@@ -87,27 +92,28 @@ fun AppCard(
         tween(150),
         label = "cardEdge",
     )
-    Column(
-        modifier.clip(cardShape)
-            .background(fill)
-            .border(1.dp, edge, cardShape)
-            .then(if (onClick != null) Modifier.clickable(enabled = enabled, onClick = onClick) else Modifier),
-        content = content,
-    )
+    Surface(modifier, shape = shape, color = fill, shadowElevation = if (dashboard) 2.dp else 0.dp) {
+        Column(
+            (if (dashboard) Modifier.fillMaxSize() else Modifier)
+                .then(if (!dashboard) Modifier.border(1.dp, edge, shape) else Modifier)
+                .then(if (onClick != null) Modifier.clickable(enabled = enabled, onClick = onClick) else Modifier),
+            content = content,
+        )
+    }
 }
 
 @Composable
 fun CardHeader(title: String, icon: ImageVector, note: String? = null) {
     val colors = palette
     Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp),
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = if (LocalDashboardStyle.current) 18.dp else 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(icon, contentDescription = null, tint = colors.ink2, modifier = Modifier.size(20.dp))
         Text(
             title,
-            style = MaterialTheme.typography.titleSmall,
+            style = if (LocalDashboardStyle.current) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleSmall,
             color = colors.ink2,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

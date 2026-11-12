@@ -1,5 +1,6 @@
 export default {
   zh: {
+    'home.cards': '首页卡片',
     'modeHint.rule': '按规则分流：命中规则的流量走对应的代理或直连',
     'modeHint.global': '全部流量都走所选的代理节点',
     'modeHint.direct': '全部流量直连，不经过代理',
@@ -11,6 +12,7 @@ export default {
     'home.uptime': '运行时间',
   },
   en: {
+    'home.cards': 'Home cards',
     'modeHint.rule': 'Routes each connection by the rules: matching traffic goes to its proxy or directly',
     'modeHint.global': 'Sends all traffic through the selected proxy',
     'modeHint.direct': 'Connects everything directly, without a proxy',
@@ -22,6 +24,7 @@ export default {
     'home.uptime': 'Uptime',
   },
   ja: {
+    'home.cards': 'ホームのカード',
     'modeHint.rule': 'ルールに従って振り分けます。一致した通信は対応するプロキシまたは直接接続を使います',
     'modeHint.global': 'すべての通信を選択したプロキシに送ります',
     'modeHint.direct': 'すべての通信をプロキシなしで直接接続します',
@@ -33,6 +36,7 @@ export default {
     'home.uptime': '稼働時間',
   },
   ru: {
+    'home.cards': 'Карточки главной страницы',
     'modeHint.rule': 'Маршрутизация по правилам: совпавший трафик идёт через свой прокси или напрямую',
     'modeHint.global': 'Весь трафик идёт через выбранный прокси',
     'modeHint.direct': 'Весь трафик идёт напрямую, без прокси',

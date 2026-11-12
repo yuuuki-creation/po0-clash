@@ -120,6 +120,32 @@ impl DashboardCard {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub enum HomeCard {
+    Profile,
+    Proxy,
+    Network,
+    Mode,
+    Traffic,
+    Whitelist,
+    Ip,
+    Info,
+}
+
+impl HomeCard {
+    pub const ALL: [Self; 8] = [
+        Self::Profile,
+        Self::Proxy,
+        Self::Network,
+        Self::Mode,
+        Self::Traffic,
+        Self::Whitelist,
+        Self::Ip,
+        Self::Info,
+    ];
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum HotkeyAction {
     Connect,
     ShowWindow,
@@ -262,6 +288,7 @@ pub struct AppSettings {
     pub proxy_tile_style: ProxyTileStyle,
     pub group_icon_style: GroupIconStyle,
     pub dashboard_cards: Vec<DashboardCard>,
+    pub home_cards: Vec<HomeCard>,
     pub hotkeys: Vec<Hotkey>,
     pub webdav: Option<WebDav>,
     pub restore_strategy: RestoreStrategy,
@@ -304,6 +331,7 @@ impl Default for AppSettings {
             proxy_tile_style: ProxyTileStyle::Detailed,
             group_icon_style: GroupIconStyle::Standard,
             dashboard_cards: DashboardCard::ALL.to_vec(),
+            home_cards: HomeCard::ALL.to_vec(),
             hotkeys: Vec::new(),
             webdav: None,
             restore_strategy: RestoreStrategy::Compatible,
@@ -323,6 +351,7 @@ impl AppSettings {
         }
         self.text_scale = self.text_scale.map(|percent| percent.clamp(50, 200));
         dedup(&mut self.dashboard_cards);
+        dedup(&mut self.home_cards);
         dedup(&mut self.access_control.accepted);
         dedup(&mut self.access_control.rejected);
         self.excluded_ssids.retain(|ssid| !ssid.trim().is_empty());
@@ -403,6 +432,34 @@ mod tests {
         assert!(settings.close_connections_on_switch && settings.check_certificate);
         assert_eq!(settings.dashboard_cards.len(), DashboardCard::ALL.len());
         assert_eq!(settings.android_vpn, AndroidVpnOptions::default());
+    }
+
+    #[test]
+    fn desktop_card_choices_survive_save_and_do_not_change_android_cards() {
+        let settings: AppSettings = serde_json::from_str(
+            r#"{"homeCards":["proxy","traffic","proxy"],"dashboardCards":["memory"]}"#,
+        )
+        .unwrap();
+        let settings = settings.validated().unwrap();
+        assert_eq!(settings.home_cards, [HomeCard::Proxy, HomeCard::Traffic]);
+        assert_eq!(settings.dashboard_cards, [DashboardCard::Memory]);
+        let saved = serde_json::to_string(&settings).unwrap();
+        assert_eq!(
+            serde_json::from_str::<AppSettings>(&saved).unwrap(),
+            settings
+        );
+        assert_eq!(
+            serde_json::from_str::<AppSettings>("{}")
+                .unwrap()
+                .home_cards,
+            HomeCard::ALL
+        );
+        assert!(
+            serde_json::from_str::<AppSettings>(r#"{"homeCards":[]}"#)
+                .unwrap()
+                .home_cards
+                .is_empty()
+        );
     }
 
     #[test]

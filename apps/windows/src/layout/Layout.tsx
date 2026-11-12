@@ -74,6 +74,7 @@ function NavItem({ id, icon, selected }: { id: PageId; icon: ReactNode; selected
   return (
     <ListItem sx={{ maxWidth: 250, mx: 'auto', padding: '4px 0px' }}>
       <ListItemButton
+        aria-current={selected ? 'page' : undefined}
         selected={selected}
         title={label}
         onClick={() => (app.page = id)}
@@ -351,7 +352,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="layout-content">
           <Sidebar collapsed={collapsed} />
           <div className="layout-content__right">
-            <div className="the-content">{children}</div>
+            <div className={`the-content${s?.pageAnimation === false ? '' : ' page-motion'}`}>{children}</div>
           </div>
         </div>
       </Paper>

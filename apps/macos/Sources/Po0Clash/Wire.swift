@@ -254,6 +254,7 @@ enum Wire {
         json["proxyTileStyle"] = name(settings.proxyTileStyle)
         json["groupIconStyle"] = name(settings.groupIconStyle)
         json["dashboardCards"] = settings.dashboardCards.map(name)
+        json["homeCards"] = settings.homeCards.map(name)
         json["hotkeys"] = settings.hotkeys.map(hotkey)
         json["webdav"] = optional(settings.webdav.map(webDav))
         json["restoreStrategy"] = name(settings.restoreStrategy)
@@ -349,6 +350,7 @@ enum Wire {
         .currentNode, .speed, .mode, .takeover, .whitelist, .traffic, .connections, .memory, .intranetIp,
         .subscription, .exitIp,
     ]
+    private static let homeCards: [HomeCard] = [.profile, .proxy, .network, .mode, .traffic, .whitelist, .ip, .info]
     private static let hotkeyActions: [HotkeyAction] = [.connect, .showWindow, .mode, .systemProxy, .tun]
     private static let hotkeyModifiers: [HotkeyModifier] = [.control, .alt, .shift, .meta]
     private static let restoreStrategies: [RestoreStrategy] = [.compatible, .override]
@@ -458,6 +460,7 @@ enum Wire {
         try fields.take("proxyTileStyle", into: &settings.proxyTileStyle, choice(proxyTileStyles))
         try fields.take("groupIconStyle", into: &settings.groupIconStyle, choice(groupIconStyles))
         try fields.take("dashboardCards", into: &settings.dashboardCards, list(choice(dashboardCards)))
+        try fields.take("homeCards", into: &settings.homeCards, list(choice(homeCards)))
         try fields.take("hotkeys", into: &settings.hotkeys, list(readHotkey))
         try fields.take("webdav", into: &settings.webdav, nullable(readWebDav))
         try fields.take("restoreStrategy", into: &settings.restoreStrategy, choice(restoreStrategies))
