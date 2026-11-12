@@ -490,16 +490,6 @@ mirror_enum!(DashboardCard {
     Subscription,
     ExitIp
 });
-mirror_enum!(HomeCard {
-    Profile,
-    Proxy,
-    Network,
-    Mode,
-    Traffic,
-    Whitelist,
-    Ip,
-    Info
-});
 mirror_enum!(HotkeyAction {
     Connect,
     ShowWindow,
@@ -661,7 +651,6 @@ pub struct AppSettings {
     pub proxy_tile_style: ProxyTileStyle,
     pub group_icon_style: GroupIconStyle,
     pub dashboard_cards: Vec<DashboardCard>,
-    pub home_cards: Vec<HomeCard>,
     pub hotkeys: Vec<Hotkey>,
     pub webdav: Option<WebDav>,
     pub restore_strategy: RestoreStrategy,
@@ -706,7 +695,6 @@ macro_rules! app_settings_from {
                     proxy_tile_style: v.proxy_tile_style.into(),
                     group_icon_style: v.group_icon_style.into(),
                     dashboard_cards: convert(v.dashboard_cards),
-                    home_cards: convert(v.home_cards),
                     hotkeys: convert(v.hotkeys),
                     webdav: v.webdav.map(Into::into),
                     restore_strategy: v.restore_strategy.into(),

@@ -1,7 +1,7 @@
 // Follows Clash Verge Rev (GPL-3.0): src/components/proxy/proxy-item-mini.tsx.
 import { CheckCircleOutlineRounded } from '@mui/icons-material';
 import { alpha, Box, CircularProgress, ListItemButton, styled, Typography } from '@mui/material';
-import { memo, type MouseEvent } from 'react';
+import { memo, type KeyboardEvent, type MouseEvent } from 'react';
 import { formatDelay, t } from '../../lib/i18n.js';
 import { delayColor } from './state';
 
@@ -31,6 +31,12 @@ export const ProxyItem = memo(function ProxyItem(props: Props) {
     onTest(name);
   };
   const quiet = (event: MouseEvent) => event.stopPropagation();
+  const keyTest = (event: KeyboardEvent) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    event.stopPropagation();
+    onTest(name);
+  };
 
   return (
     <ListItemButton
@@ -78,6 +84,9 @@ export const ProxyItem = memo(function ProxyItem(props: Props) {
         ) : delay != null ? (
           <Widget
             role="button"
+            tabIndex={0}
+            aria-label={t('proxies.testNode')}
+            onKeyDown={keyTest}
             title={t('proxies.testNode')}
             onClick={test}
             onMouseDown={quiet}
@@ -90,6 +99,9 @@ export const ProxyItem = memo(function ProxyItem(props: Props) {
             <Widget
               className="the-check"
               role="button"
+              tabIndex={0}
+              aria-label={t('proxies.testNode')}
+              onKeyDown={keyTest}
               title={t('proxies.testNode')}
               onClick={test}
               onMouseDown={quiet}

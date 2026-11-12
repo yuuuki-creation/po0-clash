@@ -77,7 +77,7 @@ export default function Proxies() {
       title={t('nav.proxies')}
       contentStyle={{ height: '100%' }}
       header={
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {listed && (
             <>
               <TextField

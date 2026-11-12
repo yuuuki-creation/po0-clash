@@ -50,7 +50,7 @@ UniFFI 和 Tauri 命令只做转换：
 
 ## 界面
 
-8.1.0 起按 [ADR 0022](../adr/0022-native-ui-upstream-alignment.md) 对齐当前上游界面：Android 用 Compose 实现 FlClash 0.9.3 的界面结构；Windows 的 Tauri 壳与 macOS 的 WKWebView 主窗口共用 React / MUI 界面，参考 Clash Verge Rev 2.5.10。macOS 菜单栏面板仍用 SwiftUI。
+8.1.0 起按 [ADR 0022](../adr/0022-verge-rev-and-flclash-ui.md) 对齐当前上游界面：Android 用 Compose 实现 FlClash 0.9.3 的界面结构；Windows 的 Tauri 壳与 macOS 的 WKWebView 主窗口共用 React / MUI 界面，参考 Clash Verge Rev 2.5.10。macOS 菜单栏面板仍用 SwiftUI。
 
 ## 不变的约束
 

@@ -1,6 +1,6 @@
 # 原生版界面重设计
 
-本页记录 7.x 的设计。8.1.0 起的界面基准见 [ADR 0022](../../adr/0022-native-ui-upstream-alignment.md)。
+本页记录 7.x 的设计。8.1.0 起的界面基准见 [ADR 0022](../../adr/0022-verge-rev-and-flclash-ui.md)。
 
 决定见 [ADR 0021](../../adr/0021-native-ui-traditional.md)。三端共享同一个 Rust 内核（`crates/core` 与 `crates/ffi`），界面层完全采用各操作系统的原生控件体系与平台设计语言，不再使用跨端统一的 Web 风格手绘控件。
 

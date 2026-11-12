@@ -206,8 +206,38 @@ jobs:
           path: dist/*.exe
           if-no-files-found: error
 
+  windows-smoke:
+    needs: windows
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows
+          path: dist
+      - name: Install and exercise the packaged app
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem dist/*-setup.exe | Select-Object -First 1
+          $setup = Start-Process $installer.FullName -ArgumentList '/S' -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "installer exited with $($setup.ExitCode)" }
+          $policy = 'HKLM:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'
+          New-Item -Path $policy -Force | Out-Null
+          New-ItemProperty -Path $policy -Name 'po0-clash.exe' -Value '--remote-debugging-port=9222' -Force | Out-Null
+          $app = Start-Process 'C:\Program Files\po0-clash\po0-clash.exe' -PassThru
+          try {
+            node apps/windows/scripts/smoke.mjs
+            if ($LASTEXITCODE -ne 0) { throw 'packaged app smoke test failed' }
+          } finally {
+            Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
+          }
+
   publish:
-    needs: [version, ui, macos, android, windows]
+    needs: [version, ui, macos, android, windows, windows-smoke]
     if: needs.version.outputs.tag != ''
     runs-on: ubuntu-latest
     steps:
@@ -223,9 +253,9 @@ jobs:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           assets=(dist/*)
-          if [[ -f scripts/install-macos-native.sh ]]; then
-            assets+=(scripts/install-macos-native.sh)
-          fi
+          for installer in scripts/install-macos-native.sh scripts/install-windows-native.ps1; do
+            if [[ -f "$installer" ]]; then assets+=("$installer"); fi
+          done
           (cd dist && sha256sum *) > SHA256SUMS.txt
           assets+=(SHA256SUMS.txt)
           notes=docs/native-release-notes.md

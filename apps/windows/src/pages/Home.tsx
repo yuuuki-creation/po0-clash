@@ -54,7 +54,7 @@ import { formatAgo, formatBytes, formatDate, formatDelay, formatElapsed, formatR
 import { act, app, refreshExitIp, resolvedDelay, setMode, setRouteMode, testDelay, toggleEngine } from '../state/core';
 import { engine, loadOptions, settings, updateSettings } from '../state/settings';
 import { invoke } from '../ipc';
-import { HOME_CARDS, shownHomeCards } from '../lib/home-cards.js';
+import { HOME_CARDS, saveHomeCards, shownHomeCards } from '../lib/home-cards.js';
 import { BasePage } from '../base';
 
 const delayColor = (delay: number | null) =>
@@ -345,7 +345,7 @@ function NetworkCard() {
         </Stack>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {connecting && <CircularProgress size={16} />}
-          <Switch edge="end" checked={running || connecting} disabled={connecting} onChange={toggleEngine} />
+          <Switch edge="end" slotProps={{ input: { 'aria-label': running ? t('home.disconnect') : t('home.connect') } }} checked={running || connecting} disabled={connecting} onChange={toggleEngine} />
         </Stack>
       </Box>
     </EnhancedCard>
@@ -621,13 +621,13 @@ const homeCardViews: Record<string, () => ReactNode> = {
 };
 
 function HomeSettings({ onClose }: { onClose: () => void }) {
-  const saved = useSnapshot(settings).value?.homeCards;
+  const saved = useSnapshot(settings).value?.dashboardCards;
   const [cards, setCards] = useState<string[]>(() => shownHomeCards(saved));
   const [saving, setSaving] = useState(false);
   async function save() {
     setSaving(true);
     try {
-      if (await updateSettings({ homeCards: cards })) onClose();
+      if (await updateSettings({ dashboardCards: saveHomeCards(settings.value?.dashboardCards, cards) })) onClose();
     } finally {
       setSaving(false);
     }
@@ -648,7 +648,7 @@ function HomeSettings({ onClose }: { onClose: () => void }) {
 export default function Home() {
   const s = useSnapshot(settings).value;
   const [editing, setEditing] = useState(false);
-  const cards = shownHomeCards(s?.homeCards);
+  const cards = shownHomeCards(s?.dashboardCards);
   return (
     <BasePage title={t('nav.home')} contentStyle={{ padding: 2 }} header={
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -658,7 +658,7 @@ export default function Home() {
     }>
       <Grid container spacing={1.5} columns={12}>
         {cards.map((id) => {
-          const Card = homeCardViews[id];
+          const Card = homeCardViews[HOME_CARDS.find((card) => card.id === id)!.view];
           return <Grid key={id} size={id === 'traffic' ? 12 : { xs: 12, md: 6 }} sx={{ minWidth: 0 }}><Card /></Grid>;
         })}
       </Grid>

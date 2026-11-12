@@ -21,7 +21,11 @@ for (const os of ['windows', 'macos']) {
             const overflow = await page.locator('.base-content').evaluate((el) => el.scrollWidth - el.clientWidth);
             expect(overflow, `home overflow at ${width}px`).toBeLessThanOrEqual(2);
           }
-          if (width === 1180) await page.screenshot({ path: info.outputPath(`${os}-${mode}-${name.toLowerCase()}.png`) });
+          if (width === 1180) {
+            await page.mouse.move(0, 0);
+            await page.waitForTimeout(350);
+            await page.screenshot({ path: info.outputPath(`${os}-${mode}-${name.toLowerCase()}.png`) });
+          }
         }
       }
       expect(errors).toEqual([]);
@@ -29,7 +33,7 @@ for (const os of ['windows', 'macos']) {
   }
 }
 
-test('home card visibility is saved, restored and independent of Android settings', async ({ page }) => {
+test('home card visibility is saved and restored without losing other card choices', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Home cards', exact: true }).click();
   await page.getByRole('checkbox', { name: 'Traffic', exact: true }).uncheck();
@@ -41,17 +45,43 @@ test('home card visibility is saved, restored and independent of Android setting
   await expect(page.getByRole('checkbox', { name: 'Traffic', exact: true })).not.toBeChecked();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('po0-desktop-mock-settings-v1')!));
   expect(saved.dashboardCards).toContain('speed');
-  expect(saved.homeCards).not.toContain('traffic');
+  expect(saved.dashboardCards).not.toContain('traffic');
 });
 
 test('proxy search, selection and node tests work after resizing', async ({ page }) => {
   await page.goto('/');
   await page.locator('.the-menu').getByText('Proxies', { exact: true }).click();
   const search = page.getByRole('textbox', { name: 'Search groups and nodes' });
-  await search.fill('Singapore 01');
-  await expect(page.getByRole('button', { name: /Singapore 01/ }).first()).toBeVisible();
+  await search.fill('Tokyo 01');
+  const node = page.locator('[aria-pressed]').filter({ hasText: 'Tokyo 01' }).first();
+  await expect(node).toBeVisible();
+  await node.click();
+  await expect(node).toHaveAttribute('aria-pressed', 'true');
+  await node.getByRole('button', { name: 'Test this node', exact: true }).click();
+  await expect(node.locator('.MuiCircularProgress-root')).toHaveCount(0);
   await page.setViewportSize({ width: 900, height: 650 });
   await search.clear();
-  await page.getByRole('button', { name: 'Locate the current node', exact: true }).click();
+  await page.locator('.base-page > header').getByRole('button', { name: 'Locate the current node', exact: true }).click();
   await expect(page.locator('[aria-pressed="true"]').first()).toBeVisible();
+});
+
+test('connection control reports stopped and running states', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('switch', { name: 'Disconnect', exact: true }).click();
+  await expect(page.getByRole('switch', { name: 'Connect', exact: true })).not.toBeChecked();
+  await page.getByRole('switch', { name: 'Connect', exact: true }).click();
+  await expect(page.getByRole('switch', { name: 'Disconnect', exact: true })).toBeChecked();
+});
+
+test('large text and reduced motion keep navigation and controls usable', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 900, height: 700 });
+  await page.addInitScript(() => localStorage.setItem('po0-desktop-mock-settings-v1', JSON.stringify({ textScale: 150, pageAnimation: false, autoCheckUpdate: false })));
+  await page.goto('/');
+  for (const name of ['Home', 'Proxies', 'Profiles', 'Whitelist', 'Settings']) {
+    await page.locator('.the-menu').getByText(name, { exact: true }).click();
+    await expect(page.locator('.base-page > header')).toContainText(name);
+    const header = page.locator('.base-page > header');
+    expect(await header.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(2);
+  }
 });
