@@ -108,7 +108,8 @@ fn profiles_can_be_switched_and_removed() {
     fs::remove_dir_all(dir).unwrap();
 }
 
-fn serve_once(reply: &'static str) -> String {
+fn serve_once(reply: impl Into<String>) -> String {
+    let reply = reply.into();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
     thread::spawn(move || {
@@ -472,6 +473,46 @@ fn engine_uses_manual_nodes_after_flutter_upgrade() {
         core.stop();
         core.shutdown();
     }
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+#[ignore = "requires MIHOMO_BIN"]
+fn engine_provider_nodes_remain_available_offline_with_the_same_filters() {
+    let dir = temp_dir();
+    let body = "proxies: [{name: UK, type: ss, server: 127.0.0.1, port: 9, cipher: aes-128-gcm, password: fixture}, {name: HK, type: ss, server: 127.0.0.1, port: 9, cipher: aes-128-gcm, password: fixture}, {name: US, type: trojan, server: 127.0.0.1, port: 9, password: fixture}]";
+    let reply = format!(
+        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    );
+    let url = serve_once(reply);
+    let yaml = format!(
+        "proxy-providers:\n  airport: {{type: http, url: '{url}', path: ./cached.yaml}}\nproxy-groups:\n  - {{name: Proxy, type: select, proxies: [DIRECT], use: [airport], filter: '(?i)^(?!.*UK).*', exclude-type: Trojan}}\nrules: ['MATCH,Proxy']\n"
+    );
+    let core = Core::new(options(&dir)).unwrap();
+    core.import_file("Cached airport".into(), yaml).unwrap();
+    assert_eq!(
+        core.groups().unwrap()[0].nodes.len(),
+        1,
+        "uncached nodes stay unavailable"
+    );
+    core.start(None).unwrap();
+    let live = core.groups().unwrap().remove(0);
+    assert_eq!(
+        live.nodes
+            .iter()
+            .map(|n| n.name.as_str())
+            .collect::<Vec<_>>(),
+        ["DIRECT", "HK"]
+    );
+    core.stop();
+    let offline = core.groups().unwrap().remove(0);
+    assert_eq!(
+        offline.nodes.iter().map(|n| &n.name).collect::<Vec<_>>(),
+        live.nodes.iter().map(|n| &n.name).collect::<Vec<_>>()
+    );
+    assert!(offline.nodes.iter().all(|node| node.delay.is_none()));
+    core.shutdown();
     fs::remove_dir_all(dir).unwrap();
 }
 

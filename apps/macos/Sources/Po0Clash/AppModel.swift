@@ -452,6 +452,7 @@ final class AppModel: ObservableObject {
     private func refreshExitIp() {
         guard let client else { return }
         exitIpTask?.cancel()
+        exitIp = nil
         exitIpTask = Task {
             let ip = try? await client.exitIp()
             guard !Task.isCancelled else { return }

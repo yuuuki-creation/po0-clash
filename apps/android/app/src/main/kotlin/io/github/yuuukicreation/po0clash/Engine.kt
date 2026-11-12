@@ -94,13 +94,16 @@ class Engine(private val app: Application) {
     val status = _status.asStateFlow()
     private val _profiles = MutableStateFlow(core.profiles())
     val profiles = _profiles.asStateFlow()
+    private val _profileRevision = MutableStateFlow(0)
+    val profileRevision = _profileRevision.asStateFlow()
     private val _groups = MutableStateFlow(runCatching { core.groups() }.getOrDefault(emptyList()))
     val groups = _groups.asStateFlow()
     private val _whitelist = MutableStateFlow(core.whitelist())
     val whitelist = _whitelist.asStateFlow()
     private val _exitIp = MutableStateFlow<ExitIp?>(null)
     val exitIp = _exitIp.asStateFlow()
-    val networkRevision = MutableStateFlow(0)
+    private val _networkRevision = MutableStateFlow(0)
+    val networkRevision = _networkRevision.asStateFlow()
     private val _connectedAt = MutableStateFlow<Long?>(null)
 
     /** [SystemClock.elapsedRealtime] when the engine last reached Running, or null while it is not running. */
@@ -196,6 +199,7 @@ class Engine(private val app: Application) {
             }
             Change.PROFILES -> {
                 _profiles.value = core.profiles()
+                _profileRevision.update { it + 1 }
                 refresh(Change.GROUPS)
             }
             Change.GROUPS -> _groups.value = runCatching { core.groups() }.getOrDefault(emptyList())
@@ -345,12 +349,13 @@ class Engine(private val app: Application) {
             delay(1000)
             val previous = reportedNetworks
             reportedNetworks = current
+            if (previous == null) _networkRevision.update { it + 1 }
             if (previous != null && previous != current) networkChanged()
         }
     }
 
     private fun networkChanged() {
-        networkRevision.update { it + 1 }
+        _networkRevision.update { it + 1 }
         scope.launch { core.networkChanged() }
         scheduleExitIp()
     }

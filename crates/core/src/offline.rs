@@ -27,16 +27,23 @@ pub fn groups(
         .into_iter()
         .flatten()
     {
-        let mut available = if name == "links" {
+        let mut available = if name == "links" && !links.is_empty() {
             links.to_vec()
-        } else if let Some(payload) = definition.get("payload").and_then(Value::as_array) {
-            nodes(payload)
-        } else if let Some(path) = definition.get("path").and_then(Value::as_str) {
-            cached(path)
-                .map(|text| from_text(&text))
-                .unwrap_or_default()
         } else {
-            Vec::new()
+            let saved = definition
+                .get("path")
+                .filter(|_| definition.get("type").and_then(Value::as_str) != Some("inline"))
+                .and_then(Value::as_str)
+                .and_then(&cached)
+                .map(|text| from_text(&text))
+                .filter(|nodes| !nodes.is_empty());
+            saved.unwrap_or_else(|| {
+                definition
+                    .get("payload")
+                    .and_then(Value::as_array)
+                    .map(|payload| nodes(payload))
+                    .unwrap_or_default()
+            })
         };
         filter(&mut available, definition, true)?;
         providers.insert(name.clone(), available);
@@ -231,6 +238,16 @@ pub fn kind(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_subscription_provider_named_links_uses_its_saved_nodes_before_fallback_payload() {
+        let yaml = "proxy-providers: {links: {type: http, path: cached, payload: [{name: Fallback, type: ss}]}}\nproxy-groups: [{name: Proxy, type: select, use: [links]}]";
+        let groups = groups(yaml, &[], &BTreeMap::new(), |_| {
+            Some("proxies: [{name: Cached, type: ss}]".into())
+        })
+        .unwrap();
+        assert_eq!(groups[0].nodes[0].name, "Cached");
+    }
 
     #[test]
     fn cached_provider_nodes_follow_inclusion_and_name_filters() {

@@ -135,6 +135,7 @@ let exitIpRequest = 0;
 export async function refreshExitIp(attempt = 0) {
   const request = ++exitIpRequest;
   app.exitIpLoading = true;
+  app.exitIp = null;
   let result = null;
   try {
     result = await invoke('exit_ip');
@@ -158,7 +159,7 @@ async function refreshStatus() {
   const engine = s.engine.state;
   if (engine !== 'running') app.connectedAt = null;
   else app.connectedAt ??= Date.now();
-  const key = [engine, s.currentNode, s.mode, s.profileId].join('|');
+  const key = [engine, s.currentNode, s.mode, s.profileId, s.routeMode].join('|');
   if (key === routeKey) return;
   if (routeKey.split('|')[3] !== s.profileId) delays.clear();
   routeKey = key;

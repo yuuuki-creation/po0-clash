@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import android.net.Uri
 import android.os.Process
+import android.os.SystemClock
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,6 +13,8 @@ import io.github.yuuukicreation.po0clash.core.AndroidVpnOptions
 import io.github.yuuukicreation.po0clash.core.AppSettings
 import io.github.yuuukicreation.po0clash.core.Change
 import io.github.yuuukicreation.po0clash.core.EngineOptions
+import io.github.yuuukicreation.po0clash.core.EngineState
+import io.github.yuuukicreation.po0clash.core.Node
 import io.github.yuuukicreation.po0clash.core.Mode
 import io.github.yuuukicreation.po0clash.core.ProfileEdit
 import io.github.yuuukicreation.po0clash.core.ProfileKind
@@ -29,9 +32,11 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
@@ -54,12 +59,12 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     val options = _options.asStateFlow()
     val appSettings = engine.appSettings
     @OptIn(ExperimentalCoroutinesApi::class)
-    val profilePreview = engine.profiles.map { profiles -> profiles.firstOrNull { it.selected } }.distinctUntilChanged()
+    val profilePreview = combine(engine.profiles, engine.profileRevision) { profiles, _ -> profiles.firstOrNull { it.selected } }
         .mapLatest { profile ->
             profile?.let {
                 withContext(Dispatchers.IO) {
                     runCatching {
-                        val nodes = runCatching { core.shareNodes(it.id).map { node -> io.github.yuuukicreation.po0clash.core.Node(node.name, node.kind, null) } }.getOrDefault(emptyList())
+                        val nodes = runCatching { core.shareNodes(it.id).map { node -> Node(node.name, node.kind, null) } }.getOrDefault(emptyList())
                         val text = if (nodes.isNotEmpty()) core.previewConfig(it.id) else core.profileContent(it.id)
                         parseProfilePreview(it.id, text, nodes)
                     }.getOrNull()
@@ -81,8 +86,8 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch {
-            kotlinx.coroutines.flow.combine(
-                engine.status.map { it.engine == io.github.yuuukicreation.po0clash.core.EngineState.Running }.distinctUntilChanged(),
+            combine(
+                engine.status.map { it.engine == EngineState.Running }.distinctUntilChanged(),
                 appSettings.map { it.autoCheckUpdate }.distinctUntilChanged(),
                 engine.networkRevision,
             ) { _, enabled, _ -> enabled }.collect { enabled ->
@@ -91,15 +96,15 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             while (true) {
-                kotlinx.coroutines.delay(5 * 60 * 1000L)
+                delay(5 * 60 * 1000L)
                 if (appSettings.value.autoCheckUpdate) updateRequests.trySend(Unit)
             }
         }
         viewModelScope.launch {
             for (request in updateRequests) {
-                kotlinx.coroutines.delay(1200)
-                while (BUSY_UPDATE in _busy.value) kotlinx.coroutines.delay(200)
-                val recent = updateSucceededAt?.let { android.os.SystemClock.elapsedRealtime() - it < 6 * 60 * 60 * 1000L } == true
+                delay(1200)
+                while (BUSY_UPDATE in _busy.value) delay(200)
+                val recent = updateSucceededAt?.let { SystemClock.elapsedRealtime() - it < 6 * 60 * 60 * 1000L } == true
                 if (appSettings.value.autoCheckUpdate && !recent) checkUpdate(userInitiated = false)
             }
         }
@@ -386,7 +391,7 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
             if (userInitiated) throw e
             return@launch null
         }
-        updateSucceededAt = android.os.SystemClock.elapsedRealtime()
+        updateSucceededAt = SystemClock.elapsedRealtime()
         if (!userInitiated && !appSettings.value.autoCheckUpdate) return@launch null
         when {
             release != null -> {
