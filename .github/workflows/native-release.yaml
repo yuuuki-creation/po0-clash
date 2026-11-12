@@ -252,11 +252,11 @@ jobs:
           TAG: ${{ needs.version.outputs.tag }}
           VERSION: ${{ needs.version.outputs.version }}
         run: |
-          assets=(dist/*)
+          assets=(dist/*.apk dist/*.exe dist/*.zip)
           for installer in scripts/install-macos-native.sh scripts/install-windows-native.ps1; do
             if [[ -f "$installer" ]]; then assets+=("$installer"); fi
           done
-          (cd dist && sha256sum *) > SHA256SUMS.txt
+          (cd dist && sha256sum *.apk *.exe *.zip) > SHA256SUMS.txt
           assets+=(SHA256SUMS.txt)
           notes=docs/native-release-notes.md
           if gh release view "$TAG" > /dev/null 2>&1; then
