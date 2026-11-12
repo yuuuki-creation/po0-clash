@@ -27,7 +27,7 @@ jobs:
         with:
           name: windows
           path: dist
-          run-id: ${{ inputs.artifact_run || '43208663638' }}
+          run-id: ${{ inputs.artifact_run || '43228696607' }}
           github-token: ${{ github.token }}
       - name: Install official Clash Verge Rev and po0-clash
         shell: pwsh
@@ -51,6 +51,7 @@ jobs:
       - run: npm ci --no-fund --no-audit
         working-directory: apps/windows
       - run: node tool/ui/windows-reference.mjs
+      - run: node apps/windows/scripts/smoke.mjs
       - name: Stop test apps
         if: always()
         shell: pwsh

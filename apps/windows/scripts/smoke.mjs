@@ -120,6 +120,7 @@ console.log('status', JSON.stringify(await invoke('status')));
 
 const imported = await invoke('import_links', { text: link ?? 'ss://YWVzLTI1Ni1nY206c21va2U@127.0.0.1:8388#smoke' });
 check(imported.profile.kind === 'links', `imported ${imported.added} new node(s) into the links profile`);
+await invoke('select_profile', { id: imported.profile.id });
 check((await invoke('profiles')).some((p) => p.kind === 'links' && p.selected), 'links profile selected');
 // Without a real node only the direct mode keeps the machine's own traffic flowing.
 await invoke('set_mode', { mode: link ? 'rule' : 'direct' });
@@ -129,12 +130,16 @@ await invoke('set_route_mode', { routeMode: 'systemProxy' });
 await invoke('start');
 await waitFor('running');
 check(proxyEnabled(), 'system proxy set while running');
-let groups = [];
-for (let i = 0; i < 20 && !groups.length; i++) {
-  groups = await invoke('groups');
-  if (!groups.length) await sleep(500);
+if (link) {
+  let groups = [];
+  for (let i = 0; i < 20 && !groups.length; i++) {
+    groups = await invoke('groups');
+    if (!groups.length) await sleep(500);
+  }
+  check(groups.length > 0, `engine reports ${groups.length} groups`);
+} else {
+  check((await invoke('status')).mode === 'direct', 'direct mode applied without a test proxy');
 }
-check(groups.length > 0, `engine reports ${groups.length} groups`);
 if (probes[0]) check(fetchThroughSystemProxy(probes[0]) === '200', `fetched ${probes[0]} through the system proxy`);
 console.log('traffic', JSON.stringify(await invoke('traffic')));
 
