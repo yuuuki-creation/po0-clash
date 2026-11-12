@@ -1,6 +1,9 @@
 name: ui-reference
 
 on:
+  push:
+    branches: ['codex/native-ui-align']
+    paths: ['.github/workflows/ui-reference.yaml', 'tool/ui/windows-reference.mjs']
   workflow_dispatch:
     inputs:
       artifact_run:
@@ -24,7 +27,7 @@ jobs:
         with:
           name: windows
           path: dist
-          run-id: ${{ inputs.artifact_run }}
+          run-id: ${{ inputs.artifact_run || '43208663638' }}
           github-token: ${{ github.token }}
       - name: Install official Clash Verge Rev and po0-clash
         shell: pwsh
