@@ -59,8 +59,9 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
             profile?.let {
                 withContext(Dispatchers.IO) {
                     runCatching {
-                        val text = if (it.kind == ProfileKind.LINKS) core.previewConfig(it.id) else core.profileContent(it.id)
-                        parseProfilePreview(it.id, text)
+                        val nodes = runCatching { core.shareNodes(it.id).map { node -> io.github.yuuukicreation.po0clash.core.Node(node.name, node.kind, null) } }.getOrDefault(emptyList())
+                        val text = if (nodes.isNotEmpty()) core.previewConfig(it.id) else core.profileContent(it.id)
+                        parseProfilePreview(it.id, text, nodes)
                     }.getOrNull()
                 }
             }
@@ -74,6 +75,35 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     private val _shareNodes = MutableStateFlow(emptyList<ShareNode>())
     val shareNodes = _shareNodes.asStateFlow()
     private val _release = MutableStateFlow<Pair<Release, Boolean>?>(null)
+    private val updateRequests = Channel<Unit>(Channel.CONFLATED)
+    @Volatile private var updateSucceededAt: Long? = null
+    private var announcedRelease: String? = null
+
+    init {
+        viewModelScope.launch {
+            kotlinx.coroutines.flow.combine(
+                engine.status.map { it.engine == io.github.yuuukicreation.po0clash.core.EngineState.Running }.distinctUntilChanged(),
+                appSettings.map { it.autoCheckUpdate }.distinctUntilChanged(),
+                engine.networkRevision,
+            ) { _, enabled, _ -> enabled }.collect { enabled ->
+                if (enabled) updateRequests.trySend(Unit)
+            }
+        }
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(5 * 60 * 1000L)
+                if (appSettings.value.autoCheckUpdate) updateRequests.trySend(Unit)
+            }
+        }
+        viewModelScope.launch {
+            for (request in updateRequests) {
+                kotlinx.coroutines.delay(1200)
+                while (BUSY_UPDATE in _busy.value) kotlinx.coroutines.delay(200)
+                val recent = updateSucceededAt?.let { android.os.SystemClock.elapsedRealtime() - it < 6 * 60 * 60 * 1000L } == true
+                if (appSettings.value.autoCheckUpdate && !recent) checkUpdate(userInitiated = false)
+            }
+        }
+    }
 
     /** A newer release to offer, and whether the automatic check found it. */
     val release = _release.asStateFlow()
@@ -356,9 +386,14 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
             if (userInitiated) throw e
             return@launch null
         }
+        updateSucceededAt = android.os.SystemClock.elapsedRealtime()
+        if (!userInitiated && !appSettings.value.autoCheckUpdate) return@launch null
         when {
             release != null -> {
-                _release.value = release to !userInitiated
+                if (userInitiated || announcedRelease != release.version) {
+                    announcedRelease = release.version
+                    _release.value = release to !userInitiated
+                }
                 null
             }
             userInitiated -> app.getString(R.string.up_to_date)

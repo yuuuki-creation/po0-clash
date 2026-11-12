@@ -94,12 +94,13 @@ class Engine(private val app: Application) {
     val status = _status.asStateFlow()
     private val _profiles = MutableStateFlow(core.profiles())
     val profiles = _profiles.asStateFlow()
-    private val _groups = MutableStateFlow(emptyList<ProxyGroup>())
+    private val _groups = MutableStateFlow(runCatching { core.groups() }.getOrDefault(emptyList()))
     val groups = _groups.asStateFlow()
     private val _whitelist = MutableStateFlow(core.whitelist())
     val whitelist = _whitelist.asStateFlow()
     private val _exitIp = MutableStateFlow<ExitIp?>(null)
     val exitIp = _exitIp.asStateFlow()
+    val networkRevision = MutableStateFlow(0)
     private val _connectedAt = MutableStateFlow<Long?>(null)
 
     /** [SystemClock.elapsedRealtime] when the engine last reached Running, or null while it is not running. */
@@ -187,17 +188,17 @@ class Engine(private val app: Application) {
                 } else if (_connectedAt.value == null) {
                     _connectedAt.value = SystemClock.elapsedRealtime()
                 }
-                if (old.engine != new.engine || old.currentNode != new.currentNode || old.mode != new.mode) {
+                if (old.engine != new.engine || old.currentNode != new.currentNode || old.mode != new.mode || old.profileId != new.profileId || old.routeMode != new.routeMode) {
                     scheduleExitIp()
+                    refresh(Change.GROUPS)
                     updateTile()
                 }
             }
-            Change.PROFILES -> _profiles.value = core.profiles()
-            Change.GROUPS -> _groups.value = if (core.status().engine == EngineState.Running) {
-                runCatching { core.groups() }.getOrDefault(emptyList())
-            } else {
-                emptyList()
+            Change.PROFILES -> {
+                _profiles.value = core.profiles()
+                refresh(Change.GROUPS)
             }
+            Change.GROUPS -> _groups.value = runCatching { core.groups() }.getOrDefault(emptyList())
             Change.WHITELIST -> _whitelist.value = core.whitelist()
         }
     }
@@ -238,11 +239,16 @@ class Engine(private val app: Application) {
 
     private fun scheduleExitIp(delayMillis: Long = 1000) {
         exitJob?.cancel()
+        _exitIp.value = null
         exitJob = scope.launch {
             delay(delayMillis)
-            val ip = runCatching { core.exitIp() }.getOrNull()
-            ensureActive()
-            _exitIp.value = ip
+            repeat(3) { attempt ->
+                val ip = runCatching { core.exitIp() }.getOrNull()
+                ensureActive()
+                _exitIp.value = ip
+                if (ip != null || _status.value.engine != EngineState.Running) return@launch
+                if (attempt < 2) delay(2000)
+            }
         }
     }
 
@@ -344,6 +350,7 @@ class Engine(private val app: Application) {
     }
 
     private fun networkChanged() {
+        networkRevision.update { it + 1 }
         scope.launch { core.networkChanged() }
         scheduleExitIp()
     }

@@ -1,4 +1,4 @@
-8.1.0 更新了三端界面。Android 界面按官方实装的 FlClash 0.9.3 调整，Windows 和 macOS 继续共用 Clash Verge Rev 风格的桌面界面，补齐首页卡片设置和窗口适配。可以覆盖升级 8.0.0。
+8.1.1 修复升级后手动节点遗漏、未连接时代理页为空、自动更新无法在连接代理后重试等问题。可以直接覆盖升级；仍保留 Flutter 旧数据时，会自动补回此前遗漏的本地配置。
 
 ## 安装
 
@@ -7,7 +7,7 @@
 在终端运行：
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.1.0/install-macos-native.sh | bash
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.1.1/install-macos-native.sh | bash
 ```
 
 脚本会退出并替换已安装的 po0-clash（包括 Flutter 版），装到「应用程序」后启动。应用没有经过苹果公证，脚本会去掉下载带来的隔离标记。
@@ -18,12 +18,12 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
 在 PowerShell 里运行：
 
 ```powershell
-irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.1.0/install-windows-native.ps1 | iex
+irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.1.1/install-windows-native.ps1 | iex
 ```
 
 脚本会下载安装程序、校验 SHA-256、请求一次管理员权限，装好后打开应用。这样下载的文件没有网络来源标记，不会触发 SmartScreen 提示。
 
-也可以下载 `po0-clash-8.1.0-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
+也可以下载 `po0-clash-8.1.1-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
 
 **智能应用控制：** 这个功能开着时，未受信任签名的应用可能仍被拦截，命令安装也不一定能绕开，微软也不提供单个应用的例外。被拦时要在「Windows 安全中心 → 应用和浏览器控制 → 智能应用控制设置」里关闭它。
 
@@ -47,15 +47,13 @@ irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.1.0
   快捷设置磁贴、外部启停 intent 和 TV 入口。
 - po0 与 ggy 自动加白照旧：不论是否连接都持续运行，加白请求始终从真实出口发出。
 
-## 相对 8.0.0
+## 相对 8.1.0
 
-- Android：仪表盘改为纵向卡片，顶部卡片整合连接状态、出口 IP、当前节点和启动按钮；上下行速率分别展示，出站模式使用连排按钮。
-- Android：改用悬浮胶囊导航与紧凑卡片；代理页默认使用折叠分组，未连接时可预览配置里的节点；保留标签布局选项。
-- Android：仪表盘内编辑卡片、拖动排序，状态卡始终保留；增加配置统计和 IP 所属机构信息。
-- Windows、macOS：按实装的 Clash Verge Rev 2.5.10 逐页核对，修正卡片圆角、组内工具栏、订阅页入口和设置分组。
-- 桌面首页右上角可设置卡片显隐，重启后保留；修复窄窗口下流量卡片超宽，工具栏可以换行。
-- 桌面端：出站模式和网络接管按钮支持键盘操作；页面动画跟随应用设置和系统的减少动态效果选项。
-- 发版检查增加桌面界面的 Chromium / WebKit 交互测试和 Android 单元测试。
+- 修复旧版升级漏迁移手动节点和本地配置；已有原生版安装也会自动恢复仍保留的旧配置，保留当前配置和加白条目。
+- 三端在未连接时也能查看保存的策略组和节点；手动分享链接在安卓仪表盘中显示正确节点数量。
+- 自动更新统一经共享内核请求 GitHub；连接代理或恢复网络后自动重试失败的检查，成功后六小时内不重复检查，可随时手动检查。
+- 安卓切换节点、配置、网络和连接状态时刷新出口信息，清除上次出口的地区与机构信息；拒绝返回其他 IP 的查询结果。
+- 设置文件读取失败时保留原文件，避免用默认设置覆盖已有配置。
 
 ## 已知问题
 

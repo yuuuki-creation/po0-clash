@@ -1,29 +1,22 @@
-import { proxy } from 'valtio';
-import { invoke, platform } from '../ipc';
+import { proxy, subscribe } from 'valtio';
+import { invoke } from '../ipc';
 import { t } from '../lib/i18n.js';
-import { newestAbove } from '../lib/version.js';
+import { createUpdateChecker } from '../lib/update-checker.js';
 import { app, notify } from './core';
 import { settings } from './settings';
-
-const RELEASES = 'https://api.github.com/repos/yuuuki-creation/po0-clash/releases?per_page=30';
 
 export type Release = { version: string; url: string; notes: string };
 
 export const update = proxy({ release: null as Release | null, checking: false, open: false, automatic: false });
 
-// The Windows shell has no update command, so the page asks GitHub itself; macOS goes through the core.
-async function fetchRelease(): Promise<Release | null> {
-  if (platform !== 'windows') return invoke<Release | null>('check_update');
-  const response = await fetch(RELEASES, { headers: { Accept: 'application/vnd.github+json' } });
-  if (!response.ok) throw new Error(`GitHub ${response.status}`);
-  return newestAbove(app.version, await response.json());
-}
-
-export async function checkUpdate(userInitiated: boolean) {
-  if (update.checking) return;
-  update.checking = true;
-  try {
-    const release = await fetchRelease();
+const checker = createUpdateChecker({
+  enabled: () => !!settings.value?.autoCheckUpdate,
+  fetchRelease: async () => {
+    update.checking = true;
+    try { return await invoke<Release | null>('check_update'); }
+    finally { update.checking = false; }
+  },
+  publish: (release: Release | null, userInitiated: boolean) => {
     update.release = release;
     if (release) {
       update.automatic = !userInitiated;
@@ -31,14 +24,22 @@ export async function checkUpdate(userInitiated: boolean) {
     } else if (userInitiated) {
       notify(t('update.latest'), '', 'success');
     }
-  } catch (error) {
-    if (userInitiated) notify(t('update.failed'), String(error instanceof Error ? error.message : error));
-  } finally {
-    update.checking = false;
-  }
-}
+  },
+  failure: (error: unknown) => notify(t('update.failed'), String(error instanceof Error ? error.message : error)),
+});
+
+export const checkUpdate = (userInitiated: boolean) => checker.check(userInitiated);
 
 export function startUpdateCheck() {
-  // The macOS shell runs its own check at launch and prompts natively.
-  if (platform !== 'macos' && settings.value?.autoCheckUpdate) checkUpdate(false);
+  let route = '';
+  subscribe(app, () => {
+    const next = [app.status?.engine.state, app.status?.routeMode, app.status?.currentNode, app.status?.profileId].join('|');
+    if (next === route) return;
+    route = next;
+    if (app.status?.engine.state === 'running') void checker.check(false, true);
+  });
+  subscribe(settings, () => { void checker.check(); });
+  window.addEventListener('online', () => { void checker.check(false, true); });
+  setInterval(() => { void checker.check(); }, 5 * 60 * 1000);
+  void checker.check();
 }

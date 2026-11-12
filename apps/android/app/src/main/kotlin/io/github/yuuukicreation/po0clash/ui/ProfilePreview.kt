@@ -8,7 +8,7 @@ import org.yaml.snakeyaml.constructor.SafeConstructor
 
 data class ProfilePreview(val profileId: String, val proxyCount: Int, val ruleCount: Int, val groups: List<ProxyGroup>)
 
-fun parseProfilePreview(id: String, content: String): ProfilePreview? = runCatching {
+fun parseProfilePreview(id: String, content: String, linkNodes: List<Node> = emptyList()): ProfilePreview? = runCatching {
     val options = LoaderOptions().apply {
         isAllowDuplicateKeys = false
         maxAliasesForCollections = 50
@@ -37,9 +37,10 @@ fun parseProfilePreview(id: String, content: String): ProfilePreview? = runCatch
     }.toMap() + groupData.mapNotNull { entry -> (entry["name"] as? String)?.let { it to groupKind(entry["type"]) } } + mapOf("DIRECT" to "Direct", "REJECT" to "Reject")
     val groups = groupData.mapNotNull { entry ->
         val name = entry["name"] as? String ?: return@mapNotNull null
-        val nodes = (entry["proxies"] as? List<*>)?.filterIsInstance<String>().orEmpty().map { Node(it, types[it].orEmpty(), null) }
+        val supplied = if ((entry["use"] as? List<*>)?.contains("links") == true) linkNodes else emptyList()
+        val nodes = ((entry["proxies"] as? List<*>)?.filterIsInstance<String>().orEmpty().map { Node(it, types[it].orEmpty(), null) } + supplied).distinctBy { it.name }
         ProxyGroup(name, groupKind(entry["type"]), false, null, nodes, entry["icon"] as? String)
     }
     if (groups.map { it.name }.distinct().size != groups.size) return@runCatching null
-    ProfilePreview(id, proxies.size, (root["rules"] as? List<*>)?.size ?: 0, groups)
+    ProfilePreview(id, proxies.size + linkNodes.distinctBy { it.name }.size, (root["rules"] as? List<*>)?.size ?: 0, groups)
 }.getOrNull()

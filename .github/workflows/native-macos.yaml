@@ -147,8 +147,9 @@ jobs:
           "$old/Contents/MacOS/Po0ClashCore" 600 &
           sqlite3 "$support/database.sqlite" \
             "CREATE TABLE profiles (id INTEGER PRIMARY KEY, label TEXT NOT NULL, url TEXT NOT NULL, \"order\" INTEGER);
-             INSERT INTO profiles VALUES (7, 'Legacy sub', 'https://example.com/legacy.yaml', 0);"
+             INSERT INTO profiles VALUES (7, 'Legacy sub', 'https://example.com/legacy.yaml', 0), (9, 'Legacy manual', '', 1);"
           printf 'proxies: []\n' > "$support/profiles/7.yaml"
+          printf 'proxies: [{name: Preserved, type: socks5, server: 127.0.0.1, port: 9}]\nproxy-groups: [{name: Proxy, type: select, proxies: [Preserved]}]\n' > "$support/profiles/9.yaml"
           defaults write io.github.yuuukicreation.po0clash flutter.config -string \
             '{"currentProfileId":7,"po0FirewallProps":{"enable":false,"tokenEntries":[{"token":"pgnfw_legacy0000000000","name":"legacy"}],"ggyEntries":[],"pollSeconds":5}}'
 
@@ -182,6 +183,28 @@ jobs:
             exit 1
           fi
           grep -q pgnfw_legacy "$settings" || { echo "::error::whitelist tokens were not imported"; exit 1; }
+          grep -q 'Legacy manual' "$settings" || { echo "::error::manual nodes were not imported"; exit 1; }
+          pkill -TERM -x po0-clash || true
+          for _ in $(seq 30); do pgrep -x po0-clash > /dev/null || break; sleep 0.5; done
+          python3 - "$settings" <<'PY'
+          import json, pathlib, sys
+          path = pathlib.Path(sys.argv[1])
+          saved = json.loads(path.read_text())
+          saved.pop('legacyLocalProfilesMigrated', None)
+          saved['profiles'] = [p for p in saved['profiles'] if p['id'] != 'legacy-local-9']
+          path.write_text(json.dumps(saved))
+          PY
+          scripts/install-macos-native.sh "$PWD/dist/po0-clash-macos.zip"
+          for _ in $(seq 40); do grep -q 'Legacy manual' "$settings" && break; sleep 0.5; done
+          python3 - "$settings" <<'PY'
+          import json, pathlib, sys
+          path = pathlib.Path(sys.argv[1])
+          saved = json.loads(path.read_text())
+          assert sum(p['name'] == 'Legacy manual' for p in saved['profiles']) == 1
+          manual = next(p for p in saved['profiles'] if p['name'] == 'Legacy manual')
+          assert 'Preserved' in (path.parent / 'profiles' / (manual['id'] + '.yaml')).read_text()
+          assert next(p for p in saved['profiles'] if p['id'] == saved['currentProfile'])['name'] == 'Legacy sub'
+          PY
 
           # A stand-in for the GitHub API: a draft, a Flutter release and the native prerelease, newest first.
           api="$RUNNER_TEMP/api"

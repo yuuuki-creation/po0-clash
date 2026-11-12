@@ -76,6 +76,22 @@ test('connection control reports stopped and running states', async ({ page }) =
   await expect(page.getByRole('switch', { name: 'Disconnect', exact: true })).toBeChecked();
 });
 
+test('both desktop shells show configured nodes while the proxy is stopped', async ({ page }) => {
+  for (const os of ['windows', 'macos']) {
+    await page.goto(`/?os=${os}`);
+    await page.getByRole('switch', { name: 'Disconnect', exact: true }).click();
+    await expect(page.getByRole('switch', { name: 'Connect', exact: true })).not.toBeChecked();
+    await page.locator('.the-menu').getByText('Proxies', { exact: true }).click();
+    await page.getByRole('button', { name: 'View', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Search', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Search groups and nodes' }).fill('Tokyo 01');
+    await expect(page.locator('[aria-pressed]').filter({ hasText: 'Tokyo 01' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Test this node', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'View', exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: 'Test all', exact: true })).toBeDisabled();
+  }
+});
+
 test('large text and reduced motion keep navigation and controls usable', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 900, height: 700 });

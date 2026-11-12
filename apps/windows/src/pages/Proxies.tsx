@@ -40,6 +40,7 @@ async function testAll() {
 
 function ViewMenu() {
   const s = useSnapshot(settings).value;
+  const running = isRunning(useSnapshot(app).status);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const option = (key: string, value: string, label: string) => (
     <MenuItem key={`${key}:${value}`} dense selected={s[key] === value} onClick={() => updateSettings({ [key]: value })}>
@@ -55,7 +56,7 @@ function ViewMenu() {
       <Menu open={!!anchor} anchorEl={anchor} onClose={() => setAnchor(null)} slotProps={{ list: { sx: { py: 0.5 } } }}>
         <MenuItem dense onClick={() => { view.globalSearch = !view.globalSearch; setAnchor(null); }}>{t('proxies.search')}</MenuItem>
         <MenuItem dense onClick={() => { locateCurrent(); setAnchor(null); }}>{t('proxies.locate')}</MenuItem>
-        <MenuItem dense onClick={() => { void testAll(); setAnchor(null); }}>{t('proxies.testAll')}</MenuItem>
+        <MenuItem dense disabled={!running} onClick={() => { void testAll(); setAnchor(null); }}>{t('proxies.testAll')}</MenuItem>
         <ListSubheader sx={{ lineHeight: '32px', bgcolor: 'transparent' }}>{t('view.density')}</ListSubheader>
         {DENSITIES.map((value) => option('proxiesDensity', value, t(`density.${value}`)))}
         <ListSubheader sx={{ lineHeight: '32px', bgcolor: 'transparent' }}>{t('view.icon')}</ListSubheader>
@@ -70,7 +71,7 @@ export default function Proxies() {
   const { query, globalSearch } = useSnapshot(view);
   const mode = status?.mode;
   const running = isRunning(status);
-  const listed = running && mode !== 'direct' && groups.length > 0;
+  const listed = (!running || mode !== 'direct') && groups.length > 0;
 
   return (
     <BasePage
@@ -117,9 +118,7 @@ export default function Proxies() {
         </Box>
       }
     >
-      {!running ? (
-        <BaseEmpty text={t('status.stopped')} />
-      ) : mode === 'direct' ? (
+      {running && mode === 'direct' ? (
         <BaseEmpty text={t('proxies.direct')} />
       ) : !groups.length ? (
         <BaseEmpty text={t('proxies.empty')} />

@@ -122,6 +122,7 @@ const imported = await invoke('import_links', { text: link ?? 'ss://YWVzLTI1Ni1n
 check(imported.profile.kind === 'links', `imported ${imported.added} new node(s) into the links profile`);
 await invoke('select_profile', { id: imported.profile.id });
 check((await invoke('profiles')).some((p) => p.kind === 'links' && p.selected), 'links profile selected');
+check((await invoke('groups')).some((group) => group.nodes.length > 0), 'saved nodes are visible before connecting');
 // Without a real node only the direct mode keeps the machine's own traffic flowing.
 await invoke('set_mode', { mode: link ? 'rule' : 'direct' });
 
@@ -154,6 +155,7 @@ if (link) console.log('exit ip', JSON.stringify(await invoke('exit_ip')));
 console.log('# stop');
 await invoke('stop');
 await waitFor('stopped');
+check((await invoke('groups')).some((group) => group.nodes.length > 0), 'saved nodes remain visible after disconnecting');
 check(!proxyEnabled(), 'system proxy clear after stop');
 check(
   await eventually(() => !/po0-clash/.test(powershell('(Get-NetAdapter).Name -join " "'))),

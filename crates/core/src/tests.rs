@@ -200,6 +200,281 @@ fn imports_the_flutter_app_once() {
     fs::remove_dir_all(dir).unwrap();
 }
 
+const LEGACY_NODES: &str = "proxies:\n  - name: preserved-manual\n    type: socks5\n    server: 127.0.0.1\n    port: 9\n    username: fixture-user\n    password: fixture-password\nproxy-groups:\n  - name: Proxy\n    type: select\n    proxies: [preserved-manual, DIRECT]\nrules: ['MATCH,Proxy']\n";
+
+fn legacy_nodes(dir: &Path) -> CoreOptions {
+    let database = dir.join("database.sqlite");
+    let connection = rusqlite::Connection::open(&database).unwrap();
+    connection
+        .execute_batch(
+            r#"CREATE TABLE profiles (id INTEGER PRIMARY KEY, label TEXT NOT NULL, url TEXT NOT NULL, "order" INTEGER);
+            INSERT INTO profiles VALUES (7, 'Manual nodes', '', 0), (8, 'Subscription', 'https://example.com/sub', 1);"#,
+        )
+        .unwrap();
+    fs::create_dir_all(dir.join("profiles")).unwrap();
+    fs::write(dir.join("profiles/7.yaml"), LEGACY_NODES).unwrap();
+    let prefs = dir.join("shared_preferences.json");
+    fs::write(
+        &prefs,
+        json!({"flutter.config": "{\"currentProfileId\":7}"}).to_string(),
+    )
+    .unwrap();
+    CoreOptions {
+        legacy_database: Some(database),
+        legacy_prefs: Some(prefs),
+        ..options(dir)
+    }
+}
+
+#[test]
+fn flutter_upgrade_keeps_manual_nodes_and_the_selected_profile() {
+    let dir = temp_dir();
+    let opts = legacy_nodes(&dir);
+    let core = Core::new(opts.clone()).unwrap();
+    let profiles = core.profiles();
+    assert_eq!(profiles.len(), 2);
+    let manual = profiles
+        .iter()
+        .find(|p| p.kind == ProfileKind::File)
+        .unwrap();
+    assert!(manual.selected);
+    assert!(!manual.auto_update);
+    assert_eq!(
+        core.profile_content(manual.id.clone()).unwrap(),
+        LEGACY_NODES
+    );
+    let id = manual.id.clone();
+    core.shutdown();
+    drop(core);
+
+    let reopened = Core::new(opts.clone()).unwrap();
+    assert_eq!(reopened.profiles().len(), 2);
+    assert_eq!(reopened.status().profile_id.as_deref(), Some(id.as_str()));
+    assert_eq!(reopened.profile_content(id.clone()).unwrap(), LEGACY_NODES);
+    reopened.remove_profile(id).unwrap();
+    reopened.shutdown();
+    drop(reopened);
+
+    let reopened = Core::new(opts).unwrap();
+    assert_eq!(
+        reopened.profiles().len(),
+        1,
+        "deleted nodes must stay deleted"
+    );
+    reopened.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn an_existing_native_install_recovers_skipped_local_profiles_once() {
+    let dir = temp_dir();
+    let opts = legacy_nodes(&dir);
+    let core = Core::new(options(&dir)).unwrap();
+    let native = core
+        .import_links("vless://u@h:1#native".into())
+        .unwrap()
+        .profile;
+    core.set_mode(Mode::Global).unwrap();
+    core.add_whitelist_entries("pgnfw_kept".into(), "kept".into())
+        .unwrap();
+    core.shutdown();
+    drop(core);
+    let settings = dir.join("core/settings.json");
+    let mut saved: Value = serde_json::from_slice(&fs::read(&settings).unwrap()).unwrap();
+    saved
+        .as_object_mut()
+        .unwrap()
+        .remove("legacyLocalProfilesMigrated");
+    fs::write(&settings, serde_json::to_vec(&saved).unwrap()).unwrap();
+
+    let core = Core::new(opts.clone()).unwrap();
+    assert_eq!(
+        core.profiles().len(),
+        2,
+        "recover local profiles, not old subscriptions"
+    );
+    assert_eq!(
+        core.status().profile_id.as_deref(),
+        Some(native.id.as_str())
+    );
+    assert_eq!(core.status().mode, Mode::Global);
+    assert_eq!(core.whitelist().entries[0].name, "kept");
+    let manual = core
+        .profiles()
+        .into_iter()
+        .find(|p| p.kind == ProfileKind::File)
+        .unwrap();
+    assert_eq!(
+        core.profile_content(manual.id.clone()).unwrap(),
+        LEGACY_NODES
+    );
+    core.shutdown();
+    drop(core);
+
+    let core = Core::new(opts.clone()).unwrap();
+    assert_eq!(core.profiles().len(), 2);
+    core.clear_data().unwrap();
+    core.shutdown();
+    drop(core);
+    let core = Core::new(opts.clone()).unwrap();
+    assert!(core.profiles().is_empty());
+    core.shutdown();
+    drop(core);
+    let core = Core::new(opts).unwrap();
+    assert!(
+        core.profiles().is_empty(),
+        "clearing data must not trigger recovery"
+    );
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn imported_share_links_survive_an_application_version_change() {
+    let dir = temp_dir();
+    let mut opts = options(&dir);
+    opts.app_version = "8.0.0".into();
+    let core = Core::new(opts.clone()).unwrap();
+    let text = "vless://u@h:1#manual\ntrojan://fixture@h:2#second";
+    let imported = core.import_links(text.into()).unwrap().profile;
+    core.rename_share_node(imported.id.clone(), "manual".into(), "renamed".into())
+        .unwrap();
+    let saved = core.profile_content(imported.id.clone()).unwrap();
+    core.shutdown();
+    drop(core);
+    opts.app_version = "8.1.1".into();
+    let core = Core::new(opts).unwrap();
+    assert_eq!(core.profiles().len(), 1);
+    assert_eq!(core.status().profile_id, Some(imported.id.clone()));
+    assert_eq!(core.profile_content(imported.id.clone()).unwrap(), saved);
+    assert_eq!(core.share_nodes(imported.id).unwrap()[0].name, "renamed");
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn saved_nodes_and_selections_are_available_without_starting_the_proxy() {
+    let dir = temp_dir();
+    let core = Core::new(options(&dir)).unwrap();
+    let profile = core
+        .import_links("vless://u@h:1#one\ntrojan://fixture@h:2#two".into())
+        .unwrap()
+        .profile;
+    core.set_mode(Mode::Direct).unwrap();
+    let group = core.groups().unwrap().remove(0);
+    assert_eq!(
+        group
+            .nodes
+            .iter()
+            .map(|n| n.name.as_str())
+            .collect::<Vec<_>>(),
+        ["one", "two"]
+    );
+    assert!(group.nodes.iter().all(|node| node.delay.is_none()));
+    core.select_node(group.name.clone(), "two".into()).unwrap();
+    assert_eq!(core.groups().unwrap()[0].now.as_deref(), Some("two"));
+    assert_eq!(core.status().engine, EngineState::Stopped);
+    core.shutdown();
+    drop(core);
+    let core = Core::new(options(&dir)).unwrap();
+    assert_eq!(core.status().profile_id, Some(profile.id));
+    assert_eq!(core.groups().unwrap()[0].now.as_deref(), Some("two"));
+    assert_eq!(core.status().engine, EngineState::Stopped);
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn unreadable_settings_never_replace_existing_nodes_with_defaults() {
+    let dir = temp_dir();
+    let opts = legacy_nodes(&dir);
+    fs::create_dir_all(dir.join("core/profiles")).unwrap();
+    let original = b"{\"profiles\":[{\"id\":\"kept\",\"kind\":\"links\"}],\"unfinished\":";
+    let nodes = b"vless://u@h:1#kept";
+    fs::write(dir.join("core/settings.json"), original).unwrap();
+    fs::write(dir.join("core/profiles/kept.txt"), nodes).unwrap();
+    assert!(Core::new(opts).is_err());
+    assert_eq!(fs::read(dir.join("core/settings.json")).unwrap(), original);
+    assert_eq!(fs::read(dir.join("core/profiles/kept.txt")).unwrap(), nodes);
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn local_profile_recovery_preserves_existing_copies_and_keeps_subscriptions_separate() {
+    for (id, kind, content, count) in [
+        ("7", "file", "proxies: []\n", 1),
+        ("existing", "file", LEGACY_NODES, 1),
+        ("subscription", "subscription", LEGACY_NODES, 2),
+    ] {
+        let dir = temp_dir();
+        let opts = legacy_nodes(&dir);
+        fs::create_dir_all(dir.join("core/profiles")).unwrap();
+        fs::write(dir.join(format!("core/profiles/{id}.yaml")), content).unwrap();
+        fs::write(
+            dir.join("core/settings.json"),
+            json!({
+                "currentProfile": id,
+                "profiles": [{"id": id, "name": "Existing name", "kind": kind, "url": "https://example.com/kept"}],
+            }).to_string(),
+        ).unwrap();
+        let core = Core::new(opts.clone()).unwrap();
+        assert_eq!(core.profiles().len(), count);
+        assert_eq!(core.status().profile_id.as_deref(), Some(id));
+        assert_eq!(core.profiles()[0].name, "Existing name");
+        assert_eq!(core.profile_content(id.into()).unwrap(), content);
+        core.shutdown();
+        drop(core);
+        let core = Core::new(opts).unwrap();
+        assert_eq!(core.profiles().len(), count);
+        core.shutdown();
+        fs::remove_dir_all(dir).unwrap();
+    }
+}
+
+#[test]
+fn failed_local_profile_recovery_retries_without_changing_native_profiles() {
+    let dir = temp_dir();
+    let opts = legacy_nodes(&dir);
+    let database = opts.legacy_database.as_ref().unwrap();
+    let original = fs::read(database).unwrap();
+    fs::write(database, b"unreadable old database").unwrap();
+    fs::create_dir_all(dir.join("core")).unwrap();
+    fs::write(dir.join("core/settings.json"), b"{}").unwrap();
+    let core = Core::new(opts.clone()).unwrap();
+    let native = core
+        .import_links("vless://u@h:1#kept".into())
+        .unwrap()
+        .profile;
+    core.shutdown();
+    drop(core);
+    fs::write(database, original).unwrap();
+    let core = Core::new(opts).unwrap();
+    assert_eq!(core.profiles().len(), 2);
+    assert_eq!(core.status().profile_id, Some(native.id));
+    core.shutdown();
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+#[ignore = "requires MIHOMO_BIN"]
+fn engine_uses_manual_nodes_after_flutter_upgrade() {
+    let dir = temp_dir();
+    let opts = legacy_nodes(&dir);
+    for _ in 0..2 {
+        let core = Core::new(opts.clone()).unwrap();
+        core.start(None).unwrap();
+        assert!(core.groups().unwrap().iter().any(|group| {
+            group
+                .nodes
+                .iter()
+                .any(|node| node.name == "preserved-manual")
+        }));
+        core.stop();
+        core.shutdown();
+    }
+    fs::remove_dir_all(dir).unwrap();
+}
+
 #[test]
 fn diagnostics_never_contain_secrets() {
     let dir = temp_dir();

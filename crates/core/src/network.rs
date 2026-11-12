@@ -1,6 +1,26 @@
 use std::net::IpAddr;
 
 use crate::model::IntranetIp;
+use crate::{CoreError, ExitIp, Result};
+
+pub fn exit_ip(body: &str) -> Result<ExitIp> {
+    let field = |name: &str| {
+        body.lines()
+            .find_map(|line| line.trim().strip_prefix(name)?.strip_prefix('='))
+            .map(str::trim)
+    };
+    let ip = field("ip")
+        .and_then(|ip| ip.parse::<IpAddr>().ok())
+        .ok_or_else(|| CoreError::Network("no valid address in the answer".into()))?;
+    let country = field("loc")
+        .filter(|code| code.len() == 2 && code.bytes().all(|c| c.is_ascii_alphabetic()))
+        .map(str::to_ascii_uppercase)
+        .filter(|code| code != "XX");
+    Ok(ExitIp {
+        ip: ip.to_string(),
+        country,
+    })
+}
 
 /// Tunnels, VPNs (mihomo's own TUN included), bridges and Apple's peer-to-peer links never carry the address other
 /// devices on the LAN reach.
@@ -98,6 +118,22 @@ fn interfaces() -> Vec<(String, IpAddr)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn exit_country_belongs_to_a_valid_address() {
+        let exit = exit_ip("ip=203.0.113.7\r\nloc=nl\r\ncolo=FRA\r\n").unwrap();
+        assert_eq!(exit.ip, "203.0.113.7");
+        assert_eq!(exit.country.as_deref(), Some("NL"));
+        assert_eq!(exit_ip("ip=2001:db8::1\nloc=XX").unwrap().country, None);
+        assert_eq!(
+            exit_ip("ip=203.0.113.7\nloc=not-a-country")
+                .unwrap()
+                .country,
+            None
+        );
+        assert!(exit_ip("ip=invalid\nloc=US").is_err());
+        assert!(exit_ip("colo=FRA\nloc=DE").is_err());
+    }
 
     fn candidate(name: &str, ip: &str) -> (String, IpAddr) {
         (name.to_owned(), ip.parse().unwrap())

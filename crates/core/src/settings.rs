@@ -24,6 +24,7 @@ pub struct Settings {
     #[serde(deserialize_with = "app_settings::lenient")]
     pub app: AppSettings,
     pub scripts: Vec<Script>,
+    pub legacy_local_profiles_migrated: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -111,16 +112,22 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn open(path: PathBuf) -> (Self, bool) {
-        let loaded = fs::read(&path)
-            .ok()
-            .and_then(|bytes| serde_json::from_slice::<Settings>(&bytes).ok());
+    pub fn open(path: PathBuf) -> Result<(Self, bool)> {
+        let loaded = match fs::read(&path) {
+            Ok(bytes) => Some(serde_json::from_slice::<Settings>(&bytes).map_err(|_| {
+                crate::CoreError::Invalid(
+                    "saved settings could not be read; the original data has been kept".into(),
+                )
+            })?),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => return Err(error.into()),
+        };
         let existed = loaded.is_some();
         let store = Self {
             path,
             data: Mutex::new(loaded.unwrap_or_default()),
         };
-        (store, existed)
+        Ok((store, existed))
     }
 
     pub fn get(&self) -> Settings {
@@ -161,7 +168,7 @@ mod tests {
     fn saves_and_reloads_changes() {
         let dir = std::env::temp_dir().join(format!("po0-settings-{}", util::random_id()));
         let path = dir.join("settings.json");
-        let (store, existed) = Store::open(path.clone());
+        let (store, existed) = Store::open(path.clone()).unwrap();
         assert!(!existed);
         store
             .update(|s| {
@@ -174,7 +181,7 @@ mod tests {
                 Ok(())
             })
             .unwrap();
-        let (reopened, existed) = Store::open(path);
+        let (reopened, existed) = Store::open(path).unwrap();
         assert!(existed);
         assert_eq!(reopened.get(), store.get());
         fs::remove_dir_all(dir).unwrap();
@@ -183,7 +190,7 @@ mod tests {
     #[test]
     fn a_failed_update_changes_nothing() {
         let dir = std::env::temp_dir().join(format!("po0-settings-{}", util::random_id()));
-        let (store, _) = Store::open(dir.join("settings.json"));
+        let (store, _) = Store::open(dir.join("settings.json")).unwrap();
         let result: Result<()> = store.update(|s| {
             s.mode = Mode::Direct;
             Err(crate::CoreError::Invalid("no".into()))

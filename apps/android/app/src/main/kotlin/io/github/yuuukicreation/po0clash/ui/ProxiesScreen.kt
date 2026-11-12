@@ -112,7 +112,7 @@ fun ProxiesScreen(vm: AppViewModel, opened: String?, onOpen: (String?) -> Unit) 
     var expanded by rememberSaveable { mutableStateOf<List<String>?>(null) }
     val twoLevel = settings.proxiesLayout == ProxiesLayout.TABS
     val running = status.engine == io.github.yuuukicreation.po0clash.core.EngineState.Running
-    val shown = status.mode != Mode.DIRECT && groups.isNotEmpty()
+    val shown = (!running || status.mode != Mode.DIRECT) && groups.isNotEmpty()
     val needle = query.trim()
     val visible = groups.filter { it.matches(needle) }
     val current = groups.firstOrNull { it.name == opened }
@@ -214,7 +214,7 @@ fun ProxiesScreen(vm: AppViewModel, opened: String?, onOpen: (String?) -> Unit) 
             }
         }
         when {
-            status.mode == Mode.DIRECT -> FullEmptyState(stringResource(R.string.direct_mode_title), LineIcons.Unlink, padding)
+            running && status.mode == Mode.DIRECT -> FullEmptyState(stringResource(R.string.direct_mode_title), LineIcons.Unlink, padding)
             groups.isEmpty() || selected == null -> FullEmptyState(stringResource(R.string.no_groups_title), LineIcons.Globe, padding)
             !twoLevel -> ExpandableGroups(
                 vm,

@@ -55,7 +55,7 @@ UniFFI 和 Tauri 命令只做转换：
 ## 不变的约束
 
 - 应用 ID `io.github.yuuukicreation.po0clash`、已提交的 Android 签名密钥和递增的 versionCode 都保留，老用户可以覆盖升级。
-- 首次启动时从 Flutter 版的数据目录只导入订阅和加白 token，其它设置不迁移。drift 数据库就是 SQLite，内核可以直接读。
+- 首次启动时从 Flutter 版的数据目录导入订阅、本地配置（含手动节点）和加白 token，其它设置不迁移。drift 数据库就是 SQLite，内核可以直接读。
 - 加白请求走物理出口的三层保证（ADR 0001、0012）：直连规则与 `route-exclude-address`、Android VPN 路由拆分、内核运行时走
   `po0-direct` 入口。
 - 匿名：提交与发布都用 yuuuki-creation，不申请实名开发者账号。

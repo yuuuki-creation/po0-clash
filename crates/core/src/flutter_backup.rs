@@ -166,10 +166,15 @@ fn whitelist_of(enabled: bool, tokens: &[(String, String)]) -> WhitelistSettings
 }
 
 fn rows(connection: &Connection, table: &str) -> rusqlite::Result<Vec<Row>> {
-    let mut statement = match connection.prepare(&format!(r#"SELECT * FROM "{table}""#)) {
-        Ok(statement) => statement,
-        Err(_) => return Ok(Vec::new()),
-    };
+    let exists: bool = connection.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+        [table],
+        |row| row.get(0),
+    )?;
+    if !exists {
+        return Ok(Vec::new());
+    }
+    let mut statement = connection.prepare(&format!(r#"SELECT * FROM "{table}""#))?;
     let names: Vec<String> = statement
         .column_names()
         .into_iter()

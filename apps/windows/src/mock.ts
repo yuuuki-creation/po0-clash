@@ -260,7 +260,7 @@ const commands: Record<string, (args: any) => unknown> = {
     const added = text.split('\n').filter((line: string) => line.trim()).length;
     return { profile: profiles.find((p) => p.kind === 'links'), added };
   },
-  groups: () => (running() ? groups : []),
+  groups: () => groups,
   select_node({ group, node }) {
     groups = groups.map((g) => (g.name === group ? { ...g, now: node } : g));
     if (group === 'Proxy') status.currentNode = node;

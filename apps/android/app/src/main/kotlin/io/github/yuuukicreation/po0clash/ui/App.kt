@@ -102,7 +102,6 @@ fun App(onConnect: () -> Unit, vm: AppViewModel = viewModel()) {
         vm.engine.dismissLaunchNotice()
         sheets.show { LaunchNotice(check, sheets::dismiss) }
     }
-    LaunchedEffect(vm) { if (vm.appSettings.value.autoCheckUpdate) vm.checkUpdate(userInitiated = false) }
     val release by vm.release.collectAsStateWithLifecycle()
     LaunchedEffect(release) {
         val (found, automatic) = release ?: return@LaunchedEffect

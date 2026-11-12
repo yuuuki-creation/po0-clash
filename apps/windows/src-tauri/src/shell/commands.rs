@@ -47,6 +47,11 @@ pub async fn status(core: CoreState<'_>) -> Reply<Status> {
 }
 
 #[tauri::command]
+pub async fn check_update(core: CoreState<'_>) -> Reply<Option<super::po0::Release>> {
+    blocking(&core, |c| c.check_update()).await
+}
+
+#[tauri::command]
 pub async fn start(core: CoreState<'_>) -> Reply<()> {
     blocking(&core, |c| c.start(None)).await
 }

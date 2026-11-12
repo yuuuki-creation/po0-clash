@@ -1,10 +1,10 @@
 use std::cmp::Ordering;
+use std::time::Duration;
 
 use serde_json::Value;
 
 use crate::error::{CoreError, Result};
 use crate::model::Release;
-use crate::profiles;
 
 const RELEASES: &str =
     "https://api.github.com/repos/yuuuki-creation/po0-clash/releases?per_page=30";
@@ -12,7 +12,29 @@ const RELEASES: &str =
 const TAG_PREFIX: &str = "native-v";
 
 pub fn check(app_version: &str, proxy: Option<&str>) -> Result<Option<Release>> {
-    let body = profiles::download(RELEASES, proxy)?;
+    let proxy = proxy
+        .map(ureq::Proxy::new)
+        .transpose()
+        .map_err(|_| CoreError::Network("invalid update proxy".into()))?;
+    let agent = ureq::Agent::new_with_config(
+        ureq::Agent::config_builder()
+            .proxy(proxy)
+            .timeout_global(Some(Duration::from_secs(8)))
+            .user_agent(format!("po0-clash/{app_version}"))
+            .build(),
+    );
+    let body = agent
+        .get(RELEASES)
+        .header("Accept", "application/vnd.github+json")
+        .call()
+        .and_then(|mut response| {
+            response
+                .body_mut()
+                .with_config()
+                .limit(2 << 20)
+                .read_to_vec()
+        })
+        .map_err(|_| CoreError::Network("could not reach GitHub to check for updates".into()))?;
     let releases: Value =
         serde_json::from_slice(&body).map_err(|error| CoreError::Network(error.to_string()))?;
     Ok(newest_above(app_version, &releases))

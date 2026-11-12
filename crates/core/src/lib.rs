@@ -12,6 +12,7 @@ mod links;
 mod logfile;
 mod model;
 mod network;
+mod offline;
 mod options;
 mod profiles;
 mod resources;
@@ -152,12 +153,22 @@ impl Core {
             options.platform
         ));
         let cleared = clear_if_requested(&data_dir, &paths);
-        let (store, existed) = Store::open(data_dir.join("settings.json"));
+        let (store, existed) = Store::open(data_dir.join("settings.json"))?;
         if !existed {
             if !cleared {
                 import_legacy(&store, &paths, &options);
             }
             store.save()?;
+        }
+        if cleared {
+            store.update(|s| {
+                s.legacy_local_profiles_migrated = true;
+                Ok(())
+            })?;
+        } else if let Err(error) =
+            legacy::recover_local_profiles(&store, &paths, &options, !existed)
+        {
+            logfile::warn(format!("local profile migration failed: {error}"));
         }
         engine::recover(&paths.run)?;
         let whitelist_settings = store.read(|s| s.whitelist.clone());
@@ -1549,7 +1560,48 @@ impl Core {
 
     pub fn groups(&self) -> Result<Vec<ProxyGroup>> {
         let Some(session) = self.engine.session() else {
-            return Ok(Vec::new());
+            let settings = self.store.get();
+            let Some(profile) = settings.current() else {
+                return Ok(Vec::new());
+            };
+            let Ok((_, content)) = self.config_base(profile, &settings) else {
+                return Ok(Vec::new());
+            };
+            let links = content
+                .map(|(_, text)| profiles::extract_links(&text))
+                .unwrap_or_default();
+            let nodes: Vec<Node> = links::names(&links)
+                .into_iter()
+                .zip(&links)
+                .filter_map(|(name, link)| {
+                    Some(Node {
+                        name: name?,
+                        kind: offline::kind(&links::scheme(link)),
+                        delay: None,
+                    })
+                })
+                .collect();
+            return offline::groups(
+                &self.preview_config(profile.id.clone())?,
+                &nodes,
+                &profile.selections,
+                |path| {
+                    let suffix = path
+                        .strip_prefix("./providers/po0-")?
+                        .strip_suffix(".cache")?;
+                    if suffix.len() != 64 || !suffix.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                        return None;
+                    }
+                    let relative = path.strip_prefix("./")?;
+                    fs::read_to_string(self.paths.home.join(relative))
+                        .or_else(|_| {
+                            fs::read_to_string(
+                                self.paths.home.with_file_name("mihomo-root").join(relative),
+                            )
+                        })
+                        .ok()
+                },
+            );
         };
         let proxies = self.proxies(&session)?;
         let mode = self.store.read(|s| s.mode);
@@ -1680,17 +1732,7 @@ impl Core {
             .call()
             .and_then(|mut response| response.body_mut().read_to_string())
             .map_err(|error| CoreError::Network(error.to_string()))?;
-        let field = |name: &str| {
-            body.lines()
-                .find_map(|line| line.strip_prefix(name)?.strip_prefix('='))
-                .map(str::to_owned)
-        };
-        let ip =
-            field("ip").ok_or_else(|| CoreError::Network("no address in the answer".into()))?;
-        Ok(ExitIp {
-            ip,
-            country: field("loc").filter(|loc| loc != "XX"),
-        })
+        network::exit_ip(&body)
     }
 
     // Developer mode.

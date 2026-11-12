@@ -15,6 +15,7 @@ interface Props {
   testing: boolean;
   selected: boolean;
   readOnly: boolean;
+  canTest: boolean;
   showType: boolean;
   height: number;
   onSelect: (group: string, node: string) => void;
@@ -76,7 +77,7 @@ export const ProxyItem = memo(function ProxyItem(props: Props) {
           </Box>
         )}
       </Box>
-      <Box sx={{ ml: 0.5, flex: 'none', color: 'primary.main' }}>
+      <Box sx={{ ml: 0.5, flex: 'none', color: 'primary.main', display: props.canTest ? undefined : 'none' }}>
         {testing ? (
           <Widget sx={{ display: 'flex' }}>
             <CircularProgress size={14} />

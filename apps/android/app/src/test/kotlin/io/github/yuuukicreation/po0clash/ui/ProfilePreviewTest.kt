@@ -4,8 +4,18 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
+import io.github.yuuukicreation.po0clash.core.Node
 
 class ProfilePreviewTest {
+    @Test
+    fun savedShareLinksRemainVisibleAndCountedWithoutStartingTheVpn() {
+        val nodes = listOf(Node("Imported one", "VLESS", null), Node("Imported two", "Trojan", null))
+        val yaml = "proxy-providers: {links: {type: file}}\nproxy-groups: [{name: PROXY, type: select, use: [links]}]\nrules: ['MATCH,PROXY']"
+        val preview = checkNotNull(parseProfilePreview("manual", yaml, nodes))
+        assertEquals(2, preview.proxyCount)
+        assertEquals(nodes, preview.groups.single().nodes)
+        assertFalse(preview.groups.single().selectable)
+    }
     @Test
     fun aStoredProfileShowsItsNodesAndCountsBeforeTheVpnStarts() {
         val preview = checkNotNull(parseProfilePreview("profile", """

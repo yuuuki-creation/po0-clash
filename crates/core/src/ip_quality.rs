@@ -69,7 +69,9 @@ impl IpQualitySource {
             Self::IdentMe => "https://ident.me/json".into(),
             // ip-api.com serves HTTPS only on its paid plan.
             Self::IpApiCom => {
-                format!("http://ip-api.com/json/{ip}?fields=status,isp,org,as,mobile,proxy,hosting")
+                format!(
+                    "http://ip-api.com/json/{ip}?fields=status,query,isp,org,as,mobile,proxy,hosting"
+                )
             }
             Self::IpQuery => format!("https://api.ipquery.io/{ip}?format=json"),
             Self::IpLocate => format!("https://iplocate.io/api/lookup/{ip}"),
@@ -130,7 +132,7 @@ const FAILURE_COOLDOWN: Duration = Duration::from_secs(5 * 60);
 /// free quotas.
 #[derive(Default)]
 pub struct Cache {
-    last: Mutex<Option<(String, Cached)>>,
+    last: Mutex<Option<(String, Option<String>, Cached)>>,
 }
 
 enum Cached {
@@ -140,18 +142,23 @@ enum Cached {
 
 impl Cache {
     pub fn lookup(&self, ip: &str, proxy: Option<&str>, refresh: bool) -> Result<IpQuality> {
-        if !refresh && let Some((cached_ip, cached)) = lock(&self.last).as_ref() {
+        ip.parse::<std::net::IpAddr>()
+            .map_err(|_| CoreError::Invalid("not an IP address".into()))?;
+        if !refresh && let Some((cached_ip, cached_proxy, cached)) = lock(&self.last).as_ref() {
             match cached {
                 Cached::Answer(quality) if cached_ip == ip => return Ok(quality.clone()),
                 Cached::Failure(at, message)
-                    if cached_ip == ip && at.elapsed() < FAILURE_COOLDOWN =>
+                    if cached_ip == ip
+                        && cached_proxy.as_deref() == proxy
+                        && at.elapsed() < FAILURE_COOLDOWN =>
                 {
                     return Err(CoreError::Network(message.clone()));
                 }
                 _ => {}
             }
         }
-        let (owned_ip, proxy) = (ip.to_owned(), proxy.map(str::to_owned));
+        let route = proxy.map(str::to_owned);
+        let (owned_ip, proxy) = (ip.to_owned(), route.clone());
         let result = run(
             move |source| query(source, &owned_ip, proxy.as_deref()),
             HEDGE,
@@ -160,7 +167,7 @@ impl Cache {
             Ok(quality) => Cached::Answer(quality.clone()),
             Err(error) => Cached::Failure(Instant::now(), error.to_string()),
         };
-        *lock(&self.last) = Some((ip.to_owned(), cached));
+        *lock(&self.last) = Some((ip.to_owned(), route, cached));
         result
     }
 }
@@ -268,6 +275,20 @@ struct Details {
 }
 
 fn parse(source: IpQualitySource, ip: &str, json: &Value) -> Outcome {
+    if source != IpQualitySource::ProxyCheck {
+        let key = if source == IpQualitySource::IpApiCom {
+            "query"
+        } else {
+            "ip"
+        };
+        let answered = json
+            .get(key)
+            .and_then(Value::as_str)
+            .ok_or(Failure::Failed)?;
+        if answered.parse::<std::net::IpAddr>().ok() != ip.parse::<std::net::IpAddr>().ok() {
+            return Err(Failure::IpMismatch);
+        }
+    }
     let object = |value: &Value, name: &str| value.get(name).cloned().unwrap_or(Value::Null);
     match source {
         IpQualitySource::IdentMe => {
@@ -471,6 +492,7 @@ fn flag(value: Option<&Value>) -> bool {
 fn text(value: Option<&Value>) -> Option<String> {
     value
         .and_then(Value::as_str)
+        .map(str::trim)
         .filter(|text| !text.is_empty())
         .map(str::to_owned)
 }
@@ -520,7 +542,7 @@ mod tests {
         let silent = parse(
             IpQualitySource::IpApiCom,
             ip,
-            &json!({"status": "success", "isp": "Home ISP", "as": "AS64501 Home", "proxy": false}),
+            &json!({"query": ip, "status": "success", "isp": "Home ISP", "as": "AS64501 Home", "proxy": false}),
         );
         assert!(
             matches!(silent, Ok(Answer::Inferred(ref q)) if q.kind == IpType::Residential && q.asn == Some(64501))
@@ -542,7 +564,7 @@ mod tests {
         let located = stated(parse(
             IpQualitySource::IpLocate,
             ip,
-            &json!({"privacy": {}, "company": {"type": "education", "name": "A University"}, "asn": {"asn": 64503}}),
+            &json!({"ip": ip, "privacy": {}, "company": {"type": "education", "name": "A University"}, "asn": {"asn": 64503}}),
         ));
         assert_eq!((located.kind, located.asn), (IpType::Business, Some(64503)));
     }
@@ -559,7 +581,7 @@ mod tests {
         let untyped = parse(
             IpQualitySource::IpApiIs,
             ip,
-            &json!({"company": {}, "asn": {}}),
+            &json!({"ip": ip, "company": {}, "asn": {}}),
         );
         assert!(matches!(untyped, Err(Failure::NoType)));
         let denied = parse(
@@ -568,6 +590,21 @@ mod tests {
             &json!({"status": "denied"}),
         );
         assert!(matches!(denied, Err(Failure::RateLimited)));
+        for source in [
+            IpQualitySource::IpQuery,
+            IpQualitySource::IpLocate,
+            IpQualitySource::IpApiIs,
+        ] {
+            assert!(matches!(
+                parse(
+                    source,
+                    ip,
+                    &json!({"ip": "198.51.100.1", "company": {"type": "hosting"}})
+                ),
+                Err(Failure::IpMismatch)
+            ));
+            assert!(parse(source, ip, &json!({})).is_err());
+        }
     }
 
     fn quality(source: IpQualitySource) -> IpQuality {

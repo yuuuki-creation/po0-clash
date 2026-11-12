@@ -146,6 +146,7 @@ pub fn run() {
             commands::reorder_profiles,
             commands::export_profile,
             commands::groups,
+            commands::check_update,
             commands::select_node,
             commands::test_delay,
             commands::test_node_delay,

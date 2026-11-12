@@ -22,6 +22,7 @@ interface Props {
   sort: string;
   showType: boolean;
   testing: boolean;
+  canTest: boolean;
   filtering: boolean;
   onLocate: (group: string) => void;
   onTest: (group: string) => void;
@@ -38,7 +39,7 @@ export const ProxyHead = memo(function ProxyHead(props: Props) {
       <IconButton size="small" color="inherit" title={t('proxies.locate')} onClick={() => props.onLocate(group)}>
         <MyLocationRounded />
       </IconButton>
-      <IconButton size="small" color="inherit" title={t('proxies.test')} disabled={testing} onClick={() => props.onTest(group)}>
+      <IconButton size="small" color="inherit" title={t('proxies.test')} disabled={testing || !props.canTest} onClick={() => props.onTest(group)}>
         {testing ? <CircularProgress size={20} color="inherit" sx={{ m: '2px' }} /> : <NetworkCheckRounded />}
       </IconButton>
       <IconButton

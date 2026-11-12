@@ -104,13 +104,14 @@ export async function testNode(name: string) {
   app.groups = app.groups.map(withDelays);
 }
 
+let groupsRequest = 0;
 async function loadGroups() {
+  const request = ++groupsRequest;
   if (app.status?.engine.state !== 'running') {
     delays.clear();
-    app.groups = [];
-    return;
   }
-  app.groups = (await invoke<any[]>('groups')).map(withDelays);
+  const groups = await invoke<any[]>('groups');
+  if (request === groupsRequest) app.groups = groups.map(withDelays);
 }
 
 const loaders = {
@@ -159,9 +160,9 @@ async function refreshStatus() {
   else app.connectedAt ??= Date.now();
   const key = [engine, s.currentNode, s.mode, s.profileId].join('|');
   if (key === routeKey) return;
-  const engineChanged = routeKey.split('|')[0] !== engine;
+  if (routeKey.split('|')[3] !== s.profileId) delays.clear();
   routeKey = key;
-  if (engineChanged) refresh('groups');
+  refresh('groups');
   if (engine === 'running' || engine === 'stopped') refreshExitIp();
 }
 

@@ -75,7 +75,7 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download
 Pass a version tag or a local `.zip` path after `bash -s --` to install a specific build:
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download/install-macos-native.sh | bash -s -- 8.1.0
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download/install-macos-native.sh | bash -s -- 8.1.1
 ```
 
 On first TUN activation, macOS prompts once for an administrator password to grant setuid-root permissions to the bundled `mihomo` binary.

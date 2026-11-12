@@ -3,6 +3,97 @@ use std::path::Path;
 
 use serde_json::Value;
 
+use crate::model::ProfileKind;
+use crate::settings::{ProfileRecord, Store};
+use crate::{CoreError, CoreOptions, Paths, Result, flutter_backup, profiles::Content, util};
+
+pub(super) fn recover_local_profiles(
+    store: &Store,
+    paths: &Paths,
+    options: &CoreOptions,
+    first_run: bool,
+) -> Result<()> {
+    let current = store.get();
+    if current.legacy_local_profiles_migrated {
+        return Ok(());
+    }
+    let Some(database) = options.legacy_database.as_deref() else {
+        return Ok(());
+    };
+    let config = options
+        .legacy_prefs
+        .as_deref()
+        .and_then(config_json)
+        .unwrap_or_default();
+    let directory = database.parent().unwrap_or_else(|| Path::new("."));
+    let restored = flutter_backup::read(&config, Some(database), |name| {
+        fs::read_to_string(directory.join(name)).ok()
+    })
+    .map_err(|error| CoreError::Io(error.to_string()))?;
+    let mut records: Vec<ProfileRecord> = Vec::new();
+    let mut selected = None;
+    for profile in restored
+        .profiles
+        .iter()
+        .filter(|profile| profile.kind != ProfileKind::Subscription)
+    {
+        let Some(content) = restored.files.get(&profile.id) else {
+            continue;
+        };
+        let id = format!("legacy-local-{}", profile.id);
+        let existing = current
+            .profiles
+            .iter()
+            .chain(&records)
+            .filter(|saved| saved.kind != ProfileKind::Subscription)
+            .find(|saved| {
+                saved.id == profile.id
+                    || saved.id == id
+                    || match content {
+                        Content::Yaml(text) => {
+                            fs::read_to_string(paths.yaml(&saved.id)).ok().as_ref() == Some(text)
+                        }
+                        Content::Links(text) => {
+                            fs::read_to_string(paths.links(&saved.id)).ok().as_ref() == Some(text)
+                        }
+                    }
+            });
+        let recovered_id = if let Some(existing) = existing {
+            existing.id.clone()
+        } else {
+            let (path, text) = match content {
+                Content::Yaml(text) => (paths.yaml(&id), text),
+                Content::Links(text) => (paths.links(&id), text),
+            };
+            util::write_atomic(&path, text.as_bytes())?;
+            records.push(ProfileRecord {
+                manual_update: true,
+                selections: profile.selections.clone(),
+                ..ProfileRecord::new(id.clone(), profile.name.clone(), profile.kind)
+            });
+            id
+        };
+        if restored.current.as_deref() == Some(profile.id.as_str()) {
+            selected = Some(recovered_id);
+        }
+    }
+    let count = records.len();
+    store.update(|s| {
+        s.profiles.extend(records);
+        if first_run && selected.is_some() || s.current().is_none() {
+            s.current_profile = selected.or_else(|| s.profiles.first().map(|p| p.id.clone()));
+        }
+        s.legacy_local_profiles_migrated = true;
+        Ok(())
+    })?;
+    if count > 0 {
+        crate::logfile::info(format!(
+            "recovered {count} local profiles from the Flutter app"
+        ));
+    }
+    Ok(())
+}
+
 /// What the Flutter app (6.x) leaves that the native app takes over: subscriptions and
 /// whitelist entries only (native-rewrite.md).
 #[derive(Debug, Default, PartialEq, Eq)]

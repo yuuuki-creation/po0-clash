@@ -34,7 +34,7 @@ enum AppPaths {
             platform: .macOs,
             mihomoPath: bundledMihomo,
             legacyPrefs: firstRun ? legacyPreferences() : nil,
-            legacyDatabase: firstRun && files.fileExists(atPath: database) ? database : nil,
+            legacyDatabase: files.fileExists(atPath: database) ? database : nil,
             appVersion: version
         )
     }

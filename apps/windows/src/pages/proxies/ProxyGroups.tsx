@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSnapshot } from 'valtio';
 import { BaseEmpty } from '../../base';
 import { t } from '../../lib/i18n.js';
-import { act, app, isTestingNode, rankDelay, resolvedDelay, testDelay, testNode } from '../../state/core';
+import { act, app, isRunning, isTestingNode, rankDelay, resolvedDelay, testDelay, testNode } from '../../state/core';
 import { settings, updateSettings } from '../../state/settings';
 import { GroupIcon } from './GroupIcon';
 import { ProxyHead } from './ProxyHead';
@@ -56,7 +56,7 @@ const onFiltering = (group: string, on: boolean) => {
 const onFilter = (group: string, text: string) => (view.filter[group] = text);
 
 export function ProxyGroups() {
-  const { groups, busy } = useSnapshot(app);
+  const { groups, busy, status } = useSnapshot(app);
   const s = useSnapshot(settings).value;
   const v = useSnapshot(view);
   const [scroller, columns] = useColumns();
@@ -157,7 +157,7 @@ export function ProxyGroups() {
               </GroupIcon>
             </Box>
             <Box onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} sx={{ flex: 'none' }}>
-              <ProxyHead group={group.name} sort={sort} showType={showType} testing={groupTesting(group)} filtering={!!filtering[group.name]}
+              <ProxyHead group={group.name} sort={sort} showType={showType} testing={groupTesting(group)} canTest={isRunning(status)} filtering={!!filtering[group.name]}
                 onLocate={onLocate} onTest={testDelay} onSort={onSort} onShowType={onShowType} onFiltering={onFiltering} />
             </Box>
             <Chip
@@ -199,6 +199,7 @@ export function ProxyGroups() {
             testing={isTestingNode(node.name, busy, groups)}
             selected={node.name === group.now}
             readOnly={!group.selectable}
+            canTest={isRunning(status)}
             showType={showType}
             height={tile}
             onSelect={onSelect}

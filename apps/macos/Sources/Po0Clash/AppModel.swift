@@ -106,7 +106,6 @@ final class AppModel: ObservableObject {
                     await connect()?.value
                 }
                 try? await client.launchFinished()
-                if appSettings?.autoCheckUpdate == true, !Showcase.isScripted { checkForUpdates() }
             } catch {
                 launchError = describe(error)
                 releaseWaiters()
@@ -310,31 +309,6 @@ final class AppModel: ObservableObject {
         let agreed = alert.runModal() == .alertFirstButtonReturn
         if agreed { updateAppSettings { $0.disclaimerAccepted = true } }
         return agreed
-    }
-
-    // MARK: Updates
-
-    private func checkForUpdates() {
-        guard let client else { return }
-        Task {
-            guard let release = try? await client.checkUpdate() else { return }
-            let alert = NSAlert()
-            alert.messageText = String(localized: "po0-clash \(release.version) is available")
-            let notes = release.notes.trimmingCharacters(in: .whitespacesAndNewlines)
-            alert.informativeText = notes.count > 800 ? String(notes.prefix(800)) + "…" : notes
-            alert.addButton(withTitle: String(localized: "Open Download Page"))
-            alert.addButton(withTitle: String(localized: "Later"))
-            alert.addButton(withTitle: String(localized: "Don't Remind Me"))
-            activateApp()
-            switch alert.runModal() {
-            case .alertFirstButtonReturn:
-                if let url = URL(string: release.url) { NSWorkspace.shared.open(url) }
-            case .alertThirdButtonReturn:
-                updateAppSettings { $0.autoCheckUpdate = false }
-            default:
-                break
-            }
-        }
     }
 
     // MARK: Settings
