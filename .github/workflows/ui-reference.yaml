@@ -1,0 +1,59 @@
+name: ui-reference
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_run:
+        description: native-release run containing the Windows installer
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows
+          path: dist
+          run-id: ${{ inputs.artifact_run }}
+          github-token: ${{ github.token }}
+      - name: Install official Clash Verge Rev and po0-clash
+        shell: pwsh
+        run: |
+          $url = 'https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.5.10/Clash.Verge_2.5.10_x64-setup.exe'
+          Invoke-WebRequest $url -OutFile "$env:RUNNER_TEMP\official-verge.exe"
+          Get-FileHash "$env:RUNNER_TEMP\official-verge.exe" -Algorithm SHA256
+          $policy = 'HKLM:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'
+          New-Item -Path $policy -Force | Out-Null
+          New-ItemProperty -Path $policy -Name 'clash-verge.exe' -Value '--remote-debugging-port=9223' -Force | Out-Null
+          New-ItemProperty -Path $policy -Name 'po0-clash.exe' -Value '--remote-debugging-port=9222' -Force | Out-Null
+          $setup = Start-Process "$env:RUNNER_TEMP\official-verge.exe" -ArgumentList '/S' -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "official installer exited with $($setup.ExitCode)" }
+          $official = Get-ChildItem 'C:\Program Files', "$env:LOCALAPPDATA\Programs" -Filter clash-verge.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $official) { throw 'official app executable not found' }
+          Start-Process $official.FullName
+          $installer = Get-ChildItem dist/*-setup.exe | Select-Object -First 1
+          $setup = Start-Process $installer.FullName -ArgumentList '/S' -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "po0 installer exited with $($setup.ExitCode)" }
+          Start-Process 'C:\Program Files\po0-clash\po0-clash.exe'
+      - run: npm ci --no-fund --no-audit
+        working-directory: apps/windows
+      - run: node tool/ui/windows-reference.mjs
+      - name: Stop test apps
+        if: always()
+        shell: pwsh
+        run: Get-Process po0-clash, clash-verge, mihomo -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: official-windows-comparison
+          path: reference-shots

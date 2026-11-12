@@ -102,6 +102,20 @@ function check(condition, message) {
   console.log(`ok - ${message}`);
 }
 
+let pageState = null;
+const pageDeadline = Date.now() + 30_000;
+while (Date.now() < pageDeadline) {
+  try {
+    pageState = await evaluate(`({
+      url: location.href,
+      ready: typeof window.__TAURI_INTERNALS__?.invoke === 'function' && !!document.querySelector('.base-page')
+    })`);
+    if (pageState.ready) break;
+  } catch {}
+  await sleep(200);
+}
+check(pageState?.ready, `desktop interface ready (${pageState?.url ?? 'no document'})`);
+
 console.log('status', JSON.stringify(await invoke('status')));
 
 const imported = await invoke('import_links', { text: link ?? 'ss://YWVzLTI1Ni1nY206c21va2U@127.0.0.1:8388#smoke' });
