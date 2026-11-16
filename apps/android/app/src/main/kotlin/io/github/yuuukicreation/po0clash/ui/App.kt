@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -116,6 +118,9 @@ fun App(onConnect: () -> Unit, vm: AppViewModel = viewModel()) {
     BackHandler(enabled = page != Page.DASHBOARD) { page = Page.DASHBOARD }
     BackHandler(enabled = dashboardEditing) { dashboardEditing = false }
     val fade = settings.pageAnimation && !reduceMotion
+    LaunchedEffect(destinations) {
+        if (page !in destinations) page = Page.DASHBOARD
+    }
     val select: (Page) -> Unit = {
         dashboardEditing = false
         proxyGroup = null
@@ -134,7 +139,7 @@ fun App(onConnect: () -> Unit, vm: AppViewModel = viewModel()) {
                 if (rail) NavRail(destinations, page, settings.showNavLabels, select)
                 Box(Modifier.weight(1f).fillMaxHeight().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End))) {
                     Box(Modifier.fillMaxSize().imePadding()) {
-                        AnimatedContent(page, transitionSpec = { fadeThrough(fade) }, label = "tabs") { target ->
+                        AnimatedContent(page, transitionSpec = { tabTransition(fade && !rail) }, label = "tabs") { target ->
                             pages.SaveableStateProvider(target) {
                                 when (target) {
                                     Page.DASHBOARD -> DashboardScreen(
@@ -178,7 +183,7 @@ private fun NavIcon(page: Page, title: String, labels: Boolean) {
 }
 
 @Composable
-private fun BottomNav(items: List<Page>, selected: Page, labels: Boolean, modifier: Modifier, onSelect: (Page) -> Unit) {
+internal fun BottomNav(items: List<Page>, selected: Page, labels: Boolean, modifier: Modifier, onSelect: (Page) -> Unit) {
     val colors = palette
     val select by rememberUpdatedState(onSelect)
     val reduceMotion = LocalReduceMotion.current
@@ -186,11 +191,13 @@ private fun BottomNav(items: List<Page>, selected: Page, labels: Boolean, modifi
         val width = minOf(maxWidth, 86.dp * items.size + 8.dp)
         val itemWidth = (width - 8.dp) / items.size
         val index = items.indexOf(selected).coerceAtLeast(0)
+        var dragPosition by remember(items) { mutableStateOf<Float?>(null) }
         val position by animateDpAsState(
-            itemWidth * index,
-            if (reduceMotion) snap() else spring(dampingRatio = 0.85f, stiffness = 650f),
+            itemWidth * (dragPosition ?: index.toFloat()),
+            if (reduceMotion) snap() else spring(dampingRatio = if (dragPosition == null) 0.85f else 0.9f, stiffness = if (dragPosition == null) 247f else 1024f),
             label = "navigation",
         )
+        val lift by animateFloatAsState(if (dragPosition == null) 1f else 1.08f, if (reduceMotion) snap() else spring(dampingRatio = 0.593f, stiffness = 311f), label = "navigationPress")
         Surface(
             Modifier.widthIn(max = width).height(62.dp),
             shape = CircleShape,
@@ -199,18 +206,24 @@ private fun BottomNav(items: List<Page>, selected: Page, labels: Boolean, modifi
         ) {
             BoxWithConstraints(Modifier.fillMaxSize().padding(4.dp).pointerInput(items) {
                 var dragX = 0f
-                var last = -1
                 detectHorizontalDragGestures(
-                    onDragStart = { dragX = it.x; last = -1 },
+                    onDragStart = {
+                        dragX = it.x
+                        dragPosition = (dragX / (size.width.toFloat() / items.size) - 0.5f).coerceIn(0f, items.lastIndex.toFloat())
+                    },
+                    onDragEnd = {
+                        dragPosition?.let { select(items[kotlin.math.round(it).toInt().coerceIn(items.indices)]) }
+                        dragPosition = null
+                    },
+                    onDragCancel = { dragPosition = null },
                     onHorizontalDrag = { change, amount ->
                         change.consume()
                         dragX += amount
-                        val next = (dragX / (size.width.toFloat() / items.size)).toInt().coerceIn(items.indices)
-                        if (next != last) { last = next; select(items[next]) }
+                        dragPosition = (dragX / (size.width.toFloat() / items.size) - 0.5f).coerceIn(0f, items.lastIndex.toFloat())
                     },
                 )
             }) {
-                Box(Modifier.offset(x = position).widthIn(min = itemWidth, max = itemWidth).fillMaxHeight().background(colors.block, CircleShape))
+                Box(Modifier.offset(x = position).widthIn(min = itemWidth, max = itemWidth).fillMaxHeight().graphicsLayer { scaleX = lift; scaleY = lift }.background(colors.block, CircleShape))
                 Row(Modifier.fillMaxSize()) {
                     items.forEach { page ->
                         val title = stringResource(page.label)

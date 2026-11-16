@@ -1,6 +1,9 @@
 package io.github.yuuukicreation.po0clash.ui
 
 import android.provider.Settings
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
@@ -8,13 +11,13 @@ import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.SeekableTransitionState
 import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -23,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.grid.LazyGridItemScope
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.LifecycleResumeEffect
 import kotlinx.coroutines.CancellationException
 
 val LocalReduceMotion = staticCompositionLocalOf { false }
@@ -41,24 +44,32 @@ val LocalReduceMotion = staticCompositionLocalOf { false }
 val StandardEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 val EnterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
 val ExitEasing = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
+val TabEasing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
+val EaseOutBack = Easing { fraction ->
+    val x = fraction - 1f
+    1f + 2.70158f * x * x * x + 1.70158f * x * x
+}
 
 @Composable
 fun rememberReduceMotion(): Boolean {
     val resolver = LocalContext.current.contentResolver
-    var reduce by remember { mutableStateOf(false) }
-    LifecycleResumeEffect(resolver) {
-        reduce = Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-        onPauseOrDispose {}
+    fun disabled() = Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    var reduce by remember(resolver) { mutableStateOf(disabled()) }
+    DisposableEffect(resolver) {
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) { reduce = disabled() }
+        }
+        resolver.registerContentObserver(Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE), false, observer)
+        onDispose { resolver.unregisterContentObserver(observer) }
     }
     return reduce
 }
 
-fun fadeThrough(animate: Boolean): ContentTransform =
+fun tabTransition(animate: Boolean): ContentTransform =
     if (!animate) {
         EnterTransition.None togetherWith ExitTransition.None
     } else {
-        (fadeIn(tween(300, easing = StandardEasing)) + scaleIn(tween(300, easing = StandardEasing), initialScale = 0.96f)) togetherWith
-            fadeOut(tween(90, easing = LinearEasing))
+        fadeIn(tween(220, easing = TabEasing)) togetherWith fadeOut(tween(220, easing = TabEasing))
     }
 
 private fun <T> AnimatedContentTransitionScope<T?>.axis(animate: Boolean, shift: Int): ContentTransform {

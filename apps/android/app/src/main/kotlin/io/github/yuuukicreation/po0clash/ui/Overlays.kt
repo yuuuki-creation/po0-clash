@@ -3,6 +3,8 @@ package io.github.yuuukicreation.po0clash.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -135,37 +137,53 @@ fun SheetHost(sheets: Sheets) {
     val content = sheets.content
     val menu = sheets.menu
     val dialog = sheets.dialog
+    val reduced = LocalReduceMotion.current
+    val menuState = remember { MutableTransitionState(false) }
+    menuState.targetState = menu != null
+    val sheetState = remember { MutableTransitionState(false) }
+    sheetState.targetState = content != null
+    val dialogState = remember { MutableTransitionState(false) }
+    dialogState.targetState = dialog != null
     var lastContent by remember { mutableStateOf(content) }
     var lastMenu by remember { mutableStateOf(menu) }
     var lastDialog by remember { mutableStateOf(dialog) }
     if (content != null) lastContent = content
     if (menu != null) lastMenu = menu
     if (dialog != null) lastDialog = dialog
-    BackHandler(enabled = sheets.open) { sheets.dismiss() }
+    BackHandler(enabled = sheets.open || menuState.currentState || sheetState.currentState || dialogState.currentState) { sheets.dismiss() }
     val tapOutside = Modifier.fillMaxSize().clickable(remember { MutableInteractionSource() }, indication = null) { sheets.dismiss() }
-    if (menu != null) Box(tapOutside)
-    AnimatedVisibility(content != null || dialog != null, enter = fadeIn(tween(300, easing = LinearEasing)), exit = fadeOut(tween(200, easing = LinearEasing))) {
-        Box(tapOutside.background(colors.scrim))
+    if (sheets.open || menuState.currentState || sheetState.currentState || dialogState.currentState) Box(tapOutside)
+    AnimatedVisibility(content != null || dialog != null, enter = fadeIn(tween(if (reduced) 0 else 300, easing = LinearEasing)), exit = fadeOut(tween(if (reduced) 0 else 200, easing = LinearEasing))) {
+        Box(Modifier.fillMaxSize().background(colors.scrim))
     }
     Box(Modifier.fillMaxSize().statusBarsPadding(), contentAlignment = Alignment.BottomCenter) {
         AnimatedVisibility(
-            content != null,
-            enter = slideInVertically(tween(400, easing = EnterEasing)) { it },
-            exit = slideOutVertically(tween(200, easing = ExitEasing)) { it },
+            sheetState,
+            enter = slideInVertically(tween(if (reduced) 0 else 400, easing = EnterEasing)) { it },
+            exit = slideOutVertically(tween(if (reduced) 0 else 200, easing = ExitEasing)) { it },
         ) {
             BottomSheet(sheets::dismiss) { key(lastContent) { lastContent?.invoke(this) } }
         }
     }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         AnimatedVisibility(
-            dialog != null,
-            enter = fadeIn(tween(300, easing = EnterEasing)) + scaleIn(tween(300, easing = EnterEasing), initialScale = 0.85f),
-            exit = fadeOut(tween(150, easing = ExitEasing)),
+            dialogState,
+            enter = fadeIn(tween(if (reduced) 0 else 404, easing = StandardEasing)) + scaleIn(tween(if (reduced) 0 else 404, easing = StandardEasing), initialScale = 1.2f),
+            exit = fadeOut(tween(if (reduced) 0 else 404, easing = StandardEasing)),
         ) {
             lastDialog?.let { ConfirmDialog(it, sheets::dismiss) }
         }
     }
-    lastMenu?.let { MenuPopup(it, visible = menu != null, onDismiss = sheets::dismiss) }
+    LaunchedEffect(sheetState.isIdle, sheetState.currentState) {
+        if (sheetState.isIdle && !sheetState.currentState) lastContent = null
+    }
+    LaunchedEffect(dialogState.isIdle, dialogState.currentState) {
+        if (dialogState.isIdle && !dialogState.currentState) lastDialog = null
+    }
+    lastMenu?.let { MenuPopup(it, state = menuState, onDismiss = sheets::dismiss) }
+    LaunchedEffect(menuState.isIdle, menuState.currentState) {
+        if (menuState.isIdle && !menuState.currentState) lastMenu = null
+    }
 }
 
 @Composable
@@ -226,7 +244,8 @@ private fun ConfirmDialog(dialog: Confirm, onDismiss: () -> Unit) {
 
 /** Grows out of the anchor's corner, below it when there is room and above it otherwise. */
 @Composable
-private fun MenuPopup(menu: Menu, visible: Boolean, onDismiss: () -> Unit) {
+private fun MenuPopup(menu: Menu, state: MutableTransitionState<Boolean>, onDismiss: () -> Unit) {
+    val reduced = LocalReduceMotion.current
     val density = LocalDensity.current
     val margin = with(density) { 16.dp.roundToPx() }
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -235,10 +254,10 @@ private fun MenuPopup(menu: Menu, visible: Boolean, onDismiss: () -> Unit) {
         Layout(
             content = {
                 AnimatedVisibility(
-                    visible,
-                    enter = scaleIn(tween(150, easing = StandardEasing), initialScale = 0.8f, transformOrigin = origin) +
-                        fadeIn(tween(150, easing = StandardEasing)),
-                    exit = fadeOut(tween(100, easing = LinearEasing)),
+                    state,
+                    enter = scaleIn(tween(if (reduced) 0 else 150, easing = StandardEasing), initialScale = 0.8f, transformOrigin = origin) +
+                        fadeIn(tween(if (reduced) 0 else 150, easing = StandardEasing)),
+                    exit = fadeOut(tween(if (reduced) 0 else 100, easing = LinearEasing)),
                 ) {
                     MenuCard(menu, onDismiss)
                 }

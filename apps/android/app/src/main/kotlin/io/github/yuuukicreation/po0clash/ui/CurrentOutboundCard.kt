@@ -4,6 +4,15 @@ package io.github.yuuukicreation.po0clash.ui
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,10 +25,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -74,12 +79,12 @@ fun CurrentOutboundCard(vm: AppViewModel, onConnect: () -> Unit) {
         exit?.ip?.let { ip -> value = withContext(Dispatchers.IO) { runCatching { engine.core.ipQuality(ip, false) }.getOrNull() } }
     }
     val running = status.engine == EngineState.Running
-    val starting = active && !running
+    val starting = active && !running && status.engine !is EngineState.Failed
     val colors = palette
     val enabled = active || profiles.any { it.selected }
     val label = stringResource(if (starting) R.string.state_starting else if (running) R.string.status_running else R.string.status_stopped)
     val control = stringResource(if (active) R.string.disconnect else R.string.connect)
-    val morph by animateFloatAsState(if (running) 1f else 0f, if (LocalReduceMotion.current) snap() else tween(450), label = "connectionShape")
+    val morph by animateFloatAsState(if (running) 1f else 0f, if (LocalReduceMotion.current) snap() else tween(450, easing = if (running) EaseOutBack else CubicBezierEasing(0.32f, 0f, 0.67f, 0f)), label = "connectionShape")
     val kind = quality?.kind?.let { value ->
         stringResource(when (value) {
             IpType.RESIDENTIAL -> R.string.ip_residential
@@ -91,7 +96,10 @@ fun CurrentOutboundCard(vm: AppViewModel, onConnect: () -> Unit) {
     AppCard {
         Box(Modifier.fillMaxSize()) {
             Canvas(Modifier.fillMaxSize()) {
-                drawPath(cookiePath(Offset(size.width - 60.dp.toPx(), 54.dp.toPx()), 120.dp.toPx(), 12), colors.block)
+                val origin = Offset(size.width - 60.dp.toPx(), 54.dp.toPx())
+                rotate(30f * morph, origin) {
+                    drawPath(cookiePath(origin, 120.dp.toPx() * (1 + 0.12f * morph), 12), lerp(colors.block, colors.accent.copy(alpha = 0.1f).compositeOver(colors.card), morph.coerceIn(0f, 1f)))
+                }
             }
             Column(Modifier.fillMaxSize().padding(start = 20.dp, end = 16.dp, top = 18.dp, bottom = 18.dp), verticalArrangement = Arrangement.SpaceBetween) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -118,15 +126,8 @@ fun CurrentOutboundCard(vm: AppViewModel, onConnect: () -> Unit) {
                                 modifier = Modifier.clip(CircleShape).background(colors.block).padding(horizontal = 12.dp, vertical = 4.dp))
                         }
                     }
-                    Box(
-                        Modifier.size(88.dp).clip(CircleShape).semantics { contentDescription = control }.clickable(enabled = enabled, role = Role.Button) {
-                            if (active) vm.disconnect() else onConnect()
-                        },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Canvas(Modifier.fillMaxSize()) { drawPath(cookiePath(center, size.minDimension / 2, 9, morph), if (enabled) colors.accent else colors.track) }
-                        if (starting) CircularProgressIndicator(Modifier.size(28.dp), color = colors.onAccent, strokeWidth = 3.dp)
-                        else Icon(if (running) Icons.Filled.Pause else Icons.Filled.PlayArrow, control, Modifier.size(30.dp), tint = if (enabled) colors.onAccent else colors.ink2)
+                    ConnectionToggle(starting, enabled, control, morph) {
+                        if (active) vm.disconnect() else onConnect()
                     }
                 }
                 Row(Modifier.fillMaxWidth().padding(end = 98.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -140,6 +141,48 @@ fun CurrentOutboundCard(vm: AppViewModel, onConnect: () -> Unit) {
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun ConnectionToggle(starting: Boolean, enabled: Boolean, label: String, morph: Float, onClick: () -> Unit) {
+    val colors = palette
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed && enabled) 1f + 16f / 88f else 1f,
+        if (LocalReduceMotion.current) snap() else spring(dampingRatio = 0.593f, stiffness = 311f), label = "connectionPress")
+    Box(
+        Modifier.size(88.dp).graphicsLayer { scaleX = scale; scaleY = scale }
+            .semantics { contentDescription = label }
+            .clickable(interactionSource = interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            rotate(40f * morph) {
+                drawPath(cookiePath(center, size.minDimension / 2, 9, morph), if (enabled) colors.accent else colors.track)
+            }
+        }
+        if (starting) SmallProgress(28.dp, colors.onAccent)
+        else Canvas(Modifier.size(34.dp)) {
+            val progress = morph.coerceIn(0f, 1f)
+            val play = listOf(
+                listOf(Offset(-0.24f, -0.32f), Offset(0.04f, -0.16f), Offset(0.04f, 0.16f), Offset(-0.24f, 0.32f)),
+                listOf(Offset(0.04f, -0.16f), Offset(0.3f, 0f), Offset(0.3f, 0f), Offset(0.04f, 0.16f)),
+            )
+            val pause = listOf(
+                listOf(Offset(-0.24f, -0.32f), Offset(-0.07f, -0.32f), Offset(-0.07f, 0.32f), Offset(-0.24f, 0.32f)),
+                listOf(Offset(0.07f, -0.32f), Offset(0.24f, -0.32f), Offset(0.24f, 0.32f), Offset(0.07f, 0.32f)),
+            )
+            for (part in play.indices) {
+                val path = Path()
+                for (i in play[part].indices) {
+                    val point = center + (play[part][i] * (1 - progress) + pause[part][i] * progress) * size.minDimension
+                    if (i == 0) path.moveTo(point.x, point.y) else path.lineTo(point.x, point.y)
+                }
+                path.close()
+                drawPath(path, if (enabled) colors.onAccent else colors.ink2)
             }
         }
     }

@@ -226,7 +226,6 @@ export default {
   'app.silentLaunch': '静默启动',
   'app.autoConnect': '自动连接',
   'app.minimizeOnClose': '关闭时最小化到托盘',
-  'app.pageAnimation': '页面切换动画',
   'app.showNavLabels': '导航显示文字',
   'app.captureLogs': '日志捕获',
   'app.closeOnSwitch': '切换节点后断开连接',

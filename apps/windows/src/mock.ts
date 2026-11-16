@@ -190,7 +190,7 @@ const commands: Record<string, (args: any) => unknown> = {
   traffic_history() {
     history.push({ up: Math.round(1e5 + Math.random() * 4e5), down: Math.round(2e6 + Math.random() * 9e6) });
     history.shift();
-    return history;
+    return structuredClone(history);
   },
   memory: () => 64e6 + Math.round(Math.random() * 4e6),
   connections: () => ({ uploadTotal: 5.2e9, downloadTotal: 25.4e9, items: requests.slice(0, 23) }),

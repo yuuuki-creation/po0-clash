@@ -3,7 +3,7 @@ import { RefreshRounded } from '@mui/icons-material';
 import { Box, Button, ButtonGroup, CircularProgress, IconButton, Link, List, ListItemButton, ListItemText, Stack, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useSnapshot } from 'valtio';
-import { BaseDialog, Switch } from '../../base';
+import { DialogPresence, BaseDialog, Switch } from '../../base';
 import { t } from '../../lib/i18n.js';
 import { act, app, isRunning, notify } from '../../state/core';
 import { loadSettings, updateSettings } from '../../state/settings';
@@ -131,7 +131,7 @@ export function BackupDialog({ onClose }: DialogProps) {
         </DialogRow>
       </List>
 
-      {confirming && (
+      <DialogPresence>{confirming && (
         <BaseDialog
           open
           title={t('backup.confirm')}
@@ -145,7 +145,7 @@ export function BackupDialog({ onClose }: DialogProps) {
             {t(`backup.confirm.${scope}`)} {t(`backup.strategy.${s.restoreStrategy}Hint`)}
           </Typography>
         </BaseDialog>
-      )}
+      )}</DialogPresence>
     </BaseDialog>
   );
 }

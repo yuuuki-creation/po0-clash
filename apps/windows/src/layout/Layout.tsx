@@ -33,9 +33,10 @@ import {
   Snackbar,
   Typography,
 } from '@mui/material';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useSnapshot } from 'valtio';
 import { BaseDialog } from '../base';
+import { TrafficGraph } from '../base/TrafficGraph';
 import { invoke, os, win } from '../ipc';
 import { formatBytes, t } from '../lib/i18n.js';
 import { app, dismissNotice, type PageId } from '../state/core';
@@ -97,46 +98,6 @@ function NavItem({ id, icon, selected }: { id: PageId; icon: ReactNode; selected
       </ListItemButton>
     </ListItem>
   );
-}
-
-const GRAPH_POINTS = 60;
-
-function TrafficGraph() {
-  const { history } = useSnapshot(app);
-  const canvas = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const el = canvas.current;
-    if (!el) return;
-    const ratio = window.devicePixelRatio || 1;
-    const [width, height] = [el.clientWidth, el.clientHeight];
-    el.width = width * ratio;
-    el.height = height * ratio;
-    const ctx = el.getContext('2d')!;
-    ctx.scale(ratio, ratio);
-    ctx.clearRect(0, 0, width, height);
-    const points = history.slice(-GRAPH_POINTS);
-    const peak = Math.max(1024, ...points.map((p) => Math.max(p.up, p.down)));
-    const style = getComputedStyle(document.documentElement);
-    const draw = (key: 'up' | 'down', color: string) => {
-      ctx.beginPath();
-      for (let i = 0; i < GRAPH_POINTS; i++) {
-        const value = points[i - (GRAPH_POINTS - points.length)]?.[key] ?? 0;
-        const x = (i / (GRAPH_POINTS - 1)) * width;
-        const y = height - 2 - (value / peak) * (height - 6);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.lineWidth = 1.5;
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = color;
-      ctx.stroke();
-    };
-    draw('up', style.getPropertyValue('--secondary-main').trim() || '#FC9B76');
-    draw('down', style.getPropertyValue('--primary-main').trim());
-  }, [history]);
-
-  return <canvas ref={canvas} style={{ width: '100%', height: 60, marginBottom: 6, display: 'block' }} />;
 }
 
 function TrafficRow({ icon, value, unit, color, title }: { icon: ReactNode; value: string; unit: string; color?: string; title: string }) {
@@ -218,11 +179,13 @@ function WindowControls() {
 
 function Notices() {
   const { notices } = useSnapshot(app);
-  const notice = notices[0];
+  const current = notices[0];
+  const [notice, setNotice] = useState(current);
+  useEffect(() => { if (current) setNotice(current); }, [current]);
   return (
     <Snackbar
       key={notice?.id}
-      open={!!notice}
+      open={!!current}
       anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       autoHideDuration={notice?.kind === 'error' ? 8000 : 4000}
       onClose={(_, reason) => reason !== 'clickaway' && notice && dismissNotice(notice.id)}
@@ -352,7 +315,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="layout-content">
           <Sidebar collapsed={collapsed} />
           <div className="layout-content__right">
-            <div className={`the-content${s?.pageAnimation === false ? '' : ' page-motion'}`}>{children}</div>
+            <div className="the-content">{children}</div>
           </div>
         </div>
       </Paper>

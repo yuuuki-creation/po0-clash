@@ -226,7 +226,6 @@ export default {
   'app.silentLaunch': 'Тихий запуск',
   'app.autoConnect': 'Подключаться при запуске',
   'app.minimizeOnClose': 'Сворачивать в трей при закрытии',
-  'app.pageAnimation': 'Анимация переходов',
   'app.showNavLabels': 'Подписи в навигации',
   'app.captureLogs': 'Сбор логов',
   'app.closeOnSwitch': 'Закрывать соединения при смене узла',

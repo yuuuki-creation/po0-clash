@@ -226,7 +226,6 @@ export default {
   'app.silentLaunch': 'サイレント起動',
   'app.autoConnect': '起動時に接続',
   'app.minimizeOnClose': '閉じるときにトレイへ最小化',
-  'app.pageAnimation': 'ページ切り替えアニメーション',
   'app.showNavLabels': 'ナビゲーションのラベルを表示',
   'app.captureLogs': 'ログを記録',
   'app.closeOnSwitch': 'ノード切り替え時に接続を閉じる',

@@ -11,7 +11,7 @@ val repoRoot: File = rootDir.resolve("../..").canonicalFile
 val minApi = 26
 val abis = providers.gradleProperty("po0.abis").orNull?.split(',')?.map(String::trim)
     ?: listOf("arm64-v8a", "armeabi-v7a", "x86_64")
-val baseVersionCode = 2026111204
+val baseVersionCode = 2026111701
 // Flutter's split-APK offsets: each native APK must out-number the Flutter APK of the same ABI to upgrade it.
 val abiVersionOffset = mapOf("armeabi-v7a" to 1000, "arm64-v8a" to 2000, "x86_64" to 4000)
 
@@ -99,7 +99,8 @@ android {
         minSdk = minApi
         targetSdk = 36
         versionCode = baseVersionCode
-        versionName = "8.1.1"
+        versionName = "8.2.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -183,4 +184,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation("${libs.jna.get()}@aar")
     testImplementation(libs.junit)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

@@ -188,9 +188,9 @@ export function ProxyGroups() {
     }
     return (
       <Box sx={{ height: tile, display: 'grid', gap: 1, px: 2, gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
-        {row.nodes.map((node, i) => (
+        {row.nodes.map((node) => (
           <ProxyItem
-            key={i}
+            key={node.name}
             group={group.name}
             name={node.name}
             kind={node.kind}

@@ -15,8 +15,10 @@ import {
   Typography,
 } from '@mui/material';
 import { styled, useTheme } from '@mui/material/styles';
-import type { CSSProperties, ReactNode } from 'react';
+import { type CSSProperties, type ReactNode, useContext, useId, useLayoutEffect, useRef } from 'react';
 import { t } from '../lib/i18n.js';
+import { DialogLifecycle } from './DialogPresence';
+export { DialogPresence } from './DialogPresence';
 
 interface PageProps {
   title?: ReactNode;
@@ -67,10 +69,19 @@ interface DialogProps {
 export function BaseDialog(props: DialogProps) {
   const { open, title, children, okBtn, cancelBtn, contentSx, disableCancel, disableOk, disableFooter, okDisabled } = props;
   const close = props.onClose ?? props.onCancel;
+  const lifecycle = useContext(DialogLifecycle);
+  const visible = open && (lifecycle?.open ?? true);
+  const titleId = useId();
+  const retained = useRef({ title, children });
+  useLayoutEffect(() => {
+    if (visible) retained.current = { title, children };
+  }, [visible, title, children]);
   return (
-    <Dialog open={open} onClose={close}>
-      <DialogTitle>{title}</DialogTitle>
-      <DialogContent sx={contentSx}>{children}</DialogContent>
+    <Dialog open={visible} onClose={close} aria-labelledby={titleId} slotProps={{ transition: { onExited: lifecycle?.onExited } }}>
+      <DialogTitle id={titleId}>{visible ? title : retained.current.title}</DialogTitle>
+      <DialogContent sx={[{ maxWidth: '100%', boxSizing: 'border-box' }, ...(Array.isArray(contentSx) ? contentSx : [contentSx ?? {}])]}>
+        <DialogLifecycle.Provider value={null}>{visible ? children : retained.current.children}</DialogLifecycle.Provider>
+      </DialogContent>
       {!disableFooter && (
         <DialogActions>
           {!disableCancel && (

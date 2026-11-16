@@ -1,7 +1,7 @@
 // Card contents follow Clash Verge Rev (GPL-3.0): src/components/setting/setting-{system,clash,verge-basic,verge-advanced}.tsx.
 import { Button, ButtonGroup, Box, IconButton, Typography } from '@mui/material';
 import { SettingsOutlined } from '@mui/icons-material';
-import { BaseDialog } from '../../base';
+import { BaseDialog, DialogPresence } from '../../base';
 import { type ComponentType, useEffect, useRef, useState } from 'react';
 import { useSnapshot } from 'valtio';
 import { Switch } from '../../base';
@@ -19,7 +19,7 @@ import { GeoDialog, ScriptsDialog } from './ResourceDialogs';
 function useDialogs<K extends string>(dialogs: Record<K, ComponentType<DialogProps>>) {
   const [open, setOpen] = useState<K | null>(null);
   const Dialog = open ? (dialogs[open] as ComponentType<DialogProps>) : null;
-  return [Dialog ? <Dialog onClose={() => setOpen(null)} /> : null, (name: K) => () => setOpen(name)] as const;
+  return [<DialogPresence>{Dialog ? <Dialog key={open} onClose={() => setOpen(null)} /> : null}</DialogPresence>, (name: K) => () => setOpen(name)] as const;
 }
 
 export function SystemCard() {
@@ -125,7 +125,7 @@ const languages: [string, string][] = [
 
 function LayoutDialog({ onClose }: DialogProps) {
   return <BaseDialog open title={t('settings.layout')} onClose={onClose} disableOk cancelBtn={t('common.close')}>
-    <Box sx={{ width: 340 }}><AppSwitchItem label={t('app.showNavLabels')} name="showNavLabels" /><AppSwitchItem label={t('app.pageAnimation')} name="pageAnimation" /></Box>
+    <Box sx={{ width: 340 }}><AppSwitchItem label={t('app.showNavLabels')} name="showNavLabels" /></Box>
   </BaseDialog>;
 }
 

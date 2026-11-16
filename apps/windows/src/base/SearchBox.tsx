@@ -69,6 +69,12 @@ export function SearchBox({ value, onChange, placeholder, autoFocus }: Props) {
       <SvgIcon
         viewBox="0 0 1024 1024"
         role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (!['Enter', ' '].includes(event.key)) return;
+          event.preventDefault();
+          onChange({ ...value, [key]: !value[key] });
+        }}
         aria-label={t(`search.${key}`)}
         aria-pressed={value[key]}
         onClick={() => onChange({ ...value, [key]: !value[key] })}

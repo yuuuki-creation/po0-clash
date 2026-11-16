@@ -1,4 +1,5 @@
 // Follows Clash Verge Rev (GPL-3.0): src/components/connection/connection-detail.tsx.
+import { useLayoutEffect, useRef } from 'react';
 import { Box, Button, Snackbar } from '@mui/material';
 import { formatAgo, formatBytes, t } from '../../lib/i18n.js';
 import { chainOf, hostOf, ruleOf, typeOf } from './ConnectionTable';
@@ -10,7 +11,10 @@ interface Props {
   onCloseConnection: (id: string) => void;
 }
 
-export function ConnectionDetail({ connection: c, closed, onClose, onCloseConnection }: Props) {
+export function ConnectionDetail({ connection, closed, onClose, onCloseConnection }: Props) {
+  const retained = useRef(connection);
+  useLayoutEffect(() => { if (connection) retained.current = connection; }, [connection]);
+  const c = connection ?? retained.current;
   const information = c
     ? [
         [t('activity.host'), hostOf(c)],
@@ -29,7 +33,7 @@ export function ConnectionDetail({ connection: c, closed, onClose, onCloseConnec
   return (
     <Snackbar
       anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      open={!!c}
+      open={!!connection}
       onClose={(event, reason) => {
         // A click on another row replaces the detail, so it must not also dismiss it.
         if (reason === 'clickaway' && (event?.target as Element | null)?.closest?.('[data-conn-row]')) return;

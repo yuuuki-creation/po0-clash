@@ -6,7 +6,7 @@ import { ScriptsDialog } from './settings/ResourceDialogs';
 import { loadOptions } from '../state/settings';
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useSnapshot } from 'valtio';
-import { BaseDialog, BaseEmpty, BasePage, Switch } from '../base';
+import { DialogPresence, BaseDialog, BaseEmpty, BasePage, Switch } from '../base';
 import { CodeEditor, CodeViewer } from '../base/CodeEditor';
 import { invoke } from '../ipc';
 import { t } from '../lib/i18n.js';
@@ -131,7 +131,9 @@ export default function Profiles() {
   const selected = profiles.find((p) => p.selected);
   const reorderable = profiles.length > 1;
   const subject = dialog && 'id' in dialog ? profiles.find((p) => p.id === dialog.id) : undefined;
-  const menuProfile = menu && profiles.find((p) => p.id === menu.id);
+  const lastMenu = useRef(menu);
+  if (menu) lastMenu.current = menu;
+  const menuProfile = profiles.find((p) => p.id === (menu ?? lastMenu.current)?.id);
 
   const countNodes = useCallback(() => {
     for (const { id, kind } of app.profiles) {
@@ -313,8 +315,8 @@ export default function Profiles() {
           </Button>
         </Box>
       </Box>
-      {globalDialog === 'rules' && <AddedRulesDialog onClose={() => setGlobalDialog(null)} />}
-      {globalDialog === 'scripts' && <ScriptsDialog onClose={() => setGlobalDialog(null)} />}
+      <DialogPresence>{globalDialog === 'rules' && <AddedRulesDialog onClose={() => setGlobalDialog(null)} />}</DialogPresence>
+      <DialogPresence>{globalDialog === 'scripts' && <ScriptsDialog onClose={() => setGlobalDialog(null)} />}</DialogPresence>
 
       <Menu open={!!newAnchor} anchorEl={newAnchor} onClose={() => setNewAnchor(null)} slotProps={{ list: { sx: { py: 0.5 } } }}>
         <MenuItem
@@ -339,9 +341,9 @@ export default function Profiles() {
       </Menu>
 
       <Menu
-        open={!!menuProfile}
+        open={!!menu && !!menuProfile}
         anchorReference="anchorPosition"
-        anchorPosition={menu ?? undefined}
+        anchorPosition={menu ?? lastMenu.current ?? undefined}
         onClose={() => setMenu(null)}
         slotProps={{ list: { sx: { py: 0.5 } } }}
         onContextMenu={(event) => {
@@ -366,18 +368,18 @@ export default function Profiles() {
           ))}
       </Menu>
 
-      {dialog?.kind === 'links' && <LinksDialog onClose={() => setDialog(null)} />}
-      {dialog?.kind === 'edit' && subject && <EditDialog profile={subject} onClose={() => setDialog(null)} />}
-      {dialog?.kind === 'override' && subject && <OverrideDialog id={subject.id} title={profileTitle(subject)} onClose={() => setDialog(null)} />}
-      {dialog?.kind === 'nodes' && subject && <ShareNodesDialog id={subject.id} onClose={() => setDialog(null)} onChanged={countNodes} />}
-      {dialog?.kind === 'preview' && (
+      <DialogPresence>{dialog?.kind === 'links' && <LinksDialog onClose={() => setDialog(null)} />}</DialogPresence>
+      <DialogPresence>{dialog?.kind === 'edit' && subject && <EditDialog profile={subject} onClose={() => setDialog(null)} />}</DialogPresence>
+      <DialogPresence>{dialog?.kind === 'override' && subject && <OverrideDialog id={subject.id} title={profileTitle(subject)} onClose={() => setDialog(null)} />}</DialogPresence>
+      <DialogPresence>{dialog?.kind === 'nodes' && subject && <ShareNodesDialog id={subject.id} onClose={() => setDialog(null)} onChanged={countNodes} />}</DialogPresence>
+      <DialogPresence>{dialog?.kind === 'preview' && (
         <CodeViewer open title={t('profiles.previewTitle', { name: dialog.title })} value={dialog.config} onClose={() => setDialog(null)} />
-      )}
-      {dialog?.kind === 'remove' && subject && (
+      )}</DialogPresence>
+      <DialogPresence>{dialog?.kind === 'remove' && subject && (
         <BaseDialog open title={t('profiles.delete')} okBtn={t('profiles.delete')} onOk={() => remove(subject.id)} onCancel={() => setDialog(null)}>
           {t('profiles.confirmDelete', { name: profileTitle(subject) })}
         </BaseDialog>
-      )}
+      )}</DialogPresence>
     </BasePage>
   );
 }

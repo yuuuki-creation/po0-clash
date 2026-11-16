@@ -147,7 +147,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
       - name: Build
         working-directory: apps/android
-        run: ./gradlew testDebugUnitTest assembleRelease --no-daemon
+        run: ./gradlew testDebugUnitTest assembleRelease assembleDebug assembleDebugAndroidTest --no-daemon
       - name: Collect
         env:
           VERSION: ${{ needs.version.outputs.version }}
@@ -163,6 +163,47 @@ jobs:
           name: android
           path: dist/*.apk
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-motion-build
+          path: |
+            apps/android/app/build/outputs/apk/debug/app-x86_64-debug.apk
+            apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          if-no-files-found: error
+
+  android-motion:
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-motion-build
+          path: motion-build
+      - name: Run interaction and motion tests on Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo chmod a+rw /dev/kvm
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'system-images;android-35;google_apis;x86_64' 'emulator' > /dev/null
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n motion -k 'system-images;android-35;google_apis;x86_64' --device pixel_6
+          "$ANDROID_HOME/emulator/emulator" -avd motion -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > emulator.log 2>&1 &
+          adb wait-for-device
+          timeout 180 bash -c 'until adb shell getprop sys.boot_completed | grep -q 1; do sleep 2; done'
+          adb shell input keyevent 82
+          adb install -r motion-build/debug/app-x86_64-debug.apk
+          adb install -r motion-build/androidTest/debug/app-debug-androidTest.apk
+          adb shell am instrument -w io.github.yuuukicreation.po0clash.dev.test/androidx.test.runner.AndroidJUnitRunner | tee motion-results.txt
+          grep -q 'OK (4 tests)' motion-results.txt
+          adb pull /sdcard/Android/data/io.github.yuuukicreation.po0clash.dev/files/motion-shots motion-shots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-motion-results
+          path: |
+            motion-results.txt
+            motion-shots
+            emulator.log
 
   windows:
     needs: version
@@ -237,7 +278,7 @@ jobs:
           }
 
   publish:
-    needs: [version, ui, macos, android, windows, windows-smoke]
+    needs: [version, ui, macos, android, android-motion, windows, windows-smoke]
     if: needs.version.outputs.tag != ''
     runs-on: ubuntu-latest
     steps:
@@ -252,11 +293,11 @@ jobs:
           TAG: ${{ needs.version.outputs.tag }}
           VERSION: ${{ needs.version.outputs.version }}
         run: |
-          assets=(dist/*.apk dist/*.exe dist/*.zip)
+          assets=(dist/po0-clash-*-android-*.apk dist/po0-clash-*-setup.exe dist/po0-clash-macos.zip)
           for installer in scripts/install-macos-native.sh scripts/install-windows-native.ps1; do
             if [[ -f "$installer" ]]; then assets+=("$installer"); fi
           done
-          (cd dist && sha256sum *.apk *.exe *.zip) > SHA256SUMS.txt
+          (cd dist && sha256sum po0-clash-*-android-*.apk po0-clash-*-setup.exe po0-clash-macos.zip) > SHA256SUMS.txt
           assets+=(SHA256SUMS.txt)
           notes=docs/native-release-notes.md
           if gh release view "$TAG" > /dev/null 2>&1; then

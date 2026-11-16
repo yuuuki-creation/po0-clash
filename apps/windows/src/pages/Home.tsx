@@ -49,7 +49,7 @@ import {
 } from '@mui/material';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { useSnapshot } from 'valtio';
-import { BaseDialog, BaseEmpty, EnhancedCard, Switch } from '../base';
+import { DialogPresence, BaseDialog, BaseEmpty, EnhancedCard, Switch } from '../base';
 import { formatAgo, formatBytes, formatDate, formatDelay, formatElapsed, formatRate, formatUsage, t } from '../lib/i18n.js';
 import { act, app, refreshExitIp, resolvedDelay, setMode, setRouteMode, testDelay, toggleEngine } from '../state/core';
 import { engine, loadOptions, settings, updateSettings } from '../state/settings';
@@ -417,6 +417,7 @@ function TrafficChart() {
   useEffect(() => {
     const el = canvas.current;
     if (!el) return;
+    const draw = () => {
     const ratio = window.devicePixelRatio || 1;
     const [width, height] = [el.clientWidth, el.clientHeight];
     el.width = width * ratio;
@@ -464,6 +465,11 @@ function TrafficChart() {
     };
     draw('up', theme.palette.secondary.main);
     draw('down', theme.palette.primary.main);
+    };
+    draw();
+    const observer = new ResizeObserver(draw);
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [history, theme]);
   return (
     <Box sx={{ height: 130, borderRadius: 2, border: 1, borderColor: 'divider', overflow: 'hidden', bgcolor: 'surface.card' }}>
@@ -662,7 +668,7 @@ export default function Home() {
           return <Grid key={id} size={id === 'traffic' ? 12 : { xs: 12, md: 6 }} sx={{ minWidth: 0 }}><Card /></Grid>;
         })}
       </Grid>
-      {editing && <HomeSettings onClose={() => setEditing(false)} />}
+      <DialogPresence>{editing && <HomeSettings onClose={() => setEditing(false)} />}</DialogPresence>
     </BasePage>
   );
 }

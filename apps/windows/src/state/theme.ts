@@ -1,3 +1,4 @@
+import { useMediaQuery } from '@mui/material';
 import { alpha, createTheme, type Shadows, type Theme } from '@mui/material/styles';
 import { useEffect, useMemo, useState } from 'react';
 import { useSnapshot } from 'valtio';
@@ -82,6 +83,7 @@ function useSystemDark() {
 export function useAppTheme(): Theme {
   const s = useSnapshot(settings).value;
   const systemDark = useSystemDark();
+  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const isDark = s?.themeMode === 'dark' || (s?.themeMode !== 'light' && systemDark);
   const tone = isDark ? (s?.pureBlack ? black : dark) : light;
   const custom = s && s.themeColor !== DEFAULT_ACCENT ? toHex(s.themeColor) : null;
@@ -110,8 +112,9 @@ export function useAppTheme(): Theme {
         components: {
           MuiButton: { defaultProps: { disableElevation: true }, styleOverrides: { root: {} } },
           MuiTab: { styleOverrides: { root: { textTransform: 'none' } } },
-          MuiDialog: { styleOverrides: { paper: { backgroundColor: tone.card, backgroundImage: 'none' } } },
+          MuiDialog: { defaultProps: { transitionDuration: reducedMotion ? 0 : undefined }, styleOverrides: { paper: { backgroundColor: tone.card, backgroundImage: 'none' } } },
           MuiMenu: {
+            defaultProps: { transitionDuration: reducedMotion ? 0 : 200 },
             styleOverrides: {
               paper: {
                 backgroundColor: tone.card,
@@ -121,11 +124,11 @@ export function useAppTheme(): Theme {
               },
             },
           },
-          MuiPopover: { styleOverrides: { paper: { backgroundImage: 'none' } } },
+          MuiPopover: { defaultProps: { transitionDuration: reducedMotion ? 0 : undefined }, styleOverrides: { paper: { backgroundImage: 'none' } } },
           MuiTooltip: { defaultProps: { arrow: true, enterDelay: 400 } },
         },
       }),
-    [isDark, primary, tone],
+    [isDark, primary, tone, reducedMotion],
   );
 
   useEffect(() => {

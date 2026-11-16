@@ -26,7 +26,6 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -67,11 +66,6 @@ fun <T> SegmentedPicker(
 }
 
 @Composable
-fun Po0Switch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, enabled: Boolean = true, modifier: Modifier = Modifier) {
-    Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = modifier, enabled = enabled)
-}
-
-@Composable
 fun Po0Radio(selected: Boolean) {
     RadioButton(selected = selected, onClick = null)
 }
@@ -94,7 +88,11 @@ fun StatusDot(color: Color, pulsing: Boolean = false, size: Dp = 10.dp) {
 
 @Composable
 fun SmallProgress(size: Dp = 20.dp, color: Color = palette.ink2) {
-    CircularProgressIndicator(Modifier.size(size), strokeWidth = 2.dp, color = color)
+    if (LocalReduceMotion.current) {
+        CircularProgressIndicator(progress = { 0.75f }, modifier = Modifier.size(size), strokeWidth = 2.dp, color = color)
+    } else {
+        CircularProgressIndicator(Modifier.size(size), strokeWidth = 2.dp, color = color)
+    }
 }
 
 @Composable

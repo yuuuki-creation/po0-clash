@@ -103,6 +103,14 @@ export const ProfileItem = memo(function ProfileItem(props: Props) {
       }}
     >
       <ProfileBox
+        role="button"
+        tabIndex={0}
+        aria-pressed={profile.selected}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget || !['Enter', ' '].includes(event.key)) return;
+          event.preventDefault();
+          if (!activating) props.onSelect(profile);
+        }}
         aria-selected={profile.selected}
         aria-label={`${t('profiles.use')} · ${name}`}
         onClick={() => !activating && props.onSelect(profile)}

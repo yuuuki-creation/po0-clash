@@ -1,4 +1,4 @@
-8.1.1 修复升级后手动节点遗漏、未连接时代理页为空、自动更新无法在连接代理后重试等问题。可以直接覆盖升级；仍保留 Flutter 旧数据时，会自动补回此前遗漏的本地配置。
+8.2.0 修复桌面与 Android 的交互和动画细节，可直接覆盖升级。保留 8.1.1 的配置迁移与离线节点修复。
 
 ## 安装
 
@@ -7,7 +7,7 @@
 在终端运行：
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.1.1/install-macos-native.sh | bash
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.2.0/install-macos-native.sh | bash
 ```
 
 脚本会退出并替换已安装的 po0-clash（包括 Flutter 版），装到「应用程序」后启动。应用没有经过苹果公证，脚本会去掉下载带来的隔离标记。
@@ -18,12 +18,12 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
 在 PowerShell 里运行：
 
 ```powershell
-irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.1.1/install-windows-native.ps1 | iex
+irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.2.0/install-windows-native.ps1 | iex
 ```
 
 脚本会下载安装程序、校验 SHA-256、请求一次管理员权限，装好后打开应用。这样下载的文件没有网络来源标记，不会触发 SmartScreen 提示。
 
-也可以下载 `po0-clash-8.1.1-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
+也可以下载 `po0-clash-8.2.0-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
 
 **智能应用控制：** 这个功能开着时，未受信任签名的应用可能仍被拦截，命令安装也不一定能绕开，微软也不提供单个应用的例外。被拦时要在「Windows 安全中心 → 应用和浏览器控制 → 智能应用控制设置」里关闭它。
 
@@ -47,13 +47,15 @@ irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.1.1
   快捷设置磁贴、外部启停 intent 和 TV 入口。
 - po0 与 ggy 自动加白照旧：不论是否连接都持续运行，加白请求始终从真实出口发出。
 
-## 相对 8.1.0
+## 相对 8.1.1
 
-- 修复旧版升级漏迁移手动节点和本地配置；已有原生版安装也会自动恢复仍保留的旧配置，保留当前配置和加白条目。
-- 三端在未连接时也能查看保存的策略组和节点；手动分享链接在安卓仪表盘中显示正确节点数量。
-- 自动更新统一经共享内核请求 GitHub；连接代理或恢复网络后自动重试失败的检查，成功后六小时内不重复检查，可随时手动检查。
-- 安卓切换节点、配置、网络和连接状态时刷新出口信息，清除上次出口的地区与机构信息；拒绝返回其他 IP 的查询结果。
-- 设置文件读取失败时保留原文件，避免用默认设置覆盖已有配置。
+- 桌面弹窗关闭时保留内容，完成淡出后再卸载；嵌套弹窗独立退出，键盘焦点回到入口。
+- 桌面页面切换按 Clash Verge Rev 直接完成，移除额外的上移动画及对应的无效开关；流量图按采样平移，并随窗口、主题和减少动态效果设置更新。
+- 修复连接详情和通知退出时内容提前消失、放大文字时弹窗溢出，配置卡片支持键盘选择。
+- Android 标签页改为 220 毫秒原位交叉淡化；底栏拖动仅在松手时提交，取消拖动保留当前页。
+- Android 开关补齐滑块伸缩和拖动；连接按钮补齐按压回弹、450 毫秒形变、旋转及播放/暂停图标过渡；分组箭头和节点选中标记平滑变化。
+- Android 弹出菜单补齐首次进入动画，确认框改为从大到小进入；减少动态效果设置即时生效，等待指示不再持续旋转。
+- 新增桌面退出过渡与焦点回归测试、Android 模拟器手势和过渡测试；测试包不作为发布安装包上传。
 
 ## 已知问题
 

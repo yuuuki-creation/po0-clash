@@ -1,7 +1,7 @@
 import { Alert, Box, Button, ButtonGroup, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { type ReactNode, useEffect, useState } from 'react';
 import { useSnapshot } from 'valtio';
-import { BaseDialog, Switch } from '../../base';
+import { DialogPresence, BaseDialog, Switch } from '../../base';
 import { CodeEditor } from '../../base/CodeEditor';
 import { invoke } from '../../ipc';
 import { t } from '../../lib/i18n.js';
@@ -216,7 +216,7 @@ export function OverrideDialog({ id, title, onClose }: Props) {
         </Stack>
       )}
 
-      {editor && <ScriptEditor script={editor.script} onClose={() => setEditor(null)} onSaved={(saved) => patch({ scriptId: saved.id })} />}
+      <DialogPresence>{editor && <ScriptEditor script={editor.script} onClose={() => setEditor(null)} onSaved={(saved) => patch({ scriptId: saved.id })} />}</DialogPresence>
       <BaseDialog
         open={replacing}
         title={t('override.copyFromProfile')}

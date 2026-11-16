@@ -226,7 +226,6 @@ export default {
   'app.silentLaunch': 'Silent launch',
   'app.autoConnect': 'Connect on launch',
   'app.minimizeOnClose': 'Minimize to tray on close',
-  'app.pageAnimation': 'Page transitions',
   'app.showNavLabels': 'Show navigation labels',
   'app.captureLogs': 'Capture logs',
   'app.closeOnSwitch': 'Close connections when switching nodes',

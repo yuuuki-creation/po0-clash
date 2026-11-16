@@ -2,7 +2,7 @@ import { DeleteRounded, EditRounded } from '@mui/icons-material';
 import { Box, Button, IconButton, List, ListItem, ListItemText, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { snapshot, useSnapshot } from 'valtio';
-import { BaseDialog, Switch } from '../../base';
+import { DialogPresence, BaseDialog, Switch } from '../../base';
 import { CodeEditor } from '../../base/CodeEditor';
 import { invoke } from '../../ipc';
 import { formatBytes, formatTime, t } from '../../lib/i18n.js';
@@ -191,8 +191,8 @@ export function ScriptsDialog({ onClose }: DialogProps) {
           {t('script.empty')}
         </Typography>
       )}
-      {editing && <ScriptEditor script={editing.script} onClose={() => setEditing(null)} />}
-      {removing && (
+      <DialogPresence>{editing && <ScriptEditor script={editing.script} onClose={() => setEditing(null)} />}</DialogPresence>
+      <DialogPresence>{removing && (
         <BaseDialog
           open
           title={t('script.confirmDelete', { name: removing.name })}
@@ -204,7 +204,7 @@ export function ScriptsDialog({ onClose }: DialogProps) {
         >
           <Typography variant="body2">{t('script.deleteHint')}</Typography>
         </BaseDialog>
-      )}
+      )}</DialogPresence>
     </BaseDialog>
   );
 }

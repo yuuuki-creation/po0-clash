@@ -31,6 +31,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.ui.draw.rotate
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -345,6 +354,7 @@ private fun GroupHeader(
     onToggle: () -> Unit,
     onLocate: (() -> Unit)?,
 ) {
+    val angle by animateFloatAsState(if (expanded) 180f else 0f, if (LocalReduceMotion.current) snap() else tween(200, easing = StandardEasing), label = "groupChevron")
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -367,8 +377,8 @@ private fun GroupHeader(
             }
         } else Text(group.kind, style = MaterialTheme.typography.labelLarge, color = palette.ink2)
         androidx.compose.material3.IconButton(onClick = onToggle, modifier = Modifier.size(32.dp).background(palette.block, RoundedCornerShape(50))) {
-            Icon(if (expanded) LineIcons.ChevronUp else LineIcons.ChevronDown,
-                stringResource(if (expanded) R.string.collapse else R.string.expand), Modifier.size(18.dp), tint = palette.ink2)
+            Icon(LineIcons.ChevronDown,
+                stringResource(if (expanded) R.string.collapse else R.string.expand), Modifier.size(18.dp).rotate(angle), tint = palette.ink2)
         }
     }
 }
@@ -549,8 +559,10 @@ private fun ProxyCard(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            if (selected) Box(Modifier.size(22.dp).clip(RoundedCornerShape(50)).background(colors.accent), contentAlignment = Alignment.Center) {
+            AnimatedVisibility(selected, enter = fadeIn(tween(150)) + scaleIn(tween(150), initialScale = 0.6f), exit = fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.6f)) {
+            Box(Modifier.size(22.dp).clip(RoundedCornerShape(50)).background(colors.accent), contentAlignment = Alignment.Center) {
                 Icon(LineIcons.Check, null, Modifier.size(15.dp), tint = colors.onAccent)
+            }
             }
             }
             Spacer(Modifier.height(8.dp))
