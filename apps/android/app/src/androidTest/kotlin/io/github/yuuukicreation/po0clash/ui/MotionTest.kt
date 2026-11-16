@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -107,6 +108,45 @@ class MotionTest {
         ui.onNodeWithContentDescription("Stop").performClick()
         ui.runOnIdle { assertEquals(1, clicks) }
         screenshot("reduced-motion")
+    }
+
+    @Test fun secondaryPageSlidesOverItsParentAndCanReverseMidflight() {
+        val page = mutableStateOf<String?>(null)
+        ui.mainClock.autoAdvance = false
+        ui.setContent {
+            MaterialTheme {
+                PushHost(page.value, true, { page.value = null }, "push") { Text(it ?: "parent") }
+            }
+        }
+        ui.runOnIdle { page.value = "detail" }
+        ui.mainClock.advanceTimeBy(100)
+        assertTrue(ui.onNodeWithText("detail").getUnclippedBoundsInRoot().left > 0.dp)
+        assertTrue(ui.onNodeWithText("parent").getUnclippedBoundsInRoot().left < 0.dp)
+        screenshot("push-midpoint")
+        ui.runOnIdle { page.value = null }
+        ui.mainClock.advanceTimeBy(600)
+        ui.onNodeWithText("detail").assertDoesNotExist()
+        ui.onNodeWithText("parent").assertLeftPositionInRootIsEqualTo(0.dp)
+    }
+
+    @Test fun popupRetainsContentDuringExitAndReopensWithNewActions() {
+        val sheets = Sheets()
+        val anchor = Anchor()
+        ui.mainClock.autoAdvance = false
+        ui.setContent { MaterialTheme { SheetHost(sheets) } }
+        ui.runOnIdle { sheets.menu(anchor, listOf(SheetAction("first action") {})) }
+        ui.mainClock.advanceTimeBy(500)
+        ui.onNodeWithText("first action").assertExists()
+        ui.runOnIdle { sheets.dismiss() }
+        ui.mainClock.advanceTimeBy(100)
+        ui.onNodeWithText("first action").assertExists()
+        ui.mainClock.advanceTimeBy(150)
+        ui.onNodeWithText("first action").assertDoesNotExist()
+        ui.runOnIdle { sheets.menu(anchor, listOf(SheetAction("second action") {})) }
+        ui.mainClock.advanceTimeBy(500)
+        ui.onNodeWithText("first action").assertDoesNotExist()
+        ui.onNodeWithText("second action").assertExists()
+        screenshot("popup")
     }
 
     private fun screenshot(name: String) {

@@ -194,7 +194,7 @@ jobs:
           adb install -r motion-build/debug/app-x86_64-debug.apk
           adb install -r motion-build/androidTest/debug/app-debug-androidTest.apk
           adb shell am instrument -w io.github.yuuukicreation.po0clash.dev.test/androidx.test.runner.AndroidJUnitRunner | tee motion-results.txt
-          grep -q 'OK (4 tests)' motion-results.txt
+          grep -q 'OK (6 tests)' motion-results.txt
           adb pull /sdcard/Android/data/io.github.yuuukicreation.po0clash.dev/files/motion-shots motion-shots
       - uses: actions/upload-artifact@v4
         if: always()
