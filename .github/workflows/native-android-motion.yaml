@@ -1,0 +1,66 @@
+name: native-android-motion
+
+on:
+  workflow_call:
+    inputs:
+      artifact_run:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      artifact_run:
+        description: Build run containing android-motion-build
+        required: true
+      expected_tests:
+        description: Number of tests in that build
+        default: '6'
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  motion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-motion-build
+          path: motion-build
+          run-id: ${{ inputs.artifact_run }}
+          github-token: ${{ github.token }}
+      - name: Run interaction and motion tests on Android
+        shell: bash
+        env:
+          EXPECTED_TESTS: ${{ inputs.expected_tests || '6' }}
+        run: |
+          set -euo pipefail
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          sudo chmod a+rw /dev/kvm
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'system-images;android-35;google_apis;x86_64' 'emulator' > /dev/null
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n motion -k 'system-images;android-35;google_apis;x86_64' --device pixel_6
+          "$ANDROID_HOME/emulator/emulator" -avd motion -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > emulator.log 2>&1 &
+          timeout 180 adb wait-for-device
+          timeout 180 bash -c 'until adb shell getprop sys.boot_completed | grep -q 1; do sleep 2; done'
+          adb shell input keyevent 82
+          adb install -r motion-build/debug/app-x86_64-debug.apk
+          adb install -r motion-build/androidTest/debug/app-debug-androidTest.apk
+          adb shell am instrument -w io.github.yuuukicreation.po0clash.dev.test/androidx.test.runner.AndroidJUnitRunner | tee motion-results.txt
+          grep -q "OK ($EXPECTED_TESTS tests)" motion-results.txt
+      - name: Collect diagnostics and screenshots
+        if: always()
+        run: |
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          adb logcat -d > logcat.txt || true
+          adb pull /sdcard/Android/data/io.github.yuuukicreation.po0clash.dev/files/motion-shots motion-shots || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-motion-results
+          path: |
+            motion-results.txt
+            motion-shots
+            emulator.log
+            logcat.txt

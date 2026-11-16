@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -173,37 +174,9 @@ jobs:
 
   android-motion:
     needs: android
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: android-motion-build
-          path: motion-build
-      - name: Run interaction and motion tests on Android
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo chmod a+rw /dev/kvm
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'system-images;android-35;google_apis;x86_64' 'emulator' > /dev/null
-          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n motion -k 'system-images;android-35;google_apis;x86_64' --device pixel_6
-          "$ANDROID_HOME/emulator/emulator" -avd motion -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > emulator.log 2>&1 &
-          adb wait-for-device
-          timeout 180 bash -c 'until adb shell getprop sys.boot_completed | grep -q 1; do sleep 2; done'
-          adb shell input keyevent 82
-          adb install -r motion-build/debug/app-x86_64-debug.apk
-          adb install -r motion-build/androidTest/debug/app-debug-androidTest.apk
-          adb shell am instrument -w io.github.yuuukicreation.po0clash.dev.test/androidx.test.runner.AndroidJUnitRunner | tee motion-results.txt
-          grep -q 'OK (6 tests)' motion-results.txt
-          adb pull /sdcard/Android/data/io.github.yuuukicreation.po0clash.dev/files/motion-shots motion-shots
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: android-motion-results
-          path: |
-            motion-results.txt
-            motion-shots
-            emulator.log
+    uses: ./.github/workflows/native-android-motion.yaml
+    with:
+      artifact_run: ${{ github.run_id }}
 
   windows:
     needs: version
