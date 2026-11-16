@@ -1,6 +1,9 @@
 name: native-android-motion
 
 on:
+  push:
+    branches: ['native-ui']
+    paths: ['.github/workflows/native-android-motion.yaml']
   workflow_call:
     inputs:
       artifact_run:
@@ -22,6 +25,7 @@ permissions:
 
 jobs:
   motion:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
