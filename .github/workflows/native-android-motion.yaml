@@ -28,8 +28,6 @@ jobs:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      ANDROID_AVD_HOME: ${{ runner.temp }}/po0-avd
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -41,6 +39,7 @@ jobs:
         shell: bash
         env:
           EXPECTED_TESTS: ${{ inputs.expected_tests || '6' }}
+          ANDROID_AVD_HOME: ${{ runner.temp }}/po0-avd
         run: |
           set -euo pipefail
           trap 'tail -n 80 emulator.log || true' ERR
