@@ -86,19 +86,18 @@ fun rememberReduceMotion(): Boolean {
     return reduce
 }
 
-fun tabTransition(animate: Boolean): ContentTransform =
-    if (!animate) {
-        EnterTransition.None togetherWith ExitTransition.None
-    } else {
-        fadeIn(tween(220, easing = TabEasing)) togetherWith fadeOut(tween(220, easing = TabEasing))
-    }
+fun tabTransition(animate: Boolean): ContentTransform = ContentTransform(
+    targetContentEnter = if (animate) fadeIn(tween(220, easing = TabEasing)) else EnterTransition.None,
+    initialContentExit = if (animate) fadeOut(tween(220, easing = TabEasing)) else ExitTransition.None,
+    sizeTransform = null,
+)
 
 private fun <T> AnimatedContentTransitionScope<T?>.axis(animate: Boolean): ContentTransform {
-    if (!animate) return EnterTransition.None togetherWith ExitTransition.None
+    if (!animate) return (EnterTransition.None togetherWith ExitTransition.None).using(null)
     val forward = targetState != null
     return (slideInHorizontally(tween(450, easing = PushEasing)) { if (forward) it else -(it * 0.3f).toInt() } togetherWith
         slideOutHorizontally(tween(450, easing = PushEasing)) { if (forward) -(it * 0.3f).toInt() else it })
-        .apply { targetContentZIndex = if (forward) 1f else -1f }
+        .using(null).apply { targetContentZIndex = if (forward) 1f else -1f }
 }
 
 /** A stack one page deep, moving along the x axis both ways; the system back gesture seeks the transition. */
