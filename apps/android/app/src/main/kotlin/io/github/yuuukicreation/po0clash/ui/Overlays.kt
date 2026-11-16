@@ -3,13 +3,13 @@ package io.github.yuuukicreation.po0clash.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -48,6 +48,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -159,8 +160,8 @@ fun SheetHost(sheets: Sheets) {
     Box(Modifier.fillMaxSize().statusBarsPadding(), contentAlignment = Alignment.BottomCenter) {
         AnimatedVisibility(
             sheetState,
-            enter = slideInVertically(tween(if (reduced) 0 else 400, easing = EnterEasing)) { it },
-            exit = slideOutVertically(tween(if (reduced) 0 else 200, easing = ExitEasing)) { it },
+            enter = slideInVertically(tween(if (reduced) 0 else 500, easing = SheetEasing)) { it },
+            exit = slideOutVertically(tween(if (reduced) 0 else 500, easing = SheetEasing)) { it },
         ) {
             BottomSheet(sheets::dismiss) { key(lastContent) { lastContent?.invoke(this) } }
         }
@@ -168,8 +169,8 @@ fun SheetHost(sheets: Sheets) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         AnimatedVisibility(
             dialogState,
-            enter = fadeIn(tween(if (reduced) 0 else 404, easing = StandardEasing)) + scaleIn(tween(if (reduced) 0 else 404, easing = StandardEasing), initialScale = 1.2f),
-            exit = fadeOut(tween(if (reduced) 0 else 404, easing = StandardEasing)),
+            enter = fadeIn(tween(if (reduced) 0 else 404, easing = AlertEasing)) + scaleIn(tween(if (reduced) 0 else 404, easing = AlertEasing), initialScale = 1.2f),
+            exit = fadeOut(tween(if (reduced) 0 else 404, easing = AlertEasing)),
         ) {
             lastDialog?.let { ConfirmDialog(it, sheets::dismiss) }
         }
@@ -255,9 +256,9 @@ private fun MenuPopup(menu: Menu, state: MutableTransitionState<Boolean>, onDism
             content = {
                 AnimatedVisibility(
                     state,
-                    enter = scaleIn(tween(if (reduced) 0 else 150, easing = StandardEasing), initialScale = 0.8f, transformOrigin = origin) +
-                        fadeIn(tween(if (reduced) 0 else 150, easing = StandardEasing)),
-                    exit = fadeOut(tween(if (reduced) 0 else 100, easing = LinearEasing)),
+                    enter = scaleIn(tween(if (reduced) 0 else 450, easing = PopupEasing), initialScale = 0.8f, transformOrigin = origin) +
+                        fadeIn(tween(if (reduced) 0 else 450, easing = PopupEasing)),
+                    exit = fadeOut(tween(if (reduced) 0 else 200, easing = LinearEasing)) + scaleOut(tween(if (reduced) 0 else 200, easing = StandardEasing), targetScale = 0.8f, transformOrigin = origin),
                 ) {
                     MenuCard(menu, onDismiss)
                 }

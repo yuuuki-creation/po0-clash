@@ -486,9 +486,9 @@ mod tests {
             while !stop_server.load(Ordering::SeqCst) {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
-                        stream
-                            .set_read_timeout(Some(Duration::from_secs(1)))
-                            .unwrap();
+                        if let Err(error) = stream.set_read_timeout(Some(Duration::from_secs(1))) {
+                            assert_eq!(error.raw_os_error(), Some(libc::EINVAL));
+                        }
                         let _ = stream.read(&mut [0; 4096]);
                         let _ = stream
                             .write_all(b"HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n");

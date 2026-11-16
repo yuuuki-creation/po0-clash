@@ -1,9 +1,9 @@
 package io.github.yuuukicreation.po0clash.ui
 
-import android.provider.Settings
 import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
@@ -12,7 +12,6 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.SeekableTransitionState
 import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.core.tween
@@ -21,6 +20,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyItemScope
@@ -35,8 +35,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.exp
+import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlinx.coroutines.CancellationException
 
 val LocalReduceMotion = staticCompositionLocalOf { false }
@@ -49,6 +52,24 @@ val EaseOutBack = Easing { fraction ->
     val x = fraction - 1f
     1f + 2.70158f * x * x * x + 1.70158f * x * x
 }
+
+// prism_ui's bounded spring curves include the remaining displacement at the last frame.
+private fun referenceSpring(stiffness: Float, ratio: Float, milliseconds: Int, velocity: Float = 0f): Easing {
+    val omega = sqrt(stiffness.toDouble())
+    fun position(seconds: Double): Double {
+        if (ratio == 1f) return 1 + (-1 + (velocity - omega) * seconds) * exp(-omega * seconds)
+        val damped = omega * sqrt(1 - ratio * ratio.toDouble())
+        return 1 - exp(-ratio * omega * seconds) * (cos(damped * seconds) + (ratio * omega - velocity) / damped * sin(damped * seconds))
+    }
+    val seconds = milliseconds / 1000.0
+    val residual = 1 - position(seconds)
+    return Easing { fraction -> (position(fraction * seconds) + residual * fraction).toFloat() }
+}
+
+val AlertEasing = referenceSpring((2 * PI / 0.275).toFloat().let { it * it }, 1f, 404)
+val PopupEasing = referenceSpring(400f, 0.754f, 450)
+val SheetEasing = referenceSpring(1000f / 3f, 1f, 500)
+private val PushEasing = referenceSpring((2 * PI / 0.3).toFloat().let { it * it }, 1f, 450, 9f)
 
 @Composable
 fun rememberReduceMotion(): Boolean {
@@ -72,14 +93,12 @@ fun tabTransition(animate: Boolean): ContentTransform =
         fadeIn(tween(220, easing = TabEasing)) togetherWith fadeOut(tween(220, easing = TabEasing))
     }
 
-private fun <T> AnimatedContentTransitionScope<T?>.axis(animate: Boolean, shift: Int): ContentTransform {
+private fun <T> AnimatedContentTransitionScope<T?>.axis(animate: Boolean): ContentTransform {
     if (!animate) return EnterTransition.None togetherWith ExitTransition.None
-    val sign = if (targetState != null) 1 else -1
-    return (
-        slideInHorizontally(tween(300, easing = StandardEasing)) { sign * shift } + fadeIn(tween(210, 90, LinearEasing))
-        ) togetherWith (
-        slideOutHorizontally(tween(300, easing = StandardEasing)) { -sign * shift } + fadeOut(tween(90, easing = LinearEasing))
-        )
+    val forward = targetState != null
+    return (slideInHorizontally(tween(450, easing = PushEasing)) { if (forward) it else -(it * 0.3f).toInt() } togetherWith
+        slideOutHorizontally(tween(450, easing = PushEasing)) { if (forward) -(it * 0.3f).toInt() else it })
+        .apply { targetContentZIndex = if (forward) 1f else -1f }
 }
 
 /** A stack one page deep, moving along the x axis both ways; the system back gesture seeks the transition. */
@@ -95,7 +114,6 @@ fun <T : Any> PushHost(
     val motion = animate && !LocalReduceMotion.current
     val state = remember { SeekableTransitionState(target) }
     val sheets = LocalSheets.current
-    val shift = with(LocalDensity.current) { 30.dp.roundToPx() }
     LaunchedEffect(target, motion) {
         if (state.currentState == target && state.targetState == target) return@LaunchedEffect
         if (motion) state.animateTo(target) else state.snapTo(target)
@@ -109,8 +127,8 @@ fun <T : Any> PushHost(
             throw e
         }
     }
-    rememberTransition(state, label).AnimatedContent(transitionSpec = { axis(motion, shift) }) { page ->
-        Box(Modifier.fillMaxSize()) { content(page) }
+    rememberTransition(state, label).AnimatedContent(transitionSpec = { axis(motion) }) { page ->
+        Box(Modifier.fillMaxSize().background(palette.bg)) { content(page) }
     }
 }
 
