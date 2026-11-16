@@ -17,9 +17,15 @@ on:
       - 'scripts/install-macos-native.sh'
       - '.github/workflows/native-macos.yaml'
   workflow_dispatch:
+    inputs:
+      artifact_run:
+        description: Existing native-macos build to verify without rebuilding
+        required: false
+        default: ''
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -27,6 +33,7 @@ concurrency:
 
 jobs:
   build:
+    if: inputs.artifact_run == ''
     runs-on: macos-26
     timeout-minutes: 45
     env:
@@ -109,10 +116,11 @@ jobs:
   # The universal app on the newest system, an older Apple-silicon system and Intel. GitHub no longer offers macOS 13.
   check:
     needs: build
+    if: always() && (needs.build.result == 'success' || inputs.artifact_run != '')
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-26, macos-14, macos-15-intel]
+        os: [macos-26, macos-15, macos-15-intel]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
@@ -125,6 +133,8 @@ jobs:
           pattern: po0-*
           path: dist
           merge-multiple: true
+          run-id: ${{ inputs.artifact_run || github.run_id }}
+          github-token: ${{ github.token }}
 
       - name: System
         run: |
