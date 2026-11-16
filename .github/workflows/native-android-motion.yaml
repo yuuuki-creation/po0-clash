@@ -41,6 +41,7 @@ jobs:
           EXPECTED_TESTS: ${{ inputs.expected_tests || '6' }}
         run: |
           set -euo pipefail
+          trap 'tail -n 80 emulator.log || true' ERR
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
           sudo chmod a+rw /dev/kvm
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'system-images;android-35;google_apis;x86_64' 'emulator' > /dev/null
@@ -57,8 +58,8 @@ jobs:
         if: always()
         run: |
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
-          adb logcat -d > logcat.txt || true
-          adb pull /sdcard/Android/data/io.github.yuuukicreation.po0clash.dev/files/motion-shots motion-shots || true
+          timeout 10 adb logcat -d > logcat.txt || true
+          timeout 10 adb pull /sdcard/Android/data/io.github.yuuukicreation.po0clash.dev/files/motion-shots motion-shots || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
