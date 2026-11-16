@@ -11,8 +11,8 @@ test('dialog keeps its content through exit and restores focus after unmount', a
   await trigger.click();
   const dialog = page.getByRole('dialog', { name: 'Home cards', exact: true });
   await expect(dialog).toBeVisible();
-  await page.clock.install();
-  await page.clock.pauseAt(new Date());
+  await page.clock.install({ time: new Date('2026-11-17T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-11-17T00:00:10Z'));
   await page.clock.runFor(300);
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).evaluate((el: HTMLButtonElement) => el.click());
   await page.clock.runFor(16);
