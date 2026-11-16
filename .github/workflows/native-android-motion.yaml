@@ -35,6 +35,12 @@ jobs:
           path: motion-build
           run-id: ${{ inputs.artifact_run }}
           github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: android
+          path: release
+          run-id: ${{ inputs.artifact_run }}
+          github-token: ${{ github.token }}
       - name: Run interaction and motion tests on Android
         shell: bash
         env:
@@ -56,6 +62,15 @@ jobs:
           adb install -r motion-build/androidTest/debug/app-debug-androidTest.apk
           adb shell am instrument -w io.github.yuuukicreation.po0clash.dev.test/androidx.test.runner.AndroidJUnitRunner | tee motion-results.txt
           grep -q "OK ($EXPECTED_TESTS tests)" motion-results.txt
+          adb install -r release/*-android-x86_64.apk
+          adb shell pm grant io.github.yuuukicreation.po0clash android.permission.POST_NOTIFICATIONS
+          adb shell am start -W -n io.github.yuuukicreation.po0clash/.MainActivity
+          sleep 5
+          adb shell pidof io.github.yuuukicreation.po0clash > release-process.txt
+          adb shell uiautomator dump /sdcard/release-home.xml
+          adb pull /sdcard/release-home.xml release-home.xml
+          grep -q 'Dashboard' release-home.xml
+          adb exec-out screencap -p > release-home.png
       - name: Collect diagnostics and screenshots
         if: always()
         run: |
@@ -71,3 +86,6 @@ jobs:
             motion-shots
             emulator.log
             logcat.txt
+            release-process.txt
+            release-home.xml
+            release-home.png
