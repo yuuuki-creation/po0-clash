@@ -28,6 +28,8 @@ jobs:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      ANDROID_AVD_HOME: ${{ runner.temp }}/po0-avd
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -43,6 +45,7 @@ jobs:
           set -euo pipefail
           trap 'tail -n 80 emulator.log || true' ERR
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          mkdir -p "$ANDROID_AVD_HOME"
           sudo chmod a+rw /dev/kvm
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'system-images;android-35;google_apis;x86_64' 'emulator' > /dev/null
           echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n motion -k 'system-images;android-35;google_apis;x86_64' --device pixel_6
