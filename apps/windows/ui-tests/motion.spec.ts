@@ -47,6 +47,16 @@ test('desktop page switches keep the header stationary', async ({ page }) => {
   }
 });
 
+test('locating the current node expands a collapsed group', async ({ page }) => {
+  await page.locator('.the-menu').getByText('Proxies', { exact: true }).click();
+  const group = page.locator('[aria-expanded]').first();
+  if (await group.getAttribute('aria-expanded') === 'true') await group.click();
+  await expect(group).toHaveAttribute('aria-expanded', 'false');
+  await group.getByRole('button', { name: 'Locate the current node', exact: true }).click();
+  await expect(group).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('[aria-pressed="true"]').first()).toBeVisible();
+});
+
 test('traffic graph animates samples and stops immediately for reduced motion', async ({ page }) => {
   const graph = page.locator('.traffic-graph canvas');
   await expect.poll(() => graph.evaluate((el) => el.getAnimations().some((a) => a.playState === 'running'))).toBe(true);

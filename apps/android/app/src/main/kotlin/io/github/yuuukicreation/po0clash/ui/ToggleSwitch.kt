@@ -8,6 +8,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
@@ -24,6 +25,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -34,6 +36,7 @@ fun Po0Switch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, enabled: Boo
     val colors = palette
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
+    val focused by interaction.collectIsFocusedAsState()
     val current by rememberUpdatedState(checked)
     val change by rememberUpdatedState(onCheckedChange)
     var dragging by remember { mutableStateOf<Float?>(null) }
@@ -67,6 +70,11 @@ fun Po0Switch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, enabled: Boo
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size(52.dp, 32.dp)) {
+            if (focused && enabled) {
+                val gap = 3.dp.toPx()
+                drawRoundRect(colors.accent, Offset(-gap, -gap), Size(size.width + gap * 2, size.height + gap * 2),
+                    CornerRadius(size.height / 2 + gap), style = Stroke(2.dp.toPx()))
+            }
             val progress = position.coerceIn(0f, 1f)
             val opacity = if (enabled) 1f else 0.38f
             drawRoundRect(lerp(colors.track, colors.accent, progress), cornerRadius = CornerRadius(size.height / 2), alpha = opacity)

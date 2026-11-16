@@ -45,6 +45,7 @@ const onSelect = (group: string, node: string) => {
 const onSort = (proxiesSort: string) => updateSettings({ proxiesSort });
 const onShowType = (show: boolean) => updateSettings({ proxyTileStyle: show ? 'detailed' : 'compact' });
 const onLocate = (group: string) => {
+  view.open[group] = true;
   delete view.filter[group];
   view.locate = group;
 };
@@ -158,7 +159,8 @@ export function ProxyGroups() {
             </Box>
             <Box onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} sx={{ flex: 'none' }}>
               <ProxyHead group={group.name} sort={sort} showType={showType} testing={groupTesting(group)} canTest={isRunning(status)} filtering={!!filtering[group.name]}
-                onLocate={onLocate} onTest={testDelay} onSort={onSort} onShowType={onShowType} onFiltering={onFiltering} />
+                onLocate={onLocate} onTest={(name) => { view.open[name] = true; testDelay(name); }}
+                onSort={(value) => { view.open[group.name] = true; onSort(value); }} onShowType={onShowType} onFiltering={onFiltering} />
             </Box>
             <Chip
               size="small"

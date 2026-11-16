@@ -35,12 +35,12 @@ export const ProxyHead = memo(function ProxyHead(props: Props) {
   const { group, sort, showType, testing, filtering } = props;
   const SortIcon = sortIcons[sort] ?? SortRounded;
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0, height: 36 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, height: 36 }}>
       <IconButton size="small" color="inherit" title={t('proxies.locate')} onClick={() => props.onLocate(group)}>
-        <MyLocationRounded />
+        <MyLocationRounded fontSize="inherit" />
       </IconButton>
       <IconButton size="small" color="inherit" title={t('proxies.test')} disabled={testing || !props.canTest} onClick={() => props.onTest(group)}>
-        {testing ? <CircularProgress size={20} color="inherit" sx={{ m: '2px' }} /> : <NetworkCheckRounded />}
+        {testing ? <CircularProgress size={16} color="inherit" sx={{ m: '2px' }} /> : <NetworkCheckRounded fontSize="inherit" />}
       </IconButton>
       <IconButton
         size="small"
@@ -48,7 +48,7 @@ export const ProxyHead = memo(function ProxyHead(props: Props) {
         title={`${t('proxies.sort')} · ${t(`sort.${SORTS.includes(sort) ? sort : 'profile'}`)}`}
         onClick={() => props.onSort(SORTS[(SORTS.indexOf(sort) + 1) % SORTS.length])}
       >
-        <SortIcon />
+        <SortIcon fontSize="inherit" />
       </IconButton>
       <IconButton
         size="small"
@@ -56,10 +56,10 @@ export const ProxyHead = memo(function ProxyHead(props: Props) {
         title={showType ? t('proxies.hideType') : t('proxies.showType')}
         onClick={() => props.onShowType(!showType)}
       >
-        {showType ? <VisibilityRounded /> : <VisibilityOffRounded />}
+        {showType ? <VisibilityRounded fontSize="inherit" /> : <VisibilityOffRounded fontSize="inherit" />}
       </IconButton>
       <IconButton size="small" color="inherit" title={t('proxies.filter')} onClick={() => props.onFiltering(group, !filtering)}>
-        {filtering ? <SearchOffRounded /> : <SearchRounded />}
+        {filtering ? <SearchOffRounded fontSize="inherit" /> : <SearchRounded fontSize="inherit" />}
       </IconButton>
 
     </Box>
