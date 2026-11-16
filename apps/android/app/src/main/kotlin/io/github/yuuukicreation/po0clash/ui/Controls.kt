@@ -39,6 +39,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -89,7 +92,12 @@ fun StatusDot(color: Color, pulsing: Boolean = false, size: Dp = 10.dp) {
 @Composable
 fun SmallProgress(size: Dp = 20.dp, color: Color = palette.ink2) {
     if (LocalReduceMotion.current) {
-        CircularProgressIndicator(progress = { 0.75f }, modifier = Modifier.size(size), strokeWidth = 2.dp, color = color)
+        CircularProgressIndicator(
+            progress = { 0.75f },
+            modifier = Modifier.size(size).clearAndSetSemantics { progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate },
+            strokeWidth = 2.dp,
+            color = color,
+        )
     } else {
         CircularProgressIndicator(Modifier.size(size), strokeWidth = 2.dp, color = color)
     }
