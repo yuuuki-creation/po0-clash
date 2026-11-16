@@ -537,6 +537,7 @@ private fun ProxyCard(
 ) {
     val colors = palette
     val nameLines = if (style == ProxyTileStyle.MINIMAL) 1 else 2
+    val markDuration = if (LocalReduceMotion.current) 0 else 150
     val kind = @Composable { kindModifier: Modifier ->
         Text(
             node.kind,
@@ -559,7 +560,7 @@ private fun ProxyCard(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            AnimatedVisibility(selected, enter = fadeIn(tween(150)) + scaleIn(tween(150), initialScale = 0.6f), exit = fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.6f)) {
+            AnimatedVisibility(selected, enter = fadeIn(tween(markDuration)) + scaleIn(tween(markDuration), initialScale = 0.6f), exit = fadeOut(tween(markDuration)) + scaleOut(tween(markDuration), targetScale = 0.6f)) {
             Box(Modifier.size(22.dp).clip(RoundedCornerShape(50)).background(colors.accent), contentAlignment = Alignment.Center) {
                 Icon(LineIcons.Check, null, Modifier.size(15.dp), tint = colors.onAccent)
             }
