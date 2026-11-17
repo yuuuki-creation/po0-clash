@@ -98,6 +98,8 @@ jobs:
           adb shell input keyevent 82
           adb root
           adb wait-for-device
+          adb shell wm size 720x1600
+          adb shell wm density 280
           adb install reference.apk
           adb install release/*-android-x86_64.apk
           python3 tool/ui/android-reference.py

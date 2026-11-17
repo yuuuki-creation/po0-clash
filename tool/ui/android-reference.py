@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 import re
-import shlex
 import subprocess
 import time
 import xml.etree.ElementTree as ET
@@ -70,4 +69,18 @@ for name, package in [('flclash', 'com.follow.clash'), ('po0', 'io.github.yuuuki
     settings = snapshot(f'{name}-tools')
     labels = sorted({n.get('text') or n.get('content-desc') for n in settings.iter('node') if n.get('text') or n.get('content-desc')})
     print(name, 'tools labels:', json.dumps(labels), flush=True)
+    entry = find(settings, 'General' if name == 'flclash' else 'Application')
+    record(f'{name}-push', [command(entry), 'sleep 1', 'input keyevent 4', 'sleep 1', command(entry), 'sleep 0.08', 'input keyevent 4', 'sleep 1'])
+    tap(entry)
+    time.sleep(1)
+    options = snapshot(f'{name}-general')
+    switches = [node for node in options.iter('node') if node.get('checkable') == 'true' and node.get('enabled') == 'true']
+    if not switches:
+        raise ValueError(f'{name}: no enabled switch in settings')
+    node = switches[0]
+    x1, y1, x2, y2 = map(int, re.findall(r'\d+', node.get('bounds')))
+    point = ((x1 + x2) // 2, (y1 + y2) // 2)
+    (out / f'{name}-switch-bounds.json').write_text(json.dumps(node.attrib))
+    record(f'{name}-switch', [command(point), 'sleep 1', command(point), 'sleep 1', command(point), 'sleep 0.06', command(point), 'sleep 0.06', command(point), 'sleep 1'])
+    snapshot(f'{name}-switch-final')
     adb('shell', 'am', 'force-stop', package)
