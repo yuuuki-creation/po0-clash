@@ -56,6 +56,13 @@ for name, package in [('flclash', 'com.follow.clash'), ('po0', 'io.github.yuuuki
     adb('shell', 'am', 'start', '-W', '-n', f'{package}/.MainActivity')
     time.sleep(8)
     home = snapshot(f'{name}-home')
+    for attempt in range(3):
+        if not any("isn't responding" in node.get('text', '') for node in home.iter('node')):
+            break
+        tap(find(home, 'Close app'))
+        adb('shell', 'am', 'start', '-W', '-n', f'{package}/.MainActivity')
+        time.sleep(5)
+        home = snapshot(f'{name}-home-retry-{attempt}')
     labels = sorted({n.get('text') or n.get('content-desc') for n in home.iter('node') if n.get('text') or n.get('content-desc')})
     print(name, 'home labels:', json.dumps(labels), flush=True)
     dashboard = find(home, 'Dashboard')
