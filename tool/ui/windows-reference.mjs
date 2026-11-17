@@ -1,6 +1,7 @@
 import { chromium } from '../../apps/windows/node_modules/playwright/index.mjs';
 import { createServer } from 'node:http';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { auditMotion } from './windows-motion.mjs';
 
 const out = 'reference-shots';
 await mkdir(out, { recursive: true });
@@ -66,6 +67,7 @@ try {
   const profile = profiles.items.find((item) => item.url?.includes('127.0.0.1:18615'));
   if (profile) await call(official.page, 'patch_profiles_config', { profiles: { current: profile.uid } });
   await capture(official.page, 'official-verge');
+  await auditMotion(official.page, 'official-verge', out);
   await official.browser.close();
 
   const po0 = await attach(9222);
@@ -78,7 +80,10 @@ try {
   await call(po0.page, 'set_engine_options', { options: { ...options, logLevel: 'info' } });
   await call(po0.page, 'set_mode', { mode: 'rule' });
   await call(po0.page, 'start');
-  try { await capture(po0.page, 'po0'); } finally { await call(po0.page, 'stop'); }
+  try {
+    await capture(po0.page, 'po0');
+    await auditMotion(po0.page, 'po0', out);
+  } finally { await call(po0.page, 'stop'); }
   await po0.browser.close();
 } finally {
   server.close();
