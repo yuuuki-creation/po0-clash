@@ -200,7 +200,7 @@ class MotionTest {
             }))
         }
         ui.mainClock.advanceTimeBy(500)
-        ui.onNodeWithText("open form").performTouchInput { click() }
+        ui.onNodeWithText("open form").performTouchInput { click(); advanceEventTime(1); click() }
         ui.mainClock.advanceTimeBy(32)
         ui.onNodeWithText("open form").assertIsNotEnabled().performTouchInput { click() }
         ui.mainClock.advanceTimeBy(600)

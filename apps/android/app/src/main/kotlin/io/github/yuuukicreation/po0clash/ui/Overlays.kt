@@ -178,7 +178,14 @@ fun SheetHost(sheets: Sheets) {
             enter = fadeIn(tween(if (reduced) 0 else 404, easing = AlertEasing)) + scaleIn(tween(if (reduced) 0 else 404, easing = AlertEasing), initialScale = 1.2f),
             exit = fadeOut(tween(if (reduced) 0 else 404, easing = AlertEasing)),
         ) {
-            lastDialog?.let { ConfirmDialog(it, sheets::dismiss, active = dialog != null) }
+            lastDialog?.let { retained ->
+                ConfirmDialog(retained, sheets::dismiss, active = dialog != null) {
+                    if (sheets.dialog === retained) {
+                        sheets.dismiss()
+                        retained.onConfirm()
+                    }
+                }
+            }
         }
     }
     LaunchedEffect(sheetState.isIdle, sheetState.currentState) {
@@ -187,7 +194,14 @@ fun SheetHost(sheets: Sheets) {
     LaunchedEffect(dialogState.isIdle, dialogState.currentState) {
         if (dialogState.isIdle && !dialogState.currentState) lastDialog = null
     }
-    lastMenu?.let { MenuPopup(it, state = menuState, onDismiss = sheets::dismiss) }
+    lastMenu?.let { retained ->
+        MenuPopup(retained, state = menuState) { action ->
+            if (sheets.menu === retained) {
+                sheets.dismiss()
+                action.onClick()
+            }
+        }
+    }
     LaunchedEffect(menuState.isIdle, menuState.currentState) {
         if (menuState.isIdle && !menuState.currentState) lastMenu = null
     }
@@ -226,7 +240,7 @@ private fun BottomSheet(onDismiss: () -> Unit, active: Boolean, content: @Compos
 }
 
 @Composable
-private fun ConfirmDialog(dialog: Confirm, onDismiss: () -> Unit, active: Boolean) {
+private fun ConfirmDialog(dialog: Confirm, onDismiss: () -> Unit, active: Boolean, onConfirm: () -> Unit) {
     val colors = palette
     BoxWithConstraints {
         Column(
@@ -240,10 +254,7 @@ private fun ConfirmDialog(dialog: Confirm, onDismiss: () -> Unit, active: Boolea
             dialog.body?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.ink2) }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End)) {
                 TextAction(stringResource(R.string.cancel), onClick = onDismiss)
-                TextAction(dialog.confirm, accent = true) {
-                    onDismiss()
-                    dialog.onConfirm()
-                }
+                TextAction(dialog.confirm, accent = true, onClick = onConfirm)
             }
         }
     }
@@ -251,7 +262,7 @@ private fun ConfirmDialog(dialog: Confirm, onDismiss: () -> Unit, active: Boolea
 
 /** Grows out of the anchor's corner, below it when there is room and above it otherwise. */
 @Composable
-private fun MenuPopup(menu: Menu, state: MutableTransitionState<Boolean>, onDismiss: () -> Unit) {
+private fun MenuPopup(menu: Menu, state: MutableTransitionState<Boolean>, onSelect: (SheetAction) -> Unit) {
     val reduced = LocalReduceMotion.current
     val density = LocalDensity.current
     val margin = with(density) { 16.dp.roundToPx() }
@@ -266,7 +277,7 @@ private fun MenuPopup(menu: Menu, state: MutableTransitionState<Boolean>, onDism
                         fadeIn(tween(if (reduced) 0 else 450, easing = PopupEasing)),
                     exit = fadeOut(tween(if (reduced) 0 else 200, easing = LinearEasing)) + scaleOut(tween(if (reduced) 0 else 200, easing = StandardEasing), targetScale = 0.8f, transformOrigin = origin),
                 ) {
-                    MenuCard(menu, onDismiss, enabled = state.targetState)
+                    MenuCard(menu, onSelect, enabled = state.targetState)
                 }
             },
         ) { measurables, constraints ->
@@ -285,7 +296,7 @@ private fun MenuPopup(menu: Menu, state: MutableTransitionState<Boolean>, onDism
 }
 
 @Composable
-private fun MenuCard(menu: Menu, onDismiss: () -> Unit, enabled: Boolean) {
+private fun MenuCard(menu: Menu, onSelect: (SheetAction) -> Unit, enabled: Boolean) {
     val colors = palette
     Surface(shape = RoundedCornerShape(4.dp), color = colors.sheet, shadowElevation = 4.dp) {
         Column(
@@ -298,8 +309,7 @@ private fun MenuCard(menu: Menu, onDismiss: () -> Unit, enabled: Boolean) {
                     Modifier.fillMaxWidth().height(48.dp)
                         .background(if (action.checked) colors.sel else colors.sheet)
                         .clickable(enabled = enabled) {
-                            onDismiss()
-                            action.onClick()
+                            onSelect(action)
                         }
                         .padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
