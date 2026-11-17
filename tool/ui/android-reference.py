@@ -42,7 +42,7 @@ def record(name, commands):
     adb('pull', f'/sdcard/{name}.mp4', str(out / f'{name}.mp4'))
     (out / f'{name}-input.json').write_text(json.dumps({'commands': commands, 'elapsed': elapsed}, indent=2))
 
-config = {'appSetting': {'locale': 'en', 'acceptedDisclaimerVersion': 1, 'autoCheckUpdate': False}, 'themeProps': {'themeMode': 'light'}}
+config = {'appSettingProps': {'locale': 'en', 'acceptedDisclaimerVersion': 1, 'autoCheckUpdate': False}, 'themeProps': {'themeMode': 'light'}}
 preferences = ET.Element('map')
 ET.SubElement(preferences, 'string', name='flutter.config').text = json.dumps(config)
 fixture = out / 'FlutterSharedPreferences.xml'
