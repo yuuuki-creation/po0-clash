@@ -9,7 +9,7 @@ out = Path('reference-android')
 out.mkdir(exist_ok=True)
 
 def adb(*args, **kwargs):
-    return subprocess.run(['adb', *args], check=True, capture_output=True, **kwargs).stdout
+    return subprocess.run(['adb', *args], check=True, capture_output=True, timeout=30, **kwargs).stdout
 
 def snapshot(name):
     adb('shell', 'uiautomator', 'dump', '/sdcard/window.xml')

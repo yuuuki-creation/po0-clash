@@ -16,7 +16,7 @@ on:
         required: true
       expected_tests:
         description: Number of tests in that build
-        default: '6'
+        default: '11'
         required: true
 
 permissions:
@@ -44,7 +44,7 @@ jobs:
       - name: Run interaction and motion tests on Android
         shell: bash
         env:
-          EXPECTED_TESTS: ${{ inputs.expected_tests || '6' }}
+          EXPECTED_TESTS: ${{ inputs.expected_tests || '11' }}
           ANDROID_AVD_HOME: ${{ runner.temp }}/po0-avd
         run: |
           set -euo pipefail

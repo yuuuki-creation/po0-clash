@@ -11,6 +11,8 @@ import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.SeekableTransitionState
 import androidx.compose.animation.core.rememberTransition
@@ -36,6 +38,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.sin
@@ -48,9 +52,22 @@ val StandardEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 val EnterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
 val ExitEasing = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
 val TabEasing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
-val EaseOutBack = Easing { fraction ->
-    val x = fraction - 1f
-    1f + 2.70158f * x * x * x + 1.70158f * x * x
+val EaseOutCubic = CubicBezierEasing(0.215f, 0.61f, 0.355f, 1f)
+val EaseInCubic = CubicBezierEasing(0.55f, 0.055f, 0.675f, 0.19f)
+val EaseOutBack = CubicBezierEasing(0.175f, 0.885f, 0.32f, 1.275f)
+
+@Composable
+internal fun reversibleProgress(target: Boolean, milliseconds: Int, forward: Easing, reverse: Easing): Float {
+    val value = remember { Animatable(if (target) 1f else 0f) }
+    var advancing by remember { mutableStateOf(target) }
+    val reduced = LocalReduceMotion.current
+    LaunchedEffect(target, reduced) {
+        if (value.value == 0f || value.value == 1f) advancing = target
+        val end = if (target) 1f else 0f
+        if (reduced) value.snapTo(end)
+        else value.animateTo(end, tween((milliseconds * abs(end - value.value)).roundToInt(), easing = LinearEasing))
+    }
+    return (if (advancing) forward else reverse).transform(value.value)
 }
 
 // prism_ui's bounded spring curves include the remaining displacement at the last frame.

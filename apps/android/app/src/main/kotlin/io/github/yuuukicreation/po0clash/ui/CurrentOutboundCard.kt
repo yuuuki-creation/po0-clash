@@ -1,11 +1,9 @@
 // Layout follows FlClash 0.9.3's dashboard/widgets/current_outbound.dart (GPL-3.0).
 package io.github.yuuukicreation.po0clash.ui
 
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -84,7 +82,7 @@ fun CurrentOutboundCard(vm: AppViewModel, onConnect: () -> Unit) {
     val enabled = active || profiles.any { it.selected }
     val label = stringResource(if (starting) R.string.state_starting else if (running) R.string.status_running else R.string.status_stopped)
     val control = stringResource(if (active) R.string.disconnect else R.string.connect)
-    val morph by animateFloatAsState(if (running) 1f else 0f, if (LocalReduceMotion.current) snap() else tween(450, easing = if (running) EaseOutBack else CubicBezierEasing(0.32f, 0f, 0.67f, 0f)), label = "connectionShape")
+    val morph = reversibleProgress(running, 450, EaseOutBack, EaseInCubic)
     val kind = quality?.kind?.let { value ->
         stringResource(when (value) {
             IpType.RESIDENTIAL -> R.string.ip_residential

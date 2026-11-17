@@ -3,6 +3,9 @@ package io.github.yuuukicreation.po0clash.ui
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -11,6 +14,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -151,6 +156,122 @@ class MotionTest {
         ui.onNodeWithText("first action").assertDoesNotExist()
         ui.onNodeWithText("second action").assertExists()
         screenshot("popup")
+    }
+
+    @Test fun switchTapKeepsTheThumbLiftedAfterRelease() {
+        val checked = mutableStateOf(false)
+        ui.mainClock.autoAdvance = false
+        ui.setContent { MaterialTheme { Po0Switch(checked.value, { checked.value = it }, modifier = Modifier.testTag("switch").background(Color.Black)) } }
+        val toggle = ui.onNodeWithTag("switch")
+        toggle.performTouchInput { click() }
+        ui.mainClock.advanceTimeBy(128)
+        assertTrue("tap must lift the thumb beyond its track", thumbBounds()[3] - thumbBounds()[1] > 32f)
+        screenshot("switch-tap-held")
+        ui.mainClock.advanceTimeBy(300)
+        assertTrue("tap lift must settle", thumbBounds()[3] - thumbBounds()[1] < 25f)
+        toggle.assertIsOn()
+    }
+
+    @Test fun switchReversalUsesTheRemainingTravelAndKeepsTheLatestValue() {
+        val checked = mutableStateOf(false)
+        ui.mainClock.autoAdvance = false
+        ui.setContent { MaterialTheme { Po0Switch(checked.value, { checked.value = it }, modifier = Modifier.testTag("switch").background(Color.Black)) } }
+        ui.runOnIdle { checked.value = true }
+        ui.mainClock.advanceTimeBy(80)
+        ui.runOnIdle { checked.value = false }
+        ui.mainClock.advanceTimeBy(128)
+        val bounds = thumbBounds()
+        assertEquals(20f, (bounds[0] + bounds[2]) / 2, 0.6f)
+        ui.runOnIdle { checked.value = true }
+        ui.mainClock.advanceTimeBy(500)
+        ui.onNodeWithTag("switch").assertIsOn()
+        assertEquals(40f, (thumbBounds()[0] + thumbBounds()[2]) / 2, 0.6f)
+    }
+
+    @Test fun retiringMenuCannotRepeatAnActionOrDismissItsReplacement() {
+        val sheets = Sheets()
+        var actions = 0
+        ui.mainClock.autoAdvance = false
+        ui.setContent { MaterialTheme { SheetHost(sheets) } }
+        ui.runOnIdle {
+            sheets.menu(Anchor(), listOf(SheetAction("open form") {
+                actions++
+                sheets.show { Text("replacement form") }
+            }))
+        }
+        ui.mainClock.advanceTimeBy(500)
+        ui.onNodeWithText("open form").performTouchInput { click() }
+        ui.mainClock.advanceTimeBy(32)
+        ui.onNodeWithText("open form").assertIsNotEnabled().performTouchInput { click() }
+        ui.mainClock.advanceTimeBy(600)
+        ui.runOnIdle { assertEquals(1, actions); assertTrue(sheets.open) }
+        ui.onNodeWithText("replacement form").assertExists()
+        ui.runOnIdle { sheets.dismiss() }
+        ui.mainClock.advanceTimeBy(32)
+        ui.onNodeWithText("replacement form").assertDoesNotExist()
+    }
+
+    @Test fun reopeningADragDismissedSheetDoesNotKeepItsOldOffset() {
+        val sheets = Sheets()
+        ui.mainClock.autoAdvance = false
+        ui.setContent { MaterialTheme { SheetHost(sheets) } }
+        ui.runOnIdle { sheets.show { Text("first form") } }
+        ui.mainClock.advanceTimeBy(600)
+        val top = ui.onNodeWithText("first form").getUnclippedBoundsInRoot().top
+        val scale = ui.density.density
+        ui.onRoot().performTouchInput {
+            down(Offset(width / 2f, (top.value - 24f) * scale))
+            moveBy(Offset(0f, 120f * scale), 200)
+            up()
+        }
+        ui.mainClock.advanceTimeBy(32)
+        ui.runOnIdle { sheets.show { Text("second form") } }
+        ui.mainClock.advanceTimeBy(600)
+        ui.onNodeWithText("second form").assertTopPositionInRootIsEqualTo(top)
+    }
+
+    @Test fun runningAnimationReversesInPlaceAndReducedMotionStopsIt() {
+        val running = mutableStateOf(false)
+        val reduced = mutableStateOf(false)
+        ui.mainClock.autoAdvance = false
+        ui.setContent {
+            CompositionLocalProvider(LocalReduceMotion provides reduced.value) {
+                val progress = reversibleProgress(running.value, 450, EaseOutBack, EaseInCubic)
+                Box(Modifier.fillMaxSize()) { Text("marker", Modifier.offset(x = 100.dp * progress)) }
+            }
+        }
+        ui.runOnIdle { running.value = true }
+        ui.mainClock.advanceTimeBy(96)
+        assertTrue(ui.onNodeWithText("marker").getUnclippedBoundsInRoot().left > 50.dp)
+        ui.runOnIdle { running.value = false }
+        ui.mainClock.advanceTimeBy(144)
+        ui.onNodeWithText("marker").assertLeftPositionInRootIsEqualTo(0.dp)
+        ui.runOnIdle { running.value = true }
+        ui.mainClock.advanceTimeBy(500)
+        ui.runOnIdle { running.value = false }
+        ui.mainClock.advanceTimeBy(128)
+        assertTrue(ui.onNodeWithText("marker").getUnclippedBoundsInRoot().left < 60.dp)
+        ui.runOnIdle { reduced.value = true }
+        ui.mainClock.advanceTimeByFrame()
+        ui.mainClock.advanceTimeByFrame()
+        ui.onNodeWithText("marker").assertLeftPositionInRootIsEqualTo(0.dp)
+    }
+
+    private fun thumbBounds(): FloatArray {
+        val image = ui.onNodeWithTag("switch").captureToImage()
+        val pixels = image.toPixelMap()
+        var left = image.width
+        var top = image.height
+        var right = 0
+        var bottom = 0
+        for (y in 0 until image.height) for (x in 0 until image.width) {
+            val color = pixels[x, y]
+            if (color.red > 0.97f && color.green > 0.97f && color.blue > 0.97f && color.alpha > 0.9f) {
+                left = minOf(left, x); top = minOf(top, y); right = maxOf(right, x); bottom = maxOf(bottom, y)
+            }
+        }
+        val density = image.width / 60f
+        return floatArrayOf(left / density, top / density, (right + 1) / density, (bottom + 1) / density)
     }
 
     private fun screenshot(name: String) {

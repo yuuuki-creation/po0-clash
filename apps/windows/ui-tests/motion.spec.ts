@@ -39,6 +39,28 @@ test('nested script dialog closes independently and keeps the library open', asy
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
+test('rapid dialog reversals retain the last open request and restore focus only after closing', async ({ page }) => {
+  const trigger = page.getByRole('button', { name: 'Home cards', exact: true });
+  await trigger.focus();
+  await trigger.evaluate(async (element: HTMLButtonElement) => {
+    const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    for (let attempt = 0; attempt < 4; attempt++) {
+      element.click();
+      await pause(70);
+      document.querySelector('.MuiDialog-root')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await pause(70);
+    }
+    element.click();
+  });
+  const dialog = page.getByRole('dialog', { name: 'Home cards', exact: true });
+  await expect(dialog).toBeVisible();
+  await page.waitForTimeout(300);
+  await expect(dialog.getByRole('checkbox', { name: 'Traffic', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
 test('desktop page switches keep the header stationary', async ({ page }) => {
   for (const name of ['Profiles', 'Proxies', 'Settings', 'Home']) {
     await page.locator('.the-menu').getByText(name, { exact: true }).click();

@@ -1,4 +1,4 @@
-8.3.0 补齐 macOS 启动时的页面跳转修复，包含 8.2.0 的桌面与 Android 交互和动画修复，可直接覆盖升级。
+8.4.0 修复连续操作时的动画反向、开关抬起效果和弹出层残留交互，包含此前的界面与 macOS 启动跳转修复，可直接覆盖升级。
 
 ## 安装
 
@@ -7,7 +7,7 @@
 在终端运行：
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.3.0/install-macos-native.sh | bash
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.0/install-macos-native.sh | bash
 ```
 
 脚本会退出并替换已安装的 po0-clash（包括 Flutter 版），装到「应用程序」后启动。应用没有经过苹果公证，脚本会去掉下载带来的隔离标记。
@@ -18,12 +18,12 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
 在 PowerShell 里运行：
 
 ```powershell
-irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.3.0/install-windows-native.ps1 | iex
+irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.0/install-windows-native.ps1 | iex
 ```
 
 脚本会下载安装程序、校验 SHA-256、请求一次管理员权限，装好后打开应用。这样下载的文件没有网络来源标记，不会触发 SmartScreen 提示。
 
-也可以下载 `po0-clash-8.3.0-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
+也可以下载 `po0-clash-8.4.0-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
 
 **智能应用控制：** 这个功能开着时，未受信任签名的应用可能仍被拦截，命令安装也不一定能绕开，微软也不提供单个应用的例外。被拦时要在「Windows 安全中心 → 应用和浏览器控制 → 智能应用控制设置」里关闭它。
 
@@ -47,7 +47,14 @@ irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.3.0
   快捷设置磁贴、外部启停 intent 和 TV 入口。
 - po0 与 ggy 自动加白照旧：不论是否连接都持续运行，加白请求始终从真实出口发出。
 
-## 相对 8.2.0
+## 相对 8.3.0
+
+- Android 开关补齐松手后 200 毫秒的抬起保持，颜色与形变按原始行程变化；拖动中途接手动画时保留当前滑块位置。
+- 修正开关和连接按钮的回弹曲线、连接按钮的反向缓动，以及动画中途反向时多等一个完整周期的问题。
+- 弹出层退出时停止接收输入，避免快速连点重复执行旧菜单动作或关闭刚打开的表单；拖动关闭后立即打开新表单不再继承旧偏移。
+- 对照官方安装版采集逐帧数据和录屏，增加快速反向、连续开关和弹出层交替的回归检查。
+
+## 8.3.0 的补充修复
 
 - 修复 macOS 首次从菜单栏打开订阅、加白等页面时可能停留在首页的问题。现在等前端导航监听器就绪，再处理最新的跳转请求。
 - macOS 安装包检查逐项确认八个页面实际显示成功，脚本异常直接使检查失败，避免把首页误记为其他页面的截图。

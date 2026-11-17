@@ -1,4 +1,4 @@
-# 8.2.0 / 8.3.0 界面复核
+# 8.2.0—8.4.0 界面复核
 
 基线是已发布的 8.1.1。桌面参考 Clash Verge Rev 2.5.10（`c83f7ad`），Android 参考 FlClash 0.9.3（`be84736`）及其锁定的 prism_ui（`63450c0`）。核对范围是现有功能的呈现与交互，不增加参考程序独有的内核功能。
 
@@ -40,6 +40,16 @@
 | 减少动态效果 | 监听系统设置变化；切页、开关、菜单、确认框立即完成，等待指示静止 | `MotionTest` |
 
 ## 验证范围
+
+### 8.4.0：实际运行与连续操作
+
+[Windows 官方安装版对照](https://github.com/yuuuki-creation/po0-clash/actions/runs/44026086102)记录真实 WebView2 的逐帧透明度、尺寸和 CSS 动画数据。两边弹窗进入均为 225 ms、退出 195 ms，曲线均为 `cubic-bezier(0.4, 0, 0.2, 1)`；侧栏菜单均为 200 ms，缩放阶段 133 ms。70 ms 间隔连续开关后，两边均保留最后一次打开请求。中断后的 CSS 过渡时长受实际开始时间和当前进度影响，不能只比较名义时长。
+
+[Android 官方 APK 对照](https://github.com/yuuuki-creation/po0-clash/actions/runs/44026871942)在同一个 API 35 模拟器、720×1600、280 dpi 下录制切页、二级页面往返、开关和连续点击。FlClash 按压后滑块实测高度约 39.4 dp，8.3.0 最大仅 24 dp；静止关闭状态，参考程序的灰色滑块也被误画成了白色。8.4.0 补齐 200 ms 抬起保持、颜色插值和抬起阴影，拖动接手正在播放的动画时从当前位置开始。
+
+曲线复核发现 `easeOutBack` 被写成了近似多项式；连接按钮还把反向曲线作用在了正向时间上。现在按 Flutter 的实际 Bézier 控制点绘制，保留中途反向的曲线方向，并按剩余行程计算时长。[Flutter easeOutBack](https://api.flutter.dev/flutter/animation/Curves/easeOutBack-constant.html)、[easeInCubic](https://api.flutter.dev/flutter/animation/Curves/easeInCubic-constant.html)、[easeOutCubic](https://api.flutter.dev/flutter/animation/Curves/easeOutCubic-constant.html)。
+
+同时修复退出菜单仍能执行旧动作、旧表单在退出时仍接收输入，以及拖动关闭后立即重开继承旧偏移。新增回归从实际指针、滑块像素尺寸、最终页面位置与动作次数检查这些边界。录屏使用软件渲染且帧间隔不均匀，适合确认形变、状态和过渡顺序；精确曲线和中途反向另由受控动画时钟验证，不把模拟器录屏当作真机帧率测试。
 
 8.2.0 发布后复核 macOS 截图发现，标为代理、订阅等页面的图片实际仍在首页：WebKit 文档加载结束时，异步初始化中的前端尚未注册导航监听器。8.3.0 增加前端就绪握手，保留最后一个待处理跳转；浏览器回归覆盖延迟初始化、连续请求、旧页面名称和重新加载。macOS 检查改为从实际 DOM 验证八个页面，再保存截图，并直接检查发布流水线产生的安装包。原来的错误页面截图不作为对应页面已验证的证据。
 

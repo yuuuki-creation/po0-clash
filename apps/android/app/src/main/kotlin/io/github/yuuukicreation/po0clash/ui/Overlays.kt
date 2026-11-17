@@ -64,8 +64,12 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
@@ -163,7 +167,9 @@ fun SheetHost(sheets: Sheets) {
             enter = slideInVertically(tween(if (reduced) 0 else 500, easing = SheetEasing)) { it },
             exit = slideOutVertically(tween(if (reduced) 0 else 500, easing = SheetEasing)) { it },
         ) {
-            BottomSheet(sheets::dismiss) { key(lastContent) { lastContent?.invoke(this) } }
+            key(lastContent) {
+                BottomSheet(sheets::dismiss, active = content != null) { lastContent?.invoke(this) }
+            }
         }
     }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -172,7 +178,7 @@ fun SheetHost(sheets: Sheets) {
             enter = fadeIn(tween(if (reduced) 0 else 404, easing = AlertEasing)) + scaleIn(tween(if (reduced) 0 else 404, easing = AlertEasing), initialScale = 1.2f),
             exit = fadeOut(tween(if (reduced) 0 else 404, easing = AlertEasing)),
         ) {
-            lastDialog?.let { ConfirmDialog(it, sheets::dismiss) }
+            lastDialog?.let { ConfirmDialog(it, sheets::dismiss, active = dialog != null) }
         }
     }
     LaunchedEffect(sheetState.isIdle, sheetState.currentState) {
@@ -188,13 +194,13 @@ fun SheetHost(sheets: Sheets) {
 }
 
 @Composable
-private fun BottomSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+private fun BottomSheet(onDismiss: () -> Unit, active: Boolean, content: @Composable ColumnScope.() -> Unit) {
     val colors = palette
     val scope = rememberCoroutineScope()
     val drag = remember { Animatable(0f) }
     val threshold = with(LocalDensity.current) { 96.dp.toPx() }
     Column(
-        Modifier.offset { IntOffset(0, drag.value.roundToInt()) }
+        Modifier.retiringOverlay(active).offset { IntOffset(0, drag.value.roundToInt()) }
             .widthIn(max = 640.dp).fillMaxWidth()
             .background(colors.sheet, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
             .clickable(remember { MutableInteractionSource() }, indication = null) {}
@@ -220,11 +226,11 @@ private fun BottomSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.
 }
 
 @Composable
-private fun ConfirmDialog(dialog: Confirm, onDismiss: () -> Unit) {
+private fun ConfirmDialog(dialog: Confirm, onDismiss: () -> Unit, active: Boolean) {
     val colors = palette
     BoxWithConstraints {
         Column(
-            Modifier.width(minOf(360.dp, maxWidth - 48.dp))
+            Modifier.retiringOverlay(active).width(minOf(360.dp, maxWidth - 48.dp))
                 .background(colors.sheet, RoundedCornerShape(28.dp))
                 .clickable(remember { MutableInteractionSource() }, indication = null) {}
                 .padding(24.dp),
@@ -260,7 +266,7 @@ private fun MenuPopup(menu: Menu, state: MutableTransitionState<Boolean>, onDism
                         fadeIn(tween(if (reduced) 0 else 450, easing = PopupEasing)),
                     exit = fadeOut(tween(if (reduced) 0 else 200, easing = LinearEasing)) + scaleOut(tween(if (reduced) 0 else 200, easing = StandardEasing), targetScale = 0.8f, transformOrigin = origin),
                 ) {
-                    MenuCard(menu, onDismiss)
+                    MenuCard(menu, onDismiss, enabled = state.targetState)
                 }
             },
         ) { measurables, constraints ->
@@ -279,7 +285,7 @@ private fun MenuPopup(menu: Menu, state: MutableTransitionState<Boolean>, onDism
 }
 
 @Composable
-private fun MenuCard(menu: Menu, onDismiss: () -> Unit) {
+private fun MenuCard(menu: Menu, onDismiss: () -> Unit, enabled: Boolean) {
     val colors = palette
     Surface(shape = RoundedCornerShape(4.dp), color = colors.sheet, shadowElevation = 4.dp) {
         Column(
@@ -291,7 +297,7 @@ private fun MenuCard(menu: Menu, onDismiss: () -> Unit) {
                 Row(
                     Modifier.fillMaxWidth().height(48.dp)
                         .background(if (action.checked) colors.sel else colors.sheet)
-                        .clickable {
+                        .clickable(enabled = enabled) {
                             onDismiss()
                             action.onClick()
                         }
@@ -314,6 +320,13 @@ private fun MenuCard(menu: Menu, onDismiss: () -> Unit) {
         }
     }
 }
+
+private fun Modifier.retiringOverlay(active: Boolean): Modifier = if (active) this else
+    clearAndSetSemantics {}.onPreviewKeyEvent { true }.pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
+        }
+    }
 
 @Composable
 fun SheetTitle(text: String) {
