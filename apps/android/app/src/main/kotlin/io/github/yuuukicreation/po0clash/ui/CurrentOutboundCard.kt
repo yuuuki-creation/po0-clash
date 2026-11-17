@@ -4,6 +4,7 @@ package io.github.yuuukicreation.po0clash.ui
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -83,6 +84,7 @@ fun CurrentOutboundCard(vm: AppViewModel, onConnect: () -> Unit) {
     val label = stringResource(if (starting) R.string.state_starting else if (running) R.string.status_running else R.string.status_stopped)
     val control = stringResource(if (active) R.string.disconnect else R.string.connect)
     val morph = reversibleProgress(running, 450, EaseOutBack, EaseInCubic)
+    val decoration by animateFloatAsState(if (running) 1f else 0f, if (LocalReduceMotion.current) snap() else tween(450, easing = EaseOutBack), label = "connectionDecoration")
     val kind = quality?.kind?.let { value ->
         stringResource(when (value) {
             IpType.RESIDENTIAL -> R.string.ip_residential
@@ -95,8 +97,8 @@ fun CurrentOutboundCard(vm: AppViewModel, onConnect: () -> Unit) {
         Box(Modifier.fillMaxSize()) {
             Canvas(Modifier.fillMaxSize()) {
                 val origin = Offset(size.width - 60.dp.toPx(), 54.dp.toPx())
-                rotate(30f * morph, origin) {
-                    drawPath(cookiePath(origin, 120.dp.toPx() * (1 + 0.12f * morph), 12), lerp(colors.block, colors.accent.copy(alpha = 0.1f).compositeOver(colors.card), morph.coerceIn(0f, 1f)))
+                rotate(30f * decoration, origin) {
+                    drawPath(cookiePath(origin, 120.dp.toPx() * (1 + 0.12f * decoration), 12), lerp(colors.block, colors.accent.copy(alpha = 0.1f).compositeOver(colors.card), decoration.coerceIn(0f, 1f)))
                 }
             }
             Column(Modifier.fillMaxSize().padding(start = 20.dp, end = 16.dp, top = 18.dp, bottom = 18.dp), verticalArrangement = Arrangement.SpaceBetween) {

@@ -215,7 +215,7 @@ class MotionTest {
         val sheets = Sheets()
         ui.mainClock.autoAdvance = false
         ui.setContent { MaterialTheme { SheetHost(sheets) } }
-        ui.runOnIdle { sheets.show { Text("first form") } }
+        ui.runOnIdle { sheets.show { Box(Modifier.size(240.dp)) { Text("first form") } } }
         ui.mainClock.advanceTimeBy(600)
         val top = ui.onNodeWithText("first form").getUnclippedBoundsInRoot().top
         val scale = ui.density.density
@@ -225,7 +225,7 @@ class MotionTest {
             up()
         }
         ui.mainClock.advanceTimeBy(32)
-        ui.runOnIdle { sheets.show { Text("second form") } }
+        ui.runOnIdle { sheets.show { Box(Modifier.size(240.dp)) { Text("second form") } } }
         ui.mainClock.advanceTimeBy(600)
         ui.onNodeWithText("second form").assertTopPositionInRootIsEqualTo(top)
     }
