@@ -10,6 +10,7 @@ enum Showcase {
         Task {
             if let name = defaults.string(forKey: "showWindow") {
                 MainWindow.shared.show(page: name == "YES" ? nil : name)
+                await verifyPage(name)
             }
             if defaults.bool(forKey: "testDelays") { await testDelays() }
             if defaults.bool(forKey: "showMenu") {
@@ -44,6 +45,20 @@ enum Showcase {
         await wait(seconds: 20) { model.isRunning && !model.groups.isEmpty }
         for group in model.groups where group.selectable { model.testDelay(group.name) }
         await wait(seconds: 15) { model.testingGroups.isEmpty }
+    }
+
+    private static func verifyPage(_ name: String) async {
+        let aliases = ["YES": "home", "dashboard": "home", "activity": "connections", "tools": "settings"]
+        let expected = aliases[name] ?? name
+        let deadline = Date().addingTimeInterval(15)
+        while Date() < deadline {
+            if await MainWindow.shared.displayedPage() == expected {
+                logger.notice("web page verified \(expected, privacy: .public)")
+                return
+            }
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+        logger.error("web page verification failed: \(expected, privacy: .public)")
     }
 
     private static func wait(seconds: Double, until done: () -> Bool) async {

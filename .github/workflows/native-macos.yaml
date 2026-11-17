@@ -19,9 +19,13 @@ on:
   workflow_dispatch:
     inputs:
       artifact_run:
-        description: Existing native-macos build to verify without rebuilding
+        description: Existing build to verify without rebuilding
         required: false
         default: ''
+      app_artifact:
+        description: App artifact name in that build
+        required: false
+        default: po0-clash-macos
 
 permissions:
   contents: read
@@ -127,12 +131,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download app and checker
+      - name: Download app
         uses: actions/download-artifact@v4
         with:
-          pattern: po0-*
+          name: ${{ inputs.app_artifact || 'po0-clash-macos' }}
           path: dist
-          merge-multiple: true
+          run-id: ${{ inputs.artifact_run || github.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download checker
+        uses: actions/download-artifact@v4
+        with:
+          name: po0-e2e
+          path: dist
           run-id: ${{ inputs.artifact_run || github.run_id }}
           github-token: ${{ github.token }}
 
@@ -314,27 +325,30 @@ jobs:
           echo "panel refreshed $shown times"
           [ "$shown" -ge 2 ] || { echo "::error::opening the panel twice refreshed it $shown times"; exit 1; }
 
-      - name: Web interface loads
+      - name: Web interface navigates on cold launch
         run: |
-          start=$(date '+%Y-%m-%d %H:%M:%S')
-          events="$RUNNER_TEMP/web-events.txt"
-          /Applications/po0-clash.app/Contents/MacOS/po0-clash -showWindow dashboard > /dev/null 2>&1 &
-          pid=$!
-          for _ in $(seq 30); do
+          for page in dashboard proxies profiles connections rules logs whitelist settings; do
+            expected=$page
+            [ "$page" != dashboard ] || expected=home
+            start=$(date '+%Y-%m-%d %H:%M:%S')
+            events="shots/web-$page.txt"
+            /Applications/po0-clash.app/Contents/MacOS/po0-clash -showWindow "$page" > /dev/null 2>&1 &
+            pid=$!
+            for _ in $(seq 30); do
+              sleep 1
+              log show --start "$start" --style compact --predicate 'subsystem == "io.github.yuuukicreation.po0clash" AND eventMessage BEGINSWITH "web "' > "$events" || true
+              grep -q "web page verified $expected" "$events" && break
+            done
+            open -b io.github.yuuukicreation.po0clash
             sleep 1
-            log show --start "$start" --style compact --predicate               'subsystem == "io.github.yuuukicreation.po0clash" AND eventMessage BEGINSWITH "web "' > "$events" || true
-            grep -q "web interface loaded" "$events" && break
+            screencapture -x "shots/cold-$page-${{ matrix.os }}.png"
+            kill -TERM "$pid"
+            wait "$pid" || true
+            log show --start "$start" --style compact --predicate 'subsystem == "io.github.yuuukicreation.po0clash" AND eventMessage BEGINSWITH "web "' > "$events" || true
+            cat "$events"
+            grep -q "web page verified $expected" "$events" || { echo "::error::cold launch did not reach $expected"; exit 1; }
+            if grep -q "web error" "$events"; then echo "::error::the page reported a script error"; exit 1; fi
           done
-          sleep 5
-          open -b io.github.yuuukicreation.po0clash
-          sleep 1
-          screencapture -x "shots/window-${{ matrix.os }}.png" || true
-          kill -TERM "$pid"
-          wait "$pid" || true
-          log show --start "$start" --style compact --predicate             'subsystem == "io.github.yuuukicreation.po0clash" AND eventMessage BEGINSWITH "web "' > "$events" || true
-          cat "$events"
-          grep -q "web interface loaded" "$events" || { echo "::error::the page never finished loading"; exit 1; }
-          if grep -q "web error" "$events"; then echo "::warning::the page reported a script error"; fi
 
       - name: Screenshots
         if: matrix.os == 'macos-26'
@@ -343,6 +357,13 @@ jobs:
           shoot() {
             local name=$1 seconds=$2
             shift 2
+            local start page='' previous='' arg
+            start=$(date '+%Y-%m-%d %H:%M:%S')
+            for arg in "$@"; do
+              if [ "$previous" = -showWindow ]; then page=$arg; fi
+              previous=$arg
+            done
+            case "$page" in dashboard|YES) page=home;; activity) page=connections;; tools) page=settings;; esac
             "$bin" "$@" > /dev/null 2>&1 &
             local pid=$!
             sleep "$seconds"
@@ -350,6 +371,11 @@ jobs:
             if [[ " $* " == *" -showWindow "* ]]; then
               open -b io.github.yuuukicreation.po0clash
               sleep 1
+            fi
+            if [ -n "$page" ]; then
+              log show --start "$start" --style compact --predicate 'subsystem == "io.github.yuuukicreation.po0clash" AND eventMessage BEGINSWITH "web "' > "shots/$name-web.txt"
+              grep -q "web page verified $page" "shots/$name-web.txt" || { echo "::error::$name did not reach $page"; exit 1; }
+              if grep -q "web error" "shots/$name-web.txt"; then echo "::error::$name reported a script error"; exit 1; fi
             fi
             scutil --proxy > "$RUNNER_TEMP/$name-proxy.txt"
             screencapture -x "shots/$name.png" || true

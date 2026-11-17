@@ -101,6 +101,7 @@ jobs:
       - name: Build
         env:
           ARCHS: arm64 x86_64
+          WITH_E2E: '1'
           VERSION: ${{ needs.version.outputs.version }}
           BUILD_NUMBER: ${{ needs.version.outputs.build }}
         run: |
@@ -111,6 +112,11 @@ jobs:
         with:
           name: macos
           path: apps/macos/dist/po0-clash-macos.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: po0-e2e
+          path: apps/macos/dist/po0-e2e
           if-no-files-found: error
 
   android:

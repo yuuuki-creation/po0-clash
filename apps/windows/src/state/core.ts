@@ -1,5 +1,5 @@
 import { proxy } from 'valtio';
-import { invoke, listen } from '../ipc';
+import { frontendReady, invoke, listen } from '../ipc';
 import { setLanguage, t } from '../lib/i18n.js';
 
 export type PageId = 'home' | 'proxies' | 'profiles' | 'connections' | 'rules' | 'logs' | 'whitelist' | 'settings';
@@ -246,6 +246,7 @@ export async function init() {
     const page = LEGACY_PAGES[payload] ?? payload;
     if (PAGES.includes(page)) app.page = page;
   });
+  await frontendReady();
   await Promise.all([refreshStatus(), refresh('profiles'), refresh('whitelist')]);
   explainLaunch(await invoke('launch_notice'));
   poll();

@@ -301,6 +301,7 @@ function Sidebar({ collapsed }: { collapsed: boolean }) {
 }
 
 export function Layout({ children }: { children: ReactNode }) {
+  const { page } = useSnapshot(app);
   const s = useSnapshot(settings).value;
   const collapsed = s?.showNavLabels === false;
   return (
@@ -315,7 +316,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="layout-content">
           <Sidebar collapsed={collapsed} />
           <div className="layout-content__right">
-            <div className="the-content">{children}</div>
+            <div className="the-content" data-page={page}>{children}</div>
           </div>
         </div>
       </Paper>

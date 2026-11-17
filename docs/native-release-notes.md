@@ -1,4 +1,4 @@
-8.2.0 修复桌面与 Android 的交互和动画细节，可直接覆盖升级。保留 8.1.1 的配置迁移与离线节点修复。
+8.3.0 补齐 macOS 启动时的页面跳转修复，包含 8.2.0 的桌面与 Android 交互和动画修复，可直接覆盖升级。
 
 ## 安装
 
@@ -7,7 +7,7 @@
 在终端运行：
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.2.0/install-macos-native.sh | bash
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.3.0/install-macos-native.sh | bash
 ```
 
 脚本会退出并替换已安装的 po0-clash（包括 Flutter 版），装到「应用程序」后启动。应用没有经过苹果公证，脚本会去掉下载带来的隔离标记。
@@ -18,12 +18,12 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
 在 PowerShell 里运行：
 
 ```powershell
-irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.2.0/install-windows-native.ps1 | iex
+irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.3.0/install-windows-native.ps1 | iex
 ```
 
 脚本会下载安装程序、校验 SHA-256、请求一次管理员权限，装好后打开应用。这样下载的文件没有网络来源标记，不会触发 SmartScreen 提示。
 
-也可以下载 `po0-clash-8.2.0-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
+也可以下载 `po0-clash-8.3.0-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
 
 **智能应用控制：** 这个功能开着时，未受信任签名的应用可能仍被拦截，命令安装也不一定能绕开，微软也不提供单个应用的例外。被拦时要在「Windows 安全中心 → 应用和浏览器控制 → 智能应用控制设置」里关闭它。
 
@@ -47,7 +47,12 @@ irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.2.0
   快捷设置磁贴、外部启停 intent 和 TV 入口。
 - po0 与 ggy 自动加白照旧：不论是否连接都持续运行，加白请求始终从真实出口发出。
 
-## 相对 8.1.1
+## 相对 8.2.0
+
+- 修复 macOS 首次从菜单栏打开订阅、加白等页面时可能停留在首页的问题。现在等前端导航监听器就绪，再处理最新的跳转请求。
+- macOS 安装包检查逐项确认八个页面实际显示成功，脚本异常直接使检查失败，避免把首页误记为其他页面的截图。
+
+## 8.2.0 的界面修复
 
 - 桌面弹窗关闭时保留内容，完成淡出后再卸载；嵌套弹窗独立退出，键盘焦点回到入口。
 - 桌面页面切换按 Clash Verge Rev 直接完成，移除额外的上移动画及对应的无效开关；流量图按采样平移，并随窗口、主题和减少动态效果设置更新。

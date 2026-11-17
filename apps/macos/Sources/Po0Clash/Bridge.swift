@@ -228,6 +228,8 @@ final class Bridge: NSObject, WKScriptMessageHandlerWithReply {
     /// The commands that answer without the core, so the window still works when the core failed to open.
     private func shell(_ command: String, _ args: Fields) async throws -> Any? {
         switch command {
+        case "ui_ready":
+            MainWindow.shared.frontendReady()
         case "app_info":
             _ = try? await model.coreClient()
             let info: [String: Any] = ["version": AppPaths.version, "language": language]

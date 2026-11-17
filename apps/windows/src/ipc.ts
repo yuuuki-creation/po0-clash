@@ -62,6 +62,10 @@ export async function listen(event: string, handler: Handler): Promise<() => voi
 
 window.__po0Emit = (event, payload) => handlers.get(event)?.forEach((handler) => handler({ payload }));
 
+export async function frontendReady() {
+  if (platform === 'macos') await invoke('ui_ready');
+}
+
 export const win = {
   async minimize() {
     if (platform === 'windows') await (await loadTauri()).window.getCurrentWindow().minimize();

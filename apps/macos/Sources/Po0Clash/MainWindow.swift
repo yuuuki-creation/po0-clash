@@ -57,6 +57,19 @@ final class MainWindow: NSObject, NSWindowDelegate, WKNavigationDelegate, WKUIDe
         }
     }
 
+    func frontendReady() {
+        loaded = true
+        if let page = pendingPage { emit("navigate", page) }
+        pendingPage = nil
+        logger.notice("web interface loaded")
+    }
+
+    func displayedPage() async -> String? {
+        guard loaded, let webView else { return nil }
+        let result = try? await webView.evaluateJavaScript("document.querySelector('.the-content')?.dataset.page ?? ''")
+        return result as? String
+    }
+
     func drag() {
         guard let window, NSEvent.pressedMouseButtons & 1 != 0 else { return }
         let current = NSApp.currentEvent
@@ -170,11 +183,8 @@ final class MainWindow: NSObject, NSWindowDelegate, WKNavigationDelegate, WKUIDe
         decisionHandler(.cancel)
     }
 
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        logger.notice("web interface loaded")
-        loaded = true
-        if let page = pendingPage { emit("navigate", page) }
-        pendingPage = nil
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        loaded = false
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
