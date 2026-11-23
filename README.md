@@ -53,10 +53,10 @@
 
 ### Windows（Windows 10 / 11 x64）
 
-在 PowerShell 中执行以下命令，自动下载最新安装包、校验 SHA-256 并静默安装：
+在 PowerShell 中复制并运行整行。脚本会下载 8.4.1 稳定版、校验 SHA-256 并静默安装。
 
 ```powershell
-irm https://github.com/yuuuki-creation/po0-clash/releases/latest/download/install-windows-native.ps1 | iex
+$p = Join-Path $env:TEMP "po0-clash-$(New-Guid).ps1"; try { Invoke-WebRequest -UseBasicParsing -ErrorAction Stop -Uri https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.1/install.ps1 -OutFile $p; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p -Version 8.4.1; if ($LASTEXITCODE) { throw "Installer exited with code $LASTEXITCODE." } } catch { throw } finally { Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue }
 ```
 
 也可以从 [Releases](https://github.com/yuuuki-creation/po0-clash/releases) 下载 `po0-clash-<版本>-windows-x64-setup.exe` 双击安装。
@@ -66,17 +66,13 @@ irm https://github.com/yuuuki-creation/po0-clash/releases/latest/download/instal
 
 ### macOS（macOS 13+，Apple Silicon 与 Intel 通用）
 
-在「终端（Terminal）」执行以下命令，自动下载最新版本、校验 SHA-256、安装到 `/Applications/po0-clash.app`、清除隔离属性并启动：
+在「终端」中复制并运行整行。脚本会下载 8.4.1 稳定版、校验 SHA-256 并安装到「应用程序」。
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download/install-macos-native.sh | bash
+(p=$(/usr/bin/mktemp) && trap '/bin/rm -f "$p"' EXIT && /usr/bin/curl -q -fsSL --retry 3 -o "$p" https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.1/install.sh && /bin/bash "$p" 8.4.1)
 ```
 
-在 `bash -s --` 后传入版本号或本地 `.zip` 路径可安装指定版本：
-
-```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download/install-macos-native.sh | bash -s -- 7.3.0
-```
+指定版本或使用本地 ZIP 的用法见[安装说明](docs/install.md)。
 
 首次开启 TUN 模式时，macOS 会弹出一次管理员密码输入框，用于为内置 `mihomo` 核心授予 `setuid-root` 权限。
 

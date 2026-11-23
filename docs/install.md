@@ -17,32 +17,35 @@ po0-clash 是一个**独立的应用**：应用 ID、安装标识、进程名、
 3. 确认 po0-clash 工作正常后，自行卸载旧版：Windows 在「设置 → 应用」中卸载名为 FlClash 的旧版；macOS 删除
    `/Applications/FlClash.app`；Android 卸载旧的 FlClash。旧版不会再收到更新。
 
-## Windows
+## Windows（10 / 11，x64）
 
-1. 下载 `po0-clash-<版本>-windows-amd64-setup.exe` 并运行，按向导安装。
-2. 不想安装可下载同版本的 `.zip`，解压后运行 `po0-clash.exe`。
+在 PowerShell 中粘贴整行命令。脚本会完整下载后再执行，校验安装包 SHA-256，并请求管理员权限安装。
 
-安装包有自己的安装标识，不会覆盖已安装的官方 FlClash；po0-clash 的新版本安装包会覆盖升级旧版本 po0-clash，配置保留。
-
-## macOS
-
-在「终端」中执行（自动识别 Apple Silicon / Intel，下载 dmg，安装到 `/Applications/po0-clash.app` 并移除隔离属性）：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/yuuuki-creation/po0-clash/main/scripts/install-macos.sh | bash
+```powershell
+$p = Join-Path $env:TEMP "po0-clash-$(New-Guid).ps1"; try { Invoke-WebRequest -UseBasicParsing -ErrorAction Stop -Uri https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.1/install.ps1 -OutFile $p; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p -Version 8.4.1; if ($LASTEXITCODE) { throw "Installer exited with code $LASTEXITCODE." } } catch { throw } finally { Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue }
 ```
 
-可选环境变量（写在 `bash` 前，例如 `curl -fsSL ... | PO0CLASH_VERSION=v5.0.0 bash`）：
+也可直接下载并双击 `po0-clash-<版本>-windows-x64-setup.exe`。要安装其他版本，下载 `install.ps1` 后，用 PowerShell 的 `-File` 执行脚本并通过 `-Version` 指定版本。
 
-| 变量 | 说明 |
-|---|---|
-| `PO0CLASH_VERSION` | 指定 Release 标签，例如 `v5.0.0`；默认最新 Release |
-| `PO0CLASH_DMG` | 直接使用本地 dmg 文件或 URL，跳过下载 |
-| `PO0CLASH_REPO` | 从其他仓库（`owner/repo`）下载；默认 `yuuuki-creation/po0-clash` |
-| `GH_TOKEN` | 可选，GitHub API 限流或私有仓库时使用的 token |
+## macOS（13 及以上，Apple 芯片与 Intel）
 
-应用未经 Apple 公证，脚本会执行 `xattr -dr com.apple.quarantine /Applications/po0-clash.app`，否则首次打开会被 Gatekeeper 拦截。
-脚本不会动 `/Applications/FlClash.app`。
+在「终端」中粘贴整行命令。脚本会完整下载后再执行，核对安装包的 SHA-256、应用 ID、架构和签名，然后安装到「应用程序」并启动。
+
+```bash
+(p=$(/usr/bin/mktemp) && trap '/bin/rm -f "$p"' EXIT && /usr/bin/curl -q -fsSL --retry 3 -o "$p" https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.1/install.sh && /bin/bash "$p" 8.4.1)
+```
+
+上述命令安装8.4.1 稳定原生版。要指定版本或使用本地 ZIP，先下载 `install.sh`，再用 Bash 执行脚本并传入版本号或 ZIP 路径。
+
+```bash
+/bin/bash "$HOME/Downloads/install.sh" 8.4.1
+```
+
+```bash
+/bin/bash "$HOME/Downloads/install.sh" "$HOME/Downloads/po0-clash-macos.zip"
+```
+
+原生版会覆盖升级同一应用 ID 的 Flutter 版，首次启动会导入旧版订阅和加白条目。首次开启虚拟网卡时，macOS 会请求管理员授权。
 
 ## Android
 

@@ -53,10 +53,10 @@ Download the installer for your platform from [Releases](https://github.com/yuuu
 
 ### Windows (Windows 10 / 11 x64)
 
-Run this command in PowerShell to download the latest installer, verify its SHA-256 checksum, and install silently:
+Run this command in PowerShell to download the 8.4.1 installer, verify its SHA-256 checksum, and install silently:
 
 ```powershell
-irm https://github.com/yuuuki-creation/po0-clash/releases/latest/download/install-windows-native.ps1 | iex
+$p = Join-Path $env:TEMP "po0-clash-$(New-Guid).ps1"; try { Invoke-WebRequest -UseBasicParsing -ErrorAction Stop -Uri https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.1/install.ps1 -OutFile $p; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p -Version 8.4.1; if ($LASTEXITCODE) { throw "Installer exited with code $LASTEXITCODE." } } catch { throw } finally { Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue }
 ```
 
 Or download `po0-clash-<version>-windows-x64-setup.exe` from [Releases](https://github.com/yuuuki-creation/po0-clash/releases) and run it directly.
@@ -69,14 +69,10 @@ Or download `po0-clash-<version>-windows-x64-setup.exe` from [Releases](https://
 Run this command in Terminal to download the latest release, verify its SHA-256 checksum, install `/Applications/po0-clash.app`, clear the quarantine attribute, and launch the app:
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download/install-macos-native.sh | bash
+(p=$(/usr/bin/mktemp) && trap '/bin/rm -f "$p"' EXIT && /usr/bin/curl -q -fsSL --retry 3 -o "$p" https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.1/install.sh && /bin/bash "$p" 8.4.1)
 ```
 
-Pass a version tag or a local `.zip` path after `bash -s --` to install a specific build:
-
-```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/latest/download/install-macos-native.sh | bash -s -- 7.3.0
-```
+See the [installation guide](docs/install.md) for a specific version or a local ZIP.
 
 On first TUN activation, macOS prompts once for an administrator password to grant setuid-root permissions to the bundled `mihomo` binary.
 
