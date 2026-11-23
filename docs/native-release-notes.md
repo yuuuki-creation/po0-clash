@@ -2,12 +2,14 @@
 
 ## 安装
 
+每条命令请整行复制。命令安装 8.4.1，当前发布的安装包也可以直接下载。
+
 ### macOS（13 及以上，Apple 芯片与 Intel 通用）
 
 在终端运行：
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.1/install-macos-native.sh | bash
+(p=$(/usr/bin/mktemp) && trap '/bin/rm -f "$p"' EXIT && /usr/bin/curl -q -fsSL --retry 3 -o "$p" https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.1/install.sh && /bin/bash "$p" 8.4.1)
 ```
 
 脚本会退出并替换已安装的 po0-clash（包括 Flutter 版），装到「应用程序」后启动。应用没有经过苹果公证，脚本会去掉下载带来的隔离标记。
@@ -18,7 +20,7 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
 在 PowerShell 里运行：
 
 ```powershell
-irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.1/install-windows-native.ps1 | iex
+$p = Join-Path $env:TEMP "po0-clash-$(New-Guid).ps1"; try { Invoke-WebRequest -UseBasicParsing -ErrorAction Stop -Uri https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.1/install.ps1 -OutFile $p; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p -Version 8.4.1; if ($LASTEXITCODE) { throw "Installer exited with code $LASTEXITCODE." } } catch { throw } finally { Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue }
 ```
 
 脚本会下载安装程序、校验 SHA-256、请求一次管理员权限，装好后打开应用。这样下载的文件没有网络来源标记，不会触发 SmartScreen 提示。

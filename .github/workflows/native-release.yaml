@@ -273,9 +273,9 @@ jobs:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           assets=(dist/po0-clash-*-android-*.apk dist/po0-clash-*-setup.exe dist/po0-clash-macos.zip)
-          for installer in scripts/install-macos-native.sh scripts/install-windows-native.ps1; do
-            if [[ -f "$installer" ]]; then assets+=("$installer"); fi
-          done
+          cp scripts/install-macos-native.sh dist/install.sh
+          cp scripts/install-windows-native.ps1 dist/install.ps1
+          assets+=(dist/install.sh dist/install.ps1 scripts/install-macos-native.sh scripts/install-windows-native.ps1)
           (cd dist && sha256sum po0-clash-*-android-*.apk po0-clash-*-setup.exe po0-clash-macos.zip) > SHA256SUMS.txt
           assets+=(SHA256SUMS.txt)
           notes=docs/native-release-notes.md

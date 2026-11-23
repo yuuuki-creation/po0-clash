@@ -4,6 +4,11 @@ name: native-windows
 # this runner is a manual check before a release.
 on:
   workflow_dispatch:
+    inputs:
+      installer_only:
+        description: Test the documented launcher against the published release
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -13,7 +18,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  installer-command:
+    if: inputs.installer_only
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Exercise the documented command in Windows PowerShell 5.1
+        shell: powershell
+        env:
+          PO0CLASH_DOWNLOAD_ONLY: '1'
+        run: |
+          $line = Get-Content -Encoding UTF8 docs/install.md | Where-Object { $_ -match '/install\.ps1 ' } | Select-Object -First 1
+          if (-not $line) { throw 'missing Windows command' }
+
+          $env:TEMP = Join-Path $env:RUNNER_TEMP "installer test's temp"
+          New-Item -ItemType Directory -Path $env:TEMP | Out-Null
+          $commandFile = Join-Path $env:RUNNER_TEMP 'installer command.ps1'
+          $line.Replace('/install.ps1', '/missing-install.ps1') | Set-Content -LiteralPath $commandFile -Encoding Ascii
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File $commandFile
+          if ($LASTEXITCODE -eq 0) { throw 'a failed launcher download returned success' }
+
+          $line | Set-Content -LiteralPath $commandFile -Encoding Ascii
+          $output = powershell.exe -NoProfile -ExecutionPolicy Bypass -File $commandFile
+          $output
+          if ($LASTEXITCODE -ne 0 -or $output -notcontains 'Checksum verified.') { throw 'launcher did not verify the installer' }
+          if (Get-ChildItem -LiteralPath $env:TEMP) { throw 'launcher left temporary files behind' }
+
   windows:
+    if: ${{ !inputs.installer_only }}
     runs-on: windows-latest
     timeout-minutes: 60
     defaults:

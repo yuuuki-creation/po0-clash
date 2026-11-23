@@ -227,15 +227,23 @@ jobs:
           assert next(p for p in saved['profiles'] if p['id'] == saved['currentProfile'])['name'] == 'Legacy sub'
           PY
 
-          # A stand-in for the GitHub API: a draft, a Flutter release and the native prerelease, newest first.
+          # The native stable release follows a draft, a prerelease and a Flutter release.
           api="$RUNNER_TEMP/api"
           releases="$api/repos/yuuuki-creation/po0-clash/releases"
           mkdir -p "$releases/tags"
           cp dist/po0-clash-macos.zip "$api/"
           digest=$(shasum -a 256 dist/po0-clash-macos.zip | cut -d' ' -f1)
-          native='{"tag_name":"native-v7.0.0-beta.1","draft":false,"prerelease":true,"assets":[{"name":"po0-clash-macos.zip","url":"http://127.0.0.1:18400/po0-clash-macos.zip","digest":"sha256:'"$digest"'"}]}'
-          echo '[{"tag_name":"native-v7.0.0-beta.2","draft":true,"assets":[]},{"tag_name":"v6.4.4","draft":false,"assets":[]},'"$native"']' > "$releases/index.html"
-          echo "$native" > "$releases/tags/native-v7.0.0-beta.1"
+          native='{"tag_name":"native-v8.4.1","draft":false,"prerelease":false,"assets":[{"name":"po0-clash-macos.zip","url":"http://127.0.0.1:18400/po0-clash-macos.zip","digest":"sha256:'"$digest"'"}]}'
+          sed 's/native-v8.4.1/native-v8.5.0-beta.1/; s/"prerelease":false/"prerelease":true/' <<< "$native" > "$releases/tags/native-v8.5.0-beta.1"
+          python3 - "$releases/index.html" "$native" <<'PYTHON'
+          import json, pathlib, sys
+          pathlib.Path(sys.argv[1]).write_text(json.dumps([
+              {"tag_name": "native-v8.6.0", "draft": True},
+              {"tag_name": "native-v8.5.0-beta.1", "prerelease": True},
+              {"tag_name": "v6.4.4", "body": "中文 \"quoted\"\n" * 24000},
+              json.loads(sys.argv[2]),
+          ], ensure_ascii=False), encoding="utf-8")
+          PYTHON
           # HTTPServer looks up the host name on bind, which makes macOS 26 ask for local-network access over the
           # screenshots; a plain TCPServer does not.
           python3 -c '
@@ -252,8 +260,10 @@ jobs:
           reinstall() {
             local before now log="$RUNNER_TEMP/install.log"
             before=$(pgrep -x po0-clash)
+            local expected_tag=$1
+            shift
             PO0CLASH_API=http://127.0.0.1:18400 scripts/install-macos-native.sh "$@" | tee "$log"
-            grep -q "Downloading po0-clash native-v7.0.0-beta.1" "$log" || { echo "::error::picked the wrong release"; exit 1; }
+            grep -q "Downloading po0-clash $expected_tag" "$log" || { echo "::error::picked the wrong release"; exit 1; }
             grep -q "Checksum verified" "$log" || { echo "::error::the release digest was not checked"; exit 1; }
             for _ in $(seq 20); do
               now=$(pgrep -x po0-clash || true)
@@ -263,8 +273,8 @@ jobs:
             echo "::error::reinstalling did not restart po0-clash"
             exit 1
           }
-          reinstall
-          reinstall 7.0.0-beta.1
+          reinstall native-v8.4.1
+          reinstall native-v8.5.0-beta.1 8.5.0-beta.1
 
           pkill -TERM -x po0-clash
           for _ in $(seq 30); do pgrep -x po0-clash >/dev/null || break; sleep 0.5; done

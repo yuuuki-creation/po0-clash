@@ -4,10 +4,9 @@
 # the Flutter build's subscriptions and whitelist tokens.
 #
 #   install-macos-native.sh [<version> | <path to po0-clash-macos.zip>]
-#   curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/<native-v tag>/install-macos-native.sh | bash
 #
 # Native builds are released under native-v* tags (7.0.0-beta.1, v7.0.0-beta.1 and native-v7.0.0-beta.1 name the
-# same release); without a version the newest native release is installed, prereleases included.
+# same release); without a version the newest stable native release is installed.
 #
 #   PO0CLASH_REPO    owner/repo (default: yuuuki-creation/po0-clash)
 #   PO0CLASH_SHA256  expected SHA-256 of the zip; a release asset's own digest is checked automatically
@@ -35,8 +34,21 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 zip="$work/po0-clash-macos.zip"
 
-download() {
-  local endpoint auth=() releases found
+download_tagged() {
+  local tag="native-v$1" base manifest="$work/SHA256SUMS.txt"
+  base="https://github.com/$repo/releases/download/$tag"
+  if [ -z "$expected" ]; then
+    /usr/bin/curl -q -fsSL --retry 3 -o "$manifest" "$base/SHA256SUMS.txt" ||
+      die "cannot download the checksums for $tag"
+    expected="$(awk '$2 == "po0-clash-macos.zip" || $2 == "*po0-clash-macos.zip" { print $1; exit }' "$manifest")"
+  fi
+  [[ "$expected" =~ ^[[:xdigit:]]{64}$ ]] || die "release $tag does not publish a valid checksum"
+  echo "Downloading po0-clash $tag..."
+  /usr/bin/curl -q -fL --retry 3 --progress-bar -o "$zip" "$base/po0-clash-macos.zip"
+}
+
+download_api() {
+  local endpoint auth=() metadata="$work/release.json" found tag url digest
   case "$source_arg" in
     "") endpoint="$api/repos/$repo/releases?per_page=50" ;;
     native-v*) endpoint="$api/repos/$repo/releases/tags/$source_arg" ;;
@@ -44,24 +56,28 @@ download() {
     *) endpoint="$api/repos/$repo/releases/tags/native-v$source_arg" ;;
   esac
   [ -z "${GH_TOKEN:-}" ] || auth=(-H "Authorization: Bearer $GH_TOKEN")
-  releases="$(curl -fsSL ${auth[@]+"${auth[@]}"} -H "Accept: application/vnd.github+json" "$endpoint")" ||
+  /usr/bin/curl -q -fsSL --retry 3 ${auth[@]+"${auth[@]}"} -H "Accept: application/vnd.github+json" -o "$metadata" "$endpoint" ||
     die "cannot find the native release ${source_arg:-list} in $repo"
-  # JavaScript for Automation ships with every macOS; jq and python do not. The list comes newest first.
-  found="$(osascript -l JavaScript -e '
+  found="$(/usr/bin/osascript -l JavaScript -e '
+    ObjC.import("Foundation");
     function run(argv) {
-      const data = JSON.parse(argv[0]);
-      const release = Array.isArray(data) ? data.find((r) => !r.draft && r.tag_name.startsWith("native-v")) : data;
+      const source = $.NSString.stringWithContentsOfFileEncodingError(argv[0], $.NSUTF8StringEncoding, null);
+      const data = JSON.parse(ObjC.unwrap(source));
+      const release = Array.isArray(data)
+        ? data.find((r) => !r.draft && !r.prerelease && r.tag_name.startsWith("native-v"))
+        : data;
       if (!release) return "";
       const asset = (release.assets || []).find((a) => /^po0-clash(-[^/]+)?-macos\.zip$/.test(a.name));
       if (!asset) return release.tag_name;
-      return [release.tag_name, asset.url, (asset.digest || "").replace(/^sha256:/, "")].join(" ");
-    }' "$releases")"
-  [ -n "$found" ] || die "$repo has no native release yet"
-  set -- $found
-  [ $# -ge 2 ] || die "release $1 has no po0-clash-macos.zip"
-  [ -n "$expected" ] || expected="${3:-}"
-  echo "Downloading po0-clash $1..."
-  curl -fL --progress-bar ${auth[@]+"${auth[@]}"} -H "Accept: application/octet-stream" -o "$zip" "$2"
+      return [release.tag_name, asset.url, (asset.digest || "").replace(/^sha256:/, "")].join("\t");
+    }' "$metadata")" || die "cannot read the release metadata"
+  [ -n "$found" ] || die "$repo has no stable native release yet"
+  IFS=$'\t' read -r tag url digest <<< "$found"
+  [ -n "$url" ] || die "release $tag has no po0-clash-macos.zip"
+  [ -n "$expected" ] || expected="$digest"
+  [[ "$expected" =~ ^[[:xdigit:]]{64}$ ]] || die "release $tag does not publish a valid checksum"
+  echo "Downloading po0-clash $tag..."
+  /usr/bin/curl -q -fL --retry 3 --progress-bar ${auth[@]+"${auth[@]}"} -H "Accept: application/octet-stream" -o "$zip" "$url"
 }
 
 case "$source_arg" in
@@ -69,12 +85,21 @@ case "$source_arg" in
     [ -f "$source_arg" ] || die "no such file: $source_arg"
     cp "$source_arg" "$zip"
     ;;
-  *) download ;;
+  *)
+    version_arg="${source_arg#native-}"
+    version_arg="${version_arg#v}"
+    if [ "$repo" = "yuuuki-creation/po0-clash" ] && [ -z "${PO0CLASH_API:-}${GH_TOKEN:-}" ] &&
+       [[ "$version_arg" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+      download_tagged "$version_arg"
+    else
+      download_api
+    fi
+    ;;
 esac
 
 actual="$(shasum -a 256 "$zip" | cut -d' ' -f1)"
 if [ -n "$expected" ]; then
-  [ "$actual" = "$expected" ] || die "checksum mismatch: got $actual, expected $expected"
+  [ "$actual" = "$(printf %s "$expected" | tr A-F a-f)" ] || die "checksum mismatch: got $actual, expected $expected"
   echo "Checksum verified."
 fi
 
@@ -85,10 +110,11 @@ plist="$app/Contents/Info.plist"
 [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist" 2>/dev/null)" = "$bundle_id" ] ||
   die "the zip does not contain po0-clash"
 [ -x "$app/Contents/MacOS/mihomo" ] || die "the zip does not contain the native po0-clash"
-lipo -archs "$app/Contents/MacOS/po0-clash" | tr ' ' '\n' | grep -qx "$(uname -m)" ||
+/usr/bin/file -b "$app/Contents/MacOS/po0-clash" | grep -w "$(uname -m)" >/dev/null ||
   die "this build does not run on $(uname -m)"
 codesign --verify --strict "$app" 2>/dev/null || die "the app's signature does not match its contents"
 version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")"
+[ -z "${PO0CLASH_DOWNLOAD_ONLY:-}" ] || exit 0
 
 running() {
   pgrep -x -U "$UID" po0-clash >/dev/null 2>&1

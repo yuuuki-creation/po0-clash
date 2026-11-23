@@ -1,0 +1,2 @@
+scripts/install-macos-native.sh text eol=lf
+scripts/install-windows-native.ps1 text eol=lf

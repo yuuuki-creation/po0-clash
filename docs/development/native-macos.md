@@ -48,7 +48,7 @@ mihomo 的 SHA-256 不同，就弹一次管理员授权，复制并设为 `root:
 ## 安装
 
 `scripts/install-macos-native.sh`（用法见 [install.md](../install.md)）：从 `native-v*` 发布下载 `po0-clash-macos.zip`
-（不带版本时取最新的一个，包括测试版），核对 SHA-256、应用 ID、架构和签名；退出正在运行的副本（原生版发 SIGTERM，
+（不带版本时取最新稳定版），核对 SHA-256、应用 ID、架构和签名；退出正在运行的副本（原生版发 SIGTERM，
 Flutter 版先发正常退出的 Apple 事件，再退回 SIGTERM，并结束它包内的 `Po0ClashCore`），替换 `/Applications/po0-clash.app`，
 移除隔离属性后打开。数据目录不动，原生版首次启动时导入 Flutter 版的订阅和加白 token。
 

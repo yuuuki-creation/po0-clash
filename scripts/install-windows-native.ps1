@@ -1,7 +1,9 @@
 # Installs the native po0-clash on 64-bit Windows 10 or 11. Downloads made here carry no Mark of the Web, so
 # SmartScreen does not prompt; Smart App Control still judges the unsigned binaries by signature and reputation.
 # Runs under Constrained Language Mode, which App Control imposes on untrusted scripts: cmdlets only, no .NET calls.
-# ASCII only: Invoke-RestMethod decodes a release asset as Latin-1 before Invoke-Expression sees it.
+# Keep this file ASCII for Windows PowerShell 5.1, including when it is saved without a BOM.
+param([string]$Version = $env:PO0CLASH_VERSION)
+
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
@@ -11,27 +13,50 @@ function Install-Po0Clash {
   $headers = @{ 'User-Agent' = 'po0-clash-installer'; Accept = 'application/vnd.github+json' }
   if ($env:GH_TOKEN) { $headers.Authorization = "Bearer $env:GH_TOKEN" }
 
-  if ($env:PO0CLASH_VERSION) {
-    $tag = 'native-v' + ($env:PO0CLASH_VERSION -replace '^(native-)?v', '')
-    $release = Invoke-RestMethod -Uri "$api/repos/$repo/releases/tags/$tag" -Headers $headers
+  $semver = $Version -replace '^(native-)?v', ''
+  $direct = $repo -eq 'yuuuki-creation/po0-clash' -and -not $env:PO0CLASH_API -and -not $env:GH_TOKEN -and
+    $semver -match '^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$'
+  if ($direct) {
+    $tag = "native-v$semver"
+    $base = "https://github.com/$repo/releases/download/$tag"
+    $name = "po0-clash-$semver-windows-x64-setup.exe"
+    $asset = @{ name = $name; browser_download_url = "$base/$name" }
   } else {
-    $releases = Invoke-RestMethod -Uri "$api/repos/$repo/releases?per_page=50" -Headers $headers
-    $release = $releases | Where-Object { -not $_.draft -and $_.tag_name -like 'native-v*' } | Select-Object -First 1
-    if (-not $release) { throw "$repo has no native release yet" }
+    if ($Version) {
+      $tag = 'native-v' + $semver
+      $release = Invoke-RestMethod -Uri "$api/repos/$repo/releases/tags/$tag" -Headers $headers
+    } else {
+      $releases = Invoke-RestMethod -Uri "$api/repos/$repo/releases?per_page=50" -Headers $headers
+      $release = $releases | Where-Object { -not $_.draft -and -not $_.prerelease -and $_.tag_name -like 'native-v*' } | Select-Object -First 1
+      if (-not $release) { throw "$repo has no stable native release yet" }
+    }
+    $tag = $release.tag_name
+    $asset = $release.assets | Where-Object { $_.name -match '^po0-clash-.*-windows-x64-setup\.exe$' } | Select-Object -First 1
+    if (-not $asset) { throw "release $tag has no Windows installer" }
   }
-  $asset = $release.assets | Where-Object { $_.name -match '^po0-clash-.*-windows-x64-setup\.exe$' } | Select-Object -First 1
-  if (-not $asset) { throw "release $($release.tag_name) has no Windows installer" }
 
-  $work = Join-Path $env:TEMP "po0-clash-$(Get-Random)"
+  $work = Join-Path $env:TEMP "po0-clash-$(New-Guid)"
   New-Item -ItemType Directory -Path $work | Out-Null
   try {
     $setup = Join-Path $work $asset.name
-    Write-Host "Downloading po0-clash $($release.tag_name)..."
-    Invoke-WebRequest -UseBasicParsing -Uri $asset.browser_download_url -OutFile $setup -Headers @{ 'User-Agent' = 'po0-clash-installer' }
-
-    $expected = if ($env:PO0CLASH_SHA256) { $env:PO0CLASH_SHA256 } else { $asset.digest -replace '^sha256:', '' }
-    if (-not $expected) { throw "the release does not publish a checksum for $($asset.name)" }
-    $actual = (certutil -hashfile $setup SHA256)[1] -replace '\s', ''
+    $expected = $env:PO0CLASH_SHA256
+    if (-not $expected -and $direct) {
+      $manifest = Join-Path $work 'SHA256SUMS.txt'
+      Invoke-WebRequest -UseBasicParsing -Uri "$base/SHA256SUMS.txt" -OutFile $manifest
+      foreach ($line in Get-Content -LiteralPath $manifest) {
+        $fields = $line -split '\s+\*?', 2
+        if ($fields[1] -eq $name) {
+          $expected = $fields[0]
+          break
+        }
+      }
+    } elseif (-not $expected) {
+      $expected = $asset.digest -replace '^sha256:', ''
+    }
+    if ($expected -notmatch '^[0-9a-f]{64}$') { throw "the release does not publish a valid checksum for $($asset.name)" }
+    Write-Host "Downloading po0-clash $tag..."
+    Invoke-WebRequest -UseBasicParsing -Uri $asset.browser_download_url -OutFile $setup -Headers @{ 'User-Agent' = 'po0-clash-installer' } -ErrorAction Stop
+    $actual = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash
     if ($actual -ine $expected) { throw "checksum mismatch: got $actual, expected $expected" }
     Write-Host 'Checksum verified.'
     if ($env:PO0CLASH_DOWNLOAD_ONLY) { return }

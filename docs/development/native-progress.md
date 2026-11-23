@@ -61,7 +61,7 @@ provider 里的节点，策略组改为合并 `/providers/proxies`，分享链�
   静态画面，动画和实际观感没有在真机上看过。
 - `native-macos.yaml` 在 `878bbda` 上 build、macos-26、macos-15-intel 通过，macos-14 被取消，整次运行记为 cancelled，所以重做后的
   界面还没有通过 macos-14 的检查。
-- 安装脚本 `scripts/install-macos-native.sh`：默认装最新的 `native-v*` 发布（含测试版），也可指定版本或本地 zip；核对
+- 安装脚本 `scripts/install-macos-native.sh`：默认装最新稳定的 `native-v*` 发布，也可指定版本或本地 zip；核对
   SHA-256、应用 ID、架构和签名，退出并替换已装的原生版或 Flutter 版，移除隔离属性后打开。随 `native-v7.0.0-beta.1` 发布。
 - CI 的检查矩阵（只下载产物、不编译）在 macOS 26.x arm64、macOS 14.8 arm64、macOS 15.7 Intel 上都通过：
   - 安装脚本覆盖假的 Flutter 版（正在运行的进程和 `Po0ClashCore`），旧订阅和加白 token 被导入；通过模拟的 releases API
