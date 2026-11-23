@@ -122,6 +122,7 @@ pub fn run() {
             commands::start,
             commands::stop,
             commands::traffic,
+            commands::traffic_overview,
             commands::traffic_history,
             commands::memory,
             commands::connections,

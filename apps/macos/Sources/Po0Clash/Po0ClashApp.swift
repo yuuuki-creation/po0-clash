@@ -5,7 +5,7 @@ import SwiftUI
 @main
 struct Po0ClashApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @StateObject private var model = AppModel.shared
+    private let model = AppModel.shared
 
     var body: some Scene {
         MenuBarExtra {
@@ -13,7 +13,7 @@ struct Po0ClashApp: App {
                 .modifier(AppTheme())
                 .environmentObject(model)
         } label: {
-            MenuBarLabel().environmentObject(model)
+            MenuBarLabel(traffic: model.menuTraffic)
         }
         .menuBarExtraStyle(.window)
     }
@@ -79,43 +79,43 @@ private func closeSheets() {
 
 /// The Flutter app's menu bar look: the po0 template mark, with the current speed beside it while connected.
 private struct MenuBarLabel: View {
-    @EnvironmentObject private var model: AppModel
+    @ObservedObject var traffic: MenuTraffic
 
     var body: some View {
-        Image(nsImage: MenuBarIcon.image(speed: model.showsMenuBarSpeed && model.isRunning ? model.traffic : nil))
+        Image(nsImage: traffic.icon)
             .accessibilityLabel("po0-clash")
     }
 }
 
 @MainActor
 enum MenuBarIcon {
-    private static let mark: NSImage = {
+    static let mark: NSImage = {
         let image = Bundle.main.image(forResource: "MenuBarIcon") ?? NSImage(systemSymbolName: "p.circle", accessibilityDescription: nil)!
         image.isTemplate = true
         return image
     }()
 
+    private static var cachedRates: [String] = []
+    private static var cachedImage: NSImage?
+
     static func image(speed: Traffic?) -> NSImage {
         guard let speed else { return mark }
-        let scale = NSScreen.main?.backingScaleFactor ?? 2
-        let label = HStack(spacing: 3) {
-            Image(nsImage: mark)
-            VStack(alignment: .trailing, spacing: -1) {
-                Text(Format.shortRate(speed.up))
-                Text(Format.shortRate(speed.down))
+        let rates = [Format.shortRate(speed.up), Format.shortRate(speed.down)]
+        if rates == cachedRates, let cachedImage { return cachedImage }
+        let mark = Self.mark
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium)
+        let lines = rates.map { NSAttributedString(string: $0, attributes: [.font: font, .foregroundColor: NSColor.black]) }
+        let width = mark.size.width + 3 + max(46, ceil(lines.map { $0.size().width }.max() ?? 0))
+        let image = NSImage(size: NSSize(width: width, height: 22), flipped: false) { rect in
+            mark.draw(at: NSPoint(x: 0, y: (rect.height - mark.size.height) / 2), from: .zero, operation: .sourceOver, fraction: 1)
+            for (index, line) in lines.enumerated() {
+                line.draw(at: NSPoint(x: rect.width - line.size().width, y: CGFloat(1 - index) * 10 + 1))
             }
-            .font(.system(size: 9, weight: .medium).monospacedDigit())
-            .frame(minWidth: 46, alignment: .trailing)
+            return true
         }
-        .frame(height: 22)
-        let renderer = ImageRenderer(content: label)
-        renderer.scale = scale
-        guard let rendered = renderer.cgImage else { return mark }
-        let image = NSImage(
-            cgImage: rendered,
-            size: NSSize(width: CGFloat(rendered.width) / scale, height: CGFloat(rendered.height) / scale)
-        )
         image.isTemplate = true
+        cachedRates = rates
+        cachedImage = image
         return image
     }
 }

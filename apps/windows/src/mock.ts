@@ -192,6 +192,12 @@ const commands: Record<string, (args: any) => unknown> = {
     history.shift();
     return structuredClone(history);
   },
+  traffic_overview() {
+    return {
+      history: commands.traffic_history({}), memory: commands.memory({}),
+      uploadTotal: 5.2e9, downloadTotal: 25.4e9, activeCount: Math.min(requests.length, 23), requestCount: requests.length,
+    };
+  },
   memory: () => 64e6 + Math.round(Math.random() * 4e6),
   connections: () => ({ uploadTotal: 5.2e9, downloadTotal: 25.4e9, items: requests.slice(0, 23) }),
   close_connection: ({ id }) => void (requests = requests.filter((c) => c.id !== id)),

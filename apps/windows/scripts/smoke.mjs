@@ -142,7 +142,9 @@ if (link) {
   check((await invoke('status')).mode === 'direct', 'direct mode applied without a test proxy');
 }
 if (probes[0]) check(fetchThroughSystemProxy(probes[0]) === '200', `fetched ${probes[0]} through the system proxy`);
-console.log('traffic', JSON.stringify(await invoke('traffic')));
+const overview = await invoke('traffic_overview');
+check(Array.isArray(overview.history) && overview.history.length <= 60, 'traffic overview includes bounded history');
+check(Number.isInteger(overview.activeCount) && Number.isInteger(overview.requestCount), 'traffic overview includes connection counts');
 
 console.log('# tun');
 await invoke('set_route_mode', { routeMode: 'tun' });

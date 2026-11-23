@@ -30,9 +30,12 @@ export function TrafficGraph() {
       const height = el.clientHeight;
       if (!width || !height) return;
       const ratio = window.devicePixelRatio || 1;
-      el.width = Math.round(width * ratio);
-      el.height = Math.round(height * ratio);
-      ctx.scale(ratio, ratio);
+      const pixelWidth = Math.round(width * ratio);
+      const pixelHeight = Math.round(height * ratio);
+      if (el.width !== pixelWidth) el.width = pixelWidth;
+      if (el.height !== pixelHeight) el.height = pixelHeight;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.clearRect(0, 0, width, height);
       const samples = latest.current.slice(-(POINTS + 2));
       const points = Array.from({ length: POINTS + 2 }, (_, i) => samples[i - (POINTS + 2 - samples.length)] ?? { up: 0, down: 0 });
       const peak = Math.max(1024, ...points.map((p) => Math.max(p.up, p.down)));

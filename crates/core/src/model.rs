@@ -241,6 +241,17 @@ pub struct Connections {
     pub items: Vec<Connection>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrafficOverview {
+    pub history: Vec<Traffic>,
+    pub memory: u64,
+    pub upload_total: u64,
+    pub download_total: u64,
+    pub active_count: u32,
+    pub request_count: u32,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LogEntry {

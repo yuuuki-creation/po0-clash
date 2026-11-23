@@ -123,22 +123,6 @@ extension ToggleStyle where Self == ThemedSwitch {
     static var themedSwitch: ThemedSwitch { ThemedSwitch() }
 }
 
-extension View {
-    func themedSegments() -> some View {
-        modifier(ThemedSegments())
-    }
-}
-
-private struct ThemedSegments: ViewModifier {
-    @Environment(\.themeAccent) private var accent
-
-    func body(content: Content) -> some View {
-        content
-            .pickerStyle(.segmented)
-            .tint(accent)
-    }
-}
-
 extension NSColor {
     convenience init(argb: UInt32) {
         self.init(

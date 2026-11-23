@@ -109,6 +109,7 @@ final class CoreClient: @unchecked Sendable {
     func testDelay(_ group: String) async throws -> ProxyGroup { try await work { try $0.testDelay(group: group) } }
     func testNodeDelay(_ node: String) async throws -> UInt32 { try await work { try $0.testNodeDelay(node: node) } }
 
+    func trafficOverview() async throws -> TrafficOverview { try await work { $0.trafficOverview() } }
     func trafficHistory() async throws -> [Traffic] { try await work { $0.trafficHistory() } }
     func memory() async throws -> UInt64 { try await work { $0.memory() } }
     func connections() async throws -> Connections { try await work { $0.connections() } }

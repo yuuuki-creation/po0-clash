@@ -51,6 +51,13 @@ final class Bridge: NSObject, WKScriptMessageHandlerWithReply {
             try await model.changeRoute(try args.required("routeMode", Wire.choice(Wire.routeModes)))
         case "traffic":
             return Wire.traffic(try await core.traffic())
+        case "traffic_overview":
+            let overview = try await core.trafficOverview()
+            return [
+                "history": overview.history.map(Wire.traffic), "memory": overview.memory,
+                "uploadTotal": overview.uploadTotal, "downloadTotal": overview.downloadTotal,
+                "activeCount": overview.activeCount, "requestCount": overview.requestCount,
+            ]
         case "traffic_history":
             return try await core.trafficHistory().map(Wire.traffic)
         case "memory":

@@ -1802,6 +1802,13 @@ impl Core {
             .ok_or_else(|| CoreError::Engine("not connected".into()))
     }
 
+    pub fn traffic_overview(&self) -> TrafficOverview {
+        self.engine
+            .session()
+            .map(|_| self.engine.monitor.traffic_overview())
+            .unwrap_or_default()
+    }
+
     pub fn traffic_history(&self) -> Vec<Traffic> {
         self.engine
             .session()

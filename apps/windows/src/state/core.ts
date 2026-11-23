@@ -1,6 +1,11 @@
 import { proxy } from 'valtio';
 import { frontendReady, invoke, listen } from '../ipc';
 import { setLanguage, t } from '../lib/i18n.js';
+import { pollVisible } from '../lib/poll-visible';
+
+type Traffic = { up: number; down: number };
+type ConnectionTotals = { uploadTotal: number; downloadTotal: number; activeCount: number };
+type TrafficOverview = ConnectionTotals & { history: Traffic[]; memory: number; requestCount: number };
 
 export type PageId = 'home' | 'proxies' | 'profiles' | 'connections' | 'rules' | 'logs' | 'whitelist' | 'settings';
 
@@ -18,9 +23,9 @@ export const app = proxy({
   groups: [] as any[],
   whitelist: { enabled: false, entries: [] as any[] },
   traffic: { up: 0, down: 0 },
-  history: [] as { up: number; down: number }[],
+  history: [] as Traffic[],
   memory: 0,
-  totals: null as any,
+  totals: null as ConnectionTotals | null,
   requestCount: 0,
   lan: null as any,
   exitIp: null as any,
@@ -151,47 +156,50 @@ export async function refreshExitIp(attempt = 0) {
 }
 
 let routeKey = '';
+let routeRevision = 0;
 
 async function refreshStatus() {
   await refresh('status');
   const s = app.status;
   if (!s) return;
   const engine = s.engine.state;
-  if (engine !== 'running') app.connectedAt = null;
-  else app.connectedAt ??= Date.now();
+  if (engine !== 'running') {
+    app.connectedAt = null;
+    if (app.history.length || app.totals) Object.assign(app, idle);
+  } else {
+    app.connectedAt ??= Date.now();
+  }
   const key = [engine, s.currentNode, s.mode, s.profileId, s.routeMode].join('|');
   if (key === routeKey) return;
   if (routeKey.split('|')[3] !== s.profileId) delays.clear();
   routeKey = key;
+  routeRevision++;
   refresh('groups');
   if (engine === 'running' || engine === 'stopped') refreshExitIp();
 }
 
 const idle = { traffic: { up: 0, down: 0 }, history: [], memory: 0, totals: null, requestCount: 0 };
-let ticks = 0;
+async function pollTraffic() {
+  if (!isRunning(app.status)) return;
+  const revision = routeRevision;
+  const { history, memory, requestCount, ...totals } = await invoke<TrafficOverview>('traffic_overview');
+  if (document.hidden || revision !== routeRevision || !isRunning(app.status)) return;
+  const last = app.history;
+  if (history.length !== last.length || history.some(({ up, down }, i) => up !== last[i].up || down !== last[i].down)) {
+    app.history = history;
+    app.traffic = history.at(-1) ?? idle.traffic;
+  }
+  app.memory = memory;
+  app.requestCount = requestCount;
+  if (totals.uploadTotal !== app.totals?.uploadTotal || totals.downloadTotal !== app.totals?.downloadTotal ||
+      totals.activeCount !== app.totals?.activeCount) {
+    app.totals = totals;
+  }
+}
 
-async function poll() {
-  const tick = ticks++;
-  if (tick % 10 === 0) {
-    invoke('intranet_ip').then(
-      (lan) => (app.lan = lan),
-      () => (app.lan = null),
-    );
-  }
-  if (document.hidden || app.status?.engine.state !== 'running') {
-    if (app.history.length || app.totals) Object.assign(app, idle);
-    return;
-  }
-  try {
-    const [history, memory] = await Promise.all([invoke<any[]>('traffic_history'), invoke<number>('memory')]);
-    Object.assign(app, { history, memory, traffic: history.at(-1) ?? { up: 0, down: 0 } });
-    if (tick % 2 === 0) {
-      const [connections, requests] = await Promise.all([invoke<any>('connections'), invoke<any[]>('requests')]);
-      Object.assign(app, { totals: connections, requestCount: requests.length });
-    }
-  } catch {
-    Object.assign(app, { traffic: { up: 0, down: 0 }, history: [], memory: 0 });
-  }
+async function pollLan() {
+  const lan = await invoke('intranet_ip').catch(() => null);
+  if (!document.hidden) app.lan = lan;
 }
 
 function explainLaunch(notice: any) {
@@ -249,6 +257,6 @@ export async function init() {
   await frontendReady();
   await Promise.all([refreshStatus(), refresh('profiles'), refresh('whitelist')]);
   explainLaunch(await invoke('launch_notice'));
-  poll();
-  setInterval(poll, 1000);
+  pollVisible(pollTraffic);
+  pollVisible(pollLan, 10_000);
 }

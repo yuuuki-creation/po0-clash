@@ -112,7 +112,7 @@ export default function Connections() {
   usePoll(kind === 'active' ? loadActive : loadClosed, !paused);
 
   const totals = (kind === 'active' ? active : null) ?? snap.totals ?? active;
-  const activeCount = kind === 'active' && active ? active.items.length : (snap.totals?.items.length ?? 0);
+  const activeCount = kind === 'active' && active ? active.items.length : (snap.totals?.activeCount ?? 0);
   const closedCount = kind === 'closed' && closed ? closed.length : snap.requestCount;
 
   const shown = useMemo(() => {

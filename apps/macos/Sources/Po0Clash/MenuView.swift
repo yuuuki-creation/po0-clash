@@ -48,6 +48,10 @@ struct WindowVisibility: NSViewRepresentable {
         probe.onChange = onChange
     }
 
+    static func dismantleNSView(_ probe: Probe, coordinator: ()) {
+        probe.stopObserving()
+    }
+
     final class Probe: NSView {
         var onChange: @MainActor (Bool) -> Void
         private var observer: NSObjectProtocol?
@@ -63,8 +67,7 @@ struct WindowVisibility: NSViewRepresentable {
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            if let observer { NotificationCenter.default.removeObserver(observer) }
-            observer = nil
+            stopObserving()
             guard let window else { return }
             observer = NotificationCenter.default.addObserver(
                 forName: NSWindow.didChangeOcclusionStateNotification, object: window, queue: .main
@@ -74,8 +77,13 @@ struct WindowVisibility: NSViewRepresentable {
             report()
         }
 
+        func stopObserving() {
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+            observer = nil
+        }
+
         private func report() {
-            guard let window else { return }
+            guard observer != nil, let window else { return }
             onChange(window.occlusionState.contains(.visible))
         }
     }
@@ -115,13 +123,7 @@ private struct ConnectionCard: View {
                 if model.isRunning {
                     GridRow {
                         Text("Speed").foregroundStyle(.secondary)
-                        HStack(spacing: 12) {
-                            Label(Format.rate(model.traffic?.up ?? 0), systemImage: "arrow.up")
-                            Label(Format.rate(model.traffic?.down ?? 0), systemImage: "arrow.down")
-                        }
-                        .monospacedDigit()
-                        .rollingDigits()
-                        .motion(Motion.quick, value: model.traffic?.down)
+                        MenuSpeed(traffic: model.menuTraffic)
                     }
                 }
             }
@@ -130,6 +132,20 @@ private struct ConnectionCard: View {
         .motion(value: model.stateTitle)
     }
 
+}
+
+private struct MenuSpeed: View {
+    @ObservedObject var traffic: MenuTraffic
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Label(Format.rate(traffic.speed?.up ?? 0), systemImage: "arrow.up")
+            Label(Format.rate(traffic.speed?.down ?? 0), systemImage: "arrow.down")
+        }
+        .monospacedDigit()
+        .rollingDigits()
+        .motion(Motion.quick, value: traffic.speed?.down)
+    }
 }
 
 private struct InfoRow: View {
@@ -151,25 +167,20 @@ private struct ControlsGrid: View {
         Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
             GridRow {
                 Text("Mode").foregroundStyle(.secondary)
-                Picker("Mode", selection: Binding(get: { model.status?.mode ?? .rule }, set: { model.setMode($0) })) {
-                    Text("Rule").tag(Mode.rule)
-                    Text("Global").tag(Mode.global)
-                    Text("Direct").tag(Mode.direct)
-                }
-                .themedSegments()
-                .labelsHidden()
+                MenuSegments(
+                    title: String(localized: "Mode"),
+                    choices: [(.rule, String(localized: "Rule")), (.global, String(localized: "Global")),
+                              (.direct, String(localized: "Direct"))],
+                    selection: Binding(get: { model.status?.mode ?? .rule }, set: { model.setMode($0) })
+                )
             }
             GridRow {
                 Text("Route").foregroundStyle(.secondary)
-                Picker("Route", selection: Binding(
-                    get: { model.status?.routeMode ?? .systemProxy },
-                    set: { model.setRouteMode($0) }
-                )) {
-                    Text("System proxy").tag(RouteMode.systemProxy)
-                    Text("TUN").tag(RouteMode.tun)
-                }
-                .themedSegments()
-                .labelsHidden()
+                MenuSegments(
+                    title: String(localized: "Route"),
+                    choices: [(.systemProxy, String(localized: "System proxy")), (.tun, String(localized: "TUN"))],
+                    selection: Binding(get: { model.status?.routeMode ?? .systemProxy }, set: { model.setRouteMode($0) })
+                )
             }
             GridRow {
                 Text("Subscription").foregroundStyle(.secondary)
@@ -190,6 +201,41 @@ private struct ControlsGrid: View {
             }
         }
         .disabled(model.busy || model.status == nil)
+    }
+}
+
+private struct MenuSegments<Value: Equatable>: NSViewRepresentable {
+    let title: String
+    let choices: [(Value, String)]
+    @Binding var selection: Value
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> NSSegmentedControl {
+        let control = NSSegmentedControl(
+            labels: choices.map { $0.1 }, trackingMode: .selectOne,
+            target: context.coordinator, action: #selector(Coordinator.select(_:))
+        )
+        control.setAccessibilityLabel(title)
+        return control
+    }
+
+    func updateNSView(_ control: NSSegmentedControl, context: Context) {
+        context.coordinator.onSelect = { index in
+            if choices.indices.contains(index), selection != choices[index].0 {
+                selection = choices[index].0
+            }
+        }
+        let selected = choices.firstIndex { $0.0 == selection } ?? -1
+        if control.selectedSegment != selected { control.selectedSegment = selected }
+        if control.isEnabled != isEnabled { control.isEnabled = isEnabled }
+    }
+
+    final class Coordinator: NSObject {
+        var onSelect: ((Int) -> Void)?
+
+        @objc func select(_ control: NSSegmentedControl) { onSelect?(control.selectedSegment) }
     }
 }
 
@@ -297,7 +343,7 @@ private struct WhitelistSummary: View {
 /// FlClash's tray menu items, drawn as menu rows so the panel ends the way a native menu does.
 private struct MenuActions: View {
     @EnvironmentObject private var model: AppModel
-    @State private var launchAtLogin = LaunchAtLogin.isEnabled
+    @State private var launchAtLogin = false
     @State private var copied = false
 
     var body: some View {

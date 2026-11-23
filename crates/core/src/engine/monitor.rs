@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use super::{Controller, lock};
 use crate::error::Result;
-use crate::model::{Connection, Connections, LogEntry, Traffic};
+use crate::model::{Connection, Connections, LogEntry, Traffic, TrafficOverview};
 use crate::options::LogLevel;
 use crate::util;
 
@@ -190,6 +190,21 @@ impl Monitor {
 
     pub fn memory(&self) -> u64 {
         self.memory.load(Ordering::Relaxed)
+    }
+
+    pub fn traffic_overview(&self) -> TrafficOverview {
+        let history = self.traffic_history();
+        let memory = self.memory();
+        let request_count = lock(&self.requests).len() as u32;
+        let connections = lock(&self.connections);
+        TrafficOverview {
+            history,
+            memory,
+            upload_total: connections.upload_total,
+            download_total: connections.download_total,
+            active_count: connections.items.len() as u32,
+            request_count,
+        }
     }
 
     pub fn connections(&self) -> Connections {
@@ -383,6 +398,32 @@ mod tests {
         proxied.add(&[connection("c", "Osaka", 5, 50)]);
         assert_eq!((proxied.upload, proxied.download), (155, 1650));
         assert_eq!(proxied.seen.len(), 1);
+    }
+
+    #[test]
+    fn traffic_overview_reports_counts_and_totals() {
+        let monitor = Monitor::default();
+        let sample = Traffic { up: 12, down: 34 };
+        monitor.record(sample);
+        monitor.memory.store(42, Ordering::Relaxed);
+        *lock(&monitor.connections) = Connections {
+            upload_total: 123,
+            download_total: 456,
+            items: vec![Connection::default()],
+        };
+        lock(&monitor.requests).resize(KEPT, Connection::default());
+
+        assert_eq!(
+            monitor.traffic_overview(),
+            TrafficOverview {
+                history: vec![sample],
+                memory: 42,
+                upload_total: 123,
+                download_total: 456,
+                active_count: 1,
+                request_count: KEPT as u32,
+            }
+        );
     }
 
     #[test]

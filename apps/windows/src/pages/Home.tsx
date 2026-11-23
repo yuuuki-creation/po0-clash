@@ -414,63 +414,76 @@ function TrafficChart() {
   const { history } = useSnapshot(app);
   const theme = useTheme();
   const canvas = useRef<HTMLCanvasElement>(null);
+  const latest = useRef(history);
+  const redraw = useRef(() => {});
   useEffect(() => {
-    const el = canvas.current;
-    if (!el) return;
+    latest.current = history;
+    redraw.current();
+  }, [history]);
+  useEffect(() => {
+    const el = canvas.current!;
+    const ctx = el.getContext('2d');
+    if (!ctx) return;
     const draw = () => {
-    const ratio = window.devicePixelRatio || 1;
-    const [width, height] = [el.clientWidth, el.clientHeight];
-    el.width = width * ratio;
-    el.height = height * ratio;
-    const ctx = el.getContext('2d')!;
-    ctx.scale(ratio, ratio);
-    ctx.clearRect(0, 0, width, height);
-    const points = history.slice(-CHART_POINTS);
-    const peak = Math.max(64 * 1024, ...points.map((p) => Math.max(p.up, p.down))) * 1.15;
-    ctx.strokeStyle = theme.palette.divider;
-    ctx.lineWidth = 1;
-    for (let i = 1; i < 4; i++) {
-      const y = Math.round((height * i) / 4) + 0.5;
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
-    ctx.fillStyle = theme.palette.text.secondary;
-    ctx.font = `11px ${theme.typography.fontFamily}`;
-    ctx.fillText(formatRate(peak), 6, 13);
-    const draw = (key: 'up' | 'down', color: string) => {
-      const at = (i: number) => {
-        const value = points[i - (CHART_POINTS - points.length)]?.[key] ?? 0;
-        return [(i / (CHART_POINTS - 1)) * width, height - 1 - (value / peak) * (height - 4)] as const;
-      };
-      ctx.beginPath();
-      for (let i = 0; i < CHART_POINTS; i++) {
-        const [x, y] = at(i);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+      const ratio = window.devicePixelRatio || 1;
+      const [width, height] = [el.clientWidth, el.clientHeight];
+      if (!width || !height) return;
+      const pixelWidth = Math.round(width * ratio);
+      const pixelHeight = Math.round(height * ratio);
+      if (el.width !== pixelWidth) el.width = pixelWidth;
+      if (el.height !== pixelHeight) el.height = pixelHeight;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      const points = latest.current.slice(-CHART_POINTS);
+      const peak = Math.max(64 * 1024, ...points.map((p) => Math.max(p.up, p.down))) * 1.15;
+      ctx.strokeStyle = theme.palette.divider;
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 4; i++) {
+        const y = Math.round((height * i) / 4) + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
       }
-      ctx.lineWidth = 2;
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = color;
-      ctx.stroke();
-      ctx.lineTo(width, height);
-      ctx.lineTo(0, height);
-      ctx.closePath();
-      const fill = ctx.createLinearGradient(0, 0, 0, height);
-      fill.addColorStop(0, alpha(color, 0.3));
-      fill.addColorStop(1, alpha(color, 0.02));
-      ctx.fillStyle = fill;
-      ctx.fill();
+      ctx.fillStyle = theme.palette.text.secondary;
+      ctx.font = `11px ${theme.typography.fontFamily}`;
+      ctx.fillText(formatRate(peak), 6, 13);
+      const drawSeries = (key: 'up' | 'down', color: string) => {
+        const at = (i: number) => {
+          const value = points[i - (CHART_POINTS - points.length)]?.[key] ?? 0;
+          return [(i / (CHART_POINTS - 1)) * width, height - 1 - (value / peak) * (height - 4)] as const;
+        };
+        ctx.beginPath();
+        for (let i = 0; i < CHART_POINTS; i++) {
+          const [x, y] = at(i);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.lineWidth = 2;
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = color;
+        ctx.stroke();
+        ctx.lineTo(width, height);
+        ctx.lineTo(0, height);
+        ctx.closePath();
+        const fill = ctx.createLinearGradient(0, 0, 0, height);
+        fill.addColorStop(0, alpha(color, 0.3));
+        fill.addColorStop(1, alpha(color, 0.02));
+        ctx.fillStyle = fill;
+        ctx.fill();
+      };
+      drawSeries('up', theme.palette.secondary.main);
+      drawSeries('down', theme.palette.primary.main);
     };
-    draw('up', theme.palette.secondary.main);
-    draw('down', theme.palette.primary.main);
-    };
+    redraw.current = draw;
     draw();
     const observer = new ResizeObserver(draw);
     observer.observe(el);
-    return () => observer.disconnect();
-  }, [history, theme]);
+    return () => {
+      redraw.current = () => {};
+      observer.disconnect();
+    };
+  }, [theme]);
   return (
     <Box sx={{ height: 130, borderRadius: 2, border: 1, borderColor: 'divider', overflow: 'hidden', bgcolor: 'surface.card' }}>
       <canvas ref={canvas} style={{ width: '100%', height: '100%', display: 'block' }} />
@@ -499,7 +512,7 @@ function TrafficCard() {
           <StatBox icon={<ArrowDownwardRounded fontSize="small" />} label={t('traffic.download')} value={down} unit={`${downUnit}/s`} color="primary" />
         </Grid>
         <Grid size={{ xs: 6, md: 4 }}>
-          <StatBox icon={<LinkRounded fontSize="small" />} label={t('home.connections')} value={String(totals?.items.length ?? 0)} unit="" color="success" onClick={() => (app.page = 'connections')} />
+          <StatBox icon={<LinkRounded fontSize="small" />} label={t('home.connections')} value={String(totals?.activeCount ?? 0)} unit="" color="success" onClick={() => (app.page = 'connections')} />
         </Grid>
         <Grid size={{ xs: 6, md: 4 }}>
           <StatBox icon={<CloudUploadRounded fontSize="small" />} label={t('home.uploaded')} value={upTotal} unit={upTotalUnit} color="secondary" />

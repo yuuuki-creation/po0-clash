@@ -4,11 +4,17 @@ import Po0FFI
 import Po0System
 
 @MainActor
+final class MenuTraffic: ObservableObject {
+    @Published var speed: Traffic?
+    @Published var icon = MenuBarIcon.mark
+}
+
+@MainActor
 final class AppModel: ObservableObject {
     static let shared = AppModel()
 
     @Published private(set) var status: Status?
-    @Published private(set) var traffic: Traffic?
+    let menuTraffic = MenuTraffic()
     @Published private(set) var exitIp: ExitIp?
     @Published private(set) var appSettings: AppSettings? {
         didSet {
@@ -42,6 +48,9 @@ final class AppModel: ObservableObject {
     private var launchNotice: LaunchCheck?
     private let network = NetworkWatcher()
     private var trafficTimer: Timer?
+    private var traffic: Traffic?
+    private var trafficPollInFlight = false
+    private var trafficGeneration = 0
     private var exitIpTask: Task<Void, Never>?
     private var exitIpFetchedAt: Date?
     private var menuVisible = false
@@ -119,6 +128,7 @@ final class AppModel: ObservableObject {
         logger.notice("shutting down")
         network.stop()
         trafficTimer?.invalidate()
+        trafficTimer = nil
         guard let client else { return done() }
         var finished = false
         let finish = {
@@ -415,13 +425,12 @@ final class AppModel: ObservableObject {
                 || old.currentNode != next.currentNode || old.profileId != next.profileId
         } ?? true
         status = next
+        updateTrafficTimer()
         proxyPort = try? await client.mixedProxyPort()
         if changed {
             refreshExitIp()
             await refreshGroups()
         }
-        if !isRunning { traffic = nil }
-        updateTrafficTimer()
     }
 
     private func withMeasuredDelays(_ source: ProxyGroup) -> ProxyGroup {
@@ -463,19 +472,36 @@ final class AppModel: ObservableObject {
 
     private func updateTrafficTimer() {
         let wanted = isRunning && (showsMenuBarSpeed || menuVisible)
+        publishTraffic()
         if wanted == (trafficTimer != nil) { return }
+        trafficGeneration += 1
         trafficTimer?.invalidate()
         trafficTimer = nil
-        guard wanted else { return }
+        guard wanted else {
+            traffic = nil
+            return
+        }
         trafficTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             Task { @MainActor in await AppModel.shared.pollTraffic() }
         }
     }
 
     private func pollTraffic() async {
-        guard let client else { return }
+        guard let client, trafficTimer != nil, !trafficPollInFlight else { return }
+        let generation = trafficGeneration
+        trafficPollInFlight = true
+        defer { trafficPollInFlight = false }
         let next = try? await client.traffic()
-        if traffic != next { traffic = next }
+        guard trafficTimer != nil, generation == trafficGeneration else { return }
+        traffic = next
+        publishTraffic()
+    }
+
+    private func publishTraffic() {
+        let speed = isRunning && menuVisible ? traffic : nil
+        if menuTraffic.speed != speed { menuTraffic.speed = speed }
+        let icon = MenuBarIcon.image(speed: isRunning && showsMenuBarSpeed ? traffic : nil)
+        if menuTraffic.icon !== icon { menuTraffic.icon = icon }
     }
 
     private static func engineKey(_ state: EngineState) -> Int {

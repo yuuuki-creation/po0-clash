@@ -8,7 +8,7 @@ use super::po0::{
     AppSettings, Connection, Connections, Core, CoreError, EngineOptions, ExitIp, GeoFile,
     HotkeyAction, ImportResult, IntranetIp, LogEntry, Mode, Profile, ProfileEdit, ProfileOverride,
     Provider, ProviderKind, ProxyGroup, RestoreScope, RouteMode, Rule, Script, Status, Traffic,
-    WebDav, WhitelistState,
+    TrafficOverview, WebDav, WhitelistState,
 };
 use super::{Launch, LaunchNotice, autostart, hotkeys, language, loopback};
 
@@ -68,6 +68,11 @@ pub async fn stop(core: CoreState<'_>) -> Reply<()> {
 #[tauri::command]
 pub async fn traffic(core: CoreState<'_>) -> Reply<Traffic> {
     blocking(&core, |c| Ok(c.traffic())).await
+}
+
+#[tauri::command]
+pub async fn traffic_overview(core: CoreState<'_>) -> Reply<TrafficOverview> {
+    blocking(&core, |c| Ok(c.traffic_overview())).await
 }
 
 #[tauri::command]

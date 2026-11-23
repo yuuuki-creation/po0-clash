@@ -748,6 +748,16 @@ pub struct Connections {
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
+pub struct TrafficOverview {
+    pub history: Vec<Traffic>,
+    pub memory: u64,
+    pub upload_total: u64,
+    pub download_total: u64,
+    pub active_count: u32,
+    pub request_count: u32,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
 pub struct LogEntry {
     pub level: LogLevel,
     pub message: String,
@@ -1102,6 +1112,18 @@ impl Po0Core {
 
     pub fn traffic(&self) -> Traffic {
         self.inner.traffic().into()
+    }
+
+    pub fn traffic_overview(&self) -> TrafficOverview {
+        let overview = self.inner.traffic_overview();
+        TrafficOverview {
+            history: convert(overview.history),
+            memory: overview.memory,
+            upload_total: overview.upload_total,
+            download_total: overview.download_total,
+            active_count: overview.active_count,
+            request_count: overview.request_count,
+        }
     }
 
     pub fn traffic_history(&self) -> Vec<Traffic> {

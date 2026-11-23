@@ -1,4 +1,4 @@
-8.4.0 修复连续操作时的动画反向、开关抬起效果和弹出层残留交互，包含此前的界面与 macOS 启动跳转修复，可直接覆盖升级。
+8.4.1 修复 Windows 和 macOS 长时间运行后的界面卡顿，可直接覆盖升级。
 
 ## 安装
 
@@ -7,7 +7,7 @@
 在终端运行：
 
 ```bash
-curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.0/install-macos-native.sh | bash
+curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.1/install-macos-native.sh | bash
 ```
 
 脚本会退出并替换已安装的 po0-clash（包括 Flutter 版），装到「应用程序」后启动。应用没有经过苹果公证，脚本会去掉下载带来的隔离标记。
@@ -18,12 +18,12 @@ curl -fsSL https://github.com/yuuuki-creation/po0-clash/releases/download/native
 在 PowerShell 里运行：
 
 ```powershell
-irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.0/install-windows-native.ps1 | iex
+irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.1/install-windows-native.ps1 | iex
 ```
 
 脚本会下载安装程序、校验 SHA-256、请求一次管理员权限，装好后打开应用。这样下载的文件没有网络来源标记，不会触发 SmartScreen 提示。
 
-也可以下载 `po0-clash-8.4.0-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
+也可以下载 `po0-clash-8.4.1-windows-x64-setup.exe` 手动运行。安装程序没有签名，SmartScreen 拦下时点「更多信息」→「仍要运行」。
 
 **智能应用控制：** 这个功能开着时，未受信任签名的应用可能仍被拦截，命令安装也不一定能绕开，微软也不提供单个应用的例外。被拦时要在「Windows 安全中心 → 应用和浏览器控制 → 智能应用控制设置」里关闭它。
 
@@ -34,6 +34,11 @@ irm https://github.com/yuuuki-creation/po0-clash/releases/download/native-v8.4.0
 按手机的处理器选 APK：绝大多数手机用 `arm64-v8a`，较老的 32 位手机用 `armeabi-v7a`，模拟器用 `x86_64`。
 
 可以直接覆盖安装 Flutter 版，订阅和加白条目会自动导入。覆盖之后不能直接装回 Flutter 版，要先卸载，应用数据会一起清除。
+
+## 桌面性能
+
+- Windows 和 macOS 只在窗口可见时轮询界面数据，上一轮完成后才发下一轮请求。首页只读取流量、连接数量和总量，打开连接页才读取明细。
+- 流量图复用画布缓冲区。macOS 菜单栏速率单独更新，模式与接管方式改用 AppKit 分段控件，减轻 SwiftUI 布局负担。
 
 ## 功能
 
